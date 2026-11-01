@@ -425,7 +425,7 @@ const sec = (n) => console.log('\n== ' + n);
   const csv = fs.readFileSync(__dirname + '/fixtures/clienti_esempio.csv', 'utf8');
   v = await p.evaluate((csv) => { analyzeImport(csv); const IP = UI.importParsed; return {isC:!!IP.clients, n:IP.clients.length, st:IP.clients.map(r => r.status).join(','), c0:IP.clients[0].c, place:clientPlace(IP.clients[0].c)}; }, csv);
   ok(v.isC && v.n === 5 && v.st === 'new,new,new,err,err' && v.c0.multi_code === '8' && v.c0.name === 'APS IL ROSMARINO TEST' && v.c0.category === 'APS' && v.place === "LESIGNANO DE' BAGNI (PR)", 'client CSV recognised (Ditta→Multi, Ragione_soc→name, Localita (Provincia)→place, ETS_ENC→category), duplicates and nameless rows flagged', v);
-  await p.evaluate(() => { S.view = 'import'; renderAll(); $('#im-preview').innerHTML = importPreviewHTML(); }); await p.click('[data-a="cl-apply"]'); await p.waitForTimeout(300);
+  await p.evaluate(() => { S.view = 'import'; renderAll(); $('#im-preview').innerHTML = importPreviewHTML(); const mk = document.getElementById('cl-mkb'); if (mk) mk.checked = false; }); await p.click('[data-a="cl-apply"]'); await p.waitForTimeout(300);
   v = await p.evaluate(() => ({view:S.view, n:S.clients.length, rows:document.querySelectorAll('#cl-results tbody tr').length}));
   ok(v.view === 'info' && v.n === 3 && v.rows === 3, 'clients imported into the register view', v);
   v = await p.evaluate((csv) => { analyzeImport(csv); return UI.importParsed.clients.map(r => r.status).join(','); }, csv);
@@ -792,6 +792,7 @@ const sec = (n) => console.log('\n== ' + n);
   ok(v.st === 'new,new,new' && v.c[0].multi_code === '007' && v.c[0].name === 'APS L\'ÀNCORA "Blu"; sede àèìòù' && v.c[0].address === 'VIA ROMA 1; INT. 2 "B"' && v.c[0].cap === '43037' && v.place === "LESIGNANO DE' BAGNI (PR)" && v.c[0].notes === 'Cod. comune E547' && v.c[0].category === 'APS' && v.c[1].multi_code === '116' && v.c[2].multi_code === '0042' && v.c[2].name === 'CIRCOLO VERDE ODV',
     'confirm → client preview with exact values (non-breaking space normalised)', v);
   ok(v.saved >= 1 && v.bar, 'mapping remembered in S.settings.importMappings, preview offers "Modifica abbinamento colonne"', v);
+  await p.evaluate(() => { const mk = document.getElementById('cl-mkb'); if (mk) mk.checked = false; });
   await p.click('[data-a="cl-apply"]'); await p.waitForTimeout(300);
   v = await p.evaluate(() => ({view:S.view, n:S.clients.length, c:S.clients.find(c => c.multi_code === '007')}));
   ok(v.view === 'info' && v.n === 6 && v.c && v.c.name === 'APS L\'ÀNCORA "Blu"; sede àèìòù', 'client import via xlsx adds the clients to the register', v);
@@ -2564,6 +2565,29 @@ const sec = (n) => console.log('\n== ' + n);
   ok(await Wp.evaluate(() => !document.getElementById('vault-lock') && S.binders.find(x => x.speaking_code === 'BL2').archive_state === 'HISTORICAL'), 'web mode: right PIN unlocks the data again');
   ok(await Wp.evaluate(() => { const P = dmProviders().auth; try { P.removeUser(P.listUsers()[0].id); return false; } catch(e){ return e.message === 'last_admin'; } }), 'web mode: the last administrator cannot be removed (vault would be unreadable)');
   await Wctx.close();
+
+  let vX;
+  // v10 one-step client import: register + one binder per client, colour column honoured
+  sec('v10: client list import also creates binders');
+  vX = await p.evaluate(() => {
+    const snapB = JSON.stringify(S.binders), snapC = JSON.stringify(S.clients);
+    const csv = 'TIPO;Codice Multi;Ragione_soc;Indirizzo;Codice_comune;Cap;Localita;Provincia;ETS_ENC;Colore;Tag\nENC;9901;PRO LOCO TESTVILLE APS;VIA A 1;A001;43100;TESTVILLE;PR;APS;#9C051E;aps,proloco\nENC;9902;ODV TEST SOCCORSO;VIA B 2;A002;43100;TESTVILLE;PR;ODV;;odv\nENC;;ASD SENZA MULTI TEST;VIA C 3;A003;43100;TESTVILLE;PR;ASD;#2563EB;asd';
+    UI.imap = null; analyzeImport(csv); const dbgIm = !!UI.imap, dbgFields = UI.imap ? JSON.stringify(UI.imap.fields) : '';
+    if (UI.imap) imapConfirm ? imapConfirm() : document.querySelector('[data-a="imap-confirm"]').click();
+    const dbgT = UI.importParsed && UI.importParsed.clients ? UI.importParsed.clients.map(x => x.c.tags).join('|') : 'noclients';
+    S.view = 'import'; renderAll(); const prev = document.getElementById('im-preview'); if (prev && UI.importParsed && UI.importParsed.clients) prev.innerHTML = importPreviewHTML();
+    const mk = document.getElementById('cl-mkb'); const had = !!(mk && mk.checked);
+    const n0 = S.binders.length; applyClientsImport();
+    const nb = S.binders.filter(b => ['9901','9902'].includes(b.multi_code) || b.company_name === 'ASD SENZA MULTI TEST');
+    const r = {had, made:S.binders.length - n0, codes:nb.map(b => b.speaking_code).every(Boolean), pl:(nb.find(b => b.multi_code === '9901') || {}), odv:(nb.find(b => b.multi_code === '9902') || {}), view:S.view};
+    analyzeImport(csv); if (UI.imap && document.querySelector('[data-a="imap-confirm"]')) document.querySelector('[data-a="imap-confirm"]').click();
+    const again = UI.importParsed && UI.importParsed.clients ? UI.importParsed.clients.filter(x => x.status !== 'err' && !clientHasBinder(x.c)).length : -1;
+    S.binders = JSON.parse(snapB); S.clients = JSON.parse(snapC); UI.importParsed = null; UI.imap = null; S.view = 'archive'; commit(); renderAll();
+    return Object.assign(r, {again, plCol:r.pl.color_hex, plLock:r.pl.color_locked, odvLock:r.odv.color_locked, items:JSON.stringify(r.pl.contents_items || []), plTags:r.pl.tags, mode:S.settings.colorMode, dbgIm, dbgFields, dbgT});
+  });
+  ok(vX.had && vX.made === 3 && vX.codes && vX.view === 'archive', 'one import of the client list creates one binder per client (checkbox on by default)', vX);
+  ok(vX.plCol === '#9C051E' && vX.plLock === true && vX.odvLock === false && /Archivio 1/.test(vX.items) && vX.plTags === 'aps,proloco', 'colour and tag columns honoured and locked; no colour → automatic; contents "Archivio 1"', {plCol:vX.plCol, plLock:vX.plLock, odvLock:vX.odvLock, items:vX.items, plTags:vX.plTags, odvCol:vX.odv.color_hex, mode:vX.mode, dbgIm:vX.dbgIm, dbgFields:vX.dbgFields, dbgT:vX.dbgT});
+  ok(vX.again === 0, 're-importing the same list creates no duplicate binders', vX);
 
   console.log('\nerrors:', errs.length ? errs.join('\n') : 'none');
   if (errs.length) fails += errs.length;

@@ -15,7 +15,9 @@ const CLIENT_ALIASES = {
   province:['provincia','prov','pr'],
   type:['tipo','tipologia','type'],
   category:['ets_enc','categoria','category','forma','forma_giuridica'],
-  notes:['codice_com','codice_comune','note','notes']
+  notes:['codice_com','codice_comune','note','notes'],
+  color_hex:['colore','color','color_hex','colore_dorso','colore_faldone'],   // v10: optional spine colour for the client's binders
+  tags:['tag','tags','etichette']                                            // v10: optional tags copied to the client's binders
 };
 const CLIENT_LOOKUP = (() => { const m = {}; Object.keys(CLIENT_ALIASES).forEach(k => CLIENT_ALIASES[k].forEach(a => { m[a] = m[a] || k; })); return m; })();
 /* A client list has a company-name column and at least one register column, and no binder-only columns. */
@@ -32,6 +34,7 @@ function mapClient(raw){
     const v = unsafeCell(String(raw[k] == null ? '' : raw[k]).trim()); if (v) o[key] = v;
   });
   if (o.notes && /^[A-Z]\d{3}$/.test(o.notes)) o.notes = 'Cod. comune ' + o.notes;
+  if (o.color_hex) o.color_hex = normHex(o.color_hex) || '';
   return normalizeClient(o);
 }
 function clientKey(c){ return c.multi_code ? 'm:' + c.multi_code.toLowerCase() : 'n:' + c.name.toLowerCase(); }
@@ -48,15 +51,35 @@ function analyzeClients(records){
     return {idx, status:match ? 'upd' : 'new', c, match:match ? match.id : null, w:c.multi_code ? [] : [t('cl_w_nomulti')]};
   });
 }
+/* v10: one import fills both the register and the archive: a binder for every imported client that has none yet. */
+function clientHasBinder(c){
+  const m = (c.multi_code || '').toLowerCase(), n = (c.name || '').toLowerCase();
+  return S.binders.some(b => (m && (b.multi_code || '').toLowerCase() === m) || (!m && (b.company_name || '').toLowerCase() === n));
+}
+function binderFromClient(c, takenCodes, takenShort){
+  const p = clientDefaults(c);
+  p.speaking_code = suggestSpeakingCode(c.name, takenCodes);
+  p.short_code = newShortCode(takenShort);
+  p.contents_items = pipeToContents('Archivio 1');
+  if (c.tags) p.tags = String(c.tags).split(/[,;|]/).map(x => x.trim().toLowerCase()).filter(Boolean).join(',');
+  if (c.color_hex){ p.color_hex = c.color_hex; p.color_locked = true; }
+  else if (CAT_COLOR[p.category]) p.color_hex = CAT_COLOR[p.category];
+  const b = normalizeBinder(Object.assign({updated_at:new Date().toISOString()}, p));
+  b.short_url = shortUrl(b.short_code);
+  return b;
+}
 function clientsPreviewHTML(IP){
   const ok = IP.clients.filter(r => r.status !== 'err');
+  const nb = ok.filter(r => !clientHasBinder(r.c)).length;
   const badge = (s) => s === 'new' ? '<span class="badge b-new">' + esc(t('im_new')) + '</span>' : s === 'upd' ? '<span class="badge b-upd">' + esc(t('im_upd')) + '</span>' : '<span class="badge b-err">' + esc(t('im_err')) + '</span>';
   return '<div class="card"><div class="toolbar" style="justify-content:space-between"><div><h2 style="margin:0">' + esc(t('cl_prev')) + '</h2><div class="small muted">' + esc(t('cl_prev_d', {n:IP.clients.length})) + '</div></div>' +
     '<div class="row"><span class="badge b-new">' + IP.clients.filter(r => r.status === 'new').length + ' ' + esc(t('im_new')) + '</span><span class="badge b-upd">' + IP.clients.filter(r => r.status === 'upd').length + ' ' + esc(t('im_upd')) + '</span></div></div>' +
     '<div class="info-box small" style="margin:0 16px 12px">' + ic('info') + '<div>' + esc(t('cl_map')) + '</div></div>' +
     '<div class="tbl-wrap" style="max-height:420px"><table class="tbl"><thead><tr><th>#</th><th></th><th>' + esc(t('f_multi')) + '</th><th>' + esc(t('cl_name')) + '</th><th>' + esc(t('f_city')) + '</th><th>' + esc(t('f_category')) + '</th><th>Note</th></tr></thead><tbody>' +
     IP.clients.map(r => '<tr><td class="mono small muted">' + (r.idx + 1) + '</td><td>' + badge(r.status) + '</td><td class="mono">' + esc(r.c.multi_code || '—') + '</td><td><b>' + esc(r.c.name) + '</b><div class="ti">' + esc([r.c.address, r.c.cap].filter(Boolean).join(' · ')) + '</div></td><td>' + esc(clientPlace(r.c)) + '</td><td>' + esc([r.c.type, r.c.category].filter(Boolean).join(' · ')) + '</td><td class="small" style="color:#92400E">' + esc(r.w.join(' • ')) + '</td></tr>').join('') +
-    '</tbody></table></div><div class="panel-sec"><button class="btn btn-lg btn-primary" data-a="cl-apply"' + (ok.length ? '' : ' disabled') + '>' + ic('merge') + esc(t('cl_apply', {n:ok.length})) + '</button><div class="hint">' + esc(t('cl_apply_d')) + '</div></div></div>';
+    '</tbody></table></div><div class="panel-sec">' +
+    (nb ? '<label class="chk" style="margin-bottom:12px"><input type="checkbox" id="cl-mkb" checked> <span><b>' + esc(t('cl_mkb', {n:nb})) + '</b><span class="hint" style="display:block">' + esc(t('cl_mkb_d')) + '</span></span></label>' : '') +
+    '<button class="btn btn-lg btn-primary" data-a="cl-apply"' + (ok.length ? '' : ' disabled') + '>' + ic('merge') + esc(t('cl_apply', {n:ok.length})) + '</button><div class="hint">' + esc(t('cl_apply_d')) + '</div></div></div>';
 }
 function applyClientsImport(){
   const IP = UI.importParsed; if (!IP || !IP.clients) return;
@@ -67,11 +90,23 @@ function applyClientsImport(){
     if (r.match){ const i = S.clients.findIndex(c => c.id === r.match); if (i >= 0){ S.clients[i] = normalizeClient(Object.assign({}, S.clients[i], r.c, {id:r.match})); updated++; return; } }
     S.clients.push(r.c); added++;
   });
-  logAct('client.import', null, 'Import anagrafica clienti: ' + added + ' nuovi, ' + updated + ' aggiornati', {added, updated, format:IP.format || ''}, 'import');
+  let made = 0;
+  const mk = document.getElementById('cl-mkb');
+  if (mk && mk.checked){
+    const codes = [], shorts = [];
+    IP.clients.filter(r => r.status !== 'err' && !clientHasBinder(r.c)).forEach(r => {
+      const b = binderFromClient(r.c, codes, shorts); codes.push(b.speaking_code); shorts.push(b.short_code);
+      S.binders.push(b);
+      if (!b.color_locked && typeof applyAutoColor === 'function'){ try { applyAutoColor(b, S.binders); } catch(e){} }
+      made++;
+    });
+  }
+  logAct('client.import', null, 'Import anagrafica clienti: ' + added + ' nuovi, ' + updated + ' aggiornati' + (made ? ', ' + made + ' faldoni creati' : ''), {added, updated, binders_created:made, format:IP.format || ''}, 'import');
   UI.importParsed = null; UI.importText = '';
   commit();
-  undoToast(t('cl_done', {a:added, u:updated}));
-  S.view = 'info'; S.infoTab = 'clients'; savePrefs(); renderAll();
+  undoToast(t('cl_done', {a:added, u:updated}) + (made ? ' · ' + t('cl_mkb_done', {n:made}) : ''));
+  if (made){ S.view = 'archive'; } else { S.view = 'info'; S.infoTab = 'clients'; }
+  savePrefs(); renderAll();
 }
 function clientDefaults(c){
   return { company_name:c.name, multi_code:c.multi_code, company_city:clientPlace(c), category:c.category || c.type || '' };
@@ -171,3 +206,6 @@ const CLIENT_ACTIONS = {
   'demo-toggle': () => { S.settings.hideDemo = !S.settings.hideDemo; savePrefs(); renderView(); },
   'demo-delete': () => { const n = S.binders.filter(isDemo).length; confirmAction({ danger:true, okLabel:t('delete'), detail:t('demo_del_d', {n}), onOk: () => { undoPoint(); logBinderDelete(S.binders.filter(isDemo), 'demo.delete'); S.binders = S.binders.filter(b => !isDemo(b)); S.settings.hideDemo = false; commit(); renderView(); undoToast(t('demo_deleted', {n})); } }); }
 };
+
+Object.assign(I18N.it, { cl_mkb:'Crea anche un faldone per ogni cliente che non ne ha ancora uno ({n})', cl_mkb_d:'Un solo import: anagrafica e archivio insieme. Ogni faldone prende Multi, ragione sociale, luogo, categoria e colore (colonna "Colore" se c\'è, altrimenti le regole colore), con contenuto "Archivio 1". Poi lo stampi subito.', cl_mkb_done:'{n} faldoni creati' });
+Object.assign(I18N.en, { cl_mkb:'Also create a binder for every client that has none yet ({n})', cl_mkb_d:'One import fills both the register and the archive. Each binder gets Multi, company name, place, category and colour (the "Colore" column if present, otherwise the colour rules), with contents "Archivio 1". Ready to print.', cl_mkb_done:'{n} binders created' });
