@@ -488,7 +488,7 @@ const sec = (n) => console.log('\n== ' + n);
   sec('v8 A: navigation, Informazioni, QR reprint');
   // top bar: 3 main tabs, everything else in the "Funzioni avanzate" menu
   v = await p.evaluate(() => ({main:[...document.querySelectorAll('.nav .nav-main [data-a="nav"]')].map(b => b.dataset.v), adv:[...document.querySelectorAll('#nav-more [data-a="nav"]')].map(b => b.dataset.v).sort(), vis:[...document.querySelectorAll('.nav [data-a="nav"]')].filter(b => b.checkVisibility()).length}));
-  ok(v.main.join() === 'archive,print,info' && v.vis === 3 && v.adv.join() === 'ai,database,export,import,log,settings', 'top bar: exactly 3 main tabs, the rest in the "Funzioni avanzate" menu', v);
+  ok(v.main.join() === 'archive,print,info' && v.vis === 3 && v.adv.join() === 'ai,database,export,import,log,settings,sync', 'top bar: exactly 3 main tabs, the rest in the "Funzioni avanzate" menu', v);
   for (const view of ['import', 'export', 'database', 'ai', 'settings']){
     await p.click('#nav-more summary'); await p.waitForTimeout(120);
     await p.click('#nav-more [data-v="' + view + '"]'); await p.waitForTimeout(200);
@@ -1800,6 +1800,206 @@ const sec = (n) => console.log('\n== ' + n);
       S.print = prev.print; S.usedSlots = prev.used; PDF.pgNotice = false; PDF.pgOpen = false; savePrefs(); commit(); S.view = 'archive'; renderAll(); }, rPrev);
     ok(await p.evaluate((n) => S.binders.length === n && !S.binders.some(b => b.tags === 'rtest'), rPrev.n), 'stream R tests leave the archive and print settings as they were');
   }
+
+  // @@STREAM-S@@
+  sec('v10 S: manual sync local ⇄ web app');
+  let Sv;
+  const Sstart = await p.evaluate(() => {
+    while (topModal()) closeModal(true); S.lang = 'it'; S.view = 'archive'; SYNC.modeOverride = ''; renderAll();
+    window.__sOrig = {id:syncDeviceId(), label:S.settings.deviceLabel, binders:clone(S.binders), clients:clone(S.clients || []), tombstones:clone(S.tombstones || []), sync:clone(S.sync), op:S.settings.operator};
+    window.__sDev = {};
+    // simulate a second installation in the same page: park this device's data, load the other one's
+    window.__sSwap = (to) => {
+      const cur = syncDeviceId();
+      __sDev[cur] = {binders:clone(S.binders), clients:clone(S.clients || []), tombstones:clone(S.tombstones || []), sync:clone(S.sync), label:S.settings.deviceLabel};
+      const n = __sDev[to] || {binders:[], clients:[], tombstones:[], sync:null, label:''};
+      syncSetDevice(to); S.binders = clone(n.binders); S.clients = clone(n.clients); S.tombstones = clone(n.tombstones); S.sync = n.sync ? clone(n.sync) : null; S.settings.deviceLabel = n.label;
+      SYNC.quiet = true; persist(); return cur;
+    };
+    window.__sWait = (ms) => new Promise(r => setTimeout(r, ms || 12));
+    window.__sB = (c) => S.binders.find(b => b.speaking_code === c);
+    window.__sImport = async (text, pass, choose) => { const plan = syncAnalyze(await syncParse(text, pass)); if (choose) choose(plan); const c = clone(plan.counts); const d = syncApply(plan); return {c, d, plan}; };
+    S.settings.operator = 'Sync Test';
+    ['SYA1', 'SYA2', 'SYA3', 'SYA4'].forEach(c => S.binders.push(normalizeBinder({speaking_code:c, company_name:'Sync Test Srl', binder_title:'Base ' + c, short_code:newShortCode(), selected_for_print:false})));
+    S.clients.push(normalizeClient({name:'Cliente Sync', multi_code:'SY9'}));
+    commit();
+    return nowISO();
+  });
+  // change tracking: every edit bumps updated_at (whatever code path), print selection does not, clients get a time
+  Sv = await p.evaluate(async () => {
+    const b = __sB('SYA4'), u0 = b.updated_at; await __sWait();
+    b.selected_for_print = true; commit(); const u1 = b.updated_at; await __sWait();
+    b.tags = 'syncedit'; commit(); const u2 = b.updated_at;   // direct mutation, no explicit bump
+    const c = S.clients.find(x => x.name === 'Cliente Sync'), cu0 = c.updated_at; await __sWait(); c.city = 'Parma'; commit();
+    await __sWait();
+    analyzeImport('speaking_code;company_name;binder_title;updated_at\nSYA4;Sync Test Srl;Titolo da CSV;2001-01-01T00:00:00.000Z'); applyImport('merge');
+    const b2 = __sB('SYA4');
+    return {same:u1 === u0, bumped:u2 > u0, client:!!cu0 && c.updated_at > cu0, csv:b2.binder_title === 'Titolo da CSV' && b2.updated_at > u2, dev:/^dev-/.test(S.settings.deviceId) && localStorage.getItem(SYNC_DEV_LS) === S.settings.deviceId};
+  });
+  ok(Sv.same && Sv.bumped && Sv.client && Sv.csv && Sv.dev, 'sync: content edits bump updated_at on every path (direct mutation, client, CSV merge never goes backwards); print selection does not; stable deviceId', Sv);
+  await p.evaluate(() => { S.view = 'archive'; renderAll(); });
+  // tombstones on delete, removed again by undo
+  Sv = await p.evaluate(() => {
+    const b = normalizeBinder({speaking_code:'SYT1', company_name:'Tomb Srl', short_code:newShortCode()}); S.binders.push(b); commit();
+    undoPoint(); logBinderDelete([b]); S.binders = S.binders.filter(x => x.id !== b.id); commit();
+    const tb = S.tombstones.find(x => x.id === b.id);
+    const W = UNDO; UNDO = null; applyWorkspaceObject(W); commit();
+    const back = !!__sB('SYT1') && !S.tombstones.some(x => x.id === b.id);
+    S.binders = S.binders.filter(x => x.id !== b.id); commit();
+    const old = {type:'binder', id:'old-x', code:'OLD', deletedAt:new Date(Date.now() - 400 * 86400000).toISOString(), who:'x'}; S.tombstones.push(old); commit();
+    return {tb, back, again:S.tombstones.some(x => x.id === b.id), pruned:!S.tombstones.some(x => x.id === 'old-x')};
+  });
+  ok(Sv.tb && Sv.tb.type === 'binder' && Sv.tb.code === 'SYT1' && Sv.tb.who === 'Sync Test' && !isNaN(new Date(Sv.tb.deletedAt)) && Sv.back && Sv.again && Sv.pruned, 'sync: deleting records a tombstone {type, id, deletedAt, who}; undo removes it; tombstones older than 365 days are pruned', Sv);
+  // full round trip A → B and B → A (plain package)
+  Sv = await p.evaluate(async () => {
+    const A = syncDeviceId(); S.settings.deviceLabel = 'PC studio';
+    const e0 = await syncExport({incremental:false, target:''});
+    const pk = JSON.parse(e0.text);
+    const canon = () => S.binders.map(b => [b.id, syncCanon(b, 'binder'), b.updated_at]).sort().join('|') + '#' + S.clients.map(c => [c.id, syncCanon(c, 'client'), c.updated_at]).sort().join('|');
+    const ca = canon();
+    __sSwap('dev-web-test'); S.settings.deviceLabel = 'Web app';
+    const r = await __sImport(e0.text);
+    const cb = canon();
+    const peerA = clone(S.sync.peers[A]);
+    const f0 = await syncExport({incremental:false, target:A});
+    __sSwap(A);
+    const r2 = await __sImport(f0.text);
+    return {fmt:pk.format, ver:pk.version, src:pk.source, recs:pk.records.binders.length, n:S.binders.length, nc:S.clients.length, c:r.c, same:ca === cb, peerA, c2:r2.c, ack:S.sync.peers['dev-web-test'].ackedAt === pk.exportedAt, A};
+  });
+  ok(Sv.fmt === 'docmap-sync' && Sv.ver === 1 && Sv.src.deviceId === Sv.A && Sv.src.mode === 'local' && Sv.src.deviceLabel === 'PC studio' && Sv.src.operator === 'Sync Test' && Sv.recs === Sv.n, 'sync: package {format docmap-sync, version 1, source {deviceId, label, mode, operator}, records}', Sv.src);
+  ok(Sv.c.new === Sv.n + Sv.nc && Sv.c.conflict === 0 && Sv.same && Sv.peerA.label === 'PC studio' && Sv.peerA.lastImportAt && Sv.peerA.lastSeenRemoteExportAt, 'sync: full export → import on an empty second device gives identical binders and clients (same updated_at); peer bookkeeping', Sv);
+  ok(Sv.c2.unchanged === Sv.n + Sv.nc && Sv.c2.new === 0 && Sv.c2.updated === 0 && Sv.ack, 'sync: importing the copy back changes nothing (all unchanged) and records the ack', Sv.c2);
+  // Dave's scenario: local edit t1, web edit t2, local edits t3 and t4 → the t4 version wins on both sides
+  Sv = await p.evaluate(async () => {
+    const A = syncDeviceId(), W = 'dev-web-test';
+    __sB('SYA1').binder_title = 'T1 locale'; commit(); await __sWait();
+    __sSwap(W); __sB('SYA1').binder_title = 'T2 web'; commit(); const t2 = __sB('SYA1').updated_at; logAct('binder.edit', logBT(__sB('SYA1')), 'Modifica fatta nella web app', {}); await __sWait();
+    __sSwap(A); __sB('SYA1').binder_title = 'T3 locale'; commit(); await __sWait(); __sB('SYA1').binder_title = 'T4 locale'; commit(); const t4 = __sB('SYA1').updated_at;
+    const e1 = await syncExport({incremental:true, target:W});
+    __sSwap(W); const f1 = await syncExport({incremental:true, target:A});
+    __sSwap(A); LOG.entries = LOG.entries.filter(e => e.summary !== 'Modifica fatta nella web app');   // the two devices share one page: drop the web entry so the import must bring it
+    const inPkg = JSON.parse(f1.text).activity_log.some(e => e.summary === 'Modifica fatta nella web app');
+    const ra = await __sImport(f1.text);
+    const ca = ra.plan.items.find(i => i.code === 'SYA1');
+    const onA = {title:__sB('SYA1').binder_title, u:__sB('SYA1').updated_at, logged:inPkg && LOG.entries.some(e => e.summary === 'Modifica fatta nella web app')};
+    __sSwap(W); const rb = await __sImport(e1.text);
+    const cb = rb.plan.items.find(i => i.code === 'SYA1');
+    const onB = {title:__sB('SYA1').binder_title, u:__sB('SYA1').updated_at};
+    __sSwap(A);
+    return {t2, t4, onA, onB, ka:ca.kind + '/' + ca.reason + '/' + ca.choice, kb:cb.kind + '/' + cb.reason + '/' + cb.choice, e1n:JSON.parse(e1.text).records.binders.length, f1n:JSON.parse(f1.text).records.binders.length, since:JSON.parse(e1.text).since};
+  });
+  ok(Sv.onA.title === 'T4 locale' && Sv.onB.title === 'T4 locale' && Sv.onA.u === Sv.t4 && Sv.onB.u === Sv.t4 && Sv.t4 > Sv.t2, 'sync: Dave\'s scenario (local t1, web t2, local t3, t4) → after importing both ways the t4 version wins on both sides', Sv);
+  ok(Sv.ka === 'conflict/both/local' && Sv.kb === 'conflict/both/remote' && Sv.onA.logged, 'sync: record changed on both sides since the last sync is a conflict, default = most recent; peer log entries merged', Sv);
+  ok(Sv.since && Sv.e1n >= 1 && Sv.e1n < 6 && Sv.f1n === 1, 'sync: "solo modifiche" packages carry only the records changed since the last sync', Sv);
+  // incremental after a sync: one edit → exactly one record
+  Sv = await p.evaluate(async () => {
+    const A = syncDeviceId(), W = 'dev-web-test';
+    __sSwap(W); const f = await syncExport({incremental:true, target:A}); __sSwap(A); await __sImport(f.text);   // the web side confirms what it has (ack)
+    await __sWait(); __sB('SYA4').notes = 'una nota'; commit();
+    const e = JSON.parse((await syncExport({incremental:true, target:W})).text);
+    return {b:e.records.binders.map(b => b.speaking_code), c:e.records.clients.length, t:e.tombstones.length, full:e.since === null};
+  });
+  ok(Sv.b.join() === 'SYA4' && Sv.c === 0 && Sv.t === 0 && !Sv.full, 'sync: incremental package after one edit holds exactly that binder', Sv);
+  // deletions travel; deletion vs later edit keeps the edited record (flagged), and back again it is restored
+  Sv = await p.evaluate(async () => {
+    const A = syncDeviceId(), W = 'dev-web-test';
+    __sSwap(W); const r0 = await __sImport((await (async () => { __sSwap(A); const x = await syncExport({incremental:true, target:W}); __sSwap(W); return x; })()).text);   // B catches up (SYA4 notes)
+    __sSwap(A); S.binders = S.binders.filter(b => b.speaking_code !== 'SYA2' && b.speaking_code !== 'SYA3'); commit(); await __sWait();
+    const e = await syncExport({incremental:true, target:W}); const pk = JSON.parse(e.text);
+    __sSwap(W); __sB('SYA3').binder_title = 'Modificato dopo l\'eliminazione'; commit();
+    const r = await __sImport(e.text);
+    const it3 = r.plan.items.find(i => i.code === 'SYA3'), it2 = r.plan.items.find(i => i.code === 'SYA2');
+    const onB = {has2:!!__sB('SYA2'), has3:!!__sB('SYA3'), tomb2:S.tombstones.some(x => x.code === 'SYA2')};
+    const f = await syncExport({incremental:true, target:A});
+    __sSwap(A); const r2 = await __sImport(f.text);
+    const back = r2.plan.items.find(i => i.code === 'SYA3');
+    return {tombs:pk.tombstones.map(x => x.code).sort().join(), k2:it2.kind, k3:it3.kind + '/' + it3.reason + '/' + it3.choice, onB, back:back.kind + '/' + back.reason + '/' + back.choice, onA3:(__sB('SYA3') || {}).binder_title, onA2:!!__sB('SYA2'), r0:r0.c.updated};
+  });
+  ok(Sv.tombs === 'SYA2,SYA3' && Sv.k2 === 'delete' && !Sv.onB.has2 && Sv.onB.tomb2, 'sync: deletions propagate through tombstones', Sv);
+  ok(Sv.k3 === 'conflict/deleted_remote/local' && Sv.onB.has3 && Sv.back === 'conflict/deleted_local/remote' && Sv.onA3 === 'Modificato dopo l\'eliminazione' && !Sv.onA2, 'sync: deleted on one side but edited later on the other → the edit is kept and flagged, and restored on the deleting side', Sv);
+  // conflicts with per-record choice, through the UI: review screen, side-by-side diff, choice, apply, undo
+  const Spkg = await p.evaluate(async () => {
+    const A = syncDeviceId(), W = 'dev-web-test';
+    __sSwap(W); __sB('SYA1').binder_title = 'Y web'; __sB('SYA4').tags = 'z-web'; commit(); await __sWait();
+    const f = await syncExport({incremental:true, target:A, pass:'passphrase-test'});
+    __sSwap(A); __sB('SYA1').binder_title = 'Y locale'; __sB('SYA4').tags = 'z-locale'; commit();
+    window.__sBefore = {y:__sB('SYA1').binder_title, z:__sB('SYA4').tags, peer:clone(S.sync.peers[W]), hist:S.sync.history.length, n:LOG.entries.length};
+    S.view = 'sync'; renderAll(); return f.text;
+  });
+  await p.fill('#sy-text', Spkg); await p.fill('#sy-ipass', 'passphrase-test');
+  await p.click('[data-a="sy-analyze"]'); await p.waitForSelector('#sy-review', {timeout:15000});
+  Sv = await p.evaluate(() => ({cards:document.querySelectorAll('#sy-review .sy-conf').length, diff:document.querySelector('#sy-review .sy-diff').textContent, badges:Array.from(document.querySelectorAll('#sy-review [data-syk]')).map(x => x.textContent), choices:SYNC.plan.items.filter(i => i.kind === 'conflict').map(i => i.code + ':' + i.choice).sort().join()}));
+  ok(Sv.cards === 2 && /titolo/.test(Sv.diff) && /Y locale/.test(Sv.diff) && /Y web/.test(Sv.diff) && Sv.badges.some(x => /2 conflitti/.test(x)) && Sv.choices === 'SYA1:local,SYA4:local', 'sync review: counts, conflicts with side-by-side diff of the changed fields, default = most recent', Sv);
+  await p.screenshot({path:'shots/s_sync_review.png'});
+  await p.evaluate(() => { const i = SYNC.plan.items.findIndex(x => x.code === 'SYA1'); document.querySelector('[data-syc="' + i + '"][value="remote"]').click(); });
+  Sv = await p.evaluate(() => SYNC.plan.items.filter(i => i.kind === 'conflict').map(i => i.code + ':' + i.choice).sort().join());
+  ok(Sv === 'SYA1:remote,SYA4:local', 'sync review: per-record choice "tieni importato"', Sv);
+  await p.click('#sy-review [data-a="sy-all-newer"]');
+  Sv = await p.evaluate(() => ({c:SYNC.plan.items.filter(i => i.kind === 'conflict').map(i => i.code + ':' + i.choice).sort().join(), r:Array.from(document.querySelectorAll('[data-syc]:checked')).map(x => x.value).join()}));
+  ok(Sv.c === 'SYA1:local,SYA4:local' && Sv.r === 'local,local', '"applica a tutti: il più recente" resets every conflict to the newer side', Sv);
+  await p.evaluate(() => { const i = SYNC.plan.items.findIndex(x => x.code === 'SYA1'); document.querySelector('[data-syc="' + i + '"][value="remote"]').click(); });
+  await p.click('.modal-f .btn-primary'); await p.waitForTimeout(200);
+  Sv = await p.evaluate(() => { const W = 'dev-web-test', l = LOG.entries.slice(__sBefore.n);
+    return {y:__sB('SYA1').binder_title, z:__sB('SYA4').tags, modal:!!topModal(), imp:l.filter(e => e.action === 'sync.import').map(e => e.source + ':' + e.details.conflicts), conf:l.filter(e => e.action === 'sync.conflict').map(e => e.target.code + ':' + e.details.choice).sort().join(), peer:S.sync.peers[W].lastImportAt !== __sBefore.peer.lastImportAt, hist:S.sync.history.length - __sBefore.hist}; });
+  ok(Sv.y === 'Y web' && Sv.z === 'z-locale' && !Sv.modal && Sv.imp.join() === 'sync:2' && Sv.conf === 'SYA1:remote,SYA4:local' && Sv.peer && Sv.hist === 1, 'sync: apply honours the choices, logs sync.import + sync.conflict (source "sync"), updates peer and history', Sv);
+  await p.click('#toasts .toast-act >> nth=-1'); await p.waitForTimeout(150);
+  Sv = await p.evaluate(() => { const W = 'dev-web-test'; return {y:__sB('SYA1').binder_title, z:__sB('SYA4').tags, peer:JSON.stringify(S.sync.peers[W]) === JSON.stringify(__sBefore.peer), hist:S.sync.history.length === __sBefore.hist, undo:LOG.entries[LOG.entries.length - 1].details.undone_action}; });
+  ok(Sv.y === 'Y locale' && Sv.z === 'z-locale' && Sv.peer && Sv.hist && Sv.undo === 'sync.import', 'sync: one Annulla reverts the whole import (records, peer bookkeeping, history)', Sv);
+  // encryption
+  Sv = await p.evaluate(async () => {
+    const e = await syncExport({incremental:false, target:'', pass:'una passphrase lunga'}); const env = JSON.parse(e.text);
+    let wrong = ''; try { await syncParse(e.text, 'passphrase sbagliata'); } catch(x){ wrong = x.message; }
+    let none = ''; try { await syncParse(e.text, ''); } catch(x){ none = x.message; }
+    let tamper = ''; try { const t2 = clone(env); t2.ct = t2.ct.slice(0, 40) + (t2.ct[40] === 'A' ? 'B' : 'A') + t2.ct.slice(41); await syncParse(JSON.stringify(t2), 'una passphrase lunga'); } catch(x){ tamper = x.message; }
+    const okp = await syncParse(e.text, 'una passphrase lunga');
+    let self = ''; try { syncAnalyze(okp); } catch(x){ self = x.message; }
+    return {fmt:env.format, v:env.v, kdf:env.kdf, iv:syUnB64(env.iv).length, salt:syUnB64(env.kdf.salt).length, cipher:env.cipher, keys:Object.keys(env).sort().join(), leak:/Sync Test Srl|Barbieri|Cliente Sync|speaking_code/.test(e.text), wrong, none, tamper, back:okp.records.binders.some(b => b.speaking_code === 'SYA1'), self};
+  });
+  ok(Sv.fmt === 'docmap-sync-enc' && Sv.v === 1 && Sv.kdf.name === 'PBKDF2' && Sv.kdf.hash === 'SHA-256' && Sv.kdf.iterations >= 210000 && Sv.iv === 12 && Sv.salt === 16 && Sv.cipher === 'AES-256-GCM' && Sv.keys === 'cipher,ct,format,iv,kdf,v', 'sync encryption: AES-256-GCM, PBKDF2-SHA256 ≥ 210k, random salt + iv, wrapper {format docmap-sync-enc, v, kdf, iv, ct}', Sv);
+  ok(!Sv.leak && /errata/.test(Sv.wrong) && /cifrato/.test(Sv.none) && /errata/.test(Sv.tamper) && Sv.back, 'sync encryption: ciphertext holds no plaintext names or codes; wrong / missing passphrase and tampered files rejected; right passphrase decrypts', Sv);
+  ok(/stesso dispositivo/.test(Sv.self), 'sync: a package from this same device is refused', Sv.self);
+  // normal Import view does not merge sync packages; dropping one opens the Sync view
+  Sv = await p.evaluate(async () => { const e = await syncExport({incremental:false, target:''}); analyzeImport(e.text); const r = UI.importParsed; UI.importParsed = null; return r; });
+  ok(Sv && /Sincronizzazione/.test(Sv.error || ''), 'sync: a sync package pasted in the normal Import view is redirected (no replace/merge)', Sv);
+  const SpkF = 'shots/docmap-sync-test.json';
+  fs.writeFileSync(SpkF, await p.evaluate(async () => (await syncExport({incremental:false, target:''})).text));
+  await p.evaluate(() => { S.view = 'import'; renderAll(); });
+  await p.setInputFiles('#file-import', SpkF); await p.waitForTimeout(400);
+  Sv = await p.evaluate(() => ({view:S.view, f:SYV.fileName, ta:/docmap-sync/.test(SYV.text) && !!document.querySelector('#sy-text')}));
+  ok(Sv.view === 'sync' && Sv.f === 'docmap-sync-test.json' && Sv.ta, 'sync: a sync package chosen in Importa (or dropped) opens the Sync view with the file loaded', Sv);
+  // the view: export with passphrase through the buttons (download), queue panel, menu, English, web-mode labels, no h-scroll
+  await p.evaluate(() => { S.view = 'sync'; renderAll(); });
+  await p.fill('#sy-pass', 'abc'); await p.fill('#sy-pass2', 'abc'); await p.click('[data-a="sy-export"]'); await p.waitForTimeout(100);
+  Sv = await p.evaluate(() => document.querySelector('#toasts').textContent);
+  ok(/almeno 8/.test(Sv), 'sync export: short passphrase refused', Sv.slice(-120));
+  await p.fill('#sy-pass', 'passphrase-ok'); await p.fill('#sy-pass2', 'passphrase-ok');
+  const SdlF = await dl('[data-a="sy-export"]');
+  Sv = await p.evaluate(() => ({pass:document.querySelector('#sy-pass').value, e:LOG.entries[LOG.entries.length - 1], hist:document.querySelectorAll('#sy-hist tbody tr').length, peers:document.querySelectorAll('#sy-peers tbody tr').length, pending:document.querySelector('#sy-pending').textContent}));
+  const SdlJ = JSON.parse(fs.readFileSync(SdlF, 'utf8'));
+  ok(/^docmap-sync-pc-studio-\d{8}-\d{6}\.json$/.test(require('path').basename(SdlF)) && SdlJ.format === 'docmap-sync-enc' && Sv.pass === '' && Sv.e.action === 'sync.export' && Sv.e.details.encrypted && Sv.e.source === 'sync', 'sync export button: downloads docmap-sync-<slug>-<timestamp>.json, encrypted, passphrase field cleared, logged', [require('path').basename(SdlF), Sv.e]);
+  ok(Sv.hist >= 3 && Sv.peers === 1 && Sv.pending === '0', 'sync queue panel: peers, history, local changes not yet exported', Sv);
+  await p.evaluate(() => { const b = __sB('SYA4'); b.notes = 'pending'; commit(); renderView(); });
+  Sv = await p.evaluate(() => ({pending:document.querySelector('#sy-pending').textContent, menu:!!document.querySelector('#nav-more [data-v="sync"]'), w:[document.documentElement.scrollWidth, innerWidth], lbl:VIEW_LABEL.sync, help:!!helpTopic('sync'), ex:document.querySelector('[data-a="sy-export"]').closest('.card').querySelector('h2').textContent}));
+  ok(Sv.pending === '1' && Sv.menu && Sv.w[0] <= Sv.w[1] + 1 && Sv.lbl === 'nav_sync' && Sv.help && Sv.ex === 'Copia export per web app', 'sync view: in the ⚙ menu, pending counter, help topic, local labels, no h-scroll', Sv);
+  await p.screenshot({path:'shots/s_sync.png'});
+  Sv = await p.evaluate(() => { SYNC.modeOverride = 'web'; renderView(); const h = Array.from(document.querySelectorAll('.exp-card h2')).map(x => x.textContent); SYNC.modeOverride = ''; return h; });
+  ok(Sv[0] === 'Esporta per il client locale' && Sv[1] === 'Importa dati da client locale', 'sync view: web-mode labels', Sv);
+  await p.evaluate(() => { S.lang = 'en'; renderAll(); });
+  Sv = await p.evaluate(() => ({h:document.querySelector('.page-h h1').textContent, cards:Array.from(document.querySelectorAll('.exp-card h2')).map(x => x.textContent), menu:document.querySelector('#nav-more [data-v="sync"]').textContent, q:document.querySelector('#sy-queue h2').textContent}));
+  ok(/^Sync/.test(Sv.h) && Sv.cards[0] === 'Export for the web app' && Sv.cards[1] === 'Import data from the web app' && /Sync/.test(Sv.menu) && /Queue and history/.test(Sv.q), 'sync view: English UI', Sv);
+  await p.setViewportSize({width:390, height:800}); await p.waitForTimeout(150);
+  Sv = await p.evaluate(() => [document.documentElement.scrollWidth, innerWidth]);
+  ok(Sv[0] <= Sv[1] + 1, 'sync view: no horizontal scroll at phone width', Sv);
+  await p.setViewportSize({width:1366, height:768});
+  // clean up: original device identity and data, log entries of this block
+  await p.evaluate(async (start) => {
+    while (topModal()) closeModal(true);
+    const o = __sOrig; S.lang = 'it'; syncSetDevice(o.id); S.settings.deviceLabel = o.label; S.settings.operator = o.op;
+    S.binders = o.binders; S.clients = o.clients; S.tombstones = o.tombstones; S.sync = o.sync; SYNC.quiet = true; UNDO = null; SYV.text = ''; SYV.target = null; SYV.incr = false;
+    DB.db.run('DELETE FROM activity_log WHERE at >= ?', [start]); LOG.entries = LOG.entries.filter(e => e.at < start); LOG.pending = []; logSavePending();
+    ['__sOrig', '__sDev', '__sSwap', '__sWait', '__sB', '__sImport', '__sBefore'].forEach(k => { delete window[k]; });
+    commit(); S.view = 'archive'; renderAll(); dbSyncFromState('t'); await dbPersist();
+  }, Sstart);
 
   // @@STREAM-M@@
   sec('v10 stream M: mobile scan page, local login, provider seams, encrypted blobs');

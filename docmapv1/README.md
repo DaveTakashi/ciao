@@ -219,6 +219,10 @@ Nel menu **⚙ Funzioni avanzate › Registro attività** trovi l'elenco di tutt
   né revoca a distanza (arrivano con il back-end Python); PIN perso da tutti gli amministratori = dati di quel
   browser da reimportare.
 
+## Sincronizzazione PC ⇄ web app (v10)
+
+DocMap funziona sia sul PC (doppio clic su `index.html`) sia come web app su **https://docmap.pr-it.it/studio-de/**. Per ora le due copie dei dati si allineano a mano da **⚙ Funzioni avanzate › Sincronizzazione**: sul PC premi **Copia export per web app** (la prima volta "Tutto l'archivio", poi "Solo modifiche dall'ultima sincronizzazione"), scrivi una passphrase (consigliato: il file viene cifrato AES-256 e la passphrase non viene mai salvata) e scarica il file; nella web app premi **Importa dati da client locale**, scegli il file, scrivi la passphrase e **Analizza**. Al contrario è uguale: **Esporta per il client locale** nella web app e **Importa dati dalla web app** sul PC. Prima di applicare vedi quanti faldoni e clienti sono nuovi, aggiornati, invariati, più vecchi (ignorati), eliminati e in conflitto. Regola: per ogni faldone vince la modifica **più recente in ordine di tempo**, da qualunque lato sia stata fatta; se lo stesso faldone è cambiato da entrambe le parti dopo l'ultima sincronizzazione vedi i campi diversi affiancati e scegli "Tieni locale" / "Tieni importato" (o "Applica a tutti: il più recente"). Anche le eliminazioni viaggiano; un faldone eliminato da una parte ma modificato dopo dall'altra resta ed è segnalato. Tutto si annulla con un clic su **Annulla** e finisce nel registro attività. Sotto trovi la coda: modifiche locali non ancora esportate, dispositivi conosciuti e cronologia. Dettagli tecnici: `docs/SYNC.md`.
+
 ## Problemi comuni
 
 | Problema | Soluzione |

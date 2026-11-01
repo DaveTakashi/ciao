@@ -564,7 +564,10 @@ function applyImport(mode){
         delete p.id;
         const merged = Object.assign({}, cur, p, {updated_at: p.updated_at || now});
         if (!p.short_code) merged.short_code = keep || cur.short_code;
-        S.binders[i] = normalizeBinder(merged); updated++;
+        const nb = normalizeBinder(merged);
+        // v10 sync: a merge never moves updated_at backwards: unchanged content keeps the current time, changed content older than the file → now
+        if (typeof syncCanon === 'function'){ if (syncCanon(nb, 'binder') === syncCanon(cur, 'binder')) nb.updated_at = cur.updated_at; else if (syTs(nb.updated_at) <= syTs(cur.updated_at)) nb.updated_at = now; }
+        S.binders[i] = nb; updated++;
       } else {
         S.binders.push(normalizeBinder(Object.assign({updated_at:now, selected_for_print:true}, p))); added++;
       }
