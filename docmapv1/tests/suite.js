@@ -363,8 +363,8 @@ const sec = (n) => console.log('\n== ' + n);
   sec('v6: MRINK143 split label, fields, clients, demo, shelves, guide');
   v = await p.evaluate(() => { const d = defaultState(); const m = migrate(Object.assign(defaultState(), {schema:26.1, print:Object.assign(defaultState().print, {presetId:'l7160', contentMode:'pair', padding:1.5})})); const m2 = migrate(Object.assign(defaultState(), {schema:26.6, print:Object.assign(defaultState().print, {presetId:'l7163', contentMode:'pair'})}));
     return {dp:d.print.presetId, dm:d.print.contentMode, first:BUILTIN_PRESETS[0].id, mp:m.print.presetId, mm:m.print.contentMode, m2p:m2.print.presetId, m2m:m2.print.contentMode}; });
-  ok(v.dp === 'mrink143' && v.dm === 'split' && v.first === 'mrink143', 'default sheet MRINK143 + split label', v);
-  ok(v.mp === 'mrink143' && v.mm === 'split' && v.m2p === 'l7163' && v.m2m === 'pair', 'migration switches old workspaces to MRINK143 once, later choices are kept', v);
+  ok(v.dp === 'mrink143' && v.dm === 'info' && v.first === 'mrink143', 'default sheet MRINK143 + info label (v9)', v);
+  ok(v.mp === 'mrink143' && v.mm === 'info' && v.m2p === 'l7163' && v.m2m === 'pair', 'migration switches old workspaces to MRINK143 once (v9: info label), later choices are kept', v);
   v = await p.evaluate(() => { const P = findPreset('mrink143'), g = geoFromPreset(P); return {fits:P.marginLeft + P.cols * P.w <= 210 && P.marginTop + P.rows * P.h <= 297.01, n:P.cols * P.rows, w:P.w, h:P.h, group:g.group, turn:g.turn, name:P.name}; });
   ok(v.fits && v.n === 8 && v.w === 105 && v.h === 74 && v.group === 2 && v.turn && /8 etichette da dividere/.test(v.name), 'MRINK143: 4 physical 105×148 labels = 8 printed 105×74 labels', v);
   v = await p.evaluate(() => {
@@ -859,6 +859,154 @@ const sec = (n) => console.log('\n== ' + n);
   await p.evaluate(() => { S.lang = 'it'; UI.imap = null; UI.importParsed = null; UI.importText = ''; S.view = 'archive'; renderAll(); });
 
   // @@STREAM-T@@
+  sec('v9 stream T: info label template, template registry, edge compensation');
+  await p.evaluate(() => { window.__Tprint = clone(S.print); window.__TusedSlots = clone(S.usedSlots); window.__Tsel = S.binders.filter(b => b.selected_for_print).map(b => b.id);
+    S.binders.forEach(b => b.selected_for_print = false);
+    const mk = (o) => normalizeBinder(Object.assign({selected_for_print:true, color_hex:'#DC2626'}, o));
+    S.binders = S.binders.concat([
+      mk({speaking_code:'TAPS1', multi_code:'10877', company_name:'ASSOCIAZIONE DI PROMOZIONE SOCIALE CIRCOLO RICREATIVO CULTURALE SAN PANCRAZIO PARMENSE', company_city:'San Pancrazio (PR)', category:'APS', binder_title:'Rendiconto', ref_year:'2025', room_code:'A', cabinet_code:'3', shelf_code:'2', contents_items:'2025: Prima nota|2025: Rendiconto per cassa|2024: Verbali', tags:'aps,ets', short_code:'dm26TapsAbCd'}),
+      mk({speaking_code:'TNM1', company_name:'Neri Mario', category:'Semplificata', contents_items:'2025: 730', tags:'730', short_code:'dm26TnmXyZab'}),
+      mk({speaking_code:'TBL1', multi_code:'M-55501', company_name:'Barbieri-Lanfranchi Costruzioni Edili S.r.l.', category:'Ordinaria', contents_items:'2025: A|2025: B|2025: C', short_code:'dm26TblQwErt'}),
+      mk({speaking_code:'TFS1', multi_code:'9', company_name:'Farmacia San Giorgio', category:'Ordinaria', short_code:'dm26TfsHjKmn'})]);
+    ensureIntegrity(); commit();
+    S.print.presetId = 'mrink143'; S.print.geometry = geoFromPreset(findPreset('mrink143')); S.print.geometryModified = false; S.print.contentMode = 'info'; S.print.info = {items:2, pair:false};
+    S.print.qrMode = 'live'; S.print.fields = {}; S.print.split = {ratio:0.5, rotate:-90, guides:true}; S.print.edge = {outer:4, cut:1, byPreset:{}}; S.print.copies = 1; S.print.padding = 4; S.print.offsetX = 0; S.print.offsetY = 0; S.usedSlots = {}; });
+  // migration + defaults
+  v = await p.evaluate(() => { const d = defaultState(); const old = (pr, m, sc) => migrate(Object.assign(defaultState(), {schema:sc, print:Object.assign(defaultState().print, {presetId:pr, geometry:geoFromPreset(findPreset(pr)), contentMode:m})})).print.contentMode;
+    return {d:d.print.contentMode, ds:d.schema, info:JSON.stringify(d.print.info), edge:d.print.edge.outer + '/' + d.print.edge.cut, m1:old('mrink143', 'split', 26.8), m2:old('mrink143', 'split', 26.9), m3:old('l7160', 'split', 26.8), m4:old('mrink143', 'pair', 26.8), sch:migrate(defaultState()).schema}; });
+  ok(v.d === 'info' && v.ds === 26.9 && v.info === '{"items":2,"pair":false}' && v.edge === '4/1' && v.sch === 26.9, 'v9 defaults: info label, items 2, pair off, edge 4/1 mm, schema 26.9', v);
+  ok(v.m1 === 'info' && v.m2 === 'split' && v.m3 === 'split' && v.m4 === 'pair', 'migration < 26.9 switches MRINK143 + classic to the info label once; later choices and other sheets kept', v);
+  // registry
+  v = await p.evaluate(() => ({ids:LABEL_TEMPLATES.map(x => x.id).join(), k:['info','split','pair','a','b','u','qr','zz'].map(m => modeKinds(m).join('')).join(','), kp:modeKinds('info', Object.assign({}, S.print, {info:{pair:true}})).join(''), rec:tplRecommended(labelTemplate('info'), 'mrink143') && !tplRecommended(labelTemplate('split'), 'mrink143')}));
+  ok(v.ids === 'info,split,pair,a,b,u,qr' && v.k === 'I,S,AB,A,B,U,Q,U' && v.kp === 'IC' && v.rec, 'template registry drives modeKinds (all old modes kept, unknown → U, pair flag → I+C)', v);
+  // classic label unchanged when edge compensation is off
+  v = await p.evaluate(() => { const b = S.binders.find(x => x.speaking_code === 'TBL1'), g = S.print.geometry;
+    S.print.edge = {outer:4, cut:1, byPreset:{mrink143:false}}; const off = renderSlotLabel('S', b, g, S.print), ref = renderLabel('S', b, frameGeo(g), S.print);
+    S.print.edge = {outer:4, cut:1, byPreset:{}}; const on = renderSlotLabel('S', b, g, S.print);
+    return {same:off === '<div class="lab-turn" style="position:absolute;left:0;top:0;width:74mm;height:105mm;transform-origin:0 0;transform:translateY(74mm) rotate(-90deg)">' + ref + '</div>', full:ref === renderFull(b, frameGeo(g), S.print), edge:on.includes('lab-edge'), name:t('cm_split')}; });
+  ok(v.same && v.full && v.edge && v.name === 'Etichetta completa (classica)', 'classic complete label still available and byte-identical with edge compensation off', v);
+  // info label content, rendered in the DOM at real size
+  const tMount = async (pr, extra) => p.evaluate(([pr, extra]) => {
+    const P = findPreset(pr); S.print.presetId = pr; S.print.geometry = geoFromPreset(P); Object.assign(S.print, extra || {});
+    let box = document.getElementById('t-mount'); if (!box){ box = document.createElement('div'); box.id = 't-mount'; box.style.cssText = 'position:absolute;left:-2400px;top:0'; document.body.appendChild(box); }
+    const sheets = buildLabelSheets(false); box.innerHTML = sheets[0] || '';
+    const labs = [...box.querySelectorAll('.ilab')].filter(l => l.querySelector('.ilab-mid')).map(l => {
+      const co = l.querySelector('.ilab-co'), mid = l.querySelector('.ilab-mid');
+      let breaksOk = true, lines = 0;
+      if (co && co.firstChild){ const tx = co.firstChild, s = tx.textContent, r = document.createRange();
+        const c = (i) => { r.setStart(tx, i); r.setEnd(tx, i + 1); const q = r.getBoundingClientRect(); return [q.left + q.width / 2, q.top + q.height / 2]; };
+        let dir = null, prev = null; lines = s.trim() ? 1 : 0;
+        for (let i = 0; i < s.length; i++){ if (s[i] === ' ') continue; const cur = c(i);
+          if (prev){ if (!dir){ const dx = cur[0] - prev[1][0], dy = cur[1] - prev[1][1], n = Math.hypot(dx, dy) || 1; dir = [dx / n, dy / n]; }
+            const fw = (cur[0] - prev[1][0]) * dir[0] + (cur[1] - prev[1][1]) * dir[1];
+            if (fw < 0){ lines++; if (!(s[i - 1] === ' ' || s[prev[0]] === '-')) breaksOk = false; } }
+          prev = [i, cur]; } }
+      const midR = mid.getBoundingClientRect(), coR = co ? co.getBoundingClientRect() : null;
+      const over = co ? (co.scrollWidth > co.clientWidth + 1 || co.offsetHeight > mid.clientHeight + 1) : false;
+      return {name:co ? co.textContent : '', fs:co ? parseFloat(co.style.fontSize) : 0, lines, breaksOk, over, val:(l.querySelector('.ilab-val') || {}).textContent, cap:(l.querySelector('.ilab-cap') || {}).textContent, cat:(l.querySelector('.ilab-catline') || {}).textContent || '', items:l.querySelectorAll('.ilab-item').length, html:l.outerHTML, kind:'I', midH:midR.height, coH:coR ? coR.height : 0};
+    });
+    const cl = box.querySelectorAll('.ilab-chead').length;
+    return {labs, nan:sheets.join('').includes('NaN'), pages:sheets.length, cl};
+  }, [pr, extra]);
+  let tr = await tMount('mrink143');
+  const tL = (n) => tr.labs.find(l => l.name.startsWith(n)) || {};
+  const aps = tL('ASSOCIAZIONE'), nm = tL('Neri'), bl = tL('Barbieri'), fs1 = tL('Farmacia');
+  ok(aps.val === '10877' && /multi/i.test(aps.cap) && /APS/.test(aps.cat) && aps.cat.includes('TAPS1'), 'info label: big Codice Multi top-left with "MULTI" caption, category · speaking code under it', aps);
+  ok(nm.val === 'TNM1' && /codice/i.test(nm.cap) && !nm.cat.includes('TNM1') && /Semplificata/i.test(nm.cat), 'info label: no Multi → speaking code in the big spot ("CODICE"), not repeated below', nm);
+  v = await p.evaluate(() => { const b = S.binders.find(x => x.speaking_code === 'TAPS1'), h = renderLabel('I', b, frameGeo(S.print.geometry), S.print); return {n:(h.replace(/<svg[\s\S]*?<\/svg>/g, '').match(/dm26TapsAbCd/g) || []).length, url:h.includes('>qr7.it/dm26TapsAbCd<'), svg:(h.match(/<svg/g) || []).length, big:LM.I.code, co:LM.I.co}; });
+  ok(v.n === 1 && v.url && v.svg === 1, 'info label: QR + URL under it, no bare short-code text', v);
+  ok(v.big >= 7 && aps.fs >= 4 && fs1.fs > aps.fs && fs1.fs >= 8, 'info label: Multi digits large, company name auto-fitted large (short names bigger)', {big:v.big, aps:aps.fs, fs:fs1.fs});
+  ok(tr.labs.every(l => l.breaksOk) && aps.lines >= 3 && bl.breaksOk, 'company name wraps only at spaces / after hyphens, never mid-word', tr.labs.map(l => [l.name.slice(0, 20), l.lines, l.breaksOk]));
+  ok(!aps.over && !tr.labs.some(l => l.over) && !tr.nan, 'long company name (APS … SAN PANCRAZIO PARMENSE) fits its box without overflow', aps);
+  v = [];
+  for (const n of [0, 1, 2]){ tr = await tMount('mrink143', {info:{items:n, pair:false}}); v.push(tL('ASSOCIAZIONE').items); }
+  ok(v.join() === '0,1,2', 'contents items at the bottom: 0 / 1 / 2', v);
+  v = await p.evaluate(() => { S.print.fields = {multi:false, category:false, tags:false, date:'none'}; const b = S.binders.find(x => x.speaking_code === 'TAPS1'), h = renderLabel('I', b, frameGeo(S.print.geometry), S.print); S.print.fields = {}; return {multi:h.includes('10877'), cat:h.includes('>APS<'), tag:h.includes('#aps'), date:h.includes(t('l_created')), code:h.includes('TAPS1')}; });
+  ok(!v.multi && !v.cat && !v.tag && !v.date && v.code, 'info label respects the field toggles (Multi, category, tags, date)', v);
+  // pair flag: info + contents on the two halves of the same physical label
+  v = await p.evaluate(() => { S.print.presetId = 'mrink143'; S.print.geometry = geoFromPreset(findPreset('mrink143')); S.print.info = {items:2, pair:true}; S.usedSlots = {};
+    const L = layoutLabels(), a = L.pages[0][0], c = L.pages[0][1], s = [a.s, c.s];
+    const r = {k:a.item.kind + c.item.kind, same:a.item.b.id === c.item.b.id, phys:Math.floor(s[0] / 4) === Math.floor(s[1] / 4) && s[0] % 2 === s[1] % 2, items:L.items, q:printQueueBinders().length};
+    const hc = renderLabel('C', c.item.b, frameGeo(S.print.geometry), S.print); r.c = hc.includes(t('l_updated_long')) && (c.item.b.contents_items || []).every(i => hc.includes(esc(i.description)));
+    S.usedSlots = {mrink143:[slotSeq()[0]]}; const L2 = layoutLabels(); r.skipTwin = L2.pages[0][0].s === slotSeq()[2] && L2.pages[0][1].s === slotSeq()[3];
+    S.usedSlots = {}; S.print.info = {items:2, pair:false}; return r; });
+  ok(v.k === 'IC' && v.same && v.phys && v.items === 2 * v.q && v.c, 'flag "also print the contents label": info + contents (full list, update date) on the two halves of one physical label', v);
+  ok(v.skipTwin, 'a pair never straddles two physical labels (half-used label is skipped)', v);
+  // edge compensation: identical, centred content boxes on all 8 slots
+  v = await p.evaluate(() => { S.print.presetId = 'mrink143'; S.print.geometry = geoFromPreset(findPreset('mrink143')); S.print.copies = 3; S.usedSlots = {};
+    const box = document.getElementById('t-mount'); const sh = buildLabelSheets(true)[0]; box.innerHTML = sh;
+    const res = [...box.querySelectorAll('.slotbox')].filter(sb => sb.querySelector('.lab')).map(sb => { const a = sb.getBoundingClientRect(), l = sb.querySelector('.lab').getBoundingClientRect(); return [l.left - a.left, a.right - l.right, l.top - a.top, a.bottom - l.bottom].map(x => Math.round(x * 25.4 / 96 * 10) / 10); });
+    const outline = (sh.match(/edge-safe-scr/g) || []).length, printed = buildLabelSheets(false)[0].includes('edge-safe-scr');
+    S.print.copies = 1; box.innerHTML = '';
+    return {n:res.length, same:res.every(r => r.join() === res[0].join()), sym:res.every(r => Math.abs(r[0] - r[1]) < 0.15 && Math.abs(r[2] - r[3]) < 0.15), r0:res[0], outline, printed, defs:[edgeDefaultOn(geoFromPreset(findPreset('mrink143'))), edgeDefaultOn(geoFromPreset(findPreset('a4-8'))), edgeDefaultOn(geoFromPreset(findPreset('l7160')))]}; });
+  ok(v.n === 8 && v.same && v.sym && v.r0[0] >= 3.9 && v.r0[2] >= 4.9, 'edge compensation: same centred safe area on all 8 MRINK143 slots (4 mm + 1 mm cut on the hand-cut sides)', v);
+  ok(v.outline === 8 && !v.printed && v.defs.join() === 'true,true,false', 'safe area outline on screen only; default on for hand-cut sheets, off for die-cut', v);
+  // QR decode on printed PDFs (info label)
+  for (const pr of ['mrink143', 'l7160', 'l7163', 'a4-8']){
+    const info = await p.evaluate((pr) => {
+      const P = findPreset(pr); S.print.presetId = pr; S.print.geometry = geoFromPreset(P); S.print.contentMode = 'info'; S.print.qrMode = 'live'; S.usedSlots = {};
+      document.getElementById('page-style').textContent = '@page{size:210mm 297mm;margin:0mm}';
+      document.getElementById('print-root').innerHTML = buildLabelSheets(false)[0];
+      return {slots:layoutLabels().pages[0].map(x => Object.assign(slotRect(x.s), {url:x.item.b.short_url})), w:P.w, h:P.h};
+    }, pr);
+    await p.emulateMedia({media:'print'});
+    const pdf = await p.pdf({width:'210mm', height:'297mm', printBackground:true, preferCSSPageSize:true});
+    await p.emulateMedia({media:'screen'});
+    fs.writeFileSync('shots/q.pdf', pdf);
+    require('child_process').execSync('python3 -c "import pypdfium2 as p;d=p.PdfDocument(\'shots/q.pdf\');d[0].render(scale=300/72).to_pil().convert(\'RGBA\').save(\'shots/q.png\')"');
+    const png = PNG.sync.read(fs.readFileSync('shots/q.png')), k = png.width / 210;
+    let good = 0;
+    for (const s of info.slots){
+      const x0 = Math.floor(s.x * k), y0 = Math.floor(s.y * k), w = Math.floor(info.w * k), h = Math.floor(info.h * k);
+      const d = new Uint8ClampedArray(w * h * 4);
+      for (let j = 0; j < h; j++){ const st = ((y0 + j) * png.width + x0) * 4; d.set(png.data.subarray(st, st + w * 4), j * w * 4); }
+      let r = jsQR(d, w, h);
+      for (const f of [2, 4]){ if (r && r.data === s.url) break; const W = Math.floor(w / f), H = Math.floor(h / f), e = new Uint8ClampedArray(W * H * 4);
+        for (let j = 0; j < H; j++) for (let i = 0; i < W; i++){ const a = ((j * f) * w + i * f) * 4, bb = (j * W + i) * 4; e[bb] = d[a]; e[bb+1] = d[a+1]; e[bb+2] = d[a+2]; e[bb+3] = 255; }
+        r = jsQR(e, W, H); }
+      if (r && r.data === s.url) good++;
+    }
+    ok(good === info.slots.length && good > 0, `T: QR decode info label ${pr}: ${good}/${info.slots.length}`);
+  }
+  await p.evaluate(() => { document.getElementById('print-root').innerHTML = ''; });
+  // every preset × info (± contents label) renders without overflow
+  const tBad = [];
+  for (const pr of await p.evaluate(() => BUILTIN_PRESETS.map(x => x.id))) for (const pair of [false, true]){
+    const r = await tMount(pr, {info:{items:2, pair}});
+    const over = r.labs.filter(l => l.over || !l.breaksOk || (l.name && l.fs < 1.6));
+    if (r.nan || over.length || !r.labs.length || (pair && !r.cl && r.pages < 2)) /* one-label sheets: contents label on the next sheet */ tBad.push({pr, pair, nan:r.nan, n:r.labs.length, over:over.map(l => [l.name.slice(0, 24), l.fs])});
+  }
+  ok(!tBad.length, 'every preset × info label (with and without contents label): no overflow, no mid-word break, no NaN', tBad);
+  // UI: registry-driven choices, options, edge panel, help
+  await p.evaluate(() => { S.print.presetId = 'mrink143'; S.print.geometry = geoFromPreset(findPreset('mrink143')); S.print.info = {items:2, pair:false}; S.view = 'print'; S.print.advanced = true; renderAll(); }); await p.waitForTimeout(300);
+  v = await p.evaluate(() => ({opts:[...document.querySelectorAll('[data-a="cmode"]')].map(x => x.dataset.v).join(), on:(document.querySelector('.opt.on[data-a="cmode"]') || {}).dataset.v, rec:!!document.querySelector('[data-a="cmode"][data-v="info"] .tpl-rec'), items:document.querySelectorAll('[data-a="tpl-info-items"]').length, edge:!!document.querySelector('#pr-adv #edge-box [data-a="edge-on"]:checked'), pv:document.querySelectorAll('#pv-scroll .edge-safe-scr').length, help:!!helpTopic('edge') && !!helpTopic('infolabel'), w:document.documentElement.scrollWidth <= innerWidth + 1}));
+  ok(v.opts === 'info,split,pair,a,b,u,qr' && v.on === 'info' && v.rec && v.items === 3 && v.edge && v.pv === 8 && v.help && v.w, 'print panel: templates from the registry, info recommended on MRINK143, its options, edge option in Advanced, outline in preview, help topics', v);
+  await p.screenshot({path:'shots/t_print_panel.png'});
+  await p.click('[data-a="tpl-info-items"][data-v="1"]'); await p.waitForTimeout(100);
+  await p.click('[data-a="tpl-info-pair"]'); await p.waitForTimeout(250);
+  v = await p.evaluate(() => ({info:JSON.stringify(S.print.info), kinds:queueItems().slice(0, 2).map(i => i.kind).join('')}));
+  await p.click('#edge-box [data-a="edge-on"]'); await p.waitForTimeout(150);
+  await p.fill('[data-edge="outer"]', '5').catch(() => {});
+  v.edge = await p.evaluate(() => ({on:edgeOn(), by:S.print.edge.byPreset.mrink143, pv:document.querySelectorAll('#pv-scroll .edge-safe-scr').length}));
+  ok(v.info === '{"items":1,"pair":true}' && v.kinds === 'IC' && v.edge.on === false && v.edge.by === false && v.edge.pv === 0, 'options work: items, contents label flag, edge on/off per sheet', v);
+  await p.click('#edge-box [data-a="edge-on"]'); await p.waitForTimeout(100);
+  await p.fill('[data-edge="outer"]', '5'); await p.dispatchEvent('[data-edge="outer"]', 'change'); await p.waitForTimeout(100);
+  ok(await p.evaluate(() => S.print.edge.outer === 5 && edgeInsetSheet(S.print.geometry, S.print).x === 5 && edgeInsetSheet(S.print.geometry, S.print).y === 6), 'edge border value changes the safe area');
+  await p.evaluate(() => { S.lang = 'en'; renderAll(); });
+  ok(await p.evaluate(() => (document.querySelector('[data-a="cmode"][data-v="info"]') || {}).textContent.includes('Info label (recommended)') && (document.querySelector('[data-a="cmode"][data-v="split"]') || {}).textContent.includes('Complete label (classic)')), 'English template names');
+  await p.evaluate(() => { S.lang = 'it'; renderAll(); });
+  // performance: 2000 binders, info label, distinct long names
+  v = await p.evaluate(() => { const keep = S.binders, taken = keep.map(b => b.short_code), extra = [];
+    for (let i = 0; i < 2000; i++){ const sc = newShortCode(taken); taken.push(sc); extra.push(normalizeBinder({speaking_code:'TP' + i, multi_code:String(10000 + i), company_name:'Studio Associato Numero ' + i + ' di Prova Lunga S.r.l.', category:'Ordinaria', contents_items:'2025: A|2024: B', short_code:sc, selected_for_print:true})); }
+    keep.forEach(b => b.selected_for_print = false); S.binders = keep.concat(extra); FIT.cache.clear();
+    S.print.edge = {outer:4, cut:1, byPreset:{}}; S.print.info = {items:2, pair:false};
+    const t0 = performance.now(); const sh = buildLabelSheets(false); const ms = Math.round(performance.now() - t0);
+    const t1 = performance.now(); buildLabelSheets(false); const ms2 = Math.round(performance.now() - t1);
+    S.binders = keep; return {ms, ms2, sheets:sh.length}; });
+  ok(v.sheets === 250 && v.ms < 15000 && v.ms2 < v.ms, '2000 info labels (2000 different names) built in ' + v.ms + ' ms, cached rebuild ' + v.ms2 + ' ms', v);
+  // clean up
+  await p.evaluate(() => { S.binders = S.binders.filter(b => !/^T(APS|NM|BL|FS)1$/.test(b.speaking_code)); const sel = new Set(window.__Tsel); S.binders.forEach(b => b.selected_for_print = sel.has(b.id));
+    S.print = window.__Tprint; S.usedSlots = window.__TusedSlots; const m = document.getElementById('t-mount'); if (m) m.remove(); delete window.__Tprint; delete window.__TusedSlots; delete window.__Tsel; commit(); S.view = 'archive'; renderAll(); });
 
   // @@STREAM-P@@
   // ===== v9 stream P ("Scarica PDF": vector A4 PDF written in the browser) =====

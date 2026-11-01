@@ -195,8 +195,7 @@ function renderEdPreview(){
   const g = S.print.geometry;
   // labels are shown the way they are read on the binder, not as they sit on a turned sheet
   const gUp = frameGeo(g);
-  const name = {A:'Modulo A', B:'Modulo B', U:'Unificata', S:t('cm_split')};
-  box.innerHTML = kinds.map(k => '<div style="text-align:center"><div class="tiny muted mono" style="margin-bottom:4px">' + esc(name[k] || k) + '</div>' + labelPreviewHTML(k, b, w, gUp) + '</div>').join('');
+  box.innerHTML = kinds.map(k => '<div style="text-align:center"><div class="tiny muted mono" style="margin-bottom:4px">' + esc(labelKindName(k)) + '</div>' + labelPreviewHTML(k, b, w, gUp) + '</div>').join('');
 }
 function edRefreshDerived(){
   const d = UI.ed.d;
@@ -272,6 +271,7 @@ function viewPrint(){
   }).join('');
   const nOthers = allPresets().filter(p => !isBasic(p)).length;
   const presets = basicPresets + (nOthers ? '<details class="more"><summary>' + esc(t('pr_more', {n:nOthers})) + '</summary>' + others + '</details>' : '');
+  const curTpl = labelTemplate(P.contentMode);
   const opt = (grp, val, title, desc, cur, full) => '<button type="button" class="opt ' + (cur === val ? 'on ' : '') + (full ? 'full' : '') + '" data-a="' + grp + '" data-v="' + val + '"><b>' + esc(title) + '</b><span>' + esc(desc) + '</span></button>';
   return '<div class="page-h"><div><h1>' + esc(t('pr_h')) + helpDot('print') + '</h1><p>' + esc(t('pr_p')) + '</p></div>' +
     '<div class="row"><button class="btn btn-lg" data-a="print-calib">' + ic('crosshair') + esc(t('pr_calib')) + '</button><button class="btn btn-lg" data-a="pdf-download" id="btn-pdf" title="' + esc(t('pr_pdf_d')) + '">' + ic('download') + esc(t('pr_pdf')) + '</button><button class="btn btn-lg btn-primary" data-a="print-labels" id="btn-print">' + ic('printer') + esc(t('pr_go')) + '</button></div></div>' + qrRestoreBarHTML() +
@@ -279,8 +279,8 @@ function viewPrint(){
       '<div class="panel-sec"><h3>' + esc(t('pr_queue')) + '</h3><div id="pr-summary"></div></div>' +
       '<div class="panel-sec"><h3>' + esc(t('pr_sheet')) + '</h3><div class="preset-list">' + presets + '</div></div>' +
       '<div class="panel-sec"><h3>' + esc(t('pr_content')) + helpDot('split') + '</h3><div class="opt-grid">' +
-        opt('cmode', 'split', t('cm_split'), t('cm_split_d'), P.contentMode, true) + opt('cmode', 'pair', t('cm_pair'), t('cm_pair_d'), P.contentMode, true) + opt('cmode', 'a', t('cm_a'), t('cm_a_d'), P.contentMode) + opt('cmode', 'b', t('cm_b'), t('cm_b_d'), P.contentMode) + opt('cmode', 'u', t('cm_u'), t('cm_u_d'), P.contentMode, true) + opt('cmode', 'qr', t('cm_qr'), t('cm_qr_d'), P.contentMode, true) +
-        '</div><div class="geo-row" style="margin-top:10px"><span class="lbl">' + esc(t('copies')) + '</span><input class="inp" style="width:90px;min-height:38px" type="number" min="1" max="50" step="1" value="' + (P.copies || 1) + '" data-pp="copies"></div></div>' +
+        LABEL_TEMPLATES.map(T => opt('cmode', T.id, t(T.name), t(T.desc), P.contentMode, T.full).replace('<b>', tplRecommended(T, P.presetId) ? '<b><span class="pop rec tpl-rec">✓ ' + esc(t('tpl_rec')) + '</span> ' : '<b>')).join('') +
+        '</div>' + (curTpl && curTpl.options ? curTpl.options(P) : '') + '<div class="geo-row" style="margin-top:10px"><span class="lbl">' + esc(t('copies')) + '</span><input class="inp" style="width:90px;min-height:38px" type="number" min="1" max="50" step="1" value="' + (P.copies || 1) + '" data-pp="copies"></div></div>' +
       '<div class="panel-sec" id="pr-fields"><h3>' + esc(t('pr_fields')) + helpDot('fields') + '</h3><div class="fld-grid">' +
         [['category','f_category'],['city','f_city'],['multi','f_multi'],['url','qr_url_s'],['title','f_title_s'],['year','f_year_ref'],['contents','f_contents_s'],['tags','f_tags'],['extra','f_extra'],['location','fl_location'],['contacts','f_contacts_s'],['notes','f_notes']].map(([k, lab]) => '<label class="chk small"><input type="checkbox" data-fld="' + k + '"' + (pf(k) ? ' checked' : '') + '>' + esc(t(lab)) + '</label>').join('') +
         '<label class="chk small fld-empty"><input type="checkbox" data-fld="empty"' + (pf('empty') ? ' checked' : '') + '><span><b>' + esc(t('f_empty')) + '</b><br><span class="muted">' + esc(t('f_empty_d')) + '</span></span></label>' +
@@ -312,6 +312,7 @@ function viewPrint(){
         '<div class="adv-sub"><h3>' + esc(t('sp_h')) + helpDot('split') + '</h3>' +
           '<div class="geo-row"><span class="lbl">' + esc(t('sp_rot')) + '</span><select class="inp" style="width:auto;min-height:34px;padding:4px 8px" data-sp="rotate"><option value="-90"' + ((P.split || {}).rotate !== 90 ? ' selected' : '') + '>' + esc(t('sp_rot_l')) + '</option><option value="90"' + ((P.split || {}).rotate === 90 ? ' selected' : '') + '>' + esc(t('sp_rot_r')) + '</option></select></div>' +
           '<label class="chk small"><input type="checkbox" data-sp="guides"' + ((P.split || {}).guides !== false ? ' checked' : '') + '>' + esc(t('sp_guides')) + '</label></div>' +
+        edgePanelHTML() +
       '<div class="panel-sec"><h3>' + esc(t('pr_slots')) + helpDot('partial') + '</h3><div class="slotmap-wrap"><div class="slotmap" id="slotmap"></div><div class="stack">' +
         '<div class="hint">' + esc(t('sl_hint')) + '</div><div class="small" id="sl-count" style="font-weight:700"></div>' +
         '<button class="btn btn-sm" data-a="slots-free">' + ic('check') + esc(t('sl_all_free')) + '</button>' +

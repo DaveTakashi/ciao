@@ -314,7 +314,7 @@ document.addEventListener('drop', (e) => {
 });
 
 document.addEventListener('toggle', (e) => { if (e.target && e.target.id === 'pr-adv'){ S.print.advanced = e.target.open; savePrefs(); } }, true);
-Object.assign(ACTIONS, PHOTO_ACTIONS, CLIENT_ACTIONS, IMPORT_MAP_ACTIONS, EDITOR_ACTIONS, INFO_ACTIONS, PDF_ACTIONS);
+Object.assign(ACTIONS, PHOTO_ACTIONS, CLIENT_ACTIONS, IMPORT_MAP_ACTIONS, EDITOR_ACTIONS, INFO_ACTIONS, PDF_ACTIONS, TEMPLATE_ACTIONS);
 
 /* ---------------- Boot ---------------- */
 (function boot(){

@@ -48,6 +48,12 @@ Al primo avvio parte un breve tour. Il pulsante **?** in alto (o F1) apre la gui
 - **Annulla:** dopo un'eliminazione, un import, il ripristino di una sessione o l'apertura di un `.sqlite` compare "Annulla" per alcuni secondi.
 - **Scorciatoie:** `F1` guida, `Ctrl+S` salva il faldone aperto (o fa il backup rapido), `Esc` chiude guida, aiuto o finestra. Se il faldone ha modifiche non salvate, `Esc` chiede conferma.
 
+## Etichetta informazioni e bordi uguali (v9)
+
+In **Stampa etichette › Contenuto etichette** i modelli sono ora un elenco di *template*. Il nuovo predefinito per il foglio MRINK143 è l'**Etichetta informazioni (consigliata)**: in alto a sinistra il **Codice Multi** grande (scritta piccola "MULTI"; se manca, il codice parlante con la scritta "CODICE"), sotto categoria e codice parlante, a destra il QR con l'indirizzo qr7.it/… sotto (il codice breve da solo non si stampa più). La **ragione sociale** è grandissima: DocMap sceglie la dimensione più grande che entra, andando a capo solo tra una parola e l'altra, mai a metà parola. Seguono luogo e posizione, titolo e anno, le prime **0, 1 o 2 voci del contenuto** (di serie 2), tag e data. Con **Stampa anche l'etichetta del contenuto** (spento di serie) ogni faldone riceve anche una seconda etichetta con tutto il contenuto e la data di aggiornamento, sull'altra metà della stessa etichetta fisica 105×148. L'etichetta di prima resta disponibile come **Etichetta completa (classica)**, identica.
+
+In **Opzioni avanzate › Bordi uguali su tutte le etichette** c'è la **compensazione dei bordi**: la stampante non stampa i ~4 mm vicino al bordo del foglio e il taglio a mano sposta di circa 1 mm, quindi le etichette staccate a sinistra, al centro e a destra avrebbero bordi bianchi diversi. Acceso, ogni etichetta lascia lo stesso spazio bianco su tutti i lati (bordo 4 mm + taglio 1 mm, modificabili): tutte uguali e centrate. Di serie è acceso sui fogli da tagliare a mano (MRINK143, A4 adesivo intero) e spento sui prefustellati; in anteprima un tratteggio azzurro mostra l'area stampata.
+
 ## Foglio MRINK143: 8 etichette complete (predefinito)
 
 Il foglio **MRINK143** è un A4 con **4 etichette fisiche 105×148 mm** (formato A6, 2×2, senza spazi). Ogni etichetta fisica contiene **2 etichette stampate complete**, una per faldone, che separi con la taglierina lungo la linea a metà: da ogni foglio escono **8 etichette da 105×74 mm**.
