@@ -1,0 +1,6 @@
+_trash/
+__pycache__/
+*.pyc
+*.docmap-licence
+*.key.pem
+.hubdata/
