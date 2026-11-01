@@ -160,6 +160,7 @@ function renderFull(b, g, P){
 
 function renderLabel(kind, b, g, P){
   if (kind === 'S') return renderFull(b, g, P);
+  if (kind === 'Q') return renderQrLabel(b, g, P);   // QR-only label (06d-info.js)
   const w = g.w, h = g.h, pad = clamp(+P.padding || 0, 0, Math.min(w, h) / 4);
   const spine = clamp(Math.min(w, h) * 0.07, 1.6, 5);
   const x0 = spine + pad, y0 = pad, iw = Math.max(5, w - x0 - pad), ih = Math.max(5, h - 2 * pad);
@@ -288,7 +289,7 @@ function renderLabel(kind, b, g, P){
 function printQueueBinders(){
   return S.binders.filter(b => b.selected_for_print && !(S.settings.hideDemo && isDemo(b))).sort((a, b) => naturalCmp(a.speaking_code, b.speaking_code));
 }
-const modeKinds = (m) => m === 'split' ? ['S'] : m === 'pair' ? ['A','B'] : m === 'a' ? ['A'] : m === 'b' ? ['B'] : ['U'];
+const modeKinds = (m) => m === 'split' ? ['S'] : m === 'pair' ? ['A','B'] : m === 'a' ? ['A'] : m === 'b' ? ['B'] : m === 'qr' ? ['Q'] : ['U'];
 function queueItems(){
   const P = S.print, out = [];
   const copies = clamp(parseInt(P.copies, 10) || 1, 1, 50);

@@ -70,7 +70,7 @@ function applyClientsImport(){
   UI.importParsed = null; UI.importText = '';
   commit();
   undoToast(t('cl_done', {a:added, u:updated}));
-  S.view = 'clients'; savePrefs(); renderAll();
+  S.view = 'info'; S.infoTab = 'clients'; savePrefs(); renderAll();
 }
 function clientDefaults(c){
   return { company_name:c.name, multi_code:c.multi_code, company_city:clientPlace(c), category:c.category || c.type || '' };
@@ -96,18 +96,17 @@ function exportClientsCSV(){
   toast(t('ex_done', {f:'docmap_clienti.csv'}));
 }
 
-/* ---------------- Clients view ---------------- */
-function viewClients(){
-  return '<div class="page-h"><div><h1>' + esc(t('cl_h')) + helpDot('clients') + '</h1><p>' + esc(t('cl_p')) + '</p></div>' +
-    '<div class="row"><button class="btn" data-a="pick-import">' + ic('upload') + esc(t('cl_import')) + '</button><button class="btn" data-a="cl-export"' + ((S.clients || []).length ? '' : ' disabled') + '>' + ic('download') + esc(t('cl_export')) + '</button><button class="btn btn-primary" data-a="cl-new">' + ic('plus') + esc(t('cl_new')) + '</button></div></div>' +
-    '<div class="card"><div class="toolbar"><div class="search">' + ic('search') + '<input class="inp" type="search" data-bind="clq" value="' + esc(UI.clq || '') + '" placeholder="' + esc(t('cl_search')) + '" aria-label="search"></div><span class="small muted" id="cl-count"></span></div><div id="cl-results"></div></div>';
+/* ---------------- Clients panel (Informazioni › Clienti) ---------------- */
+function clientsPanelHTML(){
+  return '<div class="toolbar"><div class="search">' + ic('search') + '<input class="inp" type="search" data-bind="clq" value="' + esc(UI.clq || '') + '" placeholder="' + esc(t('cl_search')) + '" aria-label="search"></div><span class="small muted" id="cl-count"></span><span class="tb-sp"></span>' +
+    '<button class="btn" data-a="pick-import">' + ic('upload') + esc(t('cl_import')) + '</button><button class="btn" data-a="cl-export"' + ((S.clients || []).length ? '' : ' disabled') + '>' + ic('download') + esc(t('cl_export')) + '</button><button class="btn btn-primary" data-a="cl-new">' + ic('plus') + esc(t('cl_new')) + '</button></div>' +
+    '<div class="info-intro">' + ic('users') + '<span>' + esc(t('cl_p')) + '</span></div><div id="cl-results"></div>';
 }
 function renderClientResults(){
   const box = $('#cl-results'); if (!box) return;
   const list = (S.clients || []);
   if (!list.length){ box.innerHTML = '<div class="empty">' + ic('archive', 'lg') + '<p>' + esc(t('cl_empty')) + '</p><div class="row" style="justify-content:center"><button class="btn btn-primary" data-a="pick-import">' + ic('upload') + esc(t('cl_import')) + '</button></div></div>'; const c = $('#cl-count'); if (c) c.textContent = ''; return; }
   const q = String(UI.clq || '').trim().toLowerCase();
-  const nB = {}; S.binders.forEach(b => { const k = (b.multi_code || '') + '|' + b.company_name.toLowerCase(); nB[k] = (nB[k] || 0) + 1; });
   const count = (c) => S.binders.filter(b => (c.multi_code && b.multi_code === c.multi_code) || b.company_name.toLowerCase() === c.name.toLowerCase()).length;
   const rows = list.filter(c => !q || [c.multi_code, c.name, c.city, c.province, c.type, c.category, c.address].join(' ').toLowerCase().indexOf(q) >= 0).sort((a, b) => naturalCmp(a.name, b.name));
   const c0 = $('#cl-count'); if (c0) c0.textContent = t('cl_count', {n:rows.length, t:list.length});
@@ -127,9 +126,29 @@ function openClientEditor(id){
       const n = normalizeClient(Object.assign(o, {id:c.id}));
       if (!n.name){ toast(t('cl_w_noname'), 'err'); return; }
       S.clients = S.clients || [];
+      if (src) undoPoint();
+      const nb = src ? propagateClientEdit(src, n) : 0;   // "edit once, changes everywhere": linked binders follow
       const i = S.clients.findIndex(x => x.id === n.id); if (i >= 0) S.clients[i] = n; else S.clients.push(n);
-      commit(); closeModal(true); renderClientResults(); toast(t('saved') + ': ' + n.name);
+      commit(); closeModal(true); renderView();
+      if (nb) undoToast(t('cl_prop', {n:nb})); else toast(t('cl_saved', {n:n.name}));
     }}] });
+}
+
+/* Binders linked to a client (same Multi code, or same company name) follow a change of its name, Multi code and place.
+   Called before the edited client replaces the old one; returns the number of binders changed. */
+function propagateClientEdit(old, neu){
+  const oName = old.name.toLowerCase(), oPlace = clientPlace(old), nPlace = clientPlace(neu);
+  let n = 0;
+  S.binders.forEach(b => {
+    const byMulti = !!old.multi_code && b.multi_code === old.multi_code, byName = b.company_name.toLowerCase() === oName;
+    if (!byMulti && !byName) return;
+    let ch = false;
+    if (neu.name !== old.name && byName){ b.company_name = neu.name; ch = true; }
+    if (neu.multi_code !== old.multi_code && (byMulti || (byName && !b.multi_code))){ b.multi_code = neu.multi_code; ch = true; }
+    if (nPlace !== oPlace && oPlace && b.company_city === oPlace){ b.company_city = nPlace; ch = true; }
+    if (ch){ b.updated_at = nowISO(); n++; }
+  });
+  return n;
 }
 
 /* ---------------- Demo data ---------------- */
@@ -146,7 +165,7 @@ const CLIENT_ACTIONS = {
   'cl-edit': (el) => openClientEditor(el.dataset.id),
   'cl-new': () => openClientEditor(null),
   'cl-export': () => exportClientsCSV(),
-  'cl-del': (el) => { const c = (S.clients || []).find(x => x.id === el.dataset.id); if (!c) return; confirmAction({ danger:true, plain:true, okLabel:t('delete'), detail:t('cl_del_d', {n:c.name}), onOk: () => { undoPoint(); S.clients = S.clients.filter(x => x.id !== c.id); commit(); renderClientResults(); undoToast(t('deleted') + ': ' + c.name); } }); },
+  'cl-del': (el) => { const c = (S.clients || []).find(x => x.id === el.dataset.id); if (!c) return; confirmAction({ danger:true, plain:true, okLabel:t('delete'), detail:t('cl_del_d', {n:c.name}), onOk: () => { undoPoint(); S.clients = S.clients.filter(x => x.id !== c.id); commit(); renderView(); undoToast(t('deleted') + ': ' + c.name); } }); },
   'demo-toggle': () => { S.settings.hideDemo = !S.settings.hideDemo; savePrefs(); renderView(); },
   'demo-delete': () => { const n = S.binders.filter(isDemo).length; confirmAction({ danger:true, okLabel:t('delete'), detail:t('demo_del_d', {n}), onOk: () => { undoPoint(); S.binders = S.binders.filter(b => !isDemo(b)); S.settings.hideDemo = false; commit(); renderView(); undoToast(t('demo_deleted', {n})); } }); }
 };

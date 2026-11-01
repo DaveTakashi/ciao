@@ -6,17 +6,8 @@ const PX_PER_MM = 96 / 25.4;
 
 /* ---------------- Topbar & banner ---------------- */
 function renderTopbar(){
-  const tabs = [['archive','archive','nav_archive'],['print','printer','nav_print'],['clients','users','nav_clients'],['import','upload','nav_import'],['export','download','nav_export'],['ai','sparkles','nav_ai'],['database','database','nav_database'],['settings','sliders','nav_settings']];
-  const dirty = S.hasUnexportedChanges;
-  $('#topbar').innerHTML =
-    '<div class="brand"><div class="brand-mark">DM26</div><div><div class="brand-t">DocMap 2026</div><div class="brand-s">' + esc(t('brand_s')) + '</div></div></div>' +
-    '<nav class="nav" aria-label="Main">' + tabs.map(([v, i, k]) => '<button data-a="nav" data-v="' + v + '" class="' + (S.view === v ? 'on' : '') + '">' + ic(i) + esc(t(k)) + '</button>').join('') + '</nav>' +
-    '<div class="top-right">' +
-      (dirty ? '<span class="status warn" title="' + esc(t('st_dirty')) + '"><span class="dot"></span><span class="st-l">' + esc(t('st_dirty')) + '</span><span class="st-s">' + esc(S.lang === 'en' ? 'Not exported' : 'Da esportare') + '</span></span><button class="btn btn-amber btn-sm" data-a="quick-backup">' + ic('save') + esc(t('quick_backup')) + '</button>'
-             : '<span class="status ok" title="' + esc(t('st_ok') + (S.lastExportFile ? ' — ' + S.lastExportFile : '')) + '"><span class="dot"></span><span class="st-l">' + esc(t('st_ok')) + '</span><span class="st-s">' + esc(S.lang === 'en' ? 'Exported' : 'Esportato') + '</span></span>') +
-      '<button class="help-btn" data-a="help-open" title="' + esc(t('help')) + ' (F1)" aria-label="' + esc(t('help')) + '">?</button>' +
-      '<div class="lang" role="group" aria-label="Language"><button data-a="lang" data-l="it" class="' + (S.lang === 'it' ? 'on' : '') + '">IT</button><button data-a="lang" data-l="en" class="' + (S.lang === 'en' ? 'on' : '') + '">EN</button></div>' +
-    '</div>';
+  infoApplyCatColors();   // keep CAT_COLOR in sync with Informazioni › Categorie (runs after every commit and renderAll)
+  $('#topbar').innerHTML = topbarHTML();   // 06d-info.js: 3 main tabs + "Funzioni avanzate" menu
 }
 function renderBanner(){
   let h = '';
@@ -27,11 +18,12 @@ function renderBanner(){
 function renderView(){
   document.documentElement.lang = S.lang;
   const v = S.view;
-  const fn = {archive:viewArchive, print:viewPrint, import:viewImport, export:viewExport, ai:viewAI, database:viewDatabase, settings:viewSettings, clients:viewClients}[v] || viewArchive;
+  if (v === 'clients'){ S.view = 'info'; S.infoTab = 'clients'; return renderView(); }
+  const fn = {archive:viewArchive, print:viewPrint, import:viewImport, export:viewExport, ai:viewAI, database:viewDatabase, settings:viewSettings, info:viewInfo}[v] || viewArchive;
   $('#view').innerHTML = fn();
   if (v === 'print') mountPrint();
   if (v === 'archive') renderArchiveResults();
-  if (v === 'clients') renderClientResults();
+  if (v === 'info') mountInfo();
 }
 function renderAll(){ document.body.dataset.drop = t('drop_here'); renderBanner(); renderTopbar(); renderView(); }
 
@@ -44,6 +36,7 @@ function filteredBinders(){
     if (UI.fState && b.archive_state !== UI.fState) return false;
     if (UI.fRoom && b.room_code !== UI.fRoom) return false;
     if (UI.fCat && b.category !== UI.fCat) return false;
+    if (UI.fInfo && !infoMatch(b, UI.fInfo)) return false;   // filter set from Informazioni
     if (!q) return true;
     const hay = [b.speaking_code, b.multi_code, b.company_name, b.company_city, b.ref_year, b.extra_codes, b.category, b.binder_title, b.location_code, b.tags, b.short_code, contentsToPipe(b.contents_items), t('s_' + b.archive_state)].join(' ').toLowerCase();
     return q.split(/\s+/).every(w => hay.indexOf(w) >= 0);
@@ -55,7 +48,7 @@ function viewArchive(){
   const sel = (id, all, opts, cur) => '<select class="inp" data-bind="' + id + '"><option value="">' + esc(all) + '</option>' + opts.map(o => '<option value="' + esc(o[0]) + '"' + (cur === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('') + '</select>';
   return '<div class="page-h"><div><h1>' + esc(t('arch_h')) + helpDot('create') + '</h1><p>' + esc(t('arch_p')) + '</p></div>' +
     '<div class="row"><button class="btn btn-lg btn-primary" data-a="new-binder">' + ic('plus') + esc(t('new_binder')) + '</button></div></div>' +
-    demoBarHTML() +
+    demoBarHTML() + infoFilterBarHTML() +
     '<div class="kpis" id="kpis"></div>' +
     '<div class="card"><div class="toolbar">' +
       '<div class="search">' + ic('search') + '<input class="inp" type="search" data-bind="q" value="' + esc(UI.q) + '" placeholder="' + esc(t('search_ph')) + '" aria-label="search"></div>' +
@@ -292,12 +285,12 @@ function viewPrint(){
   const presets = basicPresets + (nOthers ? '<details class="more"><summary>' + esc(t('pr_more', {n:nOthers})) + '</summary>' + others + '</details>' : '');
   const opt = (grp, val, title, desc, cur, full) => '<button type="button" class="opt ' + (cur === val ? 'on ' : '') + (full ? 'full' : '') + '" data-a="' + grp + '" data-v="' + val + '"><b>' + esc(title) + '</b><span>' + esc(desc) + '</span></button>';
   return '<div class="page-h"><div><h1>' + esc(t('pr_h')) + helpDot('print') + '</h1><p>' + esc(t('pr_p')) + '</p></div>' +
-    '<div class="row"><button class="btn btn-lg" data-a="print-calib">' + ic('crosshair') + esc(t('pr_calib')) + '</button><button class="btn btn-lg btn-primary" data-a="print-labels" id="btn-print">' + ic('printer') + esc(t('pr_go')) + '</button></div></div>' +
+    '<div class="row"><button class="btn btn-lg" data-a="print-calib">' + ic('crosshair') + esc(t('pr_calib')) + '</button><button class="btn btn-lg btn-primary" data-a="print-labels" id="btn-print">' + ic('printer') + esc(t('pr_go')) + '</button></div></div>' + qrRestoreBarHTML() +
     '<div class="studio"><div class="card">' +
       '<div class="panel-sec"><h3>' + esc(t('pr_queue')) + '</h3><div id="pr-summary"></div></div>' +
       '<div class="panel-sec"><h3>' + esc(t('pr_sheet')) + '</h3><div class="preset-list">' + presets + '</div></div>' +
       '<div class="panel-sec"><h3>' + esc(t('pr_content')) + helpDot('split') + '</h3><div class="opt-grid">' +
-        opt('cmode', 'split', t('cm_split'), t('cm_split_d'), P.contentMode, true) + opt('cmode', 'pair', t('cm_pair'), t('cm_pair_d'), P.contentMode, true) + opt('cmode', 'a', t('cm_a'), t('cm_a_d'), P.contentMode) + opt('cmode', 'b', t('cm_b'), t('cm_b_d'), P.contentMode) + opt('cmode', 'u', t('cm_u'), t('cm_u_d'), P.contentMode, true) +
+        opt('cmode', 'split', t('cm_split'), t('cm_split_d'), P.contentMode, true) + opt('cmode', 'pair', t('cm_pair'), t('cm_pair_d'), P.contentMode, true) + opt('cmode', 'a', t('cm_a'), t('cm_a_d'), P.contentMode) + opt('cmode', 'b', t('cm_b'), t('cm_b_d'), P.contentMode) + opt('cmode', 'u', t('cm_u'), t('cm_u_d'), P.contentMode, true) + opt('cmode', 'qr', t('cm_qr'), t('cm_qr_d'), P.contentMode, true) +
         '</div><div class="geo-row" style="margin-top:10px"><span class="lbl">' + esc(t('copies')) + '</span><input class="inp" style="width:90px;min-height:38px" type="number" min="1" max="50" step="1" value="' + (P.copies || 1) + '" data-pp="copies"></div></div>' +
       '<div class="panel-sec" id="pr-fields"><h3>' + esc(t('pr_fields')) + helpDot('fields') + '</h3><div class="fld-grid">' +
         [['category','f_category'],['city','f_city'],['multi','f_multi'],['url','qr_url_s'],['title','f_title_s'],['year','f_year_ref'],['contents','f_contents_s'],['tags','f_tags'],['extra','f_extra'],['location','fl_location']].map(([k, lab]) => '<label class="chk small"><input type="checkbox" data-fld="' + k + '"' + (pf(k) ? ' checked' : '') + '>' + esc(t(lab)) + '</label>').join('') +

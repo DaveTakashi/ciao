@@ -26,7 +26,7 @@ const sec = (n) => console.log('\n== ' + n);
   ok(await p.evaluate(() => S.binders.length === 5 && new Set(S.binders.map(b => b.short_code)).size === 5 && S.binders.every(b => /^dm26[A-HJ-NP-Za-km-np-z2-9]{8}$/.test(b.short_code))), 'demo data + unambiguous dm26 codes');
 
   sec('views at 1366x768 (no horizontal scroll)');
-  for (const v of ['archive','print','clients','import','export','ai','database','settings']){
+  for (const v of ['archive','print','info','import','export','ai','database','settings']){
     await p.evaluate(v => { S.view = v; renderAll(); }, v); await p.waitForTimeout(250);
     const w = await p.evaluate(() => [document.documentElement.scrollWidth, innerWidth]);
     ok(w[0] <= w[1] + 1, 'no h-scroll in ' + v, w);
@@ -424,7 +424,7 @@ const sec = (n) => console.log('\n== ' + n);
   ok(v.isC && v.n === 5 && v.st === 'new,new,new,err,err' && v.c0.multi_code === '8' && v.c0.name === 'APS IL ROSMARINO TEST' && v.c0.category === 'APS' && v.place === "LESIGNANO DE' BAGNI (PR)", 'client CSV recognised (Ditta→Multi, Ragione_soc→name, Localita (Provincia)→place, ETS_ENC→category), duplicates and nameless rows flagged', v);
   await p.evaluate(() => { S.view = 'import'; renderAll(); $('#im-preview').innerHTML = importPreviewHTML(); }); await p.click('[data-a="cl-apply"]'); await p.waitForTimeout(300);
   v = await p.evaluate(() => ({view:S.view, n:S.clients.length, rows:document.querySelectorAll('#cl-results tbody tr').length}));
-  ok(v.view === 'clients' && v.n === 3 && v.rows === 3, 'clients imported into the register view', v);
+  ok(v.view === 'info' && v.n === 3 && v.rows === 3, 'clients imported into the register view', v);
   v = await p.evaluate((csv) => { analyzeImport(csv); return UI.importParsed.clients.map(r => r.status).join(','); }, csv);
   ok(v === 'upd,upd,upd,err,err', 're-importing the same list updates instead of duplicating', v);
   await p.evaluate(() => { UI.importParsed = null; });
@@ -483,6 +483,138 @@ const sec = (n) => console.log('\n== ' + n);
   await p.evaluate(() => { guideStop(); S.view = 'archive'; renderAll(); });
   // ===== v8 stream A (navigation + Informazioni + QR overview) — add tests below this line =====
   // @@STREAM-A@@
+  sec('v8 A: navigation, Informazioni, QR reprint');
+  // top bar: 3 main tabs, everything else in the "Funzioni avanzate" menu
+  v = await p.evaluate(() => ({main:[...document.querySelectorAll('.nav .nav-main [data-a="nav"]')].map(b => b.dataset.v), adv:[...document.querySelectorAll('#nav-more [data-a="nav"]')].map(b => b.dataset.v).sort(), vis:[...document.querySelectorAll('.nav [data-a="nav"]')].filter(b => b.checkVisibility()).length}));
+  ok(v.main.join() === 'archive,print,info' && v.vis === 3 && v.adv.join() === 'ai,database,export,import,settings', 'top bar: exactly 3 main tabs, the rest in the "Funzioni avanzate" menu', v);
+  for (const view of ['import', 'export', 'database', 'ai', 'settings']){
+    await p.click('#nav-more summary'); await p.waitForTimeout(120);
+    await p.click('#nav-more [data-v="' + view + '"]'); await p.waitForTimeout(200);
+    const r = await p.evaluate(() => ({view:S.view, open:$('#nav-more').open, on:$('#nav-more').classList.contains('on'), item:!!$('#nav-more .nm-item.on[data-v="' + S.view + '"]')}));
+    ok(r.view === view && !r.open && r.on && r.item, 'gear menu opens and navigates to ' + view + ' (shown as active)', r);
+  }
+  await p.focus('#nav-more summary'); await p.keyboard.press('Enter'); await p.waitForTimeout(80); await p.keyboard.press('ArrowDown');
+  v = await p.evaluate(() => ({open:$('#nav-more').open, f:document.activeElement.dataset.v}));
+  await p.keyboard.press('Escape'); await p.waitForTimeout(80);
+  let vA2 = await p.evaluate(() => ({open:$('#nav-more').open, f:document.activeElement.tagName}));
+  ok(v.open && v.f === 'import' && !vA2.open && vA2.f === 'SUMMARY', 'menu works from the keyboard (Enter, arrows, Esc back to the button)', [v, vA2]);
+  await p.click('#nav-more summary'); await p.waitForTimeout(80); await p.mouse.click(700, 600); await p.waitForTimeout(80);
+  ok(!(await p.evaluate(() => $('#nav-more').open)), 'menu closes on an outside click');
+  for (const w of [1180, 390]){
+    await p.setViewportSize({width:w, height:800}); await p.evaluate(() => { S.view = 'info'; renderAll(); }); await p.waitForTimeout(200);
+    const r = await p.evaluate(() => ({sw:document.documentElement.scrollWidth, iw:innerWidth, h:document.querySelector('.topbar').offsetHeight}));
+    ok(r.sw <= r.iw + 1 && r.h < 130, 'top bar fits at ' + w + 'px', r);
+    await p.screenshot({path:'shots/a_top_' + w + '.png'});
+  }
+  await p.setViewportSize({width:1366, height:768});
+  // view key migration
+  v = await p.evaluate(() => { const m = migrate(Object.assign(JSON.parse(JSON.stringify(S)), {view:'clients'})); S.view = 'clients'; renderAll(); return [m.view, m.infoTab, S.view, !!$('#cl-results')]; });
+  ok(v.join() === 'info,clients,info,true', 'old view "clients" migrates to "info" (client register sub-tab)', v);
+  // every sub-tab renders
+  for (const tab of ['clients', 'tags', 'category', 'year', 'place', 'multi', 'extra', 'qr']){
+    await p.click('.info-tabs [data-v="' + tab + '"]'); await p.waitForTimeout(150);
+    const r = await p.evaluate(() => ({tab:S.infoTab, rows:document.querySelectorAll('#info-panel tbody tr').length, sw:document.documentElement.scrollWidth, iw:innerWidth}));
+    ok(r.tab === tab && r.rows > 0 && r.sw <= r.iw + 1, 'Informazioni › ' + tab + ' renders', r);
+  }
+  await p.screenshot({path:'shots/a_info_qr.png'});
+  ok(await p.evaluate(() => { const y = infoCollect('year').map(e => e.key), pl = infoCollect('place').map(e => e.key), m = infoCollect('multi').find(e => e.key === '8'); return y.includes('2025') && y.includes('2019') && pl.includes('parma (pr)') && pl.includes('busseto (pr)') && m && m.nC === 1; }), 'lists merge binder and client values (years from contents, client places and Multi codes)');
+  // tags: rename, merge, delete, undo
+  await p.click('.info-tabs [data-v="tags"]'); await p.waitForTimeout(150);
+  ok(await p.evaluate(() => !document.querySelector('[data-a="info-rename"][data-k="demo"]') && !!document.querySelector('.tagpill.demo')), 'the "demo" tag is shown, marked and protected');
+  const tagN = (k) => p.evaluate((k) => S.binders.filter(b => b.tags.split(',').map(x => x.trim().toLowerCase()).includes(k)).length, k);
+  const nF = await tagN('fatture');
+  await p.click('[data-a="info-rename"][data-k="fatture"]'); await p.fill('#info-new', 'Fatturazione'); await p.locator('.modal-f .btn-primary').last().click(); await p.waitForTimeout(200);
+  ok(nF > 0 && await tagN('fatture') === 0 && await tagN('fatturazione') === nF && await p.evaluate(() => !!document.querySelector('[data-a="info-rename"][data-k="fatturazione"]')), 'tag rename applies to every binder (lowercase) and the list updates live', nF);
+  const n25 = await tagN('2025'), nIva = await tagN('iva'), both = await p.evaluate(() => S.binders.filter(b => /(^|,)iva(,|$)/.test(b.tags) && /(^|,)2025(,|$)/.test(b.tags)).length);
+  await p.click('[data-a="info-rename"][data-k="iva"]'); await p.fill('#info-new', '2025'); await p.waitForTimeout(80);
+  ok(await p.isVisible('#info-new-hint .warn-box'), 'renaming onto an existing tag warns that they will be merged');
+  await p.locator('.modal-f .btn-primary').last().click(); await p.waitForTimeout(200);
+  v = await p.evaluate(() => S.binders.map(b => b.tags.split(',')).filter(a => a.filter(x => x === '2025').length > 1).length);
+  ok(await tagN('iva') === 0 && await tagN('2025') === n25 + nIva - both && v === 0, 'merge = rename onto an existing tag (no duplicates in a binder)', [n25, nIva, both]);
+  await p.click('.toast-act'); await p.waitForTimeout(250);
+  ok(await tagN('iva') === nIva && await tagN('2025') === n25, 'merge can be undone');
+  await p.evaluate(() => { S.view = 'info'; S.infoTab = 'tags'; renderAll(); }); await p.waitForTimeout(100);
+  const nPaghe = await tagN('paghe');
+  await p.click('[data-a="info-del"][data-k="paghe"]'); await p.waitForTimeout(100); await p.locator('.modal-f .btn-danger-solid').last().click(); await p.waitForTimeout(200);
+  ok(await tagN('paghe') === 0 && await p.evaluate(() => S.binders.some(b => b.speaking_code === 'BL3')), 'tag delete removes it from binders (binders stay)');
+  await p.click('.toast-act'); await p.waitForTimeout(250);
+  ok(nPaghe > 0 && await tagN('paghe') === nPaghe, 'tag delete can be undone', nPaghe);
+  // usage count → archive filter
+  await p.evaluate(() => { S.view = 'info'; S.infoTab = 'category'; renderAll(); }); await p.waitForTimeout(100);
+  await p.click('[data-a="info-filter"][data-k="ordinaria"]'); await p.waitForTimeout(200);
+  v = await p.evaluate(() => ({view:S.view, bar:!!document.querySelector('.ifilter'), n:filteredBinders().length, exp:S.binders.filter(b => b.category === 'Ordinaria').length, rows:document.querySelectorAll('#arch-results tbody tr').length}));
+  ok(v.view === 'archive' && v.bar && v.n === v.exp && v.rows === v.exp, 'clicking a count opens the Archive filtered by that value', v);
+  await p.click('[data-a="info-unfilter"]'); await p.waitForTimeout(150);
+  ok(await p.evaluate(() => !UI.fInfo && !document.querySelector('.ifilter') && filteredBinders().length === S.binders.length), 'archive filter can be cleared');
+  // category colour for new binders
+  await p.evaluate(() => { S.view = 'info'; S.infoTab = 'category'; renderAll(); }); await p.waitForTimeout(100);
+  await p.click('[data-a="info-color"][data-k="lavoro"]'); await p.waitForTimeout(100);
+  await p.click('#info-sws [data-c="#DB2777"]'); await p.locator('.modal-f .btn-primary').last().click(); await p.waitForTimeout(200);
+  v = await p.evaluate(() => { openEditor(null); const i = $('#ed-category'); i.value = 'Lavoro'; i.dispatchEvent(new Event('input', {bubbles:true})); const c = UI.ed.d.color_hex; closeModal(true); return {c, set:S.settings.catColors.Lavoro, old:S.binders.find(b => b.speaking_code === 'BL3').color_hex, db:JSON.parse(workspaceJSON()).settings.catColors.Lavoro}; });
+  ok(v.c === '#DB2777' && v.set === '#DB2777' && v.old === '#D97706' && v.db === '#DB2777', 'category colour is used for new binders, existing ones untouched, saved in the workspace', v);
+  // client rename propagates to its binders
+  await p.evaluate(() => { S.binders.push(normalizeBinder({speaking_code:'HH1', company_name:'HAND2HAND APS TEST', multi_code:'16', company_city:'BUSSETO (PR)', short_code:newShortCode()})); commit(); S.view = 'info'; S.infoTab = 'clients'; UI.clq = ''; renderAll(); });
+  await p.click('#cl-results tr:has-text("HAND2HAND") [data-a="cl-edit"]'); await p.waitForTimeout(150);
+  await p.fill('#cl-name', 'HAND2HAND APS NUOVO'); await p.fill('#cl-multi_code', '160'); await p.locator('.modal-f .btn-primary').last().click(); await p.waitForTimeout(200);
+  v = await p.evaluate(() => { const b = S.binders.find(x => x.speaking_code === 'HH1'); return [b.company_name, b.multi_code, S.clients.some(c => c.name === 'HAND2HAND APS NUOVO' && c.multi_code === '160')]; });
+  ok(v.join() === 'HAND2HAND APS NUOVO,160,true', 'editing a client name / Multi code updates its binders too', v);
+  await p.click('.toast-act'); await p.waitForTimeout(250);
+  v = await p.evaluate(() => { const b = S.binders.find(x => x.speaking_code === 'HH1'); return [b.company_name, b.multi_code, S.clients.some(c => c.name === 'HAND2HAND APS TEST')]; });
+  ok(v.join() === 'HAND2HAND APS TEST,16,true', 'client edit with linked binders can be undone', v);
+  v = await p.evaluate(() => { undoPoint(); const r = infoRename('multi', '16', 'M-16'); commit(); return {r, b:S.binders.find(x => x.speaking_code === 'HH1').multi_code, c:S.clients.find(c => c.name === 'HAND2HAND APS TEST').multi_code}; });
+  ok(v.r.nb === 1 && v.r.nc === 1 && v.b === 'M-16' && v.c === 'M-16', 'renaming a Multi code changes binders and clients', v);
+  v = await p.evaluate(() => { const r = infoRename('place', 'busseto (pr)', 'Busseto (PR)'); const c = S.clients.find(c => c.name === 'HAND2HAND APS TEST'); return [r.nb, r.nc, c.city, c.province, S.binders.find(x => x.speaking_code === 'HH1').company_city]; });
+  ok(v.join() === '1,1,Busseto,PR,Busseto (PR)', 'renaming a place splits it back into client town + province', v);
+  // QR overview and reprint
+  const prevPrint = await p.evaluate(() => ({preset:S.print.presetId, mode:S.print.contentMode, sel:S.binders.filter(b => b.selected_for_print).map(b => b.id).sort().join()}));
+  await p.evaluate(() => { S.view = 'info'; S.infoTab = 'qr'; UI.qrq = ''; UI.qrSel = new Set(); renderAll(); }); await p.waitForTimeout(200);
+  v = await p.evaluate(() => ({rows:document.querySelectorAll('#qr-results tbody tr').length, n:S.binders.length, svg:document.querySelectorAll('#qr-results .qr-thumb svg').length, dis:$('#qr-reprint').disabled}));
+  ok(v.rows === v.n && v.svg === v.n && v.dis, 'QR tab lists every binder with its QR; reprint disabled with nothing selected', v);
+  await p.click('#qr-all'); await p.waitForTimeout(100);
+  ok(await p.evaluate(() => UI.qrSel.size === S.binders.length), 'QR tab: select all');
+  await p.click('#qr-all'); await p.fill('[data-bind="qrq"]', 'BL'); await p.waitForTimeout(100);
+  await p.click('#qr-all'); await p.waitForTimeout(100);
+  const picked = await p.evaluate(() => Array.from(UI.qrSel).sort().join());
+  await p.click('#qr-reprint'); await p.waitForTimeout(400);
+  v = await p.evaluate(() => ({view:S.view, mode:S.print.contentMode, preset:S.print.presetId, q:printQueueBinders().map(b => b.id).sort().join(), bar:!!document.querySelector('.qr-bar'), opt:!!document.querySelector('.opt.on[data-a="cmode"][data-v="qr"]'), prev:!!S.printPrev, kinds:queueItems().map(i => i.kind).join('')}));
+  ok(v.view === 'print' && v.mode === 'qr' && v.preset === 'l7159' && v.q === picked && v.bar && v.opt && v.prev && /^Q+$/.test(v.kinds) && picked.split(',').length === 3, 'reprint opens the print studio with QR-only labels of the selected binders on a small sheet', v);
+  await p.screenshot({path:'shots/a_qr_print.png'});
+  const info = await p.evaluate(() => {
+    document.getElementById('page-style').textContent = '@page{size:210mm 297mm;margin:0mm}';
+    document.getElementById('print-root').innerHTML = buildLabelSheets(false)[0];
+    const g = S.print.geometry; return {slots:layoutLabels().pages[0].map(x => Object.assign(slotRect(x.s), {url:x.item.b.short_url})), w:g.w, h:g.h, q:LM.Q && LM.Q.q};
+  });
+  await p.emulateMedia({media:'print'}); const pdfQ = await p.pdf({width:'210mm', height:'297mm', printBackground:true, preferCSSPageSize:true}); await p.emulateMedia({media:'screen'});
+  fs.writeFileSync('shots/q.pdf', pdfQ);
+  require('child_process').execSync('python3 -c "import pypdfium2 as p;d=p.PdfDocument(\'shots/q.pdf\');d[0].render(scale=300/72).to_pil().convert(\'RGBA\').save(\'shots/q.png\')"');
+  {
+    const png = PNG.sync.read(fs.readFileSync('shots/q.png')), k = png.width / 210; let good = 0;
+    for (const s of info.slots){
+      const x0 = Math.floor(s.x * k), y0 = Math.floor(s.y * k), w = Math.floor(info.w * k), h = Math.floor(info.h * k), d = new Uint8ClampedArray(w * h * 4);
+      for (let j = 0; j < h; j++){ const st = ((y0 + j) * png.width + x0) * 4; d.set(png.data.subarray(st, st + w * 4), j * w * 4); }
+      const r = jsQR(d, w, h); if (r && r.data === s.url) good++;
+    }
+    ok(good === info.slots.length && info.q >= 20, `QR-only labels decode on the printed PDF: ${good}/${info.slots.length} (QR ${info.q} mm)`);
+  }
+  await p.evaluate(() => { document.getElementById('print-root').innerHTML = ''; });
+  v = await p.evaluate(() => ['mrink143', 'l7165', 'a4-5s'].map(id => { const g = frameGeo(geoFromPreset(findPreset(id))); renderLabel('Q', S.binders[0], g, S.print); return LM.Q.q > 10 && LM.Q.code > 3; }));
+  ok(v.every(Boolean), 'QR-only label fits any slot (tall, wide, strip)', v);
+  await p.click('[data-a="qr-restore"]'); await p.waitForTimeout(250);
+  v = await p.evaluate(() => ({preset:S.print.presetId, mode:S.print.contentMode, sel:S.binders.filter(b => b.selected_for_print).map(b => b.id).sort().join(), prev:!!S.printPrev, bar:!!document.querySelector('.qr-bar')}));
+  ok(v.preset === prevPrint.preset && v.mode === prevPrint.mode && v.sel === prevPrint.sel && !v.prev && !v.bar, 'previous print settings and selection are restored', [v, prevPrint]);
+  // guides still reach views inside the menu
+  await p.evaluate(() => { S.view = 'archive'; renderAll(); guideStart('backup'); }); await p.waitForTimeout(300);
+  await p.click('[data-a="guide-next"]'); await p.waitForTimeout(400);
+  v = await p.evaluate(() => ({open:$('#nav-more').open, ring:getComputedStyle(document.querySelector('.g-ring')).display, txt:L(guideStep().text)}));
+  await p.click('[data-a="guide-next"]'); await p.waitForTimeout(400);
+  vA2 = await p.evaluate(() => ({view:S.view, i:G.i}));
+  ok(v.open && v.ring === 'block' && v.txt.includes('Funzioni avanzate') && vA2.view === 'export' && vA2.i === 2, 'guide: a step inside the closed menu opens it, Next navigates', [v, vA2]);
+  await p.evaluate(() => { guideStop(); S.view = 'archive'; renderAll(); });
+  // help topics
+  ok(await p.evaluate(() => ['nav', 'info', 'qr-reprint'].every(id => { const h = helpTopic(id); return h && h.title.it && h.title.en && h.body.it.length > 200 && h.body.en.length > 200; }) && helpTopic('clients').body.it.includes('Informazioni')), 'help topics for the new navigation, Informazioni and QR reprint (IT + EN)');
+  await p.evaluate(() => { S.lang = 'en'; S.view = 'info'; S.infoTab = 'tags'; renderAll(); });
+  ok((await p.innerText('.nav')).includes('Information') && (await p.innerText('#info-panel')).includes('Rename'), 'Informazioni in English');
+  await p.evaluate(() => { S.lang = 'it'; S.view = 'archive'; renderAll(); });
 
   // ----------------------------------------------------------------------
 

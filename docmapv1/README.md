@@ -57,9 +57,15 @@ Il **codice parlante** c'è sempre. Si possono accendere o spegnere: categoria, 
 
 La colonna di sinistra mostra solo coda di stampa, foglio (con il consigliato in evidenza), contenuto, campi, QR e qualità. **Opzioni avanzate** (riquadro richiudibile, resta come l'hai lasciato) contiene geometria del foglio, offset e margine interno, verso di lettura e linea di taglio, recupero dei fogli parziali e calibrazione. Le guide lo aprono da sole quando serve.
 
+## Barra in alto e Informazioni
+
+La barra in alto ha tre schede: **Archivio**, **Stampa etichette** e **Informazioni**. Importa, Esporta e Salva, Database, Genera con AI e Impostazioni sono nel menu **⚙ Funzioni avanzate** accanto alle schede (si apre anche da tastiera; la schermata avanzata aperta è evidenziata).
+
+**Informazioni** raccoglie in sotto-schede tutte le voci usate nei faldoni: Clienti, Tag, Categorie, Anni, Luoghi, Codici Multi, Codici extra e QR. Ogni voce mostra quanti faldoni la usano (clic sul numero = Archivio filtrato). **Rinomina** cambia la voce in tutti i faldoni e clienti; rinominare su una voce esistente la **unisce**; **Elimina** la toglie dai faldoni. Tutto è annullabile. In Categorie si sceglie il colore dei nuovi faldoni della categoria. In **QR** si selezionano i QR rovinati e **Ristampa solo QR** apre la stampa con etichette piccole (QR + codice parlante + codice breve, foglio predefinito Avery L7159 da 24), conservando le impostazioni di stampa precedenti da ripristinare con un clic.
+
 ## Anagrafica clienti
 
-Nella scheda **Clienti** importi l'elenco clienti dello studio, ad esempio `CLIENTI STORICI ELENCO TIPIZZATO.csv` con intestazione `TIPO;Ditta;Ragione_soc;Indirizzo;Codice_com;Cap;Localita;Provincia;ETS_ENC`. DocMap riconosce da solo che è un elenco clienti (non faldoni) e mostra l'anteprima prima di importare.
+In **Informazioni › Clienti** importi l'elenco clienti dello studio, ad esempio `CLIENTI STORICI ELENCO TIPIZZATO.csv` con intestazione `TIPO;Ditta;Ragione_soc;Indirizzo;Codice_com;Cap;Localita;Provincia;ETS_ENC`. DocMap riconosce da solo che è un elenco clienti (non faldoni) e mostra l'anteprima prima di importare.
 
 | Colonna del file | Campo DocMap |
 |---|---|
