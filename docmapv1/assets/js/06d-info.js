@@ -51,7 +51,7 @@ Object.assign(I18N.it, {
   in_h:'Informazioni', in_p:'Tutte le voci usate nei faldoni, in un posto solo. Rinomina o unisci una voce una volta e cambia ovunque: faldoni, clienti, stampa.',
   in_clients:'Clienti', in_tags:'Tag', in_category:'Categorie', in_year:'Anni', in_place:'Luoghi', in_multi:'Codici Multi', in_extra:'Codici extra', in_qr:'QR',
   in_d_tags:'I tag dei faldoni (minuscoli). Il tag "demo" segna i faldoni di esempio e non si modifica.',
-  in_d_category:'Le categorie dei faldoni e dell\'anagrafica clienti. Il colore scelto viene usato per i nuovi faldoni della categoria.',
+  in_d_category:'Le categorie dei faldoni e dell\'anagrafica clienti. Ogni categoria ha una famiglia di colori: ogni cliente riceve una sua sfumatura.',
   in_d_year:'Gli anni di riferimento dei faldoni e gli anni scritti nei contenuti.',
   in_d_place:'Il luogo della ditta nei faldoni e la località dei clienti (es. "Parma (PR)").',
   in_d_multi:'I Codici Multi di faldoni e clienti. Rinominarne uno lo cambia anche sulle etichette da ristampare.',
@@ -65,7 +65,7 @@ Object.assign(I18N.it, {
   in_renamed:'"{a}" → "{b}": aggiornati {n} faldoni{c}', in_merged:'"{a}" unita in "{b}": aggiornati {n} faldoni{c}', in_deleted:'"{v}" tolta da {n} faldoni{c}',
   in_demo:'esempi', in_demo_lock:'Il tag "demo" segna i faldoni di esempio: si gestisce dalla barra in Archivio.', in_empty_name:'Scrivi un nome.',
   in_filter:'Filtro', in_filter_off:'Togli filtro', in_back:'Torna a Informazioni', in_show:'Vedi i faldoni in Archivio',
-  in_color_t:'Colore della categoria "{v}"', in_color_d:'Usato per i nuovi faldoni di questa categoria (barra colorata sull\'etichetta).', in_color_apply:'Applica anche ai {n} faldoni esistenti di questa categoria',
+  in_color_t:'Colore della categoria "{v}"', in_color_d:'Colore della barra sull\'etichetta per i faldoni di questa categoria. Con l\'assegnazione Per cliente ogni cliente riceve una sfumatura diversa della famiglia.', in_color_apply:'Applica anche ai {n} faldoni esistenti di questa categoria',
   in_color_reset:'Predefinito', in_color_custom:'Altro colore', in_color_saved:'Colore di "{v}" salvato', in_color_def:'predefinito', in_color_none:'Nessun colore: i nuovi faldoni usano il blu',
   qr_h_sel:'{n} selezionati', qr_sel_vis:'Seleziona tutti', qr_reprint:'Ristampa solo QR', qr_preset:'Foglio', qr_search:'Cerca codice, cliente, codice breve…',
   qr_dest:'Destinazione finale', qr_short:'Codice breve', qr_more:'Mostra altri {n}', qr_svg:'Scarica SVG', qr_png:'Scarica PNG', qr_none_sel:'Seleziona almeno un QR da ristampare.',
@@ -83,7 +83,7 @@ Object.assign(I18N.en, {
   in_h:'Information', in_p:'Every value used in your binders, in one place. Rename or merge a value once and it changes everywhere: binders, clients, printing.',
   in_clients:'Clients', in_tags:'Tags', in_category:'Categories', in_year:'Years', in_place:'Places', in_multi:'Multi codes', in_extra:'Extra codes', in_qr:'QR',
   in_d_tags:'Binder tags (lowercase). The "demo" tag marks the sample binders and cannot be edited.',
-  in_d_category:'Categories of binders and of the client register. The chosen colour is used for new binders of the category.',
+  in_d_category:'Categories of binders and of the client register. Each category has a colour family: each client gets its own shade.',
   in_d_year:'Reference years of binders and the years written in their contents.',
   in_d_place:'Company place in binders and client towns (e.g. "Parma (PR)").',
   in_d_multi:'Multi codes of binders and clients. Renaming one also changes it on labels you reprint.',
@@ -97,7 +97,7 @@ Object.assign(I18N.en, {
   in_renamed:'"{a}" → "{b}": {n} binders updated{c}', in_merged:'"{a}" merged into "{b}": {n} binders updated{c}', in_deleted:'"{v}" removed from {n} binders{c}',
   in_demo:'samples', in_demo_lock:'The "demo" tag marks the sample binders: manage it from the bar in the Archive.', in_empty_name:'Type a name.',
   in_filter:'Filter', in_filter_off:'Clear filter', in_back:'Back to Information', in_show:'Show the binders in the Archive',
-  in_color_t:'Colour of category "{v}"', in_color_d:'Used for new binders of this category (colour bar on the label).', in_color_apply:'Also apply to the {n} existing binders of this category',
+  in_color_t:'Colour of category "{v}"', in_color_d:'Colour bar on the label for the binders of this category. With the By client assignment each client gets a different shade of the family.', in_color_apply:'Also apply to the {n} existing binders of this category',
   in_color_reset:'Default', in_color_custom:'Other colour', in_color_saved:'Colour of "{v}" saved', in_color_def:'default', in_color_none:'No colour: new binders use blue',
   qr_h_sel:'{n} selected', qr_sel_vis:'Select all', qr_reprint:'Reprint QR only', qr_preset:'Sheet', qr_search:'Search code, client, short code…',
   qr_dest:'Final destination', qr_short:'Short code', qr_more:'Show {n} more', qr_svg:'Download SVG', qr_png:'Download PNG', qr_none_sel:'Select at least one QR to reprint.',
@@ -171,7 +171,11 @@ const CAT_COLOR_DEFAULT = Object.assign({}, CAT_COLOR);
 function infoApplyCatColors(){
   if (!S || !S.settings) return;
   Object.keys(CAT_COLOR).forEach(k => delete CAT_COLOR[k]);
-  Object.assign(CAT_COLOR, CAT_COLOR_DEFAULT, S.settings.catColors || {});
+  Object.assign(CAT_COLOR, CAT_COLOR_DEFAULT);
+  // v10: a category with a chosen colour family (02b-colors.js) uses the family's first shade, unless it has its own colour
+  const fams = S.settings.catFamilies || {};
+  Object.keys(fams).forEach(k => { if (COLOR_FAMILY[fams[k]]) CAT_COLOR[k] = COLOR_FAMILY[fams[k]].shades[0]; });
+  Object.assign(CAT_COLOR, S.settings.catColors || {});
 }
 
 /* ---------------- Value lists ---------------- */
@@ -276,12 +280,17 @@ function infoRename(id, key, newVal){
     const cc = S.settings.catColors, old = Object.keys(cc).find(k => infoKey(k) === key);
     if (old && old !== target){ if (!Object.keys(cc).some(k => infoKey(k) === infoKey(target))) cc[target] = cc[old]; delete cc[old]; }
   }
+  if (id === 'category' && S.settings.catFamilies){   // v10 colour family follows the rename (02b-colors.js)
+    const cf = S.settings.catFamilies, old = Object.keys(cf).find(k => infoKey(k) === key);
+    if (old && old !== target){ if (!Object.keys(cf).some(k => infoKey(k) === infoKey(target))) cf[target] = cf[old]; delete cf[old]; }
+  }
   return Object.assign(r, {merged, target});
 }
 function infoDelete(id, key){
   if (infoProtected(id, key)) return null;
   const r = infoRewrite(id, (v) => infoKey(v) === key ? '' : v);
   if (id === 'category' && S.settings.catColors) Object.keys(S.settings.catColors).forEach(k => { if (infoKey(k) === key) delete S.settings.catColors[k]; });
+  if (id === 'category' && S.settings.catFamilies) Object.keys(S.settings.catFamilies).forEach(k => { if (infoKey(k) === key) delete S.settings.catFamilies[k]; });
   return r;
 }
 /* Archive filter set from a usage count. */
@@ -342,7 +351,7 @@ function renderInfoResults(){
       const val = id === 'tags' ? '<span class="tagpill' + (lock ? ' demo' : '') + '">' + esc(e.value) + '</span>' + (lock ? ' <span class="badge b-historical" title="' + esc(t('in_demo_lock')) + '">' + esc(t('in_demo')) + '</span>' : '')
         : '<span class="iv' + (L.mono ? ' mono' : '') + '">' + esc(e.value) + '</span>';
       const cnt = e.nB ? '<button class="cnt-btn" data-a="info-filter" data-l="' + id + '" data-k="' + k + '" title="' + esc(t('in_show')) + '"><span class="cnt-bar"><span style="width:' + Math.max(4, Math.round(e.nB / max * 100)) + '%"></span></span><b>' + e.nB + '</b>' + ic('arrowRight') + '</button>' : '<span class="muted small">0</span>';
-      const col = isCat ? (() => { const hex = Object.keys(cc).find(x => infoKey(x) === e.key) ? cc[Object.keys(cc).find(x => infoKey(x) === e.key)] : CAT_COLOR_DEFAULT[e.value]; return '<td><button class="swatch-btn" data-a="info-color" data-k="' + k + '" title="' + esc(t('in_color_t', {v:e.value})) + '"><span class="sw-dot' + (hex ? '' : ' none') + '" style="' + (hex ? 'background:' + esc(hex) : '') + '"></span><span class="mono small">' + esc(hex || t('in_color_def')) + '</span></button></td>'; })() : '';
+      const col = isCat ? (() => { const hex = colorCategoryHex(e.value), fid = colorFamilyId(e.value); return '<td><button class="swatch-btn" data-a="info-color" data-k="' + k + '" title="' + esc(t('in_color_t', {v:e.value}) + ' — ' + t('co_family_of', {f:colorFamilyName(fid)})) + '"><span class="sw-dot" style="background:' + esc(hex) + '"></span>' + colorStrip(fid, {shades:colorShades(e.value)}) + '<span class="mono small hide-sm">' + esc(hex) + '</span></button></td>'; })() : '';   // family strip: 02b-colors.js
       return '<tr><td>' + val + '</td><td>' + cnt + '</td>' + (hasC ? '<td class="hide-sm">' + (e.nC ? '<span class="mono">' + e.nC + '</span>' : '<span class="muted small">0</span>') + '</td>' : '') + col +
         '<td class="acts">' + (lock ? '' : '<button class="btn btn-sm btn-ghost" data-a="info-rename" data-l="' + id + '" data-k="' + k + '">' + ic('pencil') + '<span class="hide-sm">' + esc(t('in_rename')) + '</span></button><button class="btn btn-sm btn-ghost" data-a="info-merge" data-l="' + id + '" data-k="' + k + '"' + (all.length < 2 ? ' disabled' : '') + '>' + ic('merge') + '<span class="hide-sm">' + esc(t('in_merge')) + '</span></button><button class="icon-btn danger" data-a="info-del" data-l="' + id + '" data-k="' + k + '" title="' + esc(t('act_del')) + '" aria-label="' + esc(t('act_del')) + '">' + ic('trash') + '</button>') + '</td></tr>';
     }).join('') + '</tbody></table></div>';
@@ -395,26 +404,45 @@ function askInfoDelete(id, key){
     infoDone(r, 'in_deleted', {v:e.value});
   } });
 }
+/* Category colour dialog (v10): colour family (02b-colors.js) + the category's own colour + optional recolour.
+   Stored: S.settings.catFamilies[cat] when a family is picked (or was already chosen), S.settings.catColors[cat]
+   only when the colour differs from what the category gets without it (the family's first shade / v9 default). */
 function openCatColor(key){
   const e = infoEntry('category', key); if (!e) return;
   const cc = S.settings.catColors || {}, own = Object.keys(cc).find(x => infoKey(x) === key);
-  let cur = own ? cc[own] : (CAT_COLOR_DEFAULT[e.value] || '');
-  const palette = Array.from(new Set(COLORS.concat(SHELF_COLORS)));
-  const sw = () => palette.map(c => '<button type="button" class="sw' + (c === cur ? ' on' : '') + '" data-a="info-sw" data-c="' + c + '" style="background:' + c + '" aria-label="' + c + '"></button>').join('');
+  const cf = S.settings.catFamilies || {}, ownF = Object.keys(cf).find(x => infoKey(x) === key);
+  const M = UI.coCat = { fam:colorFamilyId(e.value), famSet:!!ownF, cur:colorCategoryHex(e.value) };
+  const famHTML = () => COLOR_FAMILIES.map(f => '<button type="button" class="co-fambtn' + (f.id === M.fam ? ' on' : '') + '" data-a="co-fam" data-f="' + f.id + '" aria-pressed="' + (f.id === M.fam) + '"><span>' + esc(colorFamilyName(f.id)) + '</span>' + colorStrip(f.id) + '</button>').join('');
+  const sw = () => Array.from(new Set(COLOR_FAMILY[M.fam].shades.concat(COLORS, SHELF_COLORS))).map(c => '<button type="button" class="sw' + (c === M.cur ? ' on' : '') + '" data-a="info-sw" data-c="' + c + '" style="background:' + c + '" aria-label="' + c + '"></button>').join('');
+  M.pickFamily = (id) => {
+    if (!COLOR_FAMILY[id]) return;
+    M.fam = id; M.famSet = true; M.cur = COLOR_FAMILY[id].shades[0];
+    const f = $('#info-fams'), s = $('#info-sws'), i = $('#info-col');
+    if (f) f.innerHTML = famHTML(); if (s) s.innerHTML = sw(); if (i) i.value = M.cur;
+  };
+  const apply = (fam, hex) => {
+    S.settings.catColors = Object.assign({}, cc); if (own) delete S.settings.catColors[own];
+    S.settings.catFamilies = Object.assign({}, cf); if (ownF) delete S.settings.catFamilies[ownF];
+    if (fam) S.settings.catFamilies[e.value] = fam;
+    if (hex && hex !== colorCategoryHex(e.value)) S.settings.catColors[e.value] = hex;   // the category's own colour = family anchor
+    infoApplyCatColors();
+  };
+  const recolor = () => { if ($('#info-col-all') && $('#info-col-all').checked) recolorAll({onlyUnlocked:true, category:e.value, mode:colorMode() === 'manual' ? 'category' : undefined, noUndo:true, noCommit:true, silent:true}); };
   openModal({ title:t('in_color_t', {v:e.value}),
-    body:'<p class="small muted" style="margin-top:0">' + esc(t('in_color_d')) + '</p><div class="swatches" id="info-sws">' + sw() + '</div><label class="row small info-custom">' + esc(t('in_color_custom')) + ' <input type="color" id="info-col" value="' + esc(cur || '#2563EB') + '" title="#RRGGBB"></label>' +
-      '<label class="chk small" style="margin-top:14px"><input type="checkbox" id="info-col-all">' + esc(t('in_color_apply', {n:e.nB})) + '</label>',
+    body:'<p class="small muted" style="margin-top:0">' + esc(t('in_color_d')) + '</p>' +
+      '<div class="lbl" style="margin-bottom:6px">' + esc(t('co_family')) + helpDot('colors') + '</div><div class="co-fampick" id="info-fams">' + famHTML() + '</div><div class="hint" style="margin:6px 0 12px">' + esc(t('co_cat_family_d')) + '</div>' +
+      '<div class="swatches" id="info-sws">' + sw() + '</div><label class="row small info-custom">' + esc(t('in_color_custom')) + ' <input type="color" id="info-col" value="' + esc(M.cur || '#2563EB') + '" title="#RRGGBB"></label>' +
+      '<label class="chk small" style="margin-top:14px"><input type="checkbox" id="info-col-all">' + esc(t('co_cat_recolor', {n:e.nB})) + '</label>',
     buttons:[{label:t('in_color_reset'), cls:'btn btn-ghost', fn: () => {
-      undoPoint(); S.settings.catColors = Object.assign({}, cc); if (own) delete S.settings.catColors[own];
-      infoApplyCatColors(); closeModal(true); commit(); renderView(); undoToast(t('in_color_saved', {v:e.value}));
+      undoPoint(); apply('', ''); recolor();
+      closeModal(true); commit(); renderView(); undoToast(t('in_color_saved', {v:e.value}));
     }}, {label:t('cancel'), cls:'btn', action:'modal-close'}, {label:t('save'), cls:'btn btn-primary', icon:'check', fn: () => {
       const hex = normHex($('#info-col').value); if (!hex) return;
       undoPoint();
-      S.settings.catColors = Object.assign({}, cc); if (own) delete S.settings.catColors[own];
-      S.settings.catColors[e.value] = hex; infoApplyCatColors();
-      if ($('#info-col-all').checked) S.binders.forEach(b => { if (infoKey(b.category) === key && b.color_hex !== hex){ b.color_hex = hex; b.updated_at = nowISO(); } });
+      apply(M.famSet ? M.fam : '', hex); recolor();
       closeModal(true); commit(); renderView(); undoToast(t('in_color_saved', {v:e.value}));
-    }}] });
+    }}],
+    onClose: () => { UI.coCat = null; } });
 }
 
 /* ---------------- QR overview & reprint ---------------- */
@@ -560,6 +588,7 @@ const INFO_ACTIONS = {
   'info-merge': (el) => openInfoMerge(el.dataset.l, el.dataset.k),
   'info-del': (el) => askInfoDelete(el.dataset.l, el.dataset.k),
   'info-color': (el) => openCatColor(el.dataset.k),
+  'co-fam': (el) => { const M = UI.coCat; if (M && M.pickFamily) M.pickFamily(el.dataset.f); },   // family choice in the category colour dialog
   'info-sw': (el) => { const i = $('#info-col'); if (i) i.value = el.dataset.c; $$('#info-sws .sw').forEach(s => s.classList.toggle('on', s === el)); },
   'qr-sel': (el) => { const s = qrSel(); if (el.checked) s.add(el.dataset.id); else s.delete(el.dataset.id); renderQrResults(); },
   'qr-sel-all': (el) => { const s = qrSel(); qrFiltered().forEach(b => { if (el.checked) s.add(b.id); else s.delete(b.id); }); renderQrResults(); },

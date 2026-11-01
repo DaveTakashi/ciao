@@ -143,3 +143,29 @@
   .qr-preset{flex:1 1 100%}
   .qr-preset select.inp{max-width:none;flex:1}
 }
+
+/* ---------------- v10 smart spine colours (02b-colors.js) ---------------- */
+.co-strip{display:inline-flex;border-radius:4px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(15,23,42,.12);vertical-align:middle;flex:none}
+.co-strip i{display:block;width:7px;height:14px}
+.co-strip.big i{width:16px;height:18px}
+.swatch-btn .co-strip{margin:0 2px}
+.co-auto{display:inline-flex;align-items:center;gap:5px;height:32px;padding:0 10px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);color:var(--text);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.co-auto svg{width:15px;height:15px}
+.co-auto.on{background:var(--text);color:var(--surface);border-color:var(--text)}
+.co-fam,.co-others{display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center}
+.co-others{gap:4px;padding-left:6px;border-left:1px solid var(--border-2)}
+.sw.sm{width:22px;height:22px;border-radius:6px}
+.co-lock{display:inline-flex;align-items:center;gap:4px;color:var(--muted);font-weight:600}
+.co-lock[hidden]{display:none}
+.co-lock svg,.co-card h2 svg,.co-card .small svg{width:14px;height:14px;vertical-align:-2px}
+.co-card h2 svg{width:18px;height:18px;margin-right:6px}
+.co-cats{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:6px 14px;margin-top:4px}
+.co-cat{display:flex;align-items:center;gap:8px;min-width:0;font-size:13px}
+.co-cat b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}
+.co-cat .co-strip{margin-left:auto}
+.co-fams summary{cursor:pointer;color:var(--muted);font-weight:600}
+.co-fams .co-cats{margin-top:8px}
+.co-fampick{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px}
+.co-fambtn{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);color:var(--text);font:inherit;font-size:12.5px;text-align:left;cursor:pointer}
+.co-fambtn span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.co-fambtn.on{box-shadow:0 0 0 2px var(--text);border-color:var(--text)}

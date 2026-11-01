@@ -213,6 +213,7 @@ const HEADER_ALIASES = {
   short_url:['short_url','shorturl','url_breve','link'],
   final_destination:['final_destination','destinazione','destination','url_destinazione'],
   selected_for_print:['selected_for_print','stampa','print','selezionato'],
+  color_locked:['color_locked','colore_bloccato','colore_manuale','color_manual','colour_locked'],
   id:['id','uuid'],
   created_at:['created_at','creato','data_creazione'],
   updated_at:['updated_at','aggiornato','data_aggiornamento']
@@ -242,6 +243,7 @@ function mapRecord(raw){
       if (arr.length) o.contents_items = arr;
       return;
     }
+    if (key === 'color_locked'){ if (String(v).trim() !== '' || typeof v === 'boolean') o.color_locked = typeof v === 'boolean' ? v : truthy(v); return; }   // v10 (02b-colors.js)
     if (key === 'selected_for_print'){ if (String(v).trim() !== '' || typeof v === 'boolean') o.selected_for_print = typeof v === 'boolean' ? v : truthy(v); return; }
     const s = unsafeCell(String(v).trim());
     if (s !== '') o[key] = s;
@@ -260,7 +262,7 @@ function mapRecord(raw){
 /* ---------------- Export builders ---------------- */
 function binderToCsvRow(b){
   return [b.speaking_code, b.multi_code, b.company_name, b.company_city, b.category, b.binder_title, b.ref_year, b.room_code, b.cabinet_code, b.shelf_code, b.sector_code, b.location_code, b.archive_state,
-    contentsToPipe(b.contents_items), b.tags, b.color_hex, b.short_code, b.short_url, destFor(b), b.extra_codes, b.shelf_color, b.contacts || '', b.notes || '', b.selected_for_print ? '1' : '0', b.id, b.created_at, b.updated_at];
+    contentsToPipe(b.contents_items), b.tags, b.color_hex, b.short_code, b.short_url, destFor(b), b.extra_codes, b.shelf_color, b.contacts || '', b.notes || '', b.selected_for_print ? '1' : '0', b.id, b.created_at, b.updated_at, b.color_locked ? '1' : '0'];
 }
 function sortedBinders(){ return S.binders.slice().sort((a, b) => naturalCmp(a.speaking_code, b.speaking_code)); }
 function manifestRow(b){ return [b.short_code, b.short_url, destFor(b), manifestTags(b)]; }

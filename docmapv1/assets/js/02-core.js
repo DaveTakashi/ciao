@@ -12,7 +12,7 @@ const GREEK = ['α','β','γ','δ','ε','ζ','η','θ'];
 const CATEGORIES = ['Ordinaria','Semplificata','Societario','Lavoro','Dichiarativi','Contenzioso','Privati'];
 const CAT_COLOR = {Ordinaria:'#2563EB',Semplificata:'#059669',Societario:'#7C3AED',Lavoro:'#D97706',Dichiarativi:'#DC2626'};
 const STATES = ['CURRENT','HISTORICAL','CHECKED_OUT'];
-const CSV_COLUMNS = ['speaking_code','multi_code','company_name','company_city','category','binder_title','ref_year','room_code','cabinet_code','shelf_code','sector_code','location_code','archive_state','contents','tags','color_hex','short_code','short_url','final_destination','extra_codes','shelf_color','contacts','notes','selected_for_print','id','created_at','updated_at'];
+const CSV_COLUMNS = ['speaking_code','multi_code','company_name','company_city','category','binder_title','ref_year','room_code','cabinet_code','shelf_code','sector_code','location_code','archive_state','contents','tags','color_hex','short_code','short_url','final_destination','extra_codes','shelf_color','contacts','notes','selected_for_print','id','created_at','updated_at','color_locked'];   // v10: color_locked appended (never reorder)
 /* Shelf naming styles: the quick-pick buttons in the binder form follow the chosen style. */
 const SHELF_TYPES = {
   number:['1','2','3','4','5','6','7','8'], letter:['A','B','C','D','E','F','G','H'], greek:GREEK,
@@ -342,7 +342,7 @@ function manifestTags(b){ return ['docmap26', b.speaking_code, b.multi_code ? 'm
 function normalizeBinder(b){
   const o = Object.assign({
     id:uuid(), speaking_code:'', multi_code:'', company_name:'', company_city:'', ref_year:'', extra_codes:'', shelf_color:'', category:'', color_hex:'#2563EB', binder_title:'', room_code:'', cabinet_code:'', shelf_code:'', sector_code:'',
-    location_code:'', archive_state:'CURRENT', contents_items:[], tags:'', short_code:'', short_url:'', final_destination:'', contacts:'', notes:'', selected_for_print:false,
+    location_code:'', archive_state:'CURRENT', contents_items:[], tags:'', short_code:'', short_url:'', final_destination:'', contacts:'', notes:'', selected_for_print:false, color_locked:false,
     created_at:nowISO(), updated_at:nowISO()
   }, b || {});
   ['speaking_code','multi_code','company_name','company_city','ref_year','extra_codes','shelf_color','category','binder_title','room_code','cabinet_code','shelf_code','sector_code','tags','short_code','final_destination','contacts','notes'].forEach(k => o[k] = String(o[k] == null ? '' : o[k]).trim());
@@ -356,6 +356,7 @@ function normalizeBinder(b){
   o.location_code = computeLocation(o);
   o.short_url = o.short_code ? shortUrl(o.short_code) : '';
   o.selected_for_print = !!o.selected_for_print;
+  o.color_locked = o.color_locked === true || o.color_locked === 1 || /^(1|true|si|sì|yes)$/i.test(String(o.color_locked == null ? '' : o.color_locked).trim());   // v10: colour picked by hand (02b-colors.js)
   return o;
 }
 
@@ -415,7 +416,7 @@ function demoBinders(){
 function defaultState(){
   return {
     schema:26.9, app:'DocMap26', lang:'it', view:'archive',
-    settings:{ studioName:'Studio Demo Commercialisti Associati', destTemplate:DEFAULT_DEST, qrEcc:'M', operator:'' },   // operator: name shown in the activity log (06e-log.js)
+    settings:{ studioName:'Studio Demo Commercialisti Associati', destTemplate:DEFAULT_DEST, qrEcc:'M', operator:'', colorMode:'company' },   // colorMode: spine colour assignment (02b-colors.js)   // operator: name shown in the activity log (06e-log.js)
     binders:[],
     print:{ presetId:'mrink143', geometry:geoFromPreset(BUILTIN_PRESETS[0]), geometryModified:false, padding:4, offsetX:0, offsetY:0,
             contentMode:'info', template:'classic', showMulti:true, fields:{}, split:{ratio:0.5, rotate:-90, guides:true}, advanced:false, qrMode:'live', showQrUrl:true, copies:1, previewMode:'labels',
@@ -452,6 +453,8 @@ function migrate(st){
   if (!(st && st.schema >= 26.9) && o.print.presetId === 'mrink143' && o.print.contentMode === 'split') o.print.contentMode = 'info';
   o.schema = 26.9;
   o.binders = Array.isArray(o.binders) ? o.binders.map(normalizeBinder) : [];
+  // v10: a state without settings.colorMode predates smart colours: keep every colour, lock the hand-picked ones (02b-colors.js)
+  if (st && !(st.settings && st.settings.colorMode) && typeof colorLockLegacy === 'function') colorLockLegacy(o.binders, o.settings);
   if (!['it','en'].includes(o.lang)) o.lang = 'it';
   if (o.view === 'clients'){ o.view = 'info'; o.infoTab = 'clients'; }   // v8: the client register lives in Informazioni
   return o;

@@ -21,7 +21,8 @@ Un record per ogni faldone / raccoglitore fisico. Tutti i campi testuali sono st
 | `company_name` | stringa | **sì** | cliente / ragione sociale | `Barbieri Luigi S.r.l.` | `company_name` | `company_name` |
 | `company_city` | stringa | no | luogo della ditta, di solito `Città (PR)` | `Parma (PR)` | `company_city` | `company_city` |
 | `category` | stringa | no | categoria; suggerite: `Ordinaria, Semplificata, Societario, Lavoro, Dichiarativi, Contenzioso, Privati` (testo libero ammesso) | `Ordinaria` | `category` | `category` |
-| `color_hex` | `#RRGGBB` maiuscolo | sì (auto) | colore del dorso; predefinito dalla categoria (§5.6) | `#2563EB` | `color_hex` | `color_hex` |
+| `color_hex` | `#RRGGBB` maiuscolo | sì (auto) | colore del dorso; automatico per cliente/categoria (§5.6, §12) | `#2563EB` | `color_hex` | `color_hex` |
+| `color_locked` **(v10)** | booleano | no (`false`) | `true` = colore scelto a mano: mai cambiato in automatico (§12) | `false` | `color_locked` (`1`/`0`, ultima colonna) | `color_locked INTEGER DEFAULT 0` |
 | `binder_title` | stringa | no (consigliato) | titolo "macro" del faldone | `Fatture e Contabilità IVA` | `binder_title` | `binder_title` |
 | `ref_year` | stringa | no | anno di riferimento dei **contenuti** (non la data di creazione); anche intervallo | `2025`, `2020-2024` | `ref_year` | `ref_year` |
 | `extra_codes` | stringa | no | altri identificativi (protocolli, n. pratica), separati da virgola. Mai inventati | `INPS 1234567` | `extra_codes` | `extra_codes` |
@@ -97,6 +98,8 @@ Regole di validazione dell'editor: codice parlante obbligatorio e unico; cliente
 | `qrPreset` **(v8)** | id preset | assente = `l7159` | foglio della "Ristampa solo QR"; ammessi `l7159, l7160, l7162, l7163, a4-21, a4-14` o un preset personalizzato, altrimenti `l7159` |
 | `importMappings` **(v8)** | `{"<intestazioni normalizzate unite da \|>": {target:'binders'\|'clients', fields:[campo o ''], at:ISO}}` | assente = `{}` | abbinamenti colonne ricordati dall'import Excel/CSV; tenuti gli ultimi 40 |
 | `edLocOpen` **(v8)** | booleano | assente = `false` | sezione "Dettagli posizione" dell'editor aperta |
+| `colorMode` **(v10)** | `company`/`category`/`manual` | `company` (assente in uno stato v9) | assegnazione automatica dei colori dei dorsi (§12) |
+| `catFamilies` **(v10)** | `{"<categoria>": "<id famiglia>"}` | assente = `{}` | famiglia di colori scelta per la categoria in Informazioni › Categorie (§12) |
 | `operator` **(v9)** | stringa | `''` | nome di chi lavora su questo PC, scritto nel registro attività (`who`); vuoto = `"Questo PC"` (§7.2) |
 
 Le chiavi di `settings` viaggiano nel workspace JSON e nella tabella SQLite `settings` (riga `settings`).
@@ -171,7 +174,7 @@ Esempi: `A1-α`, `B2-β-SX`, `Ufficio 1 · 2-α`. `parseLocation()` fa il percor
 
 ### 5.6 Colori per categoria
 `Ordinaria #2563EB · Semplificata #059669 · Societario #7C3AED · Lavoro #D97706 · Dichiarativi #DC2626 · altre #475569` (import) / `#2563EB` (default di `normalizeBinder`).
-Dalla v8 l'utente può cambiare o aggiungere colori in Informazioni › Categorie (`settings.catColors`): valgono per i faldoni nuovi e per l'import; i faldoni esistenti cambiano solo se l'utente spunta "Applica anche ai … faldoni esistenti di questa categoria". Il prompt AI elenca sempre i colori predefiniti.
+Dalla v8 l'utente può cambiare o aggiungere colori in Informazioni › Categorie (`settings.catColors`): valgono per i faldoni nuovi e per l'import; i faldoni esistenti cambiano solo se l'utente spunta "Applica anche ai … faldoni esistenti di questa categoria". Il prompt AI elenca sempre i colori predefiniti. **Dalla v10** questi colori sono la prima sfumatura della famiglia della categoria e l'assegnazione automatica è descritta al §12.
 
 ### 5.7 `archive_state` in import
 Accetta anche `corrente/attivo/active → CURRENT`, `storico/archivio storico/deposito/hist → HISTORICAL`, `prelevato/in uso/fuori/out → CHECKED_OUT`; sconosciuto → `CURRENT`.
@@ -184,11 +187,13 @@ Testo libero; spazi multipli ridotti a uno; maiuscole/minuscole, trattini, barre
 Regole comuni in **export**: delimitatore `;`, a capo `\r\n` (manifest `\n`), campi con `;` `"` o a capo tra virgolette con `""`. Backup e clienti hanno BOM UTF-8 (per Excel) e **protezione formule**: una cella che inizia con `= + - @ TAB CR` riceve un apostrofo iniziale, tolto di nuovo in import.
 In **import**: delimitatore rilevato (`;` `,` TAB) o riga `sep=;`; codifica UTF-8 (con/senza BOM), UTF-16 o Windows-1252; intestazioni confrontate dopo `normHeader` (minuscolo, senza accenti, non alfanumerici → `_`) con gli alias di `HEADER_ALIASES` (es. `cliente → company_name`, `codice_multi → multi_code`, `stanza → room_code`, `contenuti → contents_items`, `stato → archive_state`; v8: `contatti`, `contatto`, `persone`, `persone_coinvolte`, `referenti`, `referente`, `contact`, `people → contacts`; `note`, `nota`, `annotazioni`, `annotazione → notes`). Le intestazioni non riconosciute aprono il passo di abbinamento colonne (§6.5).
 
-### 6.1 Backup completo `docmap_full_backup.csv` (27 colonne, in quest'ordine)
+### 6.1 Backup completo `docmap_full_backup.csv` (28 colonne, in quest'ordine)
 
 ```
-speaking_code;multi_code;company_name;company_city;category;binder_title;ref_year;room_code;cabinet_code;shelf_code;sector_code;location_code;archive_state;contents;tags;color_hex;short_code;short_url;final_destination;extra_codes;shelf_color;contacts;notes;selected_for_print;id;created_at;updated_at
+speaking_code;multi_code;company_name;company_city;category;binder_title;ref_year;room_code;cabinet_code;shelf_code;sector_code;location_code;archive_state;contents;tags;color_hex;short_code;short_url;final_destination;extra_codes;shelf_color;contacts;notes;selected_for_print;id;created_at;updated_at;color_locked
 ```
+
+**v10:** `color_locked` (`1`/`0`) è aggiunta **in coda**. Un CSV senza questa colonna si importa come prima; in quel caso un `color_hex` che non è un colore automatico della sua categoria viene considerato scelto a mano (`color_locked = true`), un colore mancante viene assegnato in automatico (§12).
 
 Righe ordinate per codice parlante (ordinamento naturale). `final_destination` contiene l'URL risolto. `selected_for_print` = `1`/`0`. `contents` include i suffissi di stato (`[in uso]`, `[cliente]`).
 **Attenzione (v8):** `contacts` e `notes` sono state inserite **dopo `shelf_color`** (posizioni 22–23), non in coda: rispetto al CSV v7 a 25 colonne, `selected_for_print`, `id`, `created_at`, `updated_at` sono scalate di due posizioni. DocMap importa per intestazione, quindi i file v7 restano validi; chi legge il CSV per posizione deve usare l'intestazione.
@@ -252,7 +257,8 @@ CREATE TABLE IF NOT EXISTS binders(
   short_code TEXT UNIQUE, short_url TEXT,
   final_destination TEXT, final_destination_custom TEXT,
   selected_for_print INTEGER DEFAULT 0,
-  created_at TEXT, updated_at TEXT);
+  created_at TEXT, updated_at TEXT,
+  color_locked INTEGER DEFAULT 0);   -- v6 (DB_SCHEMA_VERSION 6): 1 = colore scelto a mano
 CREATE TABLE IF NOT EXISTS contents_items(
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   binder_id TEXT NOT NULL REFERENCES binders(id) ON DELETE CASCADE,
@@ -408,3 +414,29 @@ Per i campi futuri: aggiungerli **in coda** a `CSV_COLUMNS` (dopo `updated_at`),
 | SQLite `activity_log` | vedi §7.2 | Registro attività, ultime 20 000 voci, anche nel backup JSON (`activity_log`). |
 
 Migrazione `migrate()` 26.9: se il preset è `mrink143` e la modalità era `split`, passa una volta a `info`. Lo Scarica PDF (05c-pdf.js, font in `vendor/pdf-fonts.js`) non aggiunge campi: costruisce il PDF dall'HTML di `buildLabelSheets(false)`.
+
+## 12. Colori dei dorsi (v10, `assets/js/02b-colors.js`)
+
+**Famiglie** (`COLOR_FAMILIES`, 10 famiglie × 10 sfumature): `warm` Caldi (rossi, arancio, ocra) · `red` Rossi · `orange` Arancio e ocra · `pink` Magenta · `violet` Viola · `blue` Blu · `cool` Freddi scuri (blu, verdi scuri) · `teal` Petrolio · `green` Verdi · `slate` Grigi. Ogni sfumatura ha contrasto ≥ 3:1 con il testo bianco (il dorso nella mappa scaffali scrive in bianco) e, dentro la famiglia, una distanza percettiva CIEDE2000 ≥ 7 (distinguibili anche stampate). Le sfumature sono state scelte in OKLCH (luminosità 0,38–0,66, croma ≤ 0,22, gamut sRGB) con una selezione greedy max-min ΔE2000; la prima sfumatura di blu/verdi/viola/arancio/rossi è esattamente il colore v9 della categoria.
+
+**Famiglia di una categoria** (`colorFamilyId(cat)`, confronto senza maiuscole/spazi doppi):
+1. `settings.catFamilies[cat]` se scelta in Informazioni › Categorie;
+2. altrimenti, se esiste `settings.catColors[cat]` (colore della categoria, v8), la famiglia più vicina a quel colore;
+3. altrimenti la regola sul nome (`COLOR_CAT_RULES`): Ordinaria → blu, Semplificata → verdi, Societario → viola, Lavoro/Paghe → arancio, Dichiarativi/Redditi → rossi, Contenzioso → grigi, Privati/Persone fisiche → petrolio, APS/ETS/ENC/ODV/ASD/SSD/Onlus/associazioni/enti/fondazioni/circoli → caldi, Condominio → magenta, Società/S.r.l./S.p.A./aziende/imprese/ditte → freddi scuri;
+4. altrimenti una famiglia stabile scelta con l'hash FNV-1a del nome tra `blue, green, violet, orange, red, teal, pink, slate`.
+
+**Colore della categoria** (`colorCategoryHex(cat)`): `catColors[cat]` → prima sfumatura della famiglia scelta → predefinito v9 → prima sfumatura della famiglia. Le sfumature disponibili (`colorShades(cat)`) sono il colore della categoria seguito dalla famiglia (un quasi-doppione di un colore personalizzato viene tolto).
+
+**Modalità** `settings.colorMode`:
+| Valore | Regola |
+|---|---|
+| `company` (predefinita) | stesso cliente + stessa categoria → stessa sfumatura (si riusa quella dei faldoni non bloccati del cliente); un cliente nuovo prende la prima sfumatura libera partendo da `FNV-1a(chiaveCliente) mod n` (sondaggio lineare); finita la famiglia, la meno usata. Chiave cliente = ragione sociale normalizzata (`companyKey`, come il controllo doppioni dell'editor), se vuota `multi:<codice Multi>`. |
+| `category` | un colore per categoria = `colorCategoryHex` (comportamento v9) |
+| `manual` | nessun colore automatico; i nuovi faldoni partono dal colore della categoria |
+
+**Blocco** `binder.color_locked`: diventa `true` quando l'utente sceglie un colore nell'editor (pastiglia o selettore) o importa un colore non automatico; `Automatico` nell'editor lo toglie. I colori bloccati non cambiano con `applyAutoColor`, `recolorAll`, né cambiando cliente o categoria.
+
+**Funzioni pubbliche**: `colorAssign(b, binders, opts)` → `#RRGGBB`; `applyAutoColor(b, binders)` → `true` se cambiato (rispetta blocco e modalità manuale, non salva); `recolorAll({onlyUnlocked:true, category, mode, silent})` → numero di faldoni ricolorati, con `undoPoint()` + voce `binder.recolor` nel registro attività + `undoToast`; `colorPlan(binders, opts)` → `Map(id → hex)` (parte pura, deterministica: clienti in ordine di chiave). Utili anche lato Python: l'algoritmo usa solo FNV-1a, liste fisse e confronti di stringhe, quindi è riproducibile.
+
+**Migrazione**: nessun faldone viene ricolorato all'aggiornamento. Uno stato, un workspace JSON o un `.sqlite` senza `settings.colorMode` è "pre-v10": `colorLockLegacy()` blocca i faldoni il cui colore non è automatico (non è una sfumatura della famiglia, né il colore della categoria, né i vecchi predefiniti `#2563EB`/`#475569`). Per ricolorare c'è il pulsante **Impostazioni › Colori dei dorsi › Ricolora tutti i faldoni (non bloccati)** (o, per una categoria, la casella nel dialogo di Informazioni › Categorie).
+

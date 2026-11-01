@@ -6,7 +6,7 @@
    - Download / open .sqlite files; on Chrome/Edge, link a file on disk
      and save to it automatically (File System Access API)
    ===================================================================== */
-const DB_SCHEMA_VERSION = 5;   // 2: binders.multi_code + photos table · 3: place/year/extra codes/shelf colour + clients table · 4: binders.contacts/notes + contents_items.status · 5: activity_log table (06e-log.js)
+const DB_SCHEMA_VERSION = 6;   // 2: binders.multi_code + photos table · 3: place/year/extra codes/shelf colour + clients table · 4: binders.contacts/notes + contents_items.status · 5: activity_log table (06e-log.js) · 6: binders.color_locked (02b-colors.js)
 const DB = { SQL:null, db:null, ready:false, error:null, version:'', handle:null, handleName:'', handlePerm:'prompt', lastSync:null, lastFileSave:null, timer:null, busy:false, consoleSql:'', consoleResult:null };
 const IDB_NAME = 'docmap_v26_sqlite', IDB_STORE = 'kv';
 
@@ -38,7 +38,8 @@ CREATE TABLE IF NOT EXISTS binders(
   short_code TEXT UNIQUE, short_url TEXT,
   final_destination TEXT, final_destination_custom TEXT,
   selected_for_print INTEGER DEFAULT 0,
-  created_at TEXT, updated_at TEXT);
+  created_at TEXT, updated_at TEXT,
+  color_locked INTEGER DEFAULT 0);   -- v6: 1 = spine colour picked by hand, never recoloured automatically
 CREATE TABLE IF NOT EXISTS contents_items(
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   binder_id TEXT NOT NULL REFERENCES binders(id) ON DELETE CASCADE,
@@ -85,6 +86,7 @@ function dbMigrate(db){
   // additive migrations for databases created by older versions
   const cols = dbQuery('PRAGMA table_info(binders)', null, db).map(r => r.name);
   ['multi_code','company_city','ref_year','extra_codes','shelf_color','contacts','notes'].forEach(c => { if (!cols.includes(c)) db.exec('ALTER TABLE binders ADD COLUMN ' + c + ' TEXT'); });
+  if (!cols.includes('color_locked')) db.exec('ALTER TABLE binders ADD COLUMN color_locked INTEGER DEFAULT 0');   // v6
   if (!dbQuery('PRAGMA table_info(contents_items)', null, db).some(r => r.name === 'status')) db.exec("ALTER TABLE contents_items ADD COLUMN status TEXT DEFAULT 'archive'");
   db.exec('CREATE INDEX IF NOT EXISTS ix_binders_multi ON binders(multi_code)');
   db.run("INSERT OR REPLACE INTO meta(key,value) VALUES ('app','DocMap26'),('schema_version',?)", [String(DB_SCHEMA_VERSION)]);
@@ -119,10 +121,10 @@ function dbSyncFromState(reason){
   db.exec('BEGIN');
   try {
     db.exec('DELETE FROM contents_items; DELETE FROM binders; DELETE FROM settings; DELETE FROM label_presets; DELETE FROM clients;');
-    const ins = db.prepare('INSERT INTO binders(id,speaking_code,multi_code,company_name,category,color_hex,binder_title,room_code,cabinet_code,shelf_code,sector_code,location_code,archive_state,tags,short_code,short_url,final_destination,final_destination_custom,selected_for_print,created_at,updated_at,company_city,ref_year,extra_codes,shelf_color,contacts,notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+    const ins = db.prepare('INSERT INTO binders(id,speaking_code,multi_code,company_name,category,color_hex,binder_title,room_code,cabinet_code,shelf_code,sector_code,location_code,archive_state,tags,short_code,short_url,final_destination,final_destination_custom,selected_for_print,created_at,updated_at,company_city,ref_year,extra_codes,shelf_color,contacts,notes,color_locked) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
     const ci = db.prepare('INSERT INTO contents_items(binder_id,position,year,description,status) VALUES (?,?,?,?,?)');
     S.binders.forEach(b => {
-      ins.run([b.id, b.speaking_code, b.multi_code || null, b.company_name, b.category, b.color_hex, b.binder_title, b.room_code, b.cabinet_code, b.shelf_code, b.sector_code, b.location_code, b.archive_state, b.tags, b.short_code || null, b.short_url, destFor(b), b.final_destination || '', b.selected_for_print ? 1 : 0, b.created_at || '', b.updated_at || '', b.company_city || '', b.ref_year || '', b.extra_codes || '', b.shelf_color || '', b.contacts || '', b.notes || '']);
+      ins.run([b.id, b.speaking_code, b.multi_code || null, b.company_name, b.category, b.color_hex, b.binder_title, b.room_code, b.cabinet_code, b.shelf_code, b.sector_code, b.location_code, b.archive_state, b.tags, b.short_code || null, b.short_url, destFor(b), b.final_destination || '', b.selected_for_print ? 1 : 0, b.created_at || '', b.updated_at || '', b.company_city || '', b.ref_year || '', b.extra_codes || '', b.shelf_color || '', b.contacts || '', b.notes || '', b.color_locked ? 1 : 0]);
       b.contents_items.forEach((it, i) => ci.run([b.id, i, it.year, it.description, normCiStatus(it.status)]));
     });
     ins.free(); ci.free();
@@ -178,7 +180,7 @@ function dbReadWorkspace(db){
     settings: settings.settings, print: settings.print, usedSlots: settings.usedSlots, lang: settings.lang, customPresets: presets,
     binders: binders.map(b => ({ id:b.id, speaking_code:b.speaking_code, multi_code:b.multi_code || '', company_name:b.company_name, company_city:b.company_city || '', ref_year:b.ref_year || '', extra_codes:b.extra_codes || '', shelf_color:b.shelf_color || '', contacts:b.contacts || '', notes:b.notes || '', category:b.category, color_hex:b.color_hex, binder_title:b.binder_title,
       room_code:b.room_code, cabinet_code:b.cabinet_code, shelf_code:b.shelf_code, sector_code:b.sector_code, archive_state:b.archive_state, tags:b.tags,
-      short_code:b.short_code, final_destination:b.final_destination_custom || '', selected_for_print: !!b.selected_for_print, created_at:b.created_at, updated_at:b.updated_at,
+      short_code:b.short_code, final_destination:b.final_destination_custom || '', selected_for_print: !!b.selected_for_print, color_locked: !!b.color_locked, created_at:b.created_at, updated_at:b.updated_at,
       contents_items: byB[b.id] || [] }))
   };
 }
@@ -188,6 +190,7 @@ function applyWorkspaceObject(W){
   ensureIntegrity();
   if (Array.isArray(W.clients)) S.clients = W.clients.map(normalizeClient);
   if (W.settings) S.settings = Object.assign(defaultState().settings, W.settings);
+  if (W.settings && !W.settings.colorMode) colorLockLegacy(S.binders, S.settings);   // pre-v10 workspace: lock hand-picked colours (02b-colors.js)
   if (W.print) S.print = Object.assign(defaultState().print, W.print, {geometry:Object.assign(presetGeo(W.print.presetId, S.customPresets), W.print.geometry || {})});
   if (Array.isArray(W.customPresets)) S.customPresets = W.customPresets;
   if (W.usedSlots && typeof W.usedSlots === 'object') S.usedSlots = W.usedSlots;

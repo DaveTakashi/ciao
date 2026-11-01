@@ -42,7 +42,7 @@ const ACTIONS = {
   'ed-regen': () => { const d = UI.ed.d; d.short_code = newShortCode(); const el = $('#ed-short_code'); if (el) el.value = d.short_code; toast(t('regenerated') + ': ' + d.short_code); edRefreshDerived(); },
   'ed-greek': (el) => { const d = UI.ed.d; d.shelf_code = el.dataset.g; const i = $('#ed-shelf_code'); if (i) i.value = d.shelf_code; $('#ed-shelf-tools').innerHTML = shelfToolsHTML(d); edRefreshDerived(); },
   'ed-shelfcol': (el) => { const d = UI.ed.d; d.shelf_color = el.dataset.c; $('#ed-shelf-tools').innerHTML = shelfToolsHTML(d); edRefreshDerived(); },
-  'ed-color': (el) => { UI.ed.d.color_hex = el.dataset.c; $('#ed-swatches').innerHTML = swatchesHTML(UI.ed.d.color_hex); edRefreshDerived(); },
+  'ed-color': (el) => { UI.ed.d.color_hex = el.dataset.c; UI.ed.d.color_locked = true; $('#ed-swatches').innerHTML = swatchesHTML(UI.ed.d.color_hex); edRefreshDerived(); },
   'ed-state': (el) => { UI.ed.d.archive_state = el.dataset.s; $$('#ed-state button').forEach(b => b.classList.toggle('on', b.dataset.s === el.dataset.s)); edRefreshDerived(); },
   'ed-ci-add': () => { UI.ed.d.contents_items.push({year:'', description:t('arch_n', {n:UI.ed.d.contents_items.length + 1})}); renderEdContents(); const rows = $$('#ed-contents [data-ci="description"]'); rows.length && rows[rows.length - 1].focus(); edRefreshDerived(); },
   'ed-ci-del': (el) => { UI.ed.d.contents_items.splice(+el.dataset.i, 1); renderEdContents(); edRefreshDerived(); },
@@ -209,10 +209,10 @@ document.addEventListener('input', (e) => {
   if (el.dataset.ed && UI.ed){
     const k = el.dataset.ed, d = UI.ed.d;
     if (k === 'selected_for_print'){ d.selected_for_print = el.checked; }
-    else if (k === 'color_hex'){ d.color_hex = el.value.toUpperCase(); const sw = $('#ed-swatches'); if (sw){ $$('.sw', sw).forEach(s => s.classList.toggle('on', s.dataset.c === d.color_hex)); const lab = sw.querySelector('span.mono'); if (lab) lab.textContent = d.color_hex; } }
+    else if (k === 'color_hex'){ d.color_hex = el.value.toUpperCase(); edColorLock(); const sw = $('#ed-swatches'); if (sw){ $$('.sw', sw).forEach(s => s.classList.toggle('on', s.dataset.c === d.color_hex)); const lab = sw.querySelector('span.mono'); if (lab) lab.textContent = d.color_hex; } }
     else if (k === 'speaking_code'){ const pos = el.selectionStart; el.value = el.value.toUpperCase().replace(/\s+/g, ''); try { el.setSelectionRange(pos, pos); } catch(err){} d.speaking_code = el.value; }
     else if (k === 'company_name') edCompanyInput(el);   // speaking code, client defaults, duplicate spelling: 04b-typeahead.js
-    else if (k === 'category'){ d.category = el.value; UI.ed.catTouched = true; if (CAT_COLOR[el.value] && UI.ed.isNew){ d.color_hex = CAT_COLOR[el.value]; $('#ed-swatches').innerHTML = swatchesHTML(d.color_hex); } }
+    else if (k === 'category'){ d.category = el.value; UI.ed.catTouched = true; edAutoColor(); }   // colour follows the category unless locked (02b-colors.js)
     else d[k] = el.value;
     if (k === 'speaking_code') UI.ed.codeTouched = true;
     edRefreshDerived();

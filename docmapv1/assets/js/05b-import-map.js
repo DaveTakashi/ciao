@@ -316,11 +316,12 @@ const IMAP_LABELS = {
   short_code:{it:'Short code qr7 (dm26…)', en:'qr7 short code (dm26…)'}, short_url:{it:'Short URL qr7.it', en:'qr7.it short URL'}, final_destination:{it:'Destinazione finale (URL)', en:'Final destination (URL)'},
   selected_for_print:{it:'Selezionato per la stampa', en:'Selected for printing'}, id:{it:'ID interno', en:'Internal ID'}, created_at:{it:'Data creazione', en:'Created at'}, updated_at:{it:'Data aggiornamento', en:'Updated at'},
   contacts:{it:'Contatti / referenti', en:'Contacts'}, notes:{it:'Note', en:'Notes'},
+  color_locked:{it:'Colore scelto a mano (1/0)', en:'Colour picked by hand (1/0)'},
   // client register
   name:{it:'Ragione sociale', en:'Company name'}, address:{it:'Indirizzo', en:'Address'}, cap:{it:'CAP', en:'Postcode (CAP)'}, city:{it:'Località / Comune', en:'Town'},
   province:{it:'Provincia', en:'Province'}, type:{it:'Tipo', en:'Type'}
 };
-const IMAP_TECH = ['id','created_at','updated_at','short_url','selected_for_print'];
+const IMAP_TECH = ['id','created_at','updated_at','short_url','selected_for_print','color_locked'];
 const IMAP_MULTI = ['contents_items','tags','notes','extra_codes','contacts','address'];      // several columns may feed these
 const IMAP_MULTILINE = ['contents_items','notes','contacts'];                               // line breaks are kept
 const imapLabel = (k, target) => { const l = (target === 'clients' && k === 'category') ? {it:'Categoria (es. ETS_ENC)', en:'Category (e.g. ETS_ENC)'} : (target === 'clients' && k === 'notes') ? {it:'Note (es. codice comune)', en:'Notes (e.g. town code)'} : IMAP_LABELS[k]; return l ? (l[S.lang] || l.it) : k; };

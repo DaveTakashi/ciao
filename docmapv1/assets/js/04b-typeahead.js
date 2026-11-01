@@ -261,7 +261,7 @@ function edFillFromCompany(hit){
   if (same){
     if (!d.multi_code && same.multi_code) edSet('multi_code', same.multi_code);
     if (!d.company_city && same.company_city) edSet('company_city', same.company_city);
-    if (ed.isNew && !ed.catTouched && same.category && !hit.client){ edSet('category', same.category); d.color_hex = same.color_hex; const sw = $('#ed-swatches'); if (sw) sw.innerHTML = swatchesHTML(d.color_hex); }
+    if (ed.isNew && !ed.catTouched && same.category && !hit.client){ edSet('category', same.category); if (colorMode() === 'manual' && !d.color_locked) d.color_hex = same.color_hex; edAutoColor(); }
   }
 }
 /** Company field typed (called by the form input handler). */
@@ -273,6 +273,7 @@ function edCompanyInput(el){
   const hit = edFindCompany(el.value);
   if (hit && ed.isNew) edFillFromCompany(hit);
   edCompanyNote(hit && hit.value !== el.value.trim() ? 'same' : '', hit);
+  edAutoColor();   // each company its own shade (02b-colors.js)
 }
 function edCompanyNote(kind, hit){
   const n = $('#ed-company-note'); if (!n) return;

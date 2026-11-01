@@ -447,7 +447,7 @@ const sec = (n) => console.log('\n== ' + n);
   ok(v.join('|') === 'Fidenza (PR)|2023|P-1', 'Italian column names for the new fields', v);
   v = await p.evaluate(async () => { dbSyncFromState('t'); await dbPersist(); const d2 = new DB.SQL.Database(DB.db.export()); const W = dbReadWorkspace(d2); const nC = dbScalar('SELECT COUNT(*) FROM clients', null, d2); const ver = dbScalar("SELECT value FROM meta WHERE key='schema_version'", null, d2); d2.close();
     const b = W.binders.find(x => x.speaking_code === 'TS1'); return {nC, ver, wc:W.clients.length, city:b.company_city, year:b.ref_year, extra:b.extra_codes, json:JSON.parse(workspaceJSON()).clients.length}; });
-  ok(v.nC === 3 && v.ver === '5' && v.wc === 3 && v.city === 'Parma (PR)' && v.year === '2024' && v.extra === 'Prot. 77' && v.json === 3, 'SQLite schema 5 (v9 activity_log; v4: clients table + new binder columns), also in the workspace JSON', v);
+  ok(v.nC === 3 && +v.ver >= 5 && v.wc === 3 && v.city === 'Parma (PR)' && v.year === '2024' && v.extra === 'Prot. 77' && v.json === 3, 'SQLite schema >= 5 (v9 activity_log; v4: clients table + new binder columns), also in the workspace JSON', v);
   v = await p.evaluate(() => { const d = new DB.SQL.Database(); d.exec("CREATE TABLE binders(id TEXT PRIMARY KEY, speaking_code TEXT NOT NULL UNIQUE, company_name TEXT, category TEXT, color_hex TEXT, binder_title TEXT, room_code TEXT, cabinet_code TEXT, shelf_code TEXT, sector_code TEXT, location_code TEXT, archive_state TEXT, tags TEXT, short_code TEXT UNIQUE, short_url TEXT, final_destination TEXT, final_destination_custom TEXT, selected_for_print INTEGER, created_at TEXT, updated_at TEXT)"); dbMigrate(d); const c = dbQuery('PRAGMA table_info(binders)', null, d).map(r => r.name); d.close(); return ['multi_code','company_city','ref_year','extra_codes','shelf_color'].every(x => c.includes(x)); });
   ok(v, 'old .sqlite files are migrated (new columns added)');
   // demo data
@@ -1176,7 +1176,7 @@ const sec = (n) => console.log('\n== ' + n);
   Lv = await p.evaluate(async () => { await dbPersist(); const d2 = new DB.SQL.Database(DB.db.export()); const ver = dbScalar("SELECT value FROM meta WHERE key='schema_version'", null, d2); const n = dbScalar('SELECT COUNT(*) FROM activity_log', null, d2); const r = dbQuery("SELECT * FROM activity_log WHERE action = 'binder.edit' ORDER BY at DESC LIMIT 1", null, d2)[0]; d2.close();
     const d3 = new DB.SQL.Database(); d3.exec('CREATE TABLE binders(id TEXT PRIMARY KEY, speaking_code TEXT); CREATE TABLE contents_items(id INTEGER PRIMARY KEY, binder_id TEXT)'); dbMigrate(d3); const has = dbQuery("SELECT name FROM sqlite_master WHERE name='activity_log'", null, d3).length; d3.close();
     return {ver, n, mem:LOG.entries.length, pend:LOG.pending.length, code:r && r.target_code, det:r && JSON.parse(r.details_json).changed.room_code[1], who:r && r.who, has}; });
-  ok(Lv.ver === '5' && Lv.n === Lv.mem && Lv.pend === 0 && Lv.code === 'LGT1' && Lv.det === 'ZL' && Lv.who === 'Questo PC' && Lv.has === 1, 'log: SQLite schema 5, activity_log table mirrors memory, old databases get the table', Lv);
+  ok(+Lv.ver >= 5 && Lv.n === Lv.mem && Lv.pend === 0 && Lv.code === 'LGT1' && Lv.det === 'ZL' && Lv.who === 'Questo PC' && Lv.has === 1, 'log: SQLite schema >= 5, activity_log table mirrors memory, old databases get the table', Lv);
   await p.evaluate(() => { S.view = 'database'; renderAll(); });
   const LsqF = await dl('[data-a="db-download"]');
   Lv = await p.evaluate((b64) => { const d = new DB.SQL.Database(Uint8Array.from(atob(b64), c => c.charCodeAt(0))); const n = dbScalar("SELECT COUNT(*) FROM activity_log WHERE action IN ('binder.create','binder.delete_bulk','info.rename')", null, d); d.close(); return n; }, fs.readFileSync(LsqF).toString('base64'));
@@ -1257,6 +1257,165 @@ const sec = (n) => console.log('\n== ' + n);
   // @@STREAM-E@@
 
   // @@STREAM-K@@
+  sec('v10 K: smart spine colours (families, per-client shades, locks)');
+  await p.evaluate(() => { let i = 0; while (topModal() && i++ < 5) closeModal(true); });
+  await p.evaluate(() => { window.__Ksnap = JSON.stringify({binders:S.binders, settings:S.settings, view:S.view, infoTab:S.infoTab, lang:S.lang}); S.lang = 'it'; S.settings.catColors = {}; S.settings.catFamilies = {}; S.settings.colorMode = 'company'; infoApplyCatColors(); });
+  let Kv = await p.evaluate(() => {
+    const bad = []; let minCR = 99, minDE = 99, minDEo = 99;
+    COLOR_FAMILIES.forEach(f => {
+      if (f.shades.length < 8 || f.shades.length > 12) bad.push(f.id + ':size');
+      if (new Set(f.shades).size !== f.shades.length) bad.push(f.id + ':dup');
+      f.shades.forEach((c, i) => { if (!/^#[0-9A-F]{6}$/.test(c)) bad.push(c); minCR = Math.min(minCR, colorContrast(c, '#FFFFFF')); f.shades.forEach((d, j) => { if (j > i) minDE = Math.min(minDE, colorDeltaE(c, d)); }); });
+    });
+    const anchors = ['Ordinaria','Semplificata','Societario','Lavoro','Dichiarativi'].every(c => COLOR_FAMILY[colorFamilyId(c)].shades[0] === CAT_COLOR_DEFAULT[c] && colorCategoryHex(c) === CAT_COLOR_DEFAULT[c]);
+    return {bad, minCR:+minCR.toFixed(2), minDE:+minDE.toFixed(1), anchors, n:COLOR_FAMILIES.length, bw:colorDeltaE('#000000', '#FFFFFF'), same:colorDeltaE('#2563EB', '#2563EB'), cw:colorContrast('#000000', '#FFFFFF'), h:colorHash('a')};
+  });
+  ok(Kv.n >= 8 && !Kv.bad.length && Kv.minCR >= 3 && Kv.minDE >= 7, 'colour families: 8–12 distinct print-safe shades each, white text contrast ≥ 3:1, ΔE2000 ≥ 7 within a family', Kv);
+  ok(Kv.anchors, 'the first shade of each default family is the v9 category colour', Kv);
+  ok(Math.abs(Kv.bw - 100) < 0.5 && Kv.same === 0 && Math.abs(Kv.cw - 21) < 0.01 && Kv.h === 0xe40c292c, 'colour math: CIEDE2000, WCAG contrast and FNV-1a reference values', Kv);
+  Kv = await p.evaluate(() => ['Ordinaria','Semplificata','Societario','Lavoro','Dichiarativi','APS','ETS Cultura','Associazione sportiva','ENC','Società di capitali','Aziende','Condominio','Contenzioso','Privati'].map(c => colorFamilyId(c)).join());
+  ok(Kv === 'blue,green,violet,orange,red,warm,warm,warm,warm,cool,cool,pink,slate,teal', 'family per category: warm for APS/ETS/ENC/associations, cool dark for companies', Kv);
+  Kv = await p.evaluate(() => { const a = colorFamilyId('Pratiche varie Kx'), b = colorFamilyId('pratiche  varie kx'); return {a, b, ok:COLOR_HASH_FAMILIES.includes(a)}; });
+  ok(Kv.a === Kv.b && Kv.ok, 'unknown categories get a stable family (case/space insensitive)', Kv);
+  // per-company shades inside a category
+  Kv = await p.evaluate(() => {
+    const mk = (co, i) => normalizeBinder({speaking_code:'KC' + i, company_name:co, category:'Ktest', short_code:newShortCode(), color_hex:''});
+    const fam = colorShades('Ktest'), out = [];
+    for (let i = 0; i < 12; i++){ const b = mk('Kappa Ditta ' + i, i); b.color_hex = colorAssign(b, S.binders); S.binders.push(b); out.push(b.color_hex); }
+    const same = mk('Kappa Ditta 3', 'S'); const sameHex = colorAssign(same, S.binders);
+    const again = mk('Kappa Ditta 3', 'S2'); const twice = [colorAssign(again, S.binders), colorAssign(again, S.binders)];
+    const spelled = mk('KAPPA DITTA  3', 'S3');
+    return {fam:fam.length, first10:new Set(out.slice(0, 10)).size, inFam:out.every(c => fam.includes(c)), shared:out.slice(0, 10).includes(out[10]), sameHex, three:out[3], twice, spelled:colorAssign(spelled, S.binders)};
+  });
+  ok(Kv.fam === 10 && Kv.first10 === 10 && Kv.inFam && Kv.shared, 'different companies of a category get different shades of its family until the family is exhausted', Kv);
+  ok(Kv.sameHex === Kv.three && Kv.twice[0] === Kv.three && Kv.twice[1] === Kv.three && Kv.spelled === Kv.three, 'same company → same shade (deterministic, spelling-insensitive)', Kv);
+  Kv = await p.evaluate(() => { const b = S.binders.find(x => x.speaking_code === 'KC0'); const other = normalizeBinder({speaking_code:'KX1', company_name:'Kappa Ditta 0', category:'Lavoro', short_code:newShortCode()}); return {c:colorAssign(other, S.binders), fam:colorShades('Lavoro').includes(colorAssign(other, S.binders)), b:b.color_hex}; });
+  ok(Kv.fam, 'the same company in another category takes a shade of that category\'s family', Kv);
+  // lock + recolorAll + undo + log
+  Kv = await p.evaluate(() => {
+    const L = S.binders.find(x => x.speaking_code === 'KC1'); L.color_hex = '#123456'; L.color_locked = true;
+    const U = S.binders.find(x => x.speaking_code === 'KC2'); U.color_hex = '#654321';
+    const auto = applyAutoColor(L);
+    const nLog = LOG.entries.length;
+    const n = recolorAll({onlyUnlocked:true});
+    const e = LOG.entries[LOG.entries.length - 1];
+    return {auto, n, L:L.color_hex, U:U.color_hex, uFam:colorShades('Ktest').includes(U.color_hex), log:e && e.action, logged:LOG.entries.length > nLog};
+  });
+  ok(Kv.auto === false && Kv.L === '#123456' && Kv.n >= 1 && Kv.uFam && Kv.log === 'binder.recolor', 'recolorAll recolours unlocked binders, keeps locked ones, writes the activity log', Kv);
+  Kv = await p.evaluate(() => { const btn = [...document.querySelectorAll('.toast-act')].pop(); btn && btn.click(); return S.binders.find(x => x.speaking_code === 'KC2').color_hex; });
+  ok(Kv === '#654321', 'recolorAll can be undone', Kv);
+  Kv = await p.evaluate(() => { const plan1 = [...colorPlan(S.binders)].join(), plan2 = [...colorPlan(S.binders)].join(); return {same:plan1 === plan2}; });
+  ok(Kv.same, 'recolour plan is deterministic', Kv);
+  // editor: live colour on company / category change, swatches, lock, "Automatico"
+  Kv = await p.evaluate(() => {
+    const r = {};
+    openEditor(null);
+    const co = $('#ed-company_name'); co.value = 'Kappa Ditta 5'; co.dispatchEvent(new Event('input', {bubbles:true}));
+    const cat = $('#ed-category'); cat.value = 'Ktest'; cat.dispatchEvent(new Event('input', {bubbles:true}));
+    r.live = UI.ed.d.color_hex; r.exp = S.binders.find(x => x.speaking_code === 'KC5').color_hex;
+    r.auto = !!document.querySelector('#ed-swatches .co-auto.on'); r.famFirst = [...document.querySelectorAll('#ed-swatches .co-fam .sw')].map(s => s.dataset.c).join() === colorShades('Ktest').join();
+    cat.value = 'Lavoro'; cat.dispatchEvent(new Event('input', {bubbles:true})); r.lav = colorShades('Lavoro').includes(UI.ed.d.color_hex);
+    document.querySelector('#ed-swatches .co-others .sw').click(); r.locked = UI.ed.d.color_locked === true; r.picked = UI.ed.d.color_hex; r.lockShown = !document.querySelector('#ed-swatches .co-lock').hidden && !document.querySelector('#ed-swatches .co-auto.on');
+    cat.value = 'Ktest'; cat.dispatchEvent(new Event('input', {bubbles:true})); r.kept = UI.ed.d.color_hex === r.picked;
+    co.value = 'Kappa Ditta 7'; co.dispatchEvent(new Event('input', {bubbles:true})); r.kept2 = UI.ed.d.color_hex === r.picked;
+    document.querySelector('#ed-swatches [data-a="ed-color-auto"]').click(); r.unlocked = UI.ed.d.color_locked === false && UI.ed.d.color_hex === S.binders.find(x => x.speaking_code === 'KC7').color_hex;
+    document.querySelector('#ed-swatches .co-fam .sw:nth-child(3)').click();
+    $('#ed-speaking_code').value = 'KED1'; $('#ed-speaking_code').dispatchEvent(new Event('input', {bubbles:true}));
+    saveEditor();
+    const b = S.binders.find(x => x.speaking_code === 'KED1'); r.saved = !!b && b.color_locked === true && b.color_hex === colorShades('Ktest')[2];
+    return r;
+  });
+  ok(Kv.live === Kv.exp && Kv.auto && Kv.famFirst, 'editor: colour follows company + category live, family shades shown first with "Automatico"', Kv);
+  ok(Kv.lav && Kv.locked && Kv.lockShown && Kv.kept && Kv.kept2, 'editor: picking a swatch locks the colour, later company/category edits keep it', Kv);
+  ok(Kv.unlocked && Kv.saved, 'editor: "Automatico" unlocks, the lock is saved with the binder', Kv);
+  Kv = await p.evaluate(() => {
+    const b = S.binders.find(x => x.speaking_code === 'KED1'); openEditor(b.id);
+    const cat = $('#ed-category'); cat.value = 'Dichiarativi'; cat.dispatchEvent(new Event('input', {bubbles:true})); const kept = UI.ed.d.color_hex === b.color_hex; closeModal(true);
+    const u = S.binders.find(x => x.speaking_code === 'KC4'); openEditor(u.id);
+    const c2 = $('#ed-category'); c2.value = 'Dichiarativi'; c2.dispatchEvent(new Event('input', {bubbles:true})); const moved = colorShades('Dichiarativi').includes(UI.ed.d.color_hex); closeModal(true);
+    return {kept, moved};
+  });
+  ok(Kv.kept && Kv.moved, 'editing an existing binder: locked colour kept, unlocked colour follows the new category', Kv);
+  // category mode = v9 behaviour; manual mode
+  Kv = await p.evaluate(() => {
+    S.settings.colorMode = 'category';
+    const r = ['Ordinaria','Semplificata','Societario','Lavoro','Dichiarativi'].map(c => colorAssign(normalizeBinder({company_name:'Kappa Ditta 1', category:c}), S.binders) === CAT_COLOR_DEFAULT[c]);
+    openEditor(null); const co = $('#ed-company_name'); co.value = 'Kappa Ditta 9'; co.dispatchEvent(new Event('input', {bubbles:true})); const cat = $('#ed-category'); cat.value = 'Societario'; cat.dispatchEvent(new Event('input', {bubbles:true})); const ed = UI.ed.d.color_hex; closeModal(true);
+    S.settings.colorMode = 'manual';
+    const keep = colorAssign(normalizeBinder({company_name:'X', category:'Lavoro', color_hex:'#112233'}), S.binders);
+    const auto = applyAutoColor(S.binders.find(x => x.speaking_code === 'KC3'));
+    S.settings.colorMode = 'company';
+    return {all:r.every(Boolean), ed, keep, auto};
+  });
+  ok(Kv.all && Kv.ed === '#7C3AED', 'category mode: one colour per category (v9 behaviour)', Kv);
+  ok(Kv.keep === '#112233' && Kv.auto === false, 'manual mode: nothing is recoloured automatically', Kv);
+  // Settings › Colori
+  await p.evaluate(() => { S.view = 'settings'; renderAll(); }); await p.waitForTimeout(150);
+  Kv = await p.evaluate(() => ({card:!!document.querySelector('#co-settings'), modes:document.querySelectorAll('#co-mode [data-a="co-mode"]').length, strips:document.querySelectorAll('#co-settings .co-strip').length, w:document.documentElement.scrollWidth <= innerWidth + 1}));
+  ok(Kv.card && Kv.modes === 3 && Kv.strips >= 10 && Kv.w, 'Settings: colour section with mode, families preview, no h-scroll', Kv);
+  await p.click('#co-mode [data-m="category"]'); await p.waitForTimeout(100);
+  Kv = await p.evaluate(() => ({m:S.settings.colorMode, on:document.querySelector('#co-mode .on').dataset.m, log:LOG.entries[LOG.entries.length - 1].action}));
+  ok(Kv.m === 'category' && Kv.on === 'category' && Kv.log === 'settings.color_mode', 'Settings: colour mode switch saved and logged', Kv);
+  await p.click('#co-mode [data-m="manual"]'); await p.waitForTimeout(100);
+  ok(await p.evaluate(() => document.querySelector('[data-a="co-recolor"]').disabled), 'Settings: recolour disabled in manual mode');
+  await p.click('#co-mode [data-m="company"]'); await p.waitForTimeout(100);
+  Kv = await p.evaluate(() => { const U = S.binders.find(x => x.speaking_code === 'KC2'); U.color_hex = '#654321'; commit(); renderView(); return true; });
+  await p.click('[data-a="co-recolor"]'); await p.waitForTimeout(150);
+  Kv = await p.evaluate(() => ({c:S.binders.find(x => x.speaking_code === 'KC2').color_hex, L:S.binders.find(x => x.speaking_code === 'KC1').color_hex}));
+  ok(Kv.c !== '#654321' && Kv.L === '#123456', 'Settings: "Ricolora tutti" recolours unlocked binders only', Kv);
+  await p.evaluate(() => { S.lang = 'en'; renderAll(); }); await p.waitForTimeout(100);
+  ok((await p.innerText('#co-settings')).includes('Spine colours'), 'Settings colour section in English');
+  await p.evaluate(() => { S.lang = 'it'; renderAll(); });
+  // Informazioni › Categorie: family choice + recolour with undo
+  await p.evaluate(() => { S.view = 'info'; S.infoTab = 'category'; UI.infoq = ''; renderAll(); }); await p.waitForTimeout(150);
+  ok(await p.evaluate(() => !!document.querySelector('[data-a="info-color"][data-k="ktest"] .co-strip')), 'Informazioni › Categorie shows the family strip');
+  await p.click('[data-a="info-color"][data-k="ktest"]'); await p.waitForTimeout(150);
+  ok(await p.evaluate(() => document.querySelectorAll('#info-fams [data-a="co-fam"]').length === COLOR_FAMILIES.length), 'category colour dialog lists the families');
+  await p.click('#info-fams [data-f="warm"]'); await p.waitForTimeout(80);
+  Kv = await p.evaluate(() => ({col:$('#info-col').value.toUpperCase(), first:document.querySelector('#info-sws .sw').dataset.c, w0:COLOR_FAMILY.warm.shades[0], on:document.querySelector('#info-fams .on').dataset.f}));
+  ok(Kv.col === Kv.w0 && Kv.first === Kv.w0 && Kv.on === 'warm', 'family pick previews its shades', Kv);
+  await p.check('#info-col-all'); await p.locator('.modal-f .btn-primary').last().click(); await p.waitForTimeout(200);
+  Kv = await p.evaluate(() => {
+    const ks = S.binders.filter(b => b.category === 'Ktest'), warm = COLOR_FAMILY.warm.shades;
+    return {fam:S.settings.catFamilies.Ktest, anchor:S.settings.catColors.Ktest, unl:ks.filter(b => !b.color_locked).every(b => warm.includes(b.color_hex)), L:ks.find(b => b.speaking_code === 'KC1').color_hex, distinct:new Set(ks.filter(b => !b.color_locked).slice(0, 8).map(b => b.color_hex)).size};
+  });
+  ok(Kv.fam === 'warm' && !Kv.anchor && Kv.unl && Kv.L === '#123456' && Kv.distinct >= 7, 'Informazioni: choosing a family recolours the unlocked binders of the category in that family', Kv);
+  Kv = await p.evaluate(() => { const btn = [...document.querySelectorAll('.toast-act')].pop(); btn && btn.click(); const ks = S.binders.filter(b => b.category === 'Ktest'); return {fam:(S.settings.catFamilies || {}).Ktest || '', warm:ks.filter(b => COLOR_FAMILY.warm.shades.includes(b.color_hex)).length, n:ks.length}; });
+  ok(!Kv.fam && Kv.warm < Kv.n / 2, 'Informazioni family change can be undone', Kv);
+  // JSON / CSV / SQLite round trip of the lock flag
+  Kv = await p.evaluate(async () => {
+    const r = {};
+    const L = S.binders.find(x => x.speaking_code === 'KC1');
+    r.cols = CSV_COLUMNS[CSV_COLUMNS.length - 1] === 'color_locked' && binderToCsvRow(L).length === CSV_COLUMNS.length;
+    const W = JSON.parse(workspaceJSON()); r.json = W.binders.find(x => x.speaking_code === 'KC1').color_locked === true && W.binders.find(x => x.speaking_code === 'KC2').color_locked === false;
+    const csv = toCSV([CSV_COLUMNS].concat(['KC1','KC2'].map(c => binderToCsvRow(S.binders.find(x => x.speaking_code === c)).map(safeCell))), ';');
+    analyzeImport(csv); const rows = UI.importParsed.rows; r.csv = rows[0].p.color_locked === true && rows[1].p.color_locked === false && rows[0].p.color_hex === '#123456';
+    // older CSV (no color_locked column): hand-picked colours are locked, automatic ones are not
+    analyzeImport('speaking_code;company_name;category;color_hex\nKOLD1;Kold Uno;Ordinaria;#123456\nKOLD2;Kold Due;Ordinaria;#2563EB\nKOLD3;Kold Tre;Ktest;\n');
+    const o = UI.importParsed.rows; r.old = o.length === 3 && o[0].p.color_locked === true && !o[1].p.color_locked && colorShades('Ktest').includes(o[2].p.color_hex) && !o[2].p.color_locked;
+    UI.importParsed = null;
+    // SQLite
+    dbSyncFromState('test'); const WS = dbReadWorkspace(DB.db);
+    r.sql = WS.binders.find(x => x.speaking_code === 'KC1').color_locked === true && WS.binders.find(x => x.speaking_code === 'KC2').color_locked === false;
+    r.col = dbQuery('PRAGMA table_info(binders)').some(c => c.name === 'color_locked') && DB_SCHEMA_VERSION >= 6;
+    const d = new DB.SQL.Database(); d.exec("CREATE TABLE binders(id TEXT PRIMARY KEY, speaking_code TEXT NOT NULL UNIQUE, company_name TEXT, category TEXT, color_hex TEXT, binder_title TEXT, room_code TEXT, cabinet_code TEXT, shelf_code TEXT, sector_code TEXT, location_code TEXT, archive_state TEXT, tags TEXT, short_code TEXT UNIQUE, short_url TEXT, final_destination TEXT, final_destination_custom TEXT, selected_for_print INTEGER DEFAULT 0, created_at TEXT, updated_at TEXT)");
+    dbMigrate(d); r.migr = dbQuery('PRAGMA table_info(binders)', null, d).some(c => c.name === 'color_locked'); d.close();
+    // pre-v10 state: hand-picked colours locked on upgrade, nothing recoloured
+    const m = migrate({schema:26.9, settings:{}, binders:[{speaking_code:'KM1', category:'Ordinaria', color_hex:'#123456'}, {speaking_code:'KM2', category:'Ordinaria', color_hex:'#2563EB'}, {speaking_code:'KM3', category:'Lavoro', color_hex:'#D97706'}]});
+    r.mig = m.binders.map(b => b.color_locked + b.color_hex).join() === 'true#123456,false#2563EB,false#D97706' && m.settings.colorMode === 'company';
+    const m2 = migrate({schema:26.9, settings:{colorMode:'company'}, binders:[{speaking_code:'KM1', category:'Ordinaria', color_hex:'#123456'}]});
+    r.mig2 = m2.binders[0].color_locked === false;
+    return r;
+  });
+  ok(Kv.cols && Kv.json, 'color_locked: appended CSV column, saved in workspace JSON', Kv);
+  ok(Kv.csv && Kv.old, 'color_locked: CSV round trip; older CSV without the column imports (hand-picked colours locked, missing ones automatic)', Kv);
+  ok(Kv.sql && Kv.col && Kv.migr, 'color_locked: SQLite column, round trip and additive migration of old databases', Kv);
+  ok(Kv.mig && Kv.mig2, 'upgrade from v9: colours unchanged, hand-picked ones locked', Kv);
+  // help topic
+  ok(await p.evaluate(() => HELP_TOPICS.some(h => h.id === 'colors' && h.body.it && h.body.en)), 'help topic "colors" (IT + EN)');
+  // clean up
+  await p.evaluate(() => { const K = JSON.parse(window.__Ksnap); delete window.__Ksnap; S.binders = K.binders.map(normalizeBinder); S.settings = K.settings; S.view = K.view; S.infoTab = K.infoTab; S.lang = K.lang; UI.importParsed = null; infoApplyCatColors(); commit(); renderAll(); });
+  ok(await p.evaluate(() => !S.binders.some(b => /^K(C|ED|X|OLD|M)/.test(b.speaking_code))), 'stream K test data removed');
 
   // @@STREAM-R@@
 

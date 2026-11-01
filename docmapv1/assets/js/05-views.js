@@ -136,6 +136,7 @@ function openEditor(id, preset){
   const src = id ? S.binders.find(b => b.id === id) : null;
   const d = src ? clone(src) : normalizeBinder(Object.assign({ id:uuid(), short_code:newShortCode(), category:'Ordinaria', color_hex:'#2563EB', archive_state:'CURRENT', selected_for_print:true, contents_items:[{year:'', description:t('arch_n', {n:1})}] }, preset || {}));
   if (!src && !d.speaking_code && d.company_name) d.speaking_code = suggestSpeakingCode(d.company_name);
+  if (!src && !d.color_locked && colorMode() !== 'manual') d.color_hex = colorAssign(d, S.binders);   // smart colour (02b-colors.js)
   UI.ed = { isNew:!src, d, pipeMode:false, base:JSON.stringify(d) };
   const f = (key, label, extra, attrs) => '<div class="field"><label for="ed-' + key + '">' + esc(label) + '</label><input class="inp ' + (extra || '') + '" id="ed-' + key + '" data-ed="' + key + '" value="' + esc(d[key]) + '" ' + (attrs || '') + '></div>';
   const body = '<div class="edit-grid"><div class="stack">' +
@@ -168,10 +169,8 @@ function openEditor(id, preset){
     },
     onClose: () => { UI.ed = null; } });
 }
-function swatchesHTML(cur){
-  return COLORS.map(c => '<button type="button" class="sw ' + (cur.toUpperCase() === c ? 'on' : '') + '" style="background:' + c + '" data-a="ed-color" data-c="' + c + '" aria-label="' + c + '"></button>').join('') +
-    '<input type="color" value="' + esc(cur) + '" data-ed="color_hex" style="width:44px;height:34px;border:1px solid var(--border-2);border-radius:8px;padding:2px;background:#fff;cursor:pointer" aria-label="custom colour"><span class="mono small muted">' + esc(cur) + '</span>';
-}
+/* Editor colour swatches: "Automatico", the category family's shades, other colours, picker (02b-colors.js). */
+function swatchesHTML(cur){ return colorSwatchesHTML(cur, UI.ed && UI.ed.d); }
 /* Shelf tools in the binder form: naming style (menu), quick picks in that style, optional shelf colour. */
 function shelfToolsHTML(d){
   const ty = S.settings.shelfType || 'greek', picks = SHELF_TYPES[ty] || [];
@@ -475,7 +474,7 @@ function analyzeImport(text){
 /* Analyse records (any header naming, or DocMap field names from the column-mapping step in 05b-import-map.js) → UI.importParsed. */
 function analyzeImportRecords(records, meta){
   const plannedCodes = [], plannedSC = [], byCode = new Map(S.binders.map(b => [b.speaking_code.toUpperCase(), b]));
-  const seenInFile = new Set(), idsInFile = new Set();
+  const seenInFile = new Set(), idsInFile = new Set(), colorIdx = colorIndex(S.binders);
   const rows = [];
   records.forEach((raw, idx) => {
     const p = mapRecord(raw), w = [];
@@ -495,7 +494,8 @@ function analyzeImportRecords(records, meta){
     }
     plannedSC.push(p.short_code || p._keepSC);
     if (p.color_hex && !normHex(p.color_hex)){ delete p.color_hex; w.push(t('im_w_color')); }
-    else if (!p.color_hex && !match){ p.color_hex = CAT_COLOR[p.category] || '#475569'; }
+    else if (!p.color_hex && !match){ p.color_hex = colorAssign(p, null, {index:colorIdx}); colorIndexAdd(colorIdx, p); }   // smart colour (02b-colors.js)
+    if (p.color_hex && !('color_locked' in p) && !colorIsAuto(match ? Object.assign({}, match, p) : p)) p.color_locked = true;   // file without the column: a colour that is not automatic was chosen by hand
     if (p.id && (idsInFile.has(p.id) || S.binders.some(b => b.id === p.id && (!match || b.id !== match.id)))) delete p.id;
     if (p.id) idsInFile.add(p.id);
     rows.push({idx, status: match ? 'upd' : 'new', p, w, match: match ? match.id : null});
@@ -629,5 +629,5 @@ function viewSettings(){
       '<button class="btn" data-a="se-prev">' + ic('rotate') + esc(t('se_prev_restore')) + '</button>' +
       '<button class="btn" data-a="se-demo">' + ic('refresh') + esc(t('se_demo')) + '</button>' +
       '<button class="btn btn-danger" data-a="se-wipe">' + ic('trash') + esc(t('se_wipe')) + '</button>' +
-      '<div class="sep"></div><div class="tiny muted">' + esc(t('se_about', {v:APP_VERSION})) + '<br>localStorage: <span class="mono">' + LS_KEY + '</span></div></div></div>';
+      '<div class="sep"></div><div class="tiny muted">' + esc(t('se_about', {v:APP_VERSION})) + '<br>localStorage: <span class="mono">' + LS_KEY + '</span></div></div></div>' + colorSettingsHTML();   // Colori dei dorsi (02b-colors.js)
 }

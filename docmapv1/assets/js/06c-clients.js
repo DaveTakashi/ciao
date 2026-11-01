@@ -81,7 +81,7 @@ function applyClientToEditor(c){
   const d = UI.ed && UI.ed.d; if (!d) return;
   const v = clientDefaults(c);
   ['multi_code','company_city','category'].forEach(k => { if (!String(d[k] || '').trim() || (k === 'category' && UI.ed.isNew && !UI.ed.catTouched)){ if (v[k]){ d[k] = v[k]; const el = $('#ed-' + k); if (el) el.value = v[k]; } } });
-  if (CAT_COLOR[d.category] && UI.ed.isNew){ d.color_hex = CAT_COLOR[d.category]; const sw = $('#ed-swatches'); if (sw) sw.innerHTML = swatchesHTML(d.color_hex); }
+  edAutoColor();   // colour from company + category unless locked (02b-colors.js)
 }
 function newBinderForClient(id){
   const c = (S.clients || []).find(x => x.id === id); if (!c) return;
