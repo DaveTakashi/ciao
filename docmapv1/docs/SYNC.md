@@ -1,4 +1,4 @@
-# DocMap 2026 — Sincronizzazione manuale client locale ⇄ web app (v10)
+# DocMap 2026 — Sincronizzazione: pacchetti manuali (v10) e database online condiviso (v10.1)
 
 Codice: `assets/js/06f-sync.js` · Test: blocco `// @@STREAM-S@@` in `tests/suite.js` · Aiuto in app: argomento `sync`.
 
@@ -112,6 +112,44 @@ Un pacchetto di sincronizzazione incollato o trascinato nella normale vista **Im
 - **Non ancora confermate da \<dispositivo\>**: più recenti di `ackedAt` (o dell'ultimo export verso di lui).
 - Tabella dei dispositivi conosciuti (ultimo import, ultimo export, conferma) e cronologia delle ultime operazioni.
 
-## 7. Per il back-end Python
+## 7. v10.1 — il server come dispositivo (`06g-server.js`)
+
+Il database online (`server-php/api.php`, contratto in `API-CONTRACT.md`) è **un altro peer** dello stesso motore:
+`S.sync.peers['server:<url dell'API>']` con `mode:'server'`. Ogni `pull` diventa un pacchetto `docmap-sync`
+(`source.deviceId = 'server:<url>'`, `exportedAt` = ora del server) e passa da `syncAnalyze` → `syncApply`: stesse regole
+(vince il più recente per record, tombstone, conflitti "modificato da entrambe le parti" quando il record è cambiato qui
+dopo l'ultima sincronizzazione con il server **e** sul server dopo l'ultimo pull).
+
+| Campo del peer server | Significato |
+|---|---|
+| `seq`, `logSeq` | cursori del pull incrementale (record / registro) |
+| `lastPullAt`, `lastImportAt` | ora (di questo dispositivo) dell'ultimo pull applicato |
+| `lastSeenRemoteExportAt` | `server_time` dell'ultimo pull (ora **del server**) |
+| `lastPushAt` = `ackedAt` | inizio dell'ultimo push riuscito: la "coda" è tutto ciò che ha `updated_at` / `deletedAt` successivo |
+| `lastLogPushAt` | idem per il registro attività |
+| `settingsAt`, `settingsHash` | ultima versione delle impostazioni condivise ricevuta / inviata |
+| `lastSyncAt` | fine dell'ultimo ciclo completo |
+
+Nessuna nuova chiave di stato né colonna SQLite: tutto vive in `S.sync`, che esisteva già (v10). In memoria
+(`SRV.known`) il client ricorda la versione che il server ha di ogni record, per non rimandargli ciò che ha appena ricevuto.
+
+**Web app con `apiBase` (automatica)**: dopo lo sblocco della cassaforte pull + push; ogni `commit()` programma un push
+(1,5 s), pull ogni 60 s, al ritorno del focus e all'evento `online`. Conflitti: vince il più recente, a parità di ora
+quello del server (nessuna finestra). Offline: le modifiche restano nello stato cifrato e ripartono con attesa
+crescente (5 s, 10 s … max 5 min). Un 401 (token revocato) ferma i tentativi automatici. Stato in alto: "Online ·
+sincronizzato", "In attesa (N)", "Offline · in attesa (N)", "Accesso negato". I pull automatici non scrivono una riga di
+riepilogo nel registro (`syncApply(plan, {quiet:true})`: niente annulla, niente `sync.import`).
+
+**PC (`file://`, a richiesta)**: ⚙ Sincronizzazione › **Server online** → indirizzo (anche solo quello dell'app:
+`server-php/api.php` viene aggiunto), codice di accesso, facoltativi utente/password della protezione della cartella →
+**Sincronizza con il server**: ping (avviso se l'orologio differisce di oltre 2 minuti) → `me` → pull di tutte le pagine
+→ se ci sono conflitti la **stessa revisione** dei pacchetti (Tieni locale / Tieni importato) → push. Annullando la
+revisione non si invia nulla. **Primo collegamento con il server vuoto**: finestra "Carica il mio archivio sul server
+(prima volta)" con i conteggi (faldoni, clienti, eliminazioni, righe di registro, impostazioni) → conferma → si carica
+tutto con i propri `updated_at` (nessun dato cambia sul PC). Con il server già popolato vale la fusione normale.
+Riga di registro `sync.server`. Richieste "semplici" (`POST text/plain`, token nel corpo) per evitare il preflight CORS:
+`config.php` deve avere `allowed_origins => ['null']` (opzione di `setup.php`). I file restano come alternativa.
+
+## 8. Per il back-end Python
 
 Il formato è pensato per diventare l'API di sync: `POST /sync/push` = un pacchetto `docmap-sync` (anche cifrato end-to-end), `GET /sync/pull?since=` = un pacchetto con i record successivi. Il server può applicare la stessa regola (record-level LWW su `updated_at`, tombstone con `deletedAt`) o fare solo da casella postale cifrata. Campi da conservare lato server: `updated_at` dei record, tabella `tombstones(type, id, code, deleted_at, who)`, `device(id, label, mode)` e, per ogni coppia di dispositivi, l'ultima conferma (`ack`).

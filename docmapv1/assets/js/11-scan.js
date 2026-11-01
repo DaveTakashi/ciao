@@ -43,7 +43,12 @@ Object.assign(I18N.it, {
   sc_offline:'Nessuna rete: modifica salvata sul telefono, verrà inviata appena torna la connessione.', sc_err:'Errore: {m}', sc_gone:'Il faldone non esiste più.',
   sc_stale:'Questo faldone è appena cambiato su un altro dispositivo: al salvataggio ti verrà chiesto cosa fare.', sc_expired:'Sessione scaduta: accedi di nuovo per salvare.',
   sc_back:'Indietro', sc_lang:'Lingua', sc_local:'Dati letti da questo browser (DocMap sul PC).', sc_f_state:'stato', sc_f_items:'documenti', sc_f_pos:'posizione', sc_f_notes:'note', sc_f_tags:'tag',
-  cis_archive:'In archivio', cis_in_use:'In uso', cis_client:'Al cliente', cis_label:'Stato del documento'   // same keys as 04b (desktop), not loaded here
+  cis_archive:'In archivio', cis_in_use:'In uso', cis_client:'Al cliente', cis_label:'Stato del documento',   // same keys as 04b (desktop), not loaded here
+  sc_setup_h:'Primo accesso su questo telefono', sc_setup_p:'Scegli un nome utente e un PIN per questo telefono e inserisci il codice di accesso che ti ha dato l\'amministratore. Lo inserisci una volta sola.',
+  sc_secret2:'Ripeti PIN o password', sc_token:'Codice di accesso al server', sc_e_match:'I due PIN non coincidono.', sc_e_secret:'Il PIN deve avere almeno 4 caratteri.', sc_e_user:'Nome utente: 2-40 caratteri tra lettere, numeri e . _ - @',
+  sc_e_token:'Codice di accesso non valido o revocato.', sc_e_offline:'Server non raggiungibile: controlla la connessione e riprova.', sc_create:'Crea e accedi',
+  sc_token_h:'Codice di accesso', sc_token_p:'Questo telefono non ha un codice di accesso valido per il database online (forse è stato revocato). Inseriscine uno nuovo.', sc_token_save:'Salva codice',
+  sc_server:'Dati dal database online dello studio.', sc_srv_off:'Server non raggiungibile. Riprova tra poco.'
 });
 Object.assign(I18N.en, {
   sc_title:'DocMap — Binder', sc_brand:'DocMap', sc_login_h:'Sign in', sc_login_p:'Sign in to see the binder of this QR.',
@@ -67,7 +72,12 @@ Object.assign(I18N.en, {
   sc_offline:'No network: change saved on the phone, it will be sent as soon as the connection is back.', sc_err:'Error: {m}', sc_gone:'The binder no longer exists.',
   sc_stale:'This binder has just changed on another device: you will be asked what to do when saving.', sc_expired:'Session expired: sign in again to save.',
   sc_back:'Back', sc_lang:'Language', sc_local:'Data read from this browser (DocMap on the PC).', sc_f_state:'state', sc_f_items:'documents', sc_f_pos:'location', sc_f_notes:'notes', sc_f_tags:'tags',
-  cis_archive:'In archive', cis_in_use:'In use', cis_client:'At client', cis_label:'Document status'
+  cis_archive:'In archive', cis_in_use:'In use', cis_client:'At client', cis_label:'Document status',
+  sc_setup_h:'First sign-in on this phone', sc_setup_p:'Choose a username and a PIN for this phone and enter the access code your administrator gave you. You enter it only once.',
+  sc_secret2:'Repeat PIN or password', sc_token:'Server access code', sc_e_match:'The two PINs do not match.', sc_e_secret:'The PIN needs at least 4 characters.', sc_e_user:'Username: 2-40 characters among letters, digits and . _ - @',
+  sc_e_token:'Access code not valid or revoked.', sc_e_offline:'Server unreachable: check the connection and try again.', sc_create:'Create and sign in',
+  sc_token_h:'Access code', sc_token_p:'This phone has no valid access code for the online database (it may have been revoked). Enter a new one.', sc_token_save:'Save code',
+  sc_server:'Data from the studio\'s online database.', sc_srv_off:'Server unreachable. Try again shortly.'
 });
 
 const SC_LANG_LS = 'docmap_v26_scan_lang', SC_USER_LS = 'docmap_v26_scan_user', SC_OUTBOX_LS = 'docmap_v26_scan_outbox';
@@ -115,13 +125,18 @@ async function scRoute(){
   if (!SC.user){
     SC.rec = null; SC.photo = null;
     try { SC.hasUsers = await SC.P.auth.hasUsers(); } catch(e){ SC.hasUsers = false; }
-    SC.view = !authHasSubtle() && SC.P.mode === 'local' ? 'nocrypto' : SC.hasUsers ? 'login' : 'nousers';
+    SC.view = !authHasSubtle() && SC.P.mode === 'local' ? 'nocrypto' : SC.hasUsers ? 'login' : SC.P.server ? 'setup' : 'nousers';
     return scRender();
   }
+  if (SC.P.server && !DocMapVault.srvToken()){ SC.view = 'token'; return scRender(); }   // v10.1: device without a server token
   if (!SC.params.qr && !SC.params.code){ SC.view = 'noqr'; return scRender(); }
   try {
     SC.rec = SC.params.qr ? await SC.P.data.getBinderByQr(SC.params.qr) : await SC.P.data.getBinderByCode(SC.params.code);
-  } catch(e){ if (e.code === 'unauthorized'){ await SC.P.auth.logout(); return scRoute(); } SC.view = 'error'; SC.msg = {kind:'err', text:t('sc_storage')}; return scRender(); }
+  } catch(e){
+    if (SC.P.server && e.code === 'unauthorized'){ SC.view = 'token'; SC.loginErr = t('sc_e_token'); return scRender(); }   // token revoked: never a logout loop
+    if (e.code === 'unauthorized'){ await SC.P.auth.logout(); return scRoute(); }
+    SC.view = 'error'; SC.msg = {kind:'err', text:SC.P.server ? (e.code === 'offline' ? t('sc_srv_off') : t('sc_err', {m:e.message || e.code})) : t('sc_storage')}; return scRender();
+  }
   if (!SC.rec){ SC.view = 'notfound'; return scRender(); }
   if (SC.draft && SC.draft.id === SC.rec.binder.id && SC.P.auth.can('edit')) SC.view = 'edit';   // back after a re-login
   else { SC.draft = null; SC.view = 'card'; }
@@ -185,6 +200,42 @@ function scLoginHTML(){
     '<div class="sc-err" id="sc-login-err" role="alert">' + esc(SC.loginErr) + '</div>' +
     '<button type="submit" class="sc-btn sc-primary sc-block" id="sc-enter"' + (SC.busy ? ' disabled' : '') + '>' + esc(SC.busy ? t('sc_checking') : t('sc_enter')) + '</button></form></main>';
 }
+/* v10.1 web + apiBase: first use on a phone (device user + PIN + server access code) and token replacement */
+function scSetupHTML(){
+  const f = (id, lbl, type, ac) => '<label class="sc-field"><span>' + esc(t(lbl)) + '</span><input id="' + id + '"' + (type ? ' type="' + type + '"' : '') + ' autocomplete="' + (ac || 'off') + '" autocapitalize="none" spellcheck="false"></label>';
+  return '<main class="sc-main sc-center"><form class="sc-card sc-login" data-s="setup-form" novalidate><div class="sc-lock">' + sic('lock') + '</div><h1>' + esc(t('sc_setup_h')) + '</h1><p class="sc-muted">' + esc(t('sc_setup_p')) + '</p>' +
+    f('sc-user', 'sc_user', '', 'username') + f('sc-pin', 'sc_secret', 'password', 'new-password') + f('sc-pin2', 'sc_secret2', 'password', 'new-password') + f('sc-token', 'sc_token', 'password') +
+    '<div class="sc-err" id="sc-login-err" role="alert">' + esc(SC.loginErr) + '</div>' +
+    '<button type="submit" class="sc-btn sc-primary sc-block" id="sc-enter"' + (SC.busy ? ' disabled' : '') + '>' + esc(SC.busy ? t('sc_checking') : t('sc_create')) + '</button></form></main>';
+}
+function scTokenHTML(){
+  return '<main class="sc-main sc-center"><form class="sc-card sc-login" data-s="token-form" novalidate><div class="sc-lock">' + sic('lock') + '</div><h1>' + esc(t('sc_token_h')) + '</h1><p class="sc-muted">' + esc(t('sc_token_p')) + '</p>' +
+    '<label class="sc-field"><span>' + esc(t('sc_token')) + '</span><input id="sc-token" type="password" autocomplete="off" spellcheck="false"></label>' +
+    '<div class="sc-err" id="sc-login-err" role="alert">' + esc(SC.loginErr) + '</div>' +
+    '<button type="submit" class="sc-btn sc-primary sc-block" id="sc-enter"' + (SC.busy ? ' disabled' : '') + '>' + esc(SC.busy ? t('sc_checking') : t('sc_token_save')) + '</button>' +
+    '<button type="button" class="sc-btn sc-block" data-s="logout">' + sic('out') + esc(t('sc_logout')) + '</button></form></main>';
+}
+async function scSetupSubmit(kind){
+  if (SC.busy) return;
+  const v = (id) => (document.getElementById(id) || {}).value || '';
+  SC.loginErr = '';
+  if (kind === 'setup'){
+    if (authNormSecret(v('sc-pin')).length < AUTH_MIN_SECRET){ SC.loginErr = t('sc_e_secret'); return scRender(); }
+    if (v('sc-pin') !== v('sc-pin2')){ SC.loginErr = t('sc_e_match'); return scRender(); }
+  }
+  const vals = {u:v('sc-user'), p:v('sc-pin'), tk:v('sc-token')};
+  SC.busy = true; scRender();
+  try {
+    if (kind === 'setup'){ await srvSetupDevice({username:vals.u, secret:vals.p, token:vals.tk}); try { localStorage.setItem(SC_USER_LS, authNormUser(vals.u)); } catch(e){} }
+    else await srvSetToken(vals.tk);
+    SC.busy = false; SC.loginErr = ''; await scRoute();
+  } catch(e){
+    SC.busy = false;
+    SC.loginErr = e.message === 'username' ? t('sc_e_user') : e.message === 'secret' ? t('sc_e_secret') : e.code === 'offline' ? t('sc_e_offline') : (e.code === 'unauthorized' || e.code === 'forbidden' || e.message === 'token') ? t('sc_e_token') : t('sc_err', {m:e.message || e.code});
+    scRender();
+    if (kind === 'setup'){ const u = document.getElementById('sc-user'); if (u) u.value = vals.u; }
+  }
+}
 function scInfoHTML(icon, h, p, extra){
   return '<main class="sc-main sc-center"><div class="sc-card sc-info">' + '<div class="sc-lock">' + sic(icon) + '</div><h1>' + esc(h) + '</h1>' + (p ? '<p>' + esc(p) + '</p>' : '') + (extra || '') + '</div></main>';
 }
@@ -214,7 +265,7 @@ function scCardHTML(){
       (b.notes ? '<h3>' + esc(t('sc_notes')) + '</h3><p class="sc-notes" id="sc-notes">' + esc(b.notes) + '</p>' : '') +
       (b.contacts ? '<h3>' + esc(t('sc_contacts')) + '</h3><p>' + esc(b.contacts) + '</p>' : '') +
       (tags.length ? '<h3>' + esc(t('sc_tags')) + '</h3><div class="sc-chips">' + tags.map(x => '<span class="sc-tag">' + esc(x) + '</span>').join('') + '</div>' : '') + '</section>' : '') +
-    '<div class="sc-foot sc-muted">' + esc(t('sc_updated', {d:fmtDate(b.updated_at, true)})) + (SC.P.mode === 'local' ? '<br>' + esc(t('sc_local')) : '') + '</div>' +
+    '<div class="sc-foot sc-muted">' + esc(t('sc_updated', {d:fmtDate(b.updated_at, true)})) + (SC.P.mode === 'local' ? '<br>' + esc(t('sc_local')) : SC.P.server ? '<br>' + esc(t('sc_server')) : '') + '</div>' +
     (canEdit ? '<button type="button" class="sc-fab" data-s="edit" id="sc-edit" aria-label="' + esc(t('sc_edit')) + '">' + sic('pencil') + '<span>' + esc(t('sc_edit')) + '</span></button>' : '<div class="sc-ro sc-muted">' + sic('lock') + esc(t('sc_readonly')) + '</div>') +
     '</main>';
 }
@@ -271,6 +322,8 @@ function scRender(){
     case 'nousers': body = scInfoHTML('user', t('sc_nousers_h'), t('sc_nousers')); break;
     case 'nocrypto': body = scInfoHTML('alert', t('sc_nocrypto'), ''); break;
     case 'login': body = scLoginHTML(); break;
+    case 'setup': body = scSetupHTML(); break;
+    case 'token': body = scTokenHTML(); break;
     case 'noqr': body = '<main class="sc-main">' + scUserBar() + '<div class="sc-card sc-info">' + '<div class="sc-lock">' + sic('qr') + '</div><h1>' + esc(t('sc_noqr_h')) + '</h1><p>' + esc(t('sc_noqr_p')) + '</p>' + scFindHTML() + '</div></main>'; break;
     case 'notfound': body = '<main class="sc-main">' + scUserBar() + '<div class="sc-card sc-info" id="sc-notfound"><div class="sc-lock">' + sic('alert') + '</div><h1>' + esc(t('sc_nf_h')) + '</h1><p>' + esc(t('sc_nf_p')) + '</p>' + scFindHTML() +
       '<button type="button" class="sc-btn sc-block" data-s="logout">' + sic('out') + esc(t('sc_logout')) + '</button></div></main>'; break;
@@ -279,6 +332,7 @@ function scRender(){
     default: body = scInfoHTML('alert', (SC.msg && SC.msg.text) || 'Error', '');
   }
   document.getElementById('app').innerHTML = scHeader() + body;
+  if (SC.view === 'setup'){ setTimeout(() => { const u = document.getElementById('sc-user'); if (u && !u.value) u.focus(); }, 30); }
   if (SC.view === 'login'){ const u = document.getElementById('sc-user'), p = document.getElementById('sc-pin'); setTimeout(() => { (u && !u.value ? u : p) && (u && !u.value ? u : p).focus(); }, 30); }
 }
 
@@ -399,6 +453,8 @@ document.addEventListener('input', (e) => {
 document.addEventListener('submit', (e) => {
   const f = e.target; e.preventDefault();
   if (f.dataset.s === 'login-form') return scLogin();
+  if (f.dataset.s === 'setup-form') return scSetupSubmit('setup');
+  if (f.dataset.s === 'token-form') return scSetupSubmit('token');
   if (f.dataset.s === 'find-form'){
     const v = String((document.getElementById('sc-find') || {}).value || '').trim().toUpperCase().replace(/\s+/g, '');
     if (!v) return;

@@ -115,7 +115,8 @@ async function authVerifySecret(secret, stored){
    ===================================================================== */
 function dmConfig(){ return Object.assign({mode:'local', basePath:'./', apiBase:null, studioSlug:'', studioName:''}, window.DOCMAP_CONFIG || {}); }
 const VAULT_LS = 'docmap_v26_vault', VAULT_PREV_LS = 'docmap_v26_vault_prev', VAULT_LOG_LS = 'docmap_v26_vault_log', VAULT_SS = 'docmap_v26_vault_session';
-const VAULT = { dek:null, cache:null, chain:Promise.resolve(), sid:'' };
+const VAULT = { dek:null, cache:null, chain:Promise.resolve(), sid:'', srv:null };
+const SRV_VAULT_LS = 'docmap_v26_vault_srv';   // v10.1: {token, user, role, at} of the shared online database (encrypted)
 async function vaultKek(secret, salt, iter){
   const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(authNormSecret(secret)), 'PBKDF2', false, ['deriveKey']);
   return crypto.subtle.deriveKey({name:'PBKDF2', hash:'SHA-256', salt, iterations:iter}, base, {name:'AES-KW', length:256}, false, ['wrapKey', 'unwrapKey']);
@@ -134,7 +135,7 @@ async function vaultDec(env, aad){
 async function vaultPutJSON(key, obj){ const e = await vaultEnc(new TextEncoder().encode(JSON.stringify(obj)), key); localStorage.setItem(key, JSON.stringify({v:1, alg:e.alg, iv:e.iv, ct:authB64(e.ct)})); }
 async function vaultGetJSON(key){ const raw = localStorage.getItem(key); if (!raw) return null; return JSON.parse(new TextDecoder().decode(await vaultDec(JSON.parse(raw), key))); }
 const DocMapVault = {
-  isActive(){ const c = dmConfig(); return c.mode === 'web' && !c.apiBase; },
+  isActive(){ return dmConfig().mode === 'web'; },   // v10.1: also with apiBase (the vault is then the encrypted offline cache + token)
   isUnlocked(){ return !!VAULT.dek; },
   hasData(){ try { return !!localStorage.getItem(VAULT_LS); } catch(e){ return false; } },
   /** Wrap the current DEK for a user secret (new user / new PIN). */
@@ -178,8 +179,14 @@ const DocMapVault = {
     try { st = await vaultGetJSON(VAULT_LS); } catch(e){ try { st = await vaultGetJSON(VAULT_PREV_LS); } catch(e2){ st = null; } }
     if (!st){ try { const raw = localStorage.getItem(LS_KEY); if (raw){ st = JSON.parse(raw); await vaultPutJSON(VAULT_LS, st); localStorage.removeItem(LS_KEY); localStorage.removeItem(LS_PREV); } } catch(e){} }
     VAULT.cache = st;
+    try { VAULT.srv = await vaultGetJSON(SRV_VAULT_LS); } catch(e){ VAULT.srv = null; }
     return st;
   },
+  /* v10.1 shared online database: the server access token of this device, encrypted in the vault */
+  srv(){ return VAULT.srv || null; },
+  srvToken(){ return VAULT.srv && VAULT.srv.token || ''; },
+  async srvSet(rec){ VAULT.srv = rec ? {token:String(rec.token || ''), user:String(rec.user || ''), role:AUTH_ROLES.includes(rec.role) ? rec.role : 'viewer', at:nowISO()} : null;
+    await VAULT.chain; if (VAULT.srv) await vaultPutJSON(SRV_VAULT_LS, VAULT.srv); else localStorage.removeItem(SRV_VAULT_LS); },
   takeState(){ const c = VAULT.cache; VAULT.cache = null; return c; },
   async loadState(){ await VAULT.chain; try { return await vaultGetJSON(VAULT_LS); } catch(e){ return null; } },
   /** Snapshot now, encrypt + write in order (previous ciphertext kept as _prev). */
@@ -200,7 +207,7 @@ const DocMapVault = {
   async decryptDb(rec){ if (!rec) return null; return rec.vault ? vaultDec(rec, 'sqlite') : rec; },
   async lock(){
     try { await VAULT.chain; } catch(e){}
-    const sid = VAULT.sid; VAULT.dek = null; VAULT.cache = null; VAULT.sid = '';
+    const sid = VAULT.sid; VAULT.dek = null; VAULT.cache = null; VAULT.sid = ''; VAULT.srv = null;
     try { sessionStorage.removeItem(VAULT_SS); } catch(e){}
     if (sid) try { const db = await idbReq(KEY_IDB, ['keys']); try { await idbDo(db, 'keys', 'readwrite', os => os.delete('session:' + sid)); } finally { db.close(); } } catch(e){}
   },
@@ -334,7 +341,10 @@ class LocalAuthProvider {
     const s = this.session(); if (!s) return null;
     if (DocMapVault.isActive() && (!DocMapVault.isUnlocked() || !DocMapVault.sessionValid())) return null;   // logged out = vault locked
     const u = this.store().users.find(x => x.id === s.user_id && !x.disabled);
-    return u ? {id:u.id, username:u.username, display_name:u.display_name, role:u.role} : null;
+    if (!u) return null;
+    // v10.1 web + apiBase: what this device may do is decided by its server token, not by the local device user
+    const sv = dmConfig().apiBase && DocMapVault.isActive() ? DocMapVault.srv() : null;
+    return {id:u.id, username:u.username, display_name:u.display_name, role:sv ? sv.role : u.role, server_user:sv ? sv.user : ''};
   }
   getToken(){ const s = this.session(); return s ? s.sid : null; }
   can(action){ const u = this.currentUser(); return !!(u && (AUTH_CAN[action] || []).includes(u.role)); }
@@ -498,32 +508,102 @@ class LocalDataProvider {
   }
 }
 
-/** Remote stub — REST contract in docs/API-CONTRACT.md §3. Not used by the MVP. */
-class RemoteDataProvider {
-  constructor(cfg, auth){ this.base = String(cfg.apiBase || '').replace(/\/+$/, ''); this.auth = auth; }
-  async req(method, path, body, headers){
-    const h = Object.assign({'Accept':'application/json'}, headers || {});
-    const tok = this.auth && this.auth.getToken(); if (tok) h.Authorization = 'Bearer ' + tok;
-    if (body !== undefined) h['Content-Type'] = 'application/json';
+/* =====================================================================
+   v10.1 — shared online database (server-php/api.php, contract docs/API-CONTRACT.md)
+   DMServer: tiny client for the query-routed API  <apiBase>?r=<route>
+     - same origin (web app):  header X-DocMap-Token (NOT Authorization: SiteGround's password protection uses it
+                               for HTTP Basic auth, and the browser adds those credentials by itself)
+     - cross origin (desktop app from file://, opts.simple): POST text/plain with "_token" in the JSON body, so the
+                               browser sends a "simple" request without a CORS preflight; optional opts.basic =
+                               'user:password' of the folder protection adds Authorization: Basic (then a preflight
+                               is needed: see server-php/.htaccess)
+   Errors → DMError: 401 unauthorized · 403 forbidden · 404 not_found · 409 conflict · 422 invalid · 429 locked ·
+   network → offline · anything else → server.
+   ===================================================================== */
+function dmServerUrl(base){ try { return new URL(String(base || ''), document.baseURI).href; } catch(e){ return String(base || ''); } }
+class DMServer {
+  constructor(base, token, opts){ this.base = dmServerUrl(base); this.token = token || ''; this.opts = opts || {}; }
+  url(route, q){ const u = new URL(this.base); u.searchParams.set('r', route); Object.keys(q || {}).forEach(k => { if (q[k] != null) u.searchParams.set(k, q[k]); }); return u.href; }
+  async call(route, o){
+    o = o || {};
+    const tok = typeof this.token === 'function' ? this.token() : this.token;
+    const h = {'Accept':'application/json'}; let method = o.method || 'GET', body = o.body, q = o.q;
+    if (this.opts.simple){   // cross-origin desktop: no custom headers → no preflight
+      method = 'POST'; body = Object.assign({}, body || {}, q || {}, tok ? {_token:tok} : {}); q = null;
+      h['Content-Type'] = 'text/plain;charset=UTF-8'; delete h.Accept;
+      if (this.opts.basic){ h.Authorization = 'Basic ' + btoa(unescape(encodeURIComponent(this.opts.basic))); }
+    } else {
+      if (tok) h['X-DocMap-Token'] = tok;
+      if (body !== undefined) h['Content-Type'] = 'application/json';
+    }
+    const ac = typeof AbortController === 'function' ? new AbortController() : null;
+    const tm = ac ? setTimeout(() => ac.abort(), o.timeout || 30000) : 0;
     let r;
-    try { r = await fetch(this.base + path, {method, headers:h, body:body === undefined ? undefined : JSON.stringify(body)}); }
-    catch(e){ throw new DMError('offline'); }
-    const j = r.status === 204 ? {} : await r.json().catch(() => ({}));
-    if (r.ok) return {json:j, etag:r.headers.get('ETag')};
-    const code = {401:'unauthorized', 403:'forbidden', 404:'not_found', 409:'conflict', 412:'conflict', 422:'invalid', 429:'locked'}[r.status] || 'storage';
-    throw new DMError(code, (j.error && j.error.message) || String(r.status), j.error || null);
+    try { r = await fetch(this.url(route, q), {method, headers:h, body:body === undefined ? undefined : JSON.stringify(body), cache:'no-store', credentials:this.opts.simple ? 'omit' : 'same-origin', signal:ac ? ac.signal : undefined}); }
+    catch(e){ throw new DMError('offline', 'network'); }
+    finally { clearTimeout(tm); }
+    let j = {}; try { j = await r.json(); } catch(e){ j = {}; }
+    if (r.ok) return j;
+    const code = {400:'invalid', 401:'unauthorized', 403:'forbidden', 404:'not_found', 409:'conflict', 412:'conflict', 413:'invalid', 422:'invalid', 429:'locked'}[r.status] || 'server';
+    const er = j.error || {};
+    throw new DMError(code, er.message || ('HTTP ' + r.status), Object.assign({}, er, {status:r.status, server_code:er.code || '', retry_in:+(r.headers.get('Retry-After') || er.retry_in || 0)}, j.current ? {current:j.current, current_etag:j.current_etag} : {}));
   }
-  async context(){ try { return (await this.req('GET', '/v1/public/context')).json; } catch(e){ return {studioName:'', lang:''}; } }
-  async get(path){ try { const r = await this.req('GET', path); return {binder:r.json.binder, etag:r.etag || r.json.binder.updated_at, siblings:r.json.siblings || []}; } catch(e){ if (e.code === 'not_found') return null; throw e; } }
-  getBinderByQr(c){ return this.get('/v1/binders/by-short/' + encodeURIComponent(c)); }
-  getBinderByCode(c){ return this.get('/v1/binders/by-code/' + encodeURIComponent(c)); }
+}
+
+/** DataProvider on the shared online database (web + apiBase, or mode 'remote'). Used by scan.html. */
+class RemoteDataProvider {
+  constructor(cfg, tokenFn){ this.cfg = cfg; this.srv = new DMServer(cfg.apiBase, tokenFn); this.last = new Map(); }
+  norm(raw){ const b = normalizeBinder(Object.assign({}, raw)); b.id = raw.id; b.updated_at = raw.updated_at; if (raw.created_at) b.created_at = raw.created_at; return b; }
+  async context(){ return {studioName:this.cfg.studioName || '', lang:''}; }
+  async get(q){
+    try { const r = await this.srv.call('binder', {q}); const binder = this.norm(r.binder); this.last.set(binder.id, binder); return {binder, etag:r.etag || binder.updated_at, siblings:r.siblings || []}; }
+    catch(e){ if (e.code === 'not_found') return null; throw e; }
+  }
+  getBinderByQr(c){ return this.get({qr:String(c || '').trim()}); }
+  getBinderByCode(c){ return this.get({code:String(c || '').trim().toUpperCase()}); }
+  /** POST ?r=patch {id, patch, base_updated_at, force, log}: 409 → DMError 'conflict' {current:{binder, etag, siblings}} */
   async saveBinderPatch(id, patch, o){
     o = o || {};
-    try { const r = await this.req('PATCH', '/v1/binders/' + encodeURIComponent(id), {patch, source:MOBILE_LOG_SOURCE}, o.force ? {} : {'If-Match':o.etag}); return {binder:r.json.binder, etag:r.etag || r.json.binder.updated_at}; }
-    catch(e){ if (e.code === 'conflict' && e.data && e.data.current) e.data = {current:{binder:e.data.current, etag:e.data.current_etag || e.data.current.updated_at, siblings:[]}}; throw e; }
+    const clean = {}; MOBILE_FIELDS.forEach(k => { if (patch && k in patch) clean[k] = patch[k]; });
+    const base = this.last.get(id), u = o.user || {};
+    const changed = base ? mobileDiff(base, mobileApplyPatch(base, clean, base.updated_at)) : {};
+    const who = u.display_name || u.username || 'Mobile';
+    const log = {id:uuid(), who, action:'binder.edit', target:{type:'binder', id, code:base ? base.speaking_code : ''}, source:MOBILE_LOG_SOURCE,
+      summary:'Modificato da mobile il faldone ' + (base ? base.speaking_code : '') + ': ' + Object.keys(changed).map(k => MOBILE_FIELD_IT[k] || k).join(', '),
+      details:{changed, patch:clean, user_id:u.id || ''}};
+    try {
+      const r = await this.srv.call('patch', {method:'POST', body:{id, patch:clean, base_updated_at:o.etag || '', force:!!o.force, log, operator:who}});
+      const binder = this.norm(r.binder); this.last.set(id, binder);
+      return {binder, etag:r.etag || binder.updated_at, entry:log};
+    } catch(e){
+      if (e.code === 'conflict' && e.data && e.data.current){ const cur = this.norm(e.data.current); this.last.set(id, cur); e.data = {current:{binder:cur, etag:e.data.current_etag || cur.updated_at, siblings:[]}}; }
+      throw e;
+    }
   }
-  async listChanges(q){ q = q || {}; return (await this.req('GET', '/v1/activity?target_id=' + encodeURIComponent(q.binder_id || '') + '&limit=' + (q.limit || 20))).json.items || []; }
-  async getCabinetPhoto(b){ try { const r = await this.req('GET', '/v1/binders/' + encodeURIComponent(b.id) + '/cabinet-photo'); return r.json && r.json.url ? r.json : null; } catch(e){ return null; } }
+  async listChanges(){ return []; }        // the activity log arrives with the desktop/web sync (pull)
+  async getCabinetPhoto(){ return null; }  // photos stay in each desktop SQLite for now (docs/SICUREZZA.md §4)
+}
+
+/** Device set-up in web + apiBase mode (lock screen and scan.html): check the server token, create the local
+    device user (it encrypts this device's cache), store the token in the vault. */
+async function srvSetupDevice(o){
+  const cfg = dmConfig(), tok = String(o.token || '').trim();
+  if (!tok) throw new DMError('invalid', 'token');
+  let me;
+  try { me = await new DMServer(cfg.apiBase, tok).call('me'); }
+  catch(e){ if (e.code === 'unauthorized' || e.code === 'forbidden') throw new DMError('unauthorized', 'server_token', e.data); throw e; }
+  const A = dmProviders().auth;
+  await A.setupFirstAdmin({username:o.username, display_name:o.display_name || me.user, secret:o.secret});
+  await DocMapVault.srvSet({token:tok, user:me.user, role:me.role});
+  A._u = undefined; A.emit();
+  return me;
+}
+/** Replace the server token of an unlocked device (Sincronizzazione › Server online). */
+async function srvSetToken(tok){
+  const cfg = dmConfig(); tok = String(tok || '').trim();
+  const me = await new DMServer(cfg.apiBase, tok).call('me');
+  await DocMapVault.srvSet({token:tok, user:me.user, role:me.role});
+  return me;
 }
 
 /* =====================================================================
@@ -663,7 +743,7 @@ class LocalBlobStore {
 
 /* =====================================================================
    Factory
-   window.DOCMAP_CONFIG = { mode:'local' | 'remote', apiBase:'https://hub.example/api', sqlJsSrc:'vendor/sql-wasm.js' }
+   window.DOCMAP_CONFIG = { mode:'local' | 'web' | 'remote', apiBase:'server-php/api.php' (relative to the app) | 'https://…', sqlJsSrc:'vendor/sql-wasm.js' }
    ===================================================================== */
 let DM_PROVIDERS = null;
 function dmProviders(cfg){
@@ -671,11 +751,14 @@ function dmProviders(cfg){
   cfg = Object.assign(dmConfig(), cfg || {});
   const crypto_ = new LocalCryptoProvider();
   let auth, data;
-  if (cfg.mode === 'remote' || (cfg.mode === 'web' && cfg.apiBase)){
-    if (!/^https:\/\//.test(cfg.apiBase || '')) throw new DMError('config', 'DOCMAP_CONFIG.apiBase must be https');
-    auth = new RemoteAuthProvider(cfg); data = new RemoteDataProvider(cfg, auth);
+  if (cfg.apiBase && /^[a-z][a-z0-9+.-]*:/i.test(cfg.apiBase) && !/^https:\/\//i.test(cfg.apiBase) && !/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?\//i.test(cfg.apiBase))
+    throw new DMError('config', 'DOCMAP_CONFIG.apiBase must be https:// or a path on this site');
+  if (cfg.mode === 'web' && cfg.apiBase){   // v10.1: shared online database; login = unlocking this device's vault (holds the token)
+    auth = new LocalAuthProvider(cfg); data = new RemoteDataProvider(cfg, () => DocMapVault.srvToken());
+  } else if (cfg.mode === 'remote'){       // future: central login (OIDC) issuing the token
+    auth = new RemoteAuthProvider(cfg); data = new RemoteDataProvider(cfg, () => auth.getToken());
   } else { auth = new LocalAuthProvider(cfg); data = new LocalDataProvider(cfg); }
-  DM_PROVIDERS = {mode:cfg.mode, cfg, auth, data, crypto:crypto_, blobs:new LocalBlobStore(crypto_)};
+  DM_PROVIDERS = {mode:cfg.mode, server:!!(cfg.apiBase && cfg.mode !== 'local'), cfg, auth, data, crypto:crypto_, blobs:new LocalBlobStore(crypto_)};
   return DM_PROVIDERS;
 }
 
@@ -784,7 +867,10 @@ Object.assign(I18N.it, {
   vl_create:'Crea e accedi', vl_orphan_h:'Dati cifrati senza utenti', vl_orphan_p:'In questo browser ci sono dati cifrati ma nessun utente che possa aprirli. Puoi solo azzerarli e reimportare i dati.',
   vl_reset:'Azzera i dati di questo browser', vl_reset_sure:'Tocca di nuovo per confermare: i dati cifrati di questo browser verranno cancellati.',
   vl_lock:'Esci', vl_lock_t:'Esci e blocca i dati di questo browser', vl_web_note:'Versione web: i dati restano cifrati in questo browser, il server contiene solo il programma.',
-  vl_admin_only:'Solo un amministratore può gestire gli utenti.', vl_enter:'Entra', vl_checking:'Verifica…', vl_bad:'Nome utente o PIN non corretti.', vl_locked:'Troppi tentativi: riprova tra {s} secondi.', vl_err:'Errore: {m}', vl_e_last:'Deve restare almeno un amministratore attivo: senza, i dati cifrati non si potrebbero più aprire.'
+  vl_admin_only:'Solo un amministratore può gestire gli utenti.', vl_enter:'Entra', vl_checking:'Verifica…', vl_bad:'Nome utente o PIN non corretti.', vl_locked:'Troppi tentativi: riprova tra {s} secondi.', vl_err:'Errore: {m}', vl_e_last:'Deve restare almeno un amministratore attivo: senza, i dati cifrati non si potrebbero più aprire.',
+  vl_token:'Codice di accesso al server', vl_token_hint:'Il codice (token) che ti ha dato l\'amministratore: si inserisce una volta sola su questo dispositivo e resta cifrato qui.',
+  vl_setup_srv_p:'Crea l\'utente di questo dispositivo e inserisci il tuo codice di accesso: i dati arrivano dal database online dello studio. Il PIN protegge la copia cifrata salvata su questo dispositivo.',
+  vl_e_token:'Codice di accesso non valido o revocato.', vl_e_offline:'Server non raggiungibile: controlla la connessione e riprova.', vl_srv_note:'Versione online: i dati sono nel database condiviso dello studio (cifrato) e, cifrati, in questo browser.'
 });
 Object.assign(I18N.en, {
   vl_h:'Sign in to DocMap', vl_p:'This archive\'s data is encrypted in this browser. Sign in to unlock it.',
@@ -792,7 +878,10 @@ Object.assign(I18N.en, {
   vl_create:'Create and sign in', vl_orphan_h:'Encrypted data without users', vl_orphan_p:'This browser holds encrypted data but no user can open it. You can only clear it and import the data again.',
   vl_reset:'Clear this browser\'s data', vl_reset_sure:'Tap again to confirm: this browser\'s encrypted data will be erased.',
   vl_lock:'Sign out', vl_lock_t:'Sign out and lock this browser\'s data', vl_web_note:'Web version: data stays encrypted in this browser, the server only holds the program.',
-  vl_admin_only:'Only an administrator can manage users.', vl_enter:'Sign in', vl_checking:'Checking…', vl_bad:'Wrong username or PIN.', vl_locked:'Too many attempts: try again in {s} seconds.', vl_err:'Error: {m}', vl_e_last:'At least one active administrator must remain: without one the encrypted data could no longer be opened.'
+  vl_admin_only:'Only an administrator can manage users.', vl_enter:'Sign in', vl_checking:'Checking…', vl_bad:'Wrong username or PIN.', vl_locked:'Too many attempts: try again in {s} seconds.', vl_err:'Error: {m}', vl_e_last:'At least one active administrator must remain: without one the encrypted data could no longer be opened.',
+  vl_token:'Server access code', vl_token_hint:'The code (token) your administrator gave you: entered once on this device and kept encrypted here.',
+  vl_setup_srv_p:'Create this device\'s user and enter your access code: the data comes from the studio\'s online database. The PIN protects the encrypted copy kept on this device.',
+  vl_e_token:'Access code not valid or revoked.', vl_e_offline:'Server unreachable: check the connection and try again.', vl_srv_note:'Online version: the data lives in the studio\'s shared (encrypted) database and, encrypted, in this browser.'
 });
 const VL = { busy:false, err:'', reset:false };
 async function vaultGate(boot){
@@ -806,6 +895,7 @@ async function vaultGate(boot){
     S = null; window.S = null;
     boot();
     vaultAfterBoot();
+    if (typeof srvBoot === 'function') srvBoot();   // v10.1: pull from / push to the shared online database
   };
   if (await DocMapVault.resume()){ if (A.currentUser()) return run(); await DocMapVault.lock(); }
   document.documentElement.classList.add('vl-locked');
@@ -823,21 +913,22 @@ function vaultLockRender(){
       '<div class="vl-lang"><button type="button" data-vl-lang="it" class="' + (S.lang === 'it' ? 'on' : '') + '">IT</button><button type="button" data-vl-lang="en" class="' + (S.lang === 'en' ? 'on' : '') + '">EN</button></div></div>' +
     (mode === 'login' ? '<h1>' + esc(t('vl_h')) + '</h1><p>' + esc(t('vl_p')) + '</p>' +
         '<div class="field"><label for="vl-user">' + esc(t('au_user')) + '</label><input class="inp" id="vl-user" autocomplete="username" autocapitalize="none" spellcheck="false" value="' + esc(last) + '"></div>' + pinF('vl-pin', 'au_secret', 'current-password')
-      : mode === 'setup' ? '<h1>' + esc(t('vl_setup_h')) + '</h1><p>' + esc(t('vl_setup_p')) + '</p>' +
+      : mode === 'setup' ? '<h1>' + esc(t('vl_setup_h')) + '</h1><p>' + esc(t(c.apiBase ? 'vl_setup_srv_p' : 'vl_setup_p')) + '</p>' +
         '<div class="field"><label for="vl-user">' + esc(t('au_user')) + '</label><input class="inp" id="vl-user" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="' + esc(t('au_user_ph')) + '"></div>' +
-        '<div class="field"><label for="vl-name">' + esc(t('au_name')) + '</label><input class="inp" id="vl-name" placeholder="' + esc(t('au_name_ph')) + '"></div>' + pinF('vl-pin', 'au_secret', 'new-password') + pinF('vl-pin2', 'au_secret2', 'new-password') + '<div class="hint">' + esc(t('au_secret_hint')) + '</div>'
+        '<div class="field"><label for="vl-name">' + esc(t('au_name')) + '</label><input class="inp" id="vl-name" placeholder="' + esc(t('au_name_ph')) + '"></div>' + pinF('vl-pin', 'au_secret', 'new-password') + pinF('vl-pin2', 'au_secret2', 'new-password') + '<div class="hint">' + esc(t('au_secret_hint')) + '</div>' +
+        (c.apiBase ? '<div class="field"><label for="vl-token">' + esc(t('vl_token')) + '</label><input class="inp mono" id="vl-token" type="password" autocomplete="off" spellcheck="false"></div><div class="hint">' + esc(t('vl_token_hint')) + '</div>' : '')
       : '<h1>' + esc(t('vl_orphan_h')) + '</h1><p>' + esc(t('vl_orphan_p')) + '</p>') +
     '<div class="err-t" id="vl-err" role="alert">' + esc(VL.err) + '</div>' +
     (mode === 'orphan' ? '<button type="button" class="btn btn-danger" data-vl-reset>' + esc(VL.reset ? t('vl_reset_sure') : t('vl_reset')) + '</button>'
       : '<button type="submit" class="btn btn-primary btn-lg" id="vl-go"' + (VL.busy ? ' disabled' : '') + '>' + esc(VL.busy ? t('vl_checking') : mode === 'setup' ? t('vl_create') : t('vl_enter')) + '</button>') +
-    '<div class="tiny muted">' + esc(t('vl_web_note')) + '</div></form>';
+    '<div class="tiny muted">' + esc(t(c.apiBase ? 'vl_srv_note' : 'vl_web_note')) + '</div></form>';
   const f = el.querySelector('#vl-user'), pn = el.querySelector('#vl-pin');
   setTimeout(() => { const x = f && !f.value ? f : pn; if (x) x.focus(); }, 30);
 }
 async function vaultLockSubmit(form){
   if (VL.busy) return;
   const A = dmProviders().auth, v = (id) => (document.getElementById(id) || {}).value || '';
-  const mode = form.dataset.vl, user = v('vl-user'), pin = v('vl-pin');
+  const mode = form.dataset.vl, user = v('vl-user'), pin = v('vl-pin'), dname = v('vl-name'), token = v('vl-token');   // read before the busy re-render
   VL.err = '';
   if (mode === 'setup'){
     if (authNormSecret(pin).length < AUTH_MIN_SECRET){ VL.err = t('au_e_secret'); return vaultLockRender(); }
@@ -845,16 +936,18 @@ async function vaultLockSubmit(form){
   }
   VL.busy = true; vaultLockRender();
   try {
-    if (mode === 'setup') await A.setupFirstAdmin({username:user, display_name:v('vl-name'), secret:pin});
+    if (mode === 'setup' && dmConfig().apiBase) await srvSetupDevice({username:user, display_name:dname, secret:pin, token});
+    else if (mode === 'setup') await A.setupFirstAdmin({username:user, display_name:dname, secret:pin});
     else await A.login(user, pin);
     try { localStorage.setItem('docmap_v26_scan_user', authNormUser(user)); } catch(e){}
     VL.busy = false;
     await VL.run();
   } catch(e){
     VL.busy = false;
-    VL.err = e.code === 'locked' ? t('vl_locked', {s:(e.data && e.data.retry_in) || 60}) : e.message === 'username' ? t('au_e_user') : e.code === 'unauthorized' ? t('vl_bad') : t('vl_err', {m:e.message || e.code});
+    VL.err = e.code === 'locked' ? t('vl_locked', {s:(e.data && e.data.retry_in) || 60}) : e.message === 'username' ? t('au_e_user') : e.message === 'server_token' || e.message === 'token' ? t('vl_e_token') :
+      e.code === 'offline' ? t('vl_e_offline') : e.code === 'unauthorized' ? t('vl_bad') : t('vl_err', {m:e.message || e.code});
     vaultLockRender();
-    if (mode === 'login'){ const u = document.getElementById('vl-user'); if (u) u.value = user; }
+    if (mode === 'login' || mode === 'setup'){ const u = document.getElementById('vl-user'); if (u) u.value = user; const n = document.getElementById('vl-name'); if (n) n.value = dname; }
   }
 }
 document.addEventListener('submit', (e) => { const f = e.target; if (f && f.dataset && f.dataset.vl && f.closest('#vault-lock')){ e.preventDefault(); vaultLockSubmit(f); } }, true);
@@ -936,12 +1029,12 @@ document.addEventListener('DOMContentLoaded', () => {
         '<li>Chi può modificare tocca il grande pulsante <b>Modifica</b>: stato del faldone, stato di ogni documento (in archivio / in uso / al cliente), posizione rapida, note e tag.</li>' +
         '<li>Se nel frattempo il faldone è stato cambiato dal PC, il telefono avvisa e chiede se ricaricare o sovrascrivere. Ogni modifica finisce nel <b>Registro attività</b> con la fonte <b>mobile</b>.</li>' +
         '<li><b>Anteprima mobile</b> (nella finestra QR e nella scheda del faldone) apre la pagina in una nuova scheda di questo PC.</li>' +
-        '<li>Oggi è una protezione di base valida solo in questo browser; la versione online con login vero e dati cifrati arriverà con il sistema Python (vedi <span class="kbd">docs/SICUREZZA.md</span>).</li></ul>',
+        '<li><b>Versione online (v10.1)</b>: con il database condiviso dello studio (<span class="kbd">server-php</span>) il telefono legge e salva direttamente sul server: la prima volta crea l\'utente del telefono, un PIN e incolla il <b>codice di accesso</b> ricevuto dall\'amministratore. Senza server la protezione vale solo in questo browser (vedi <span class="kbd">docs/SICUREZZA.md</span>).</li></ul>',
           en:'<p>The printed QR leads to <span class="kbd">qr7.it/dm26…</span> and from there to the binder\'s <b>mobile page</b> (<span class="kbd">scan.html</span>). Without login the page shows only the studio name and the login form: <b>no binder data</b>, not even the code.</p><ul>' +
         '<li>Create users in <b>⚙ Advanced tools › Settings › Users &amp; access</b>: username, PIN or password, role (<b>Read only</b>, <b>Can edit</b>, <b>Administrator</b>).</li>' +
         '<li>After login: big code, client, location with <b>Where is it?</b> (cabinet photo with the shelf marked, if any), contents with their status, last change.</li>' +
         '<li>Editors tap the big <b>Edit</b> button: binder state, status of each document (in archive / in use / at the client), quick position, notes and tags.</li>' +
         '<li>If the binder was changed on the PC meanwhile, the phone warns and asks whether to reload or overwrite. Every change goes into the <b>Activity log</b> with source <b>mobile</b>.</li>' +
         '<li><b>Mobile preview</b> (in the QR window and the binder form) opens the page in a new tab on this PC.</li>' +
-        '<li>Today this is basic protection valid only in this browser; the online version with real login and encrypted data will come with the Python system (see <span class="kbd">docs/SICUREZZA.md</span>).</li></ul>'} });
+        '<li><b>Online version (v10.1)</b>: with the studio\'s shared database (<span class="kbd">server-php</span>) the phone reads and saves on the server directly: the first time it creates the phone user, a PIN and pastes the <b>access code</b> given by the administrator. Without a server the protection only applies to this browser (see <span class="kbd">docs/SICUREZZA.md</span>).</li></ul>'} });
 });

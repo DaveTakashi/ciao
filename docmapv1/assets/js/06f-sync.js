@@ -49,7 +49,7 @@ Object.assign(ICONS, {
 Object.assign(I18N.it, {
   nav_sync:'Sincronizzazione', nd_sync:'Scambio manuale tra PC locale e web app',
   sy_h:'Sincronizzazione', sy_p:'Scambia le modifiche tra questo PC e la web app con un file: esporti da una parte e importi dall\'altra. Vince sempre la modifica più recente; i casi dubbi (modifiche da entrambe le parti) li decidi tu.',
-  sy_mode_local:'Client locale', sy_mode_web:'Web app',
+  sy_mode_local:'Client locale', sy_mode_web:'Web app', sy_mode_server:'Server online',
   sy_ex_local:'Copia export per web app', sy_ex_web:'Esporta per il client locale',
   sy_im_local:'Importa dati dalla web app', sy_im_web:'Importa dati da client locale',
   sy_ex_d:'Crea un file da importare sull\'altro lato. Il file contiene faldoni, clienti, eliminazioni e registro attività.',
@@ -82,7 +82,7 @@ Object.assign(I18N.it, {
 Object.assign(I18N.en, {
   nav_sync:'Sync', nd_sync:'Manual exchange between the local PC and the web app',
   sy_h:'Sync', sy_p:'Exchange changes between this PC and the web app with a file: export on one side, import on the other. The most recent change always wins; doubtful cases (changes on both sides) are up to you.',
-  sy_mode_local:'Local client', sy_mode_web:'Web app',
+  sy_mode_local:'Local client', sy_mode_web:'Web app', sy_mode_server:'Online server',
   sy_ex_local:'Export for the web app', sy_ex_web:'Export for the local client',
   sy_im_local:'Import data from the web app', sy_im_web:'Import data from the local client',
   sy_ex_d:'Creates a file to import on the other side. It holds binders, clients, deletions and the activity log.',
@@ -382,10 +382,13 @@ function syncChooseNewer(plan){
     i.choice = rt > lt ? 'remote' : 'local';
   });
 }
-/** Applies a reviewed plan in one undoable step. Returns the counts actually applied. */
-function syncApply(plan){
+/** Applies a reviewed plan in one undoable step. Returns the counts actually applied.
+    opts.quiet (v10.1 automatic pulls from the online server, 06g-server.js): no undo point, no summary log line
+    (the conflict decisions are still logged). */
+function syncApply(plan, opts){
+  opts = opts || {};
   syncEnsure();
-  undoPoint();
+  if (!opts.quiet) undoPoint();
   const now = nowISO(), done = {new:0, updated:0, delete:0, conflict:0}, codes = {new:[], updated:[], delete:[]};
   const lists = {binder:S.binders.slice(), client:(S.clients || []).slice()};
   const idx = (type, id) => lists[type].findIndex(x => x.id === id);
@@ -430,7 +433,7 @@ function syncApply(plan){
   S.sync.history.push({at:now, dir:'import', peer:pid, label:plan.peer.label, full:!plan.pkg.since, since:plan.pkg.since || null, counts:Object.assign({}, done)});
   // activity log: summary first (the one "Annulla" reverts), then the conflict decisions, then the peer's own entries
   const cut = (a) => logCut(a.join(', '), 160);
-  const sum = logAct('sync.import', null, 'Importati dati da ' + plan.peer.label + ' (' + (plan.peer.mode === 'web' ? 'web app' : 'client locale') + '): ' + done.new + ' nuovi, ' + done.updated + ' aggiornati, ' + done.delete + ' eliminati, ' + done.conflict + ' conflitti' +
+  const sum = opts.quiet ? null : logAct('sync.import', null, 'Importati dati da ' + plan.peer.label + ' (' + ({web:'web app', server:'server online'}[plan.peer.mode] || 'client locale') + '): ' + done.new + ' nuovi, ' + done.updated + ' aggiornati, ' + done.delete + ' eliminati, ' + done.conflict + ' conflitti' +
     (codes.new.length + codes.updated.length + codes.delete.length ? ' — ' + cut(codes.new.concat(codes.updated, codes.delete)) : ''),
     {peer:pid, peer_label:plan.peer.label, peer_mode:plan.peer.mode, exported_at:plan.pkg.exportedAt, full:!plan.pkg.since, added:done.new, updated:done.updated, deleted:done.delete, conflicts:done.conflict, codes:{new:codes.new.slice(0, 200), updated:codes.updated.slice(0, 200), deleted:codes.delete.slice(0, 200)}}, 'sync');
   confLog.forEach(it => logAct('sync.conflict', it.type === 'binder' ? {type:'binder', id:it.id, code:it.code} : {type:'client', id:it.id, code:it.code},
@@ -481,8 +484,8 @@ function viewSync(){
   const card = (n, title, desc, inner) => '<div class="card card-p exp-card"><div class="row" style="flex-wrap:nowrap;align-items:flex-start"><div class="exp-n">' + n + '</div><div><h2>' + esc(title) + '</h2><p class="card-sub" style="margin:4px 0 0">' + esc(desc) + '</p></div></div>' + inner + '</div>';
   const radio = (v, label, dis) => '<label class="chk small"><input type="radio" name="sy-scope" data-sy="incr" value="' + v + '"' + ((v === '1') === SYV.incr ? ' checked' : '') + (dis ? ' disabled' : '') + '>' + esc(label) + '</label>';
   const ex = '<div class="stack" style="gap:8px">' + radio('0', t('sy_full')) + radio('1', t('sy_incr'), !canIncr) + '</div>' +
-    (peers.length ? '<div class="field"><label for="sy-target">' + esc(t('sy_target')) + '</label><select class="inp" id="sy-target" data-sy="target"><option value="">' + esc(t('sy_target_any')) + '</option>' +
-      peers.map(p => '<option value="' + esc(p.id) + '"' + (p.id === tg ? ' selected' : '') + '>' + esc(p.label + ' · ' + t('sy_mode_' + p.mode)) + '</option>').join('') + '</select></div>' : '') +
+    (peers.some(p => p.mode !== 'server') ? '<div class="field"><label for="sy-target">' + esc(t('sy_target')) + '</label><select class="inp" id="sy-target" data-sy="target"><option value="">' + esc(t('sy_target_any')) + '</option>' +
+      peers.filter(p => p.mode !== 'server').map(p => '<option value="' + esc(p.id) + '"' + (p.id === tg ? ' selected' : '') + '>' + esc(p.label + ' · ' + t('sy_mode_' + p.mode)) + '</option>').join('') + '</select></div>' : '') +
     '<div class="small" id="sy-ex-info">' + syncExportInfoHTML() + '</div>' +
     '<label class="chk small"><input type="checkbox" id="sy-enc" checked' + (syncCryptoOk() ? '' : ' disabled') + '>' + esc(t('sy_enc')) + '</label>' +
     '<div class="grid g2" id="sy-pass-box" style="gap:10px"><div class="field"><label for="sy-pass">' + esc(t('sy_pass')) + '</label><input class="inp" type="password" id="sy-pass" autocomplete="new-password"></div>' +
@@ -549,13 +552,15 @@ function syncOpenReview(plan){
   SYNC.plan = plan;
   openModal({ title:t('sy_rv_t'), size:'lg', body:syncReviewHTML(plan), autofocus:false,
     buttons:[{label:t('cancel'), cls:'btn', action:'modal-close'}, {label:t('sy_rv_apply'), cls:'btn btn-primary', icon:'check', fn:() => syncApplyFromReview()}],
-    onClose:() => { SYNC.plan = null; } });
+    onClose:() => { const p = SYNC.plan; SYNC.plan = null; if (p && p.onCancel) p.onCancel(); } });
 }
 function syncApplyFromReview(){
   const plan = SYNC.plan; if (!plan) return;
   const cb = $('#sy-apply-settings'); plan.applySettings = !!(cb && cb.checked);
   const d = syncApply(plan);
+  SYNC.plan = null;   // applied: closing the modal is not a cancel
   closeModal(true);
+  if (plan.onApplied){ renderAll(); plan.onApplied(d); return; }   // v10.1 server sync: continue with the push
   SYV.text = ''; SYV.fileName = '';
   undoToast(t('sy_done', {n:d.new, u:d.updated, d:d.delete, c:d.conflict}));
   renderAll();
@@ -631,6 +636,6 @@ document.addEventListener('DOMContentLoaded', () => {
   if (typeof HELP_TOPICS === 'undefined') return;
   HELP_TOPICS.push({ id:'sync', guide:null, tags:['export', 'import', 'safety'], related:['log', 'backup'],
     title:{it:'Sincronizzazione manuale tra PC locale e web app', en:'Manual sync between the local PC and the web app'},
-    body:{it:'<p>DocMap funziona sia sul PC (doppio clic su <span class="kbd">index.html</span>) sia come web app (<b>docmap.pr-it.it/studio-de/</b>). Ognuno tiene la sua copia dei dati: per allinearli usa <b>⚙ Funzioni avanzate › Sincronizzazione</b>.</p><ol><li>Sul PC: <b>Copia export per web app</b> → scegli <b>Tutto l\'archivio</b> la prima volta, poi <b>Solo modifiche dall\'ultima sincronizzazione</b>. Scrivi una passphrase (consigliato): il file viene cifrato (AES-256).</li><li>Nella web app: <b>Importa dati da client locale</b> → scegli il file, scrivi la passphrase, <b>Analizza</b>.</li><li>La revisione mostra quanti record sono <b>nuovi</b>, <b>aggiornati</b>, <b>invariati</b>, <b>più vecchi</b> (ignorati), le <b>eliminazioni</b> e i <b>conflitti</b>.</li><li>Al contrario (web → PC) è lo stesso: <b>Esporta per il client locale</b> e sul PC <b>Importa dati dalla web app</b>.</li></ol><ul><li><b>Regola</b>: per ogni faldone o cliente vince la modifica <b>più recente in ordine di tempo</b>, da qualunque lato sia stata fatta.</li><li><b>Conflitto</b>: lo stesso record è cambiato da entrambe le parti dopo l\'ultima sincronizzazione (o ha la stessa ora). Vedi i campi diversi affiancati e scegli <b>Tieni locale</b> o <b>Tieni importato</b>, oppure <b>Applica a tutti: il più recente</b>.</li><li>Le <b>eliminazioni</b> viaggiano anche loro; se dall\'altra parte un faldone è stato eliminato ma qui l\'hai modificato dopo, resta il tuo e viene segnalato.</li><li>Tutto si applica in un passo solo: <b>Annulla</b> nel messaggio lo riporta indietro. Il registro attività scrive cosa è arrivato e le scelte sui conflitti.</li><li>La passphrase non viene mai salvata. Senza passphrase il file è leggibile da chiunque lo apra.</li></ul>',
-          en:'<p>DocMap runs both on the PC (double-click <span class="kbd">index.html</span>) and as a web app (<b>docmap.pr-it.it/studio-de/</b>). Each keeps its own copy of the data: to align them use <b>⚙ Advanced tools › Sync</b>.</p><ol><li>On the PC: <b>Export for the web app</b> → choose <b>Whole archive</b> the first time, then <b>Only changes since the last sync</b>. Type a passphrase (recommended): the file is encrypted (AES-256).</li><li>In the web app: <b>Import data from the local client</b> → pick the file, type the passphrase, <b>Analyse</b>.</li><li>The review shows how many records are <b>new</b>, <b>updated</b>, <b>unchanged</b>, <b>older</b> (ignored), the <b>deletions</b> and the <b>conflicts</b>.</li><li>The other way round (web → PC) works the same: <b>Export for the local client</b>, then on the PC <b>Import data from the web app</b>.</li></ol><ul><li><b>Rule</b>: for each binder or client the <b>most recent change in time</b> wins, whichever side made it.</li><li><b>Conflict</b>: the same record changed on both sides since the last sync (or carries the same time). You see the differing fields side by side and choose <b>Keep local</b> or <b>Keep imported</b>, or <b>Apply to all: the most recent</b>.</li><li><b>Deletions</b> travel too; if the other side deleted a binder you changed here later, yours stays and is flagged.</li><li>Everything is applied in one step: <b>Undo</b> in the message reverts it. The activity log records what arrived and the conflict choices.</li><li>The passphrase is never stored. Without a passphrase anyone who opens the file can read it.</li></ul>'} });
+    body:{it:'<p>DocMap funziona sia sul PC (doppio clic su <span class="kbd">index.html</span>) sia come web app (<b>docmap.pr-it.it/studio-de/</b>). Ognuno tiene la sua copia dei dati: per allinearli usa <b>⚙ Funzioni avanzate › Sincronizzazione</b>.</p><ol><li>Sul PC: <b>Copia export per web app</b> → scegli <b>Tutto l\'archivio</b> la prima volta, poi <b>Solo modifiche dall\'ultima sincronizzazione</b>. Scrivi una passphrase (consigliato): il file viene cifrato (AES-256).</li><li>Nella web app: <b>Importa dati da client locale</b> → scegli il file, scrivi la passphrase, <b>Analizza</b>.</li><li>La revisione mostra quanti record sono <b>nuovi</b>, <b>aggiornati</b>, <b>invariati</b>, <b>più vecchi</b> (ignorati), le <b>eliminazioni</b> e i <b>conflitti</b>.</li><li>Al contrario (web → PC) è lo stesso: <b>Esporta per il client locale</b> e sul PC <b>Importa dati dalla web app</b>.</li></ol><ul><li><b>Regola</b>: per ogni faldone o cliente vince la modifica <b>più recente in ordine di tempo</b>, da qualunque lato sia stata fatta.</li><li><b>Conflitto</b>: lo stesso record è cambiato da entrambe le parti dopo l\'ultima sincronizzazione (o ha la stessa ora). Vedi i campi diversi affiancati e scegli <b>Tieni locale</b> o <b>Tieni importato</b>, oppure <b>Applica a tutti: il più recente</b>.</li><li>Le <b>eliminazioni</b> viaggiano anche loro; se dall\'altra parte un faldone è stato eliminato ma qui l\'hai modificato dopo, resta il tuo e viene segnalato.</li><li>Tutto si applica in un passo solo: <b>Annulla</b> nel messaggio lo riporta indietro. Il registro attività scrive cosa è arrivato e le scelte sui conflitti.</li><li>La passphrase non viene mai salvata. Senza passphrase il file è leggibile da chiunque lo apra.</li><li><b>Server online (v10.1)</b>: se lo studio ha il database condiviso, in fondo a questa pagina inserisci indirizzo e codice di accesso e premi <b>Sincronizza con il server</b>. La prima volta, con il server vuoto, DocMap propone di caricare tutto l\'archivio; poi valgono le stesse regole (vince il più recente, conflitti da decidere). I file restano come alternativa.</li></ul>',
+          en:'<p>DocMap runs both on the PC (double-click <span class="kbd">index.html</span>) and as a web app (<b>docmap.pr-it.it/studio-de/</b>). Each keeps its own copy of the data: to align them use <b>⚙ Advanced tools › Sync</b>.</p><ol><li>On the PC: <b>Export for the web app</b> → choose <b>Whole archive</b> the first time, then <b>Only changes since the last sync</b>. Type a passphrase (recommended): the file is encrypted (AES-256).</li><li>In the web app: <b>Import data from the local client</b> → pick the file, type the passphrase, <b>Analyse</b>.</li><li>The review shows how many records are <b>new</b>, <b>updated</b>, <b>unchanged</b>, <b>older</b> (ignored), the <b>deletions</b> and the <b>conflicts</b>.</li><li>The other way round (web → PC) works the same: <b>Export for the local client</b>, then on the PC <b>Import data from the web app</b>.</li></ol><ul><li><b>Rule</b>: for each binder or client the <b>most recent change in time</b> wins, whichever side made it.</li><li><b>Conflict</b>: the same record changed on both sides since the last sync (or carries the same time). You see the differing fields side by side and choose <b>Keep local</b> or <b>Keep imported</b>, or <b>Apply to all: the most recent</b>.</li><li><b>Deletions</b> travel too; if the other side deleted a binder you changed here later, yours stays and is flagged.</li><li>Everything is applied in one step: <b>Undo</b> in the message reverts it. The activity log records what arrived and the conflict choices.</li><li>The passphrase is never stored. Without a passphrase anyone who opens the file can read it.</li><li><b>Online server (v10.1)</b>: if the studio has the shared database, enter its address and access code at the bottom of this page and press <b>Sync with the server</b>. The first time, with an empty server, DocMap offers to upload the whole archive; then the same rules apply (most recent wins, conflicts to decide). Files remain as an alternative.</li></ul>'} });
 });

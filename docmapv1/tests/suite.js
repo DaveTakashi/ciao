@@ -2513,7 +2513,7 @@ const sec = (n) => console.log('\n== ' + n);
   ok(Mv.join(' ') === 'dm26AbCdEfGh| dm26AbCdEfGh| dm26AbCdEfGh| dm26AbCdEfGh|BL1 dm26AbCdEfGh| |BL1 |', 'scan routing: /q/<code> path, ?q=, ?qr=, #/q/, ?code=, invalid code ignored', Mv);
   // web deploy (tools/build_deploy.py) opened in a fresh browser profile: login required everywhere, data encrypted at rest
   const WDIR = require('path').resolve(__dirname, 'shots', 'deploy', 'studio-de');
-  const Wbuild = () => require('child_process').execFileSync('python3', [require('path').resolve(__dirname, '..', 'tools', 'build_deploy.py'), WDIR, '--studio-name', 'Studio Web Prova']);
+  const Wbuild = () => require('child_process').execFileSync('python3', [require('path').resolve(__dirname, '..', 'tools', 'build_deploy.py'), WDIR, '--studio-name', 'Studio Web Prova', '--no-server']   /* v10.1: static deploy (the server deploy is tested in @@STREAM-W@@) */);
   Wbuild();
   const Wf = (f) => fs.existsSync(require('path').join(WDIR, f)) ? fs.readFileSync(require('path').join(WDIR, f), 'utf8') : null;
   const Wex = (f) => fs.existsSync(require('path').join(WDIR, f));
@@ -2589,6 +2589,234 @@ const sec = (n) => console.log('\n== ' + n);
   ok(vX.plCol === '#9C051E' && vX.plLock === true && vX.odvLock === false && /Archivio 1/.test(vX.items) && vX.plTags === 'aps,proloco', 'colour and tag columns honoured and locked; no colour → automatic; contents "Archivio 1"', {plCol:vX.plCol, plLock:vX.plLock, odvLock:vX.odvLock, items:vX.items, plTags:vX.plTags, odvCol:vX.odv.color_hex, mode:vX.mode, dbgIm:vX.dbgIm, dbgFields:vX.dbgFields, dbgT:vX.dbgT});
   ok(vX.again === 0, 're-importing the same list creates no duplicate binders', vX);
 
+  // @@STREAM-W@@
+  sec('v10.1 W: shared online database (server-php/api.php under php -S)');
+  {
+    const Wcp = require('child_process'), Wpath = require('path');
+    let Wphp = ''; try { Wphp = Wcp.execFileSync('php', ['-r', 'echo extension_loaded("pdo_sqlite") && extension_loaded("openssl") ? "ok" : "no";']).toString(); } catch(e){}
+    if (Wphp !== 'ok') console.log('  (stream W skipped: php CLI with pdo_sqlite + openssl not installed)');
+    else {
+      const WR = Wpath.resolve(__dirname, 'shots', 'srv'), WDp = Wpath.join(WR, 'studio-de'), WSP = Wpath.join(WDp, 'server-php');
+      Wcp.execFileSync('python3', [Wpath.resolve(__dirname, '..', 'tools', 'build_deploy.py'), WDp, '--studio-name', 'Studio Srv Prova']);
+      // a previous run left config.php / setup.php.disabled: park them (never deleted), the build rewrote setup.php
+      ['config.php', 'setup.php.disabled'].forEach(f => { const x = Wpath.join(WSP, f); if (fs.existsSync(x)) fs.renameSync(x, x + '.prev-run'); });
+      const WDATA = Wpath.resolve(__dirname, 'shots', 'srv-data', String(Date.now()));
+      const WPORT = 18300 + (process.pid % 500), WO = 'http://127.0.0.1:' + WPORT, WAPI = WO + '/studio-de/server-php/api.php';
+      const Wsrv = Wcp.spawn('php', ['-S', '127.0.0.1:' + WPORT, '-t', WR, Wpath.resolve(__dirname, 'php-router.php')], {stdio:'ignore'});
+      const Wsleep = (ms) => new Promise(r => setTimeout(r, ms));
+      const Wq = async (route, o) => {
+        o = o || {}; const h = Object.assign({}, o.headers || {});
+        if (o.token) h['X-DocMap-Token'] = o.token;
+        if (o.body !== undefined && !h['Content-Type']) h['Content-Type'] = 'application/json';
+        const u = WAPI + '?r=' + route + (o.q ? '&' + new URLSearchParams(o.q).toString() : '');
+        const r = await fetch(u, {method:o.method || (o.body !== undefined ? 'POST' : 'GET'), headers:h, body:o.body === undefined ? undefined : (typeof o.body === 'string' ? o.body : JSON.stringify(o.body))});
+        let j = null; try { j = await r.json(); } catch(e){}
+        return {s:r.status, j, h:r.headers};
+      };
+      const Wget = async (path) => (await fetch(WO + path)).status;
+      let Wv, Wv2, Wup = false;
+      for (let i = 0; i < 50 && !Wup; i++){ try { Wup = (await Wq('ping')).s === 200; } catch(e){ await Wsleep(100); } }
+      try {
+        Wv = await Wq('ping');
+        ok(Wup && Wv.j.ok === true && Wv.j.api === 'docmap-php' && /Z$/.test(Wv.j.server_time), 'W: php -S up, ping answers {ok, api, server_time}', Wv.j);
+        Wv = await Wq('me', {token:'x'});
+        ok(Wv.s === 500 && Wv.j.error.code === 'config' && /setup\.php/.test(Wv.j.error.message) && !/\/home|\/tmp/.test(Wv.j.error.message), 'W: without config.php the API refuses to start with a clear JSON error (no paths)', Wv.j);
+        ok(fs.existsSync(Wpath.join(WSP, 'api.php')) && fs.existsSync(Wpath.join(WSP, 'config.sample.php')) && /Require all denied/.test(fs.readFileSync(Wpath.join(WSP, 'data', '.htaccess'), 'utf8')) &&
+          /config\.\*\\\.php/.test(fs.readFileSync(Wpath.join(WSP, '.htaccess'), 'utf8')) && /"apiBase": "server-php\/api\.php"/.test(fs.readFileSync(Wpath.join(WDp, 'docmap.config.js'), 'utf8')) &&
+          /SiteGround/.test(fs.readFileSync(Wpath.join(WDp, 'README-DEPLOY.md'), 'utf8')) && !fs.existsSync(Wpath.join(WDp, 'server-php', 'config.php')), 'W: deploy ships server-php (api, setup, sample, .htaccess, data/.htaccess), apiBase set, SiteGround README');
+        // setup.php: one shot
+        fs.mkdirSync(WDATA, {recursive:true});
+        let r = await fetch(WO + '/studio-de/server-php/setup.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+          body:new URLSearchParams({data_dir:WDATA, users:'dave,admin\nmario,editor\nlucia,viewer', allow_file:'1', studio_name:'Studio Srv Prova'}).toString()});
+        const Whtml = await r.text(), WT = {};
+        for (const m of Whtml.matchAll(/data-user="([^"]+)" data-role="([^"]+)"><td>[^<]*<\/td><td>[^<]*<\/td><td class="tok">([^<]+)</g)) WT[m[1]] = m[3];
+        const Wcfg = fs.existsSync(Wpath.join(WSP, 'config.php')) ? fs.readFileSync(Wpath.join(WSP, 'config.php'), 'utf8') : '';
+        ok(r.status === 200 && WT.dave && WT.mario && WT.lucia && /'aes_key' => '[A-Za-z0-9+\/=]{44}'/.test(Wcfg) && !Wcfg.includes(WT.dave) && Wcfg.includes(require('crypto').createHash('sha256').update(WT.dave).digest('hex')) && /'null'/.test(Wcfg),
+          'W: setup.php writes config.php (random AES key, token SHA-256 only, file origin allowed) and shows each token once', {status:r.status, users:Object.keys(WT)});
+        ok(await Wget('/studio-de/server-php/setup.php') >= 403 && fs.existsSync(Wpath.join(WSP, 'setup.php.disabled')), 'W: setup.php refuses to run again (renamed to setup.php.disabled)');
+        // short lock for the rate-limit test
+        fs.writeFileSync(Wpath.join(WSP, 'config.php'), Wcfg.replace("'max_fails' => 5", "'max_fails' => 3").replace("'lock_seconds' => 60", "'lock_seconds' => 2"));
+        Wv = [await Wget('/studio-de/server-php/config.php'), await Wget('/studio-de/server-php/config.sample.php'), await Wget('/studio-de/server-php/data/index.html'), await Wget('/studio-de/server-php/data/'), await Wget('/studio-de/server-php/.htaccess'), await Wget('/studio-de/server-php/setup.php.disabled')];
+        ok(Wv.every(s => s === 403 || s === 404), 'W: config.php, data/, .htaccess and setup.php.disabled are not served (403/404)', Wv);
+
+        // ---- v10 data preserved on upgrade + first sync seeds an EMPTY server (desktop file://) ----
+        const Mctx = await b.newContext({viewport:{width:1366, height:768}});
+        const Mp = await Mctx.newPage(); Mp.on('pageerror', e => errs.push('W PAGEERR ' + e.message)); Mp.on('dialog', d => d.accept());
+        Mp.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errs.push('W CONSOLE ' + m.text()); });
+        const Wv10 = {schema:26.9, lang:'it', view:'archive', onboarded:true, hasUnexportedChanges:false,
+          settings:{studioName:'Studio Vecchio v10', operator:'Dave', colorMode:'category', colorUpdatedAt:'2026-10-20T08:00:00.000Z', catColors:{IVA:'#DC2626'}, deviceId:'dev-v10-pc', deviceLabel:'PC studio'},
+          binders:[1, 2, 3, 4, 5, 6, 7].map(i => ({id:'w-v10-b' + i, speaking_code:'WV' + i, company_name:'Zanzibar Segreto ' + i + ' Srl', category:i % 2 ? 'IVA' : 'BILANCI', color_hex:i === 3 ? '#9C051E' : '#2563EB', color_locked:i === 3, short_code:'dm26WvXa' + 'abcd'.charAt(i % 4) + 'Bx' + (i + 1),
+            room_code:'A', cabinet_code:'1', shelf_code:'β', contents_items:[{year:'2025', description:'Fatture', status:'archive'}], tags:'v10,prova', created_at:'2026-10-01T08:00:00.000Z', updated_at:'2026-10-0' + i + 'T09:00:00.000Z'})),
+          clients:[{id:'w-v10-c1', name:'Zanzibar Segreto 1 Srl', multi_code:'W901', updated_at:'2026-10-02T09:00:00.000Z'}, {id:'w-v10-c2', name:'Cliente Due W', multi_code:'W902', updated_at:'2026-10-03T09:00:00.000Z'}],
+          tombstones:[{type:'binder', id:'w-v10-gone', code:'WVX', deletedAt:'2026-10-05T10:00:00.000Z', who:'Dave'}],
+          sync:{peers:{}, lastExportAt:null, lastImportAt:null, lastPeer:'', history:[]}};
+        await Mp.goto(URL_); await Mp.evaluate((st) => { localStorage.clear(); localStorage.setItem('docmap_v26_state', JSON.stringify(st)); localStorage.setItem('docmap_v26_device', 'dev-v10-pc'); }, Wv10);
+        await Mp.reload(); await Mp.waitForTimeout(1500);
+        Wv = await Mp.evaluate(() => { while (topModal()) closeModal(true); const b3 = S.binders.find(x => x.id === 'w-v10-b3');
+          return {n:S.binders.length, ids:S.binders.map(x => x.id).sort().join(','), cl:(S.clients || []).length, tb:(S.tombstones || []).map(x => x.id).join(','), col:b3 && b3.color_hex, lock:b3 && b3.color_locked, mode:S.settings.colorMode,
+            studio:S.settings.studioName, ups:S.binders.map(x => x.updated_at).sort()[0], key:!!localStorage.getItem('docmap_v26_state'), dev:syncDeviceId()}; });
+        ok(Wv.n === 7 && Wv.cl === 2 && Wv.tb === 'w-v10-gone' && Wv.col === '#9C051E' && Wv.lock === true && Wv.mode === 'category' && Wv.studio === 'Studio Vecchio v10' && Wv.ups === '2026-10-01T09:00:00.000Z' && Wv.key && Wv.dev === 'dev-v10-pc',
+          'W: a v10 state (binders, clients, colour fields, tombstones) opens in v10.1 unchanged (same localStorage key, timestamps kept)', Wv);
+        await Mp.evaluate(([url, tok]) => { localStorage.setItem('docmap_v26_srv', JSON.stringify({url, token:tok, basic:''})); S.view = 'sync'; renderAll(); }, [WAPI, WT.dave]);
+        await Mp.evaluate(() => document.getElementById('srv-card').scrollIntoView()); await Mp.screenshot({path:Wpath.join(__dirname, 'shots', 'w_desktop_card.png')});
+        ok(await Mp.isVisible('#srv-card #srv-sync') && (await Mp.inputValue('#srv-url')) === WAPI, 'W: desktop ⚙ Sincronizzazione shows the "Server online" card (URL, token, Sincronizza con il server)');
+        await Mp.click('#srv-sync'); await Mp.waitForTimeout(1500);
+        Wv = await Mp.evaluate(() => ({seed:!!document.getElementById('srv-seed'), txt:(document.getElementById('srv-seed') || {}).innerText || ''}));
+        ok(Wv.seed && /7 faldoni/.test(Wv.txt) && /2 clienti/.test(Wv.txt) && /1 eliminazion/.test(Wv.txt), 'W: first sync against an EMPTY server asks "Carica il mio archivio sul server (prima volta)" with the counts', Wv);
+        await Mp.click('.modal-f .btn-primary'); await Mp.waitForTimeout(2500);
+        Wv = await Wq('pull', {token:WT.lucia, q:{since:0}});
+        const WvB = Wv.j.records.filter(x => x.type === 'binder'), WvC = Wv.j.records.filter(x => x.type === 'client');
+        ok(Wv.s === 200 && WvB.length === 7 && WvC.length === 2 && Wv.j.tombstones.length === 1 && Wv.j.tombstones[0].id === 'w-v10-gone' && WvB.find(x => x.id === 'w-v10-b3').data.color_hex === '#9C051E' && WvB.find(x => x.id === 'w-v10-b3').data.color_locked === true &&
+          WvB.find(x => x.id === 'w-v10-b5').updated_at === '2026-10-05T09:00:00.000Z' && Wv.j.settings && Wv.j.settings.data.studioName === 'Studio Vecchio v10' && Wv.j.settings.data.colorMode === 'category',
+          'W: the seed uploaded every binder, client, tombstone, the shared settings and the log (timestamps unchanged); pull returns all records', {b:WvB.length, c:WvC.length, t:Wv.j.tombstones.length});
+        Wv = await Mp.evaluate(() => { const p = S.sync.peers[Object.keys(S.sync.peers).find(k => k.startsWith('server:'))] || {}; return {mode:p.mode, seq:p.seq, push:!!p.lastPushAt, pend:srvPending(), last:(document.getElementById('srv-last') || {}).textContent, ls:JSON.stringify(S).includes(document.getElementById('srv-token') ? document.getElementById('srv-token').value : 'zz')}; });
+        ok(Wv.mode === 'server' && typeof Wv.seq === 'number' && Wv.push && Wv.pend === 0 && Wv.last && Wv.last !== 'mai' && !Wv.ls, 'W: the server is a sync peer S.sync.peers["server:<url>"] (seq, lastPushAt), nothing pending, token never inside S', Wv);
+
+        // ---- API: push / pull, LWW, tombstones ----
+        const Wb = (id, code, at, extra) => ({type:'binder', id, updated_at:at, data:Object.assign({id, speaking_code:code, company_name:'Zanzibar Segreto Api', short_code:'dm26Wapi' + code.slice(-4), room_code:'B', cabinet_code:'2', updated_at:at}, extra || {})});
+        Wv = await Wq('push', {token:WT.mario, body:{records:[Wb('w-api-1', 'WAP1', '2026-11-01T10:00:00.000Z'), Wb('w-api-2', 'WAP2', '2026-11-01T10:00:00.000Z', {shelf_code:'γ'})], tombstones:[], deviceId:'dev-api', operator:'Api'}});
+        ok(Wv.s === 200 && Wv.j.applied === 2 && Wv.j.rejected.length === 0 && Wv.j.seq > 0, 'W: push applies new records, returns {applied, rejected, seq}', Wv.j);
+        const Wseq = Wv.j.seq;
+        Wv = await Wq('pull', {token:WT.lucia, q:{since:Wseq - 2}});
+        ok(Wv.s === 200 && Wv.j.records.length === 2 && Wv.j.records.every(x => x.data.company_name === 'Zanzibar Segreto Api') && Wv.j.seq === Wseq && Wv.j.more === false, 'W: incremental pull since=<seq> returns only the newer changes', {n:Wv.j.records.length, seq:Wv.j.seq});
+        Wv = await Wq('push', {token:WT.mario, body:{records:[Wb('w-api-1', 'WAP1', '2026-11-01T09:00:00.000Z', {notes:'vecchia'}), Wb('w-api-2', 'WAP2', '2026-11-01T11:00:00.000Z', {notes:'nuova'}), Wb('w-api-1', 'WAP1', '2026-11-01T10:00:00.000Z')]}});
+        ok(Wv.j.applied === 1 && Wv.j.rejected.length === 1 && Wv.j.rejected[0].reason === 'older' && Wv.j.rejected[0].server_updated_at === '2026-11-01T10:00:00.000Z' && Wv.j.rejected[0].current.data.speaking_code === 'WAP1' && Wv.j.same === 1,
+          'W: last-write-wins: older rejected (with the server copy), newer applied, identical same-time copy ignored', Wv.j);
+        Wv = await Wq('push', {token:WT.mario, body:{records:[Wb('w-api-1', 'WAP1', '2026-11-01T10:00:00.000Z', {notes:'diversa'})]}});
+        ok(Wv.j.applied === 0 && Wv.j.rejected[0].reason === 'tie', 'W: same time, different content → server keeps its copy and reports "tie"', Wv.j);
+        Wv = await Wq('push', {token:WT.mario, body:{tombstones:[{type:'binder', id:'w-api-2', code:'WAP2', deletedAt:'2026-11-01T10:30:00.000Z'}, {type:'binder', id:'w-api-1', code:'WAP1', deletedAt:'2026-11-01T12:00:00.000Z'}]}});
+        Wv2 = await Wq('pull', {token:WT.lucia, q:{since:Wseq}});
+        ok(Wv.j.applied === 1 && Wv.j.rejected.length === 1 && Wv.j.rejected[0].id === 'w-api-2' && Wv2.j.tombstones.some(x => x.id === 'w-api-1' && x.deletedAt === '2026-11-01T12:00:00.000Z') && Wv2.j.records.every(x => x.id !== 'w-api-1'),
+          'W: tombstones: a deletion newer than the record applies (pulled as tombstone), an older one is rejected', {push:Wv.j, t:Wv2.j.tombstones});
+        Wv = await Wq('push', {token:WT.mario, body:{records:[Wb('w-api-1', 'WAP1', '2026-11-01T13:00:00.000Z')]}});
+        Wv2 = await Wq('binder', {token:WT.lucia, q:{code:'wap1'}});
+        ok(Wv.j.applied === 1 && Wv2.s === 200 && Wv2.j.binder.id === 'w-api-1', 'W: a record newer than its tombstone comes back; GET binder by speaking code (case-insensitive)', Wv2.j);
+        Wv = await Wq('push', {token:WT.lucia, body:{records:[Wb('w-api-9', 'WAP9', '2026-11-01T13:00:00.000Z')]}});
+        ok(Wv.s === 403 && Wv.j.error.code === 'forbidden', 'W: a viewer token cannot push (403)', Wv.j);
+        // ---- binder + patch (scan.html contract) ----
+        Wv = await Wq('binder', {token:WT.lucia, q:{qr:'dm26WapiWAP1'}});
+        ok(Wv.s === 200 && Wv.j.etag === '2026-11-01T13:00:00.000Z' && /2026-11-01T13:00:00.000Z/.test(Wv.h.get('etag') || '') && Array.isArray(Wv.j.siblings), 'W: GET ?r=binder&qr= returns {binder, etag, siblings} + ETag', Wv.j);
+        const WvSib = await Wq('binder', {token:WT.lucia, q:{qr:'dm26WvXaaBx5'}});
+        ok(WvSib.s === 200 && WvSib.j.siblings.length === 6 && WvSib.j.siblings.every(x => x.speaking_code && x.shelf_code === 'β'), 'W: siblings = other binders of the same cabinet (HMAC index, no plaintext look-up)', WvSib.j.siblings && WvSib.j.siblings.length);
+        Wv = await Wq('patch', {token:WT.mario, body:{id:'w-api-1', patch:{archive_state:'CHECKED_OUT'}, base_updated_at:'2026-11-01T13:00:00.000Z', log:{id:'w-log-1', who:'Mario', action:'binder.edit', source:'mobile', summary:'test'}}});
+        const Wet = Wv.j.etag;
+        Wv2 = await Wq('patch', {token:WT.mario, body:{id:'w-api-1', patch:{notes:'conflitto'}, base_updated_at:'2026-11-01T13:00:00.000Z'}});
+        const Wv3 = await Wq('patch', {token:WT.mario, body:{id:'w-api-1', patch:{company_name:'X'}, base_updated_at:Wet}});
+        ok(Wv.s === 200 && Wv.j.binder.archive_state === 'CHECKED_OUT' && Wet > '2026-11-01T13:00:00.000Z' && Wv2.s === 409 && Wv2.j.error.code === 'conflict' && Wv2.j.current.archive_state === 'CHECKED_OUT' && Wv2.j.current_etag === Wet && Wv3.s === 422,
+          'W: patch: right base → applied with a new server updated_at; stale base → 409 with the current copy; non-mobile field → 422', {a:Wv.s, b:Wv2.s, c:Wv3.s});
+        Wv = await Wq('pull', {token:WT.lucia, q:{since:0, log_since:0}});
+        ok(Wv.j.activity_log.some(e => e.id === 'w-log-1' && e.details.new_updated_at === Wet && e.details.token_user === 'mario'), 'W: the patch log entry is stored server-side (activity_log, new_updated_at, token user)');
+        // ---- auth ----
+        Wv = [await Wq('me'), await Wq('me', {token:'sbagliato'}), await Wq('me', {headers:{Authorization:'Bearer ' + WT.mario}}), await Wq('me', {token:WT.mario})];
+        ok(Wv[0].s === 401 && Wv[0].j.error.code === 'token_missing' && Wv[1].s === 401 && Wv[1].j.error.code === 'token_invalid' && Wv[2].s === 200 && Wv[3].j.role === 'editor' && Wv[3].j.user === 'mario',
+          'W: token missing / wrong → 401; X-DocMap-Token and Authorization: Bearer both accepted; role from the token', Wv.map(x => x.s));
+        Wv = await Wq('me', {headers:{Origin:'https://evil.example'}, token:WT.mario});
+        Wv2 = await fetch(WAPI + '?r=me', {method:'POST', headers:{'Content-Type':'text/plain', Origin:'null'}, body:JSON.stringify({_token:WT.mario})});
+        ok(Wv.s === 403 && Wv.j.error.code === 'origin' && Wv2.status === 200 && Wv2.headers.get('access-control-allow-origin') === 'null', 'W: CORS: foreign origin refused; file:// (Origin null) allowed when configured, token in a text/plain body', [Wv.s, Wv2.status]);
+        // ---- encryption at rest ----
+        Wv = fs.readdirSync(WDATA).filter(f => /^docmap\.sqlite/.test(f)).map(f => fs.readFileSync(Wpath.join(WDATA, f)));
+        ok(Wv.length >= 1 && Wv.every(buf => !buf.includes('Zanzibar') && !buf.includes('Segreto') && !buf.includes('Studio Vecchio') && !buf.includes('dm26WvXa') && !buf.includes('Fatture')), 'W: the SQLite file (and WAL) holds no plaintext names, codes or contents (AES-256-GCM at rest)', Wv.map(x => x.length));
+
+        // ---- web app with apiBase: phones / browsers edit online ----
+        const W1 = await b.newContext({viewport:{width:1366, height:768}}), W1p = await W1.newPage();
+        W1p.on('pageerror', e => errs.push('W1 PAGEERR ' + e.message)); W1p.on('dialog', d => d.accept());
+        await W1p.goto(WO + '/studio-de/index.html'); await W1p.waitForTimeout(800);
+        ok(await W1p.isVisible('#vault-lock #vl-token') && await W1p.evaluate(() => !(S && S.binders)), 'W: web app (apiBase): first run asks device user + PIN + server access code, nothing loaded');
+        await W1p.fill('#vl-user', 'mario.tel'); await W1p.fill('#vl-pin', '5732'); await W1p.fill('#vl-pin2', '5732'); await W1p.fill('#vl-token', 'sbagliato'); await W1p.click('#vl-go'); await W1p.waitForTimeout(1200);
+        ok(await W1p.evaluate(() => !!document.getElementById('vault-lock') && /non valido|not valid/.test(document.getElementById('vl-err').textContent) && !localStorage.getItem('docmap_v26_auth')), 'W: a wrong access code is refused before any local user is created');
+        await new Promise(r => setTimeout(r, 2200));   // the wrong token above counted one failure: let any lock expire
+        await W1p.fill('#vl-pin', '5732'); await W1p.fill('#vl-pin2', '5732'); await W1p.fill('#vl-token', WT.mario); await W1p.click('#vl-go'); await W1p.waitForTimeout(3500);
+        Wv = await W1p.evaluate(() => { while (topModal()) closeModal(true); return {lock:!!document.getElementById('vault-lock'), n:S.binders.length, codes:S.binders.map(b => b.speaking_code).sort().join(','), role:dmProviders().auth.currentUser().role, st:(document.getElementById('srv-status') || {}).textContent,
+          leak:Object.keys(localStorage).some(k => /Zanzibar|WAP1/.test(localStorage.getItem(k) || '')), studio:S.settings.studioName, srvVault:!!localStorage.getItem('docmap_v26_vault_srv')}; });
+        ok(!Wv.lock && Wv.n === 9 && /WAP1/.test(Wv.codes) && /WV7/.test(Wv.codes) && !/BL1/.test(Wv.codes) && Wv.role === 'editor' && Wv.studio === 'Studio Vecchio v10' && !Wv.leak && Wv.srvVault,
+          'W: after login the web app loads the data from the server (no demo binders), role from the token, cache + token encrypted in the vault', Wv);
+        ok(/Online · sincronizzato/.test(Wv.st || ''), 'W: top bar shows "Online · sincronizzato"', Wv.st);
+        await W1p.screenshot({path:Wpath.join(__dirname, 'shots', 'w_web_online.png')});
+        await W1p.evaluate(() => { const b = S.binders.find(x => x.speaking_code === 'WV2'); b.notes = 'Nota online W1'; commit(); });
+        await W1p.waitForTimeout(400);
+        const Wst1 = await W1p.evaluate(() => (document.getElementById('srv-status') || {}).textContent);
+        await W1p.waitForFunction(() => srvPending() === 0 && !SRV.busy && SRV.state === 'ok', null, {timeout:10000}).catch(() => {});
+        Wv = await Wq('binder', {token:WT.lucia, q:{code:'WV2'}});
+        ok(/In attesa \(1\)|Sincronizzo/.test(Wst1 || '') && Wv.j.binder.notes === 'Nota online W1', 'W: an edit is pushed automatically after the commit (status "In attesa (1)" meanwhile)', {st:Wst1, notes:Wv.j.binder.notes});
+        // second browser (another employee) sees it after its pull
+        const W2 = await b.newContext({viewport:{width:1366, height:768}}), W2p = await W2.newPage();
+        W2p.on('pageerror', e => errs.push('W2 PAGEERR ' + e.message)); W2p.on('dialog', d => d.accept());
+        await W2p.goto(WO + '/studio-de/index.html'); await W2p.waitForTimeout(800);
+        await W2p.fill('#vl-user', 'dave.pc2'); await W2p.fill('#vl-pin', '9182'); await W2p.fill('#vl-pin2', '9182'); await W2p.fill('#vl-token', WT.dave); await W2p.click('#vl-go'); await W2p.waitForTimeout(3500);
+        Wv = await W2p.evaluate(() => { while (topModal()) closeModal(true); const b = S.binders.find(x => x.speaking_code === 'WV2'); return {notes:b && b.notes, role:dmProviders().auth.currentUser().role}; });
+        ok(Wv.notes === 'Nota online W1' && Wv.role === 'admin', 'W: a second browser context sees the change after its pull', Wv);
+        await W2p.evaluate(async () => { const b = S.binders.find(x => x.speaking_code === 'WV4'); b.archive_state = 'HISTORICAL'; commit(); await srvSync(); });
+        Wv = await W1p.evaluate(async () => { await srvSync(); return S.binders.find(x => x.speaking_code === 'WV4').archive_state; });
+        ok(Wv === 'HISTORICAL', 'W: and the other way round (periodic / focus pull = srvSync)', Wv);
+        // offline queue + retry
+        await W1.setOffline(true);
+        Wv = await W1p.evaluate(async () => { const b = S.binders.find(x => x.speaking_code === 'WV6'); b.notes = 'scritta offline'; commit(); const r = await srvSync(); return {r, st:document.getElementById('srv-status').textContent, pend:srvPending(), retry:SRV.retry}; });
+        ok(Wv.r.error === 'offline' && /Offline · in attesa \(1\)/.test(Wv.st) && Wv.pend === 1 && Wv.retry >= 1, 'W: offline: the change waits in the encrypted local state, status "Offline · in attesa (1)", retry scheduled', Wv);
+        await W1.setOffline(false);
+        Wv = await W1p.evaluate(async () => { while (SRV.busy) await new Promise(r => setTimeout(r, 50)); await srvSync(); return {pend:srvPending(), st:document.getElementById('srv-status').textContent}; });
+        Wv2 = await Wq('binder', {token:WT.lucia, q:{code:'WV6'}});
+        ok(Wv.pend === 0 && /Online/.test(Wv.st) && Wv2.j.binder.notes === 'scritta offline', 'W: back online the queued change is sent', Wv);
+        // scan.html in the same session reads / saves through the server
+        await W1p.goto(WO + '/studio-de/scan.html?q=dm26WvXaaBx5'); await W1p.waitForTimeout(1500);
+        Wv = await W1p.evaluate(() => ({view:SC.view, code:(document.getElementById('sc-code') || {}).textContent, foot:document.querySelector('.sc-foot') ? document.querySelector('.sc-foot').textContent : ''}));
+        ok(Wv.view === 'card' && Wv.code === 'WV4' && /database online|online database/.test(Wv.foot), 'W: scan.html (apiBase) reads the binder from the server (GET binder)', Wv);
+        await W1p.click('#sc-edit'); await W1p.click('[data-s="state"][data-v="CHECKED_OUT"]'); await W1p.click('#sc-save'); await W1p.waitForTimeout(900);
+        Wv = await Wq('binder', {token:WT.lucia, q:{code:'WV4'}});
+        Wv2 = await Wq('pull', {token:WT.lucia, q:{since:0, log_since:0}});
+        ok(Wv.j.binder.archive_state === 'CHECKED_OUT' && await W1p.evaluate(() => SC.view === 'card') && Wv2.j.activity_log.some(e => e.source === 'mobile' && e.target && e.target.code === 'WV4' && /stato/.test(e.summary)), 'W: scan.html saves via ?r=patch, with a mobile log entry on the server', Wv.j.binder.archive_state);
+        await W1p.click('#sc-edit'); await W1p.fill('#sc-notes-in', 'dal telefono');
+        await Wq('patch', {token:WT.dave, body:{id:Wv.j.binder.id, patch:{tags:'cambiata,altrove'}, base_updated_at:Wv.j.etag}});
+        await W1p.click('#sc-save'); await W1p.waitForTimeout(900);
+        ok(await W1p.isVisible('#sc-conflict'), 'W: scan.html: the server copy changed meanwhile → 409 → conflict screen');
+        await W1p.click('[data-s="conflict-force"]'); await W1p.waitForTimeout(900);
+        Wv = await Wq('binder', {token:WT.lucia, q:{code:'WV4'}});
+        ok(Wv.j.binder.notes === 'dal telefono' && Wv.j.binder.tags === 'cambiata,altrove', 'W: "Salva comunque" sends only the phone fields (field merge kept the other change)', Wv.j.binder);
+        // a brand-new phone: scan first, set up the device there
+        const W3 = await b.newContext({viewport:{width:390, height:844}, isMobile:true}), W3p = await W3.newPage();
+        W3p.on('pageerror', e => errs.push('W3 PAGEERR ' + e.message));
+        await W3p.goto(WO + '/studio-de/scan.html?q=dm26WvXabBx2'); await W3p.waitForTimeout(800);
+        ok(await W3p.evaluate(() => SC.view === 'setup' && !/WV1|Zanzibar/.test(document.getElementById('app').innerHTML)), 'W: new phone: scan.html shows the device set-up (user, PIN, access code), no data');
+        await W3p.fill('#sc-user', 'lucia.tel'); await W3p.fill('#sc-pin', '2468'); await W3p.fill('#sc-pin2', '2468'); await W3p.fill('#sc-token', WT.lucia); await W3p.click('#sc-enter'); await W3p.waitForTimeout(2500);
+        ok(await W3p.evaluate(() => SC.view === 'card' && document.getElementById('sc-code').textContent === 'WV1' && !document.getElementById('sc-edit') && SC.P.auth.currentUser().role === 'viewer'), 'W: after set-up the phone shows the binder from the server; viewer token → no Modifica button');
+        await W3.close(); await W2.close(); await W1.close();
+
+        // ---- desktop: "Sincronizza con il server" with conflict review ----
+        Wv = await Mp.evaluate(() => { while (topModal()) closeModal(true); const b = S.binders.find(x => x.speaking_code === 'WV1'); b.notes = 'modifica PC'; commit(); return b.id; });
+        await Mp.waitForTimeout(30);
+        Wv2 = await Wq('binder', {token:WT.lucia, q:{code:'WV1'}});
+        await Wq('push', {token:WT.dave, body:{records:[{type:'binder', id:Wv, updated_at:new Date(Date.now() + 1000).toISOString(), data:Object.assign({}, Wv2.j.binder, {notes:'modifica server'})},
+          {type:'binder', id:'w-v10-b7', updated_at:new Date(Date.now() + 1000).toISOString(), data:Object.assign({}, (await Wq('binder', {token:WT.lucia, q:{code:'WV7'}})).j.binder, {notes:'solo server'})}]}});
+        await Mp.evaluate(() => { S.view = 'sync'; renderAll(); window.__wSync = srvSync({interactive:true}); });
+        await Mp.waitForTimeout(1500);
+        Wv2 = await Mp.evaluate(() => ({rv:!!document.getElementById('sy-review'), conf:document.querySelectorAll('.sy-conf').length, txt:(document.getElementById('sy-review') || {}).innerText || ''}));
+        await Mp.screenshot({path:Wpath.join(__dirname, 'shots', 'w_desktop_review.png')});
+        ok(Wv2.rv && Wv2.conf === 1 && /WV1/.test(Wv2.txt) && /modifica server/.test(Wv2.txt) && /modifica PC/.test(Wv2.txt), 'W: desktop sync: a record changed on both sides since the last server sync opens the 06f conflict review', Wv2);
+        await Mp.click('.sy-conf input[value="local"]'); await Mp.click('.modal-f .btn-primary');
+        Wv2 = await Mp.evaluate(async () => { const r = await window.__wSync; return {r, wv1:S.binders.find(x => x.speaking_code === 'WV1').notes, wv7:S.binders.find(x => x.speaking_code === 'WV7').notes, wv4:S.binders.find(x => x.speaking_code === 'WV4').archive_state, api:S.binders.some(x => x.speaking_code === 'WAP1')}; });
+        Wv = await Wq('binder', {token:WT.lucia, q:{code:'WV1'}});
+        ok(Wv2.r && Wv2.r.sent >= 1 && Wv2.wv1 === 'modifica PC' && Wv2.wv7 === 'solo server' && Wv2.wv4 === 'CHECKED_OUT' && Wv2.api && Wv.j.binder.notes === 'modifica PC',
+          'W: after the review the PC keeps its choice, receives the server-only changes and pushes the kept version', {r:Wv2.r, wv1:Wv2.wv1, wv7:Wv2.wv7, srv:Wv.j.binder.notes});
+        ok(await Mp.evaluate(() => LOG.entries.some(e => e.action === 'sync.server') && LOG.entries.some(e => e.source === 'mobile' && e.target && e.target.code === 'WV4')), 'W: the desktop log has the server sync line and the mobile edits made online');
+        // admin: token management
+        Wv = await Mp.evaluate(async () => { const c = srvConf(); const x = await srvClient(c).call('token_create', {method:'POST', body:{user:'nuovo', role:'editor'}}); const l = await srvClient(c).call('tokens'); return {x, n:l.items.length}; });
+        Wv2 = [(await Wq('me', {token:Wv.x.token})).s];
+        await Mp.evaluate(async (id) => srvClient(srvConf()).call('token_revoke', {method:'POST', body:{id}}), Wv.x.id);
+        Wv2.push((await Wq('me', {token:Wv.x.token})).s);
+        ok(Wv.n === 4 && Wv2[0] === 200 && Wv2[1] === 401, 'W: admin creates a database token (works at once) and revokes it (401 afterwards)', {n:Wv.n, s:Wv2});
+        await Mctx.close();
+        await Wq('me', {token:WT.mario});   // a success clears the failure counter of this IP
+        // ---- rate limit (last: it locks this IP for a moment) ----
+        await Wsleep(2100);
+        Wv = []; for (let i = 0; i < 4; i++) Wv.push((await Wq('me', {token:'sbagliato-' + i})).s);
+        Wv2 = await Wq('me', {token:WT.mario});
+        ok(Wv.join(',') === '401,401,401,429' && Wv2.s === 429 && +Wv2.h.get('retry-after') > 0, 'W: wrong tokens are rate-limited per IP (429 + Retry-After, even for a good token while locked)', {s:Wv, after:Wv2.s});
+        await Wsleep(2300);
+        ok((await Wq('me', {token:WT.mario})).s === 200, 'W: after the lock the good token works again');
+      } finally {
+        Wsrv.kill();
+      }
+    }
+  }
   console.log('\nerrors:', errs.length ? errs.join('\n') : 'none');
   if (errs.length) fails += errs.length;
   console.log(`\nRESULT: ${passes} passed, ${fails} failed`);

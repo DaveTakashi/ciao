@@ -217,13 +217,34 @@ Nel menu **⚙ Funzioni avanzate › Registro attività** trovi l'elenco di tutt
   `deploy/studio-de/` da caricare. Sul server c'è solo il programma; i dati restano **cifrati nel browser** di ogni
   dispositivo e si aprono con il login (ogni dispositivo crea il suo amministratore al primo accesso e importa i dati
   dal pacchetto di sincronizzazione). Dettagli: `docs/DEPLOY-WEB.md`, `docs/SICUREZZA.md`, `docs/API-CONTRACT.md`.
-- Limiti di oggi: utenti e dati valgono solo nel browser dove sono stati creati; niente sincronizzazione automatica
-  né revoca a distanza (arrivano con il back-end Python); PIN perso da tutti gli amministratori = dati di quel
-  browser da reimportare.
+- Limiti del sito statico (`--no-server`): utenti e dati valgono solo nel browser dove sono stati creati; PIN perso
+  da tutti gli amministratori = dati di quel browser da reimportare. Con il database online (v10.1, sotto) i dati
+  stanno sul server e i codici di accesso si revocano a distanza.
 
 ## Sincronizzazione PC ⇄ web app (v10)
 
 DocMap funziona sia sul PC (doppio clic su `index.html`) sia come web app su **https://docmap.pr-it.it/studio-de/**. Per ora le due copie dei dati si allineano a mano da **⚙ Funzioni avanzate › Sincronizzazione**: sul PC premi **Copia export per web app** (la prima volta "Tutto l'archivio", poi "Solo modifiche dall'ultima sincronizzazione"), scrivi una passphrase (consigliato: il file viene cifrato AES-256 e la passphrase non viene mai salvata) e scarica il file; nella web app premi **Importa dati da client locale**, scegli il file, scrivi la passphrase e **Analizza**. Al contrario è uguale: **Esporta per il client locale** nella web app e **Importa dati dalla web app** sul PC. Prima di applicare vedi quanti faldoni e clienti sono nuovi, aggiornati, invariati, più vecchi (ignorati), eliminati e in conflitto. Regola: per ogni faldone vince la modifica **più recente in ordine di tempo**, da qualunque lato sia stata fatta; se lo stesso faldone è cambiato da entrambe le parti dopo l'ultima sincronizzazione vedi i campi diversi affiancati e scegli "Tieni locale" / "Tieni importato" (o "Applica a tutti: il più recente"). Anche le eliminazioni viaggiano; un faldone eliminato da una parte ma modificato dopo dall'altra resta ed è segnalato. Tutto si annulla con un clic su **Annulla** e finisce nel registro attività. Sotto trovi la coda: modifiche locali non ancora esportate, dispositivi conosciuti e cronologia. Dettagli tecnici: `docs/SYNC.md`.
+
+## Database online condiviso (v10.1)
+
+Dalla v10.1 la versione web può avere un **database condiviso** sul server dello studio (SiteGround, PHP): i
+dipendenti aprono l'app dal telefono o dal browser, scansionano un QR e **modificano direttamente online**; il PC
+in ufficio resta com'è (offline, doppio clic su `index.html`) e si allinea quando vuoi.
+
+- **Sul server**: la cartella `server-php/` (creata da `tools/build_deploy.py` dentro `deploy/studio-de/`). Si
+  installa una volta con `server-php/setup.php` (genera la chiave di cifratura e i **codici di accesso**). I dati
+  sono cifrati (AES-256-GCM) nel file SQLite, che è meglio tenere fuori da `public_html`. Passo passo:
+  `README-DEPLOY.md` nel deploy e `docs/DEPLOY-WEB.md` §0.
+- **Telefoni e browser**: al primo accesso nome utente, PIN di questo dispositivo e codice di accesso. Poi basta il
+  PIN. In alto lo stato: *Online · sincronizzato*, *In attesa (N)*, *Offline · in attesa (N)*. Senza rete le
+  modifiche restano sul dispositivo (cifrate) e partono da sole quando torna la connessione.
+- **PC**: ⚙ Funzioni avanzate › Sincronizzazione › **Server online** → indirizzo e codice → **Sincronizza con il
+  server**. La prima volta, con il server vuoto, DocMap chiede **"Carica il mio archivio sul server (prima volta)"**
+  e mostra quanti faldoni e clienti invierà. Se lo stesso faldone è cambiato su entrambi i lati vedi la revisione
+  dei conflitti, come con i pacchetti.
+- **Aggiornare dalla v10 senza perdere nulla**: segui `docs/AGGIORNAMENTO-v10-v10.1.md` (prima il backup, poi i nuovi
+  file **nella stessa cartella**). La procedura generale per le versioni future è in `docs/AGGIORNAMENTI.md`.
+- Le foto restano sul PC (non passano dal server).
 
 ## Guida e azioni guidate (v10)
 
@@ -253,7 +274,8 @@ Il pulsante **?** in alto (o **F1**) apre la guida. In cima ci sono le cose che 
 - [ ] Test su Firefox e Safari
 - [x] Pagina di atterraggio del QR (`scan.html`, v10) e pubblicazione su docmap.pr-it.it/studio-de
 - [ ] Redirect dinamico su qr7.it collegato al manifest
-- [ ] Fase multi-utente con server (FastAPI) e sincronizzazione
+- [x] Database online condiviso con sincronizzazione (v10.1, `server-php`)
+- [ ] Back-end Python (FastAPI) con account utente sul server, al posto di `server-php` (stesso contratto)
 - [ ] Foto in un file separato (ZIP) per backup JSON completi
 - [ ] Undo a più livelli (oggi annulla solo l'ultima operazione di massa)
 

@@ -2,7 +2,7 @@
    DocMap 2026 — core: i18n, state, persistence, data model helpers
    ===================================================================== */
 'use strict';
-const APP_VERSION = '26.10.0';
+const APP_VERSION = '26.10.1';
 const LS_KEY = 'docmap_v26_state';
 const LS_PREV = 'docmap_v26_state_prev';
 const SC_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
@@ -464,7 +464,10 @@ function loadState(){
   if (window.DocMapVault && DocMapVault.isActive()){
     const vs = DocMapVault.takeState();
     if (vs) return migrate(vs);
-    const st0 = defaultState(); S = st0; window.S = st0; st0.binders = demoBinders(); return st0;
+    const st0 = defaultState(); S = st0; window.S = st0;
+    // v10.1: with the shared online database the data comes from the server (06g-server.js), never demo binders
+    st0.binders = window.DOCMAP_CONFIG && DOCMAP_CONFIG.apiBase ? [] : demoBinders(); if (!st0.binders.length) st0.onboarded = true;
+    return st0;
   }
   let raw = null;
   try { raw = localStorage.getItem(LS_KEY); } catch(e){ storageOk = false; }

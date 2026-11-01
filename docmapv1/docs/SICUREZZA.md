@@ -1,4 +1,4 @@
-# DocMap — sicurezza: cosa protegge l'MVP e cosa no (v10)
+# DocMap — sicurezza: cosa protegge l'MVP e cosa no (v10.1)
 
 > Sintesi onesta. L'MVP crea **le basi** (interfacce, formati, cifratura nel browser); il **sistema di sicurezza vero**
 > (login centralizzato, revoca, sincronizzazione, cifratura lato server, audit centrale) lo costruisce il back-end Python
@@ -6,13 +6,13 @@
 
 ## 1. Le tre modalità
 
-| | `local` (predefinita, `file://`) | `web` statico (es. `https://docmap.pr-it.it/studio-de/`) | `web` + `apiBase` (futuro) |
+| | `local` (predefinita, `file://`) | `web` statico (`--no-server`) | `web` + `apiBase` (v10.1, predefinito del deploy) |
 |---|---|---|---|
-| Dove sono i dati | nel browser del PC, **in chiaro** (`localStorage 'docmap_v26_state'`, IndexedDB SQLite) | nel browser di ogni dispositivo, **cifrati** (cassaforte `DocMapVault`) | sul server Python (+ cache locale) |
-| Cosa c'è sul server | nulla | **solo il programma** (HTML/JS/CSS), mai dati | API + database |
-| Login sul PC | no (come prima) | **sì, su ogni pagina** | sì (OIDC) |
-| Login sul telefono (`scan.html`) | sì (utenti locali) | sì | sì |
-| Sincronizzazione | file / pacchetti | pacchetti (modulo sync, 06f-sync.js) | automatica (`HUB-E-API.md` §4) |
+| Dove sono i dati | nel browser del PC, **in chiaro** (`localStorage 'docmap_v26_state'`, IndexedDB SQLite) | nel browser di ogni dispositivo, **cifrati** (cassaforte `DocMapVault`) | nel **database condiviso** sul server (`server-php`, cifrato AES-256-GCM) + copia cifrata nella cassaforte di ogni dispositivo |
+| Cosa c'è sul server | nulla | **solo il programma** (HTML/JS/CSS), mai dati | programma + `server-php/api.php` + file SQLite (meglio fuori da `public_html`) |
+| Login sul PC | no (come prima) | **sì, su ogni pagina** | sì: password della cartella (SiteGround) + PIN del dispositivo; il token del server sta cifrato nella cassaforte |
+| Login sul telefono (`scan.html`) | sì (utenti locali) | sì | sì (primo accesso: utente + PIN + codice di accesso) |
+| Sincronizzazione | file / pacchetti; **a richiesta con il server** (⚙ Sincronizzazione › Server online) | pacchetti (modulo sync, 06f-sync.js) | **automatica** (06g-server.js) |
 
 ## 2. Utenti locali (tutte le modalità)
 
@@ -80,6 +80,47 @@
 6. Gli export che l'utente scarica (CSV, JSON, `.sqlite`, PDF) e il file `.sqlite` collegato su disco sono in chiaro:
    sono azioni volute dall'utente. Il pacchetto sync può essere cifrato con passphrase (modulo 06f-sync.js).
 7. "Ripristina snapshot precedente" (Impostazioni) in modalità web non usa la copia `_prev` cifrata (si usa il backup).
+
+## 5b. v10.1 — database online condiviso (`server-php`) — cosa protegge oggi
+
+Livelli, dall'esterno verso l'interno:
+
+1. **HTTPS** (certificato SiteGround, "HTTPS forzato") + header di sicurezza del `.htaccess` (CSP `default-src 'self'`,
+   HSTS, nosniff, no-referrer, noindex).
+2. **Protezione con password della cartella** (SiteGround › Directory protette, HTTP Basic): chi non ha utente e
+   password non scarica nemmeno il programma né raggiunge l'API. Il browser la chiede una volta per dispositivo.
+3. **Token dell'app** per ogni persona/dispositivo (`X-DocMap-Token`), con ruolo `viewer` / `editor` / `admin` controllato
+   **dal server** su ogni rotta (un viewer non può scrivere). Sul server solo lo SHA-256 (`config.php` o tabella
+   `tokens`); revoca immediata dei token creati dall'app (`token_revoke`). Blocco progressivo per IP dopo 5 token
+   errati (429 + `Retry-After`, fino a 15 minuti).
+   **Scelta per il front-end**: il token si inserisce **una volta per dispositivo** insieme a un utente e a un PIN
+   *locali*; il token viene verificato (`?r=me`) e salvato **cifrato** nella cassaforte del dispositivo
+   (`localStorage 'docmap_v26_vault_srv'`, AES-GCM con la DEK sbloccata dal PIN). Ai login successivi basta il PIN.
+   Il ruolo nell'app viene dal token, non dall'utente locale. Desktop `file://`: URL e token in
+   `localStorage 'docmap_v26_srv'` in chiaro, come tutti i dati della modalità locale (mai nei backup/CSV/.sqlite).
+4. **Cifratura a riposo** di ogni record, impostazione e riga di registro: AES-256-GCM con IV casuale e tag, AAD legato
+   al record; ricerche con indici HMAC (nessun codice o nome in chiaro nel file). Senza chiave l'API non parte; una
+   chiave diversa da quella del database viene rifiutata (`meta.key_check`). I test verificano che nel file `.sqlite`
+   (e nel WAL) non compaiano nomi, codici o contenuti.
+5. **Cartella dei dati non raggiungibile dal web**: consigliata fuori da `public_html`; se dentro, `server-php/data/`
+   ha `.htaccess` "Require all denied" + `index.html`; `server-php/.htaccess` nega `config*.php`, `*.sqlite*`,
+   `*.disabled`, `.ht*`; `config.php` restituisce 404 anche se eseguito direttamente. `setup.php` gira **una volta**
+   (rifiuta se esiste `config.php` e si rinomina `setup.php.disabled`).
+6. Errori sempre in JSON senza percorsi o messaggi PHP (`display_errors` off; dettagli solo nel log PHP).
+   CORS: solo stessa origine, più `null` (programma sul PC) se scelto in `setup.php`.
+
+**Cosa manca ancora** (da fare con il back-end Python o in una versione successiva):
+
+- **Account utente sul server** con password/OIDC e 2FA (oggi: token per dispositivo + PIN locale; chi ha il token
+  e la password della cartella può usare l'API). Revoca dei token di `config.php` solo a mano (`'disabled' => true`).
+- **Rotazione della chiave** AES (oggi una sola chiave per tutto il database; cambiarla richiede di ricifrare: non c'è
+  ancora uno strumento) e chiave fuori dal web server (KMS/HSM). Chi legge `config.php` legge tutto.
+- **Audit centrale** completo: oggi il server tiene il registro attività inviato dai client e `changes` (chi/quando per
+  ogni scrittura), non un log degli accessi in sola lettura né firme anti-manomissione.
+- Foto e allegati **non** passano dal server (restano nel SQLite di ogni PC).
+- Ordine delle modifiche = orologi dei dispositivi (`updated_at` dei client, tranne `patch` che usa l'ora del server):
+  l'app avvisa se l'orologio differisce di oltre 2 minuti.
+- `allowed_origins: ['null']` accetta qualunque pagina `file://` o sandbox: il token resta comunque necessario.
 
 ## 6. Cosa deve fare il back-end Python
 

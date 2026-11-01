@@ -460,6 +460,20 @@ Migrazione `migrate()` 26.9: se il preset è `mrink143` e la modalità era `spli
 
 **Migrazione**: nessun faldone viene ricolorato all'aggiornamento. Uno stato, un workspace JSON o un `.sqlite` senza `settings.colorMode` è "pre-v10": `colorLockLegacy()` blocca i faldoni il cui colore non è automatico (non è una sfumatura della famiglia, né il colore della categoria, né i vecchi predefiniti `#2563EB`/`#475569`). Per ricolorare c'è il pulsante **Impostazioni › Colori dei dorsi › Ricolora tutti i faldoni (non bloccati)** (o, per una categoria, la casella nel dialogo di Informazioni › Categorie).
 
+### v10.1 — database online (nessuna modifica di schema)
+
+`APP_VERSION '26.10.1'`; schema stato `26.9` e `DB_SCHEMA_VERSION` **invariati**, stesse chiavi di memoria. Novità
+solo additive:
+
+| Dove | Campo | Significato |
+|---|---|---|
+| `S.sync.peers['server:<url>']` | `{mode:'server', seq, logSeq, lastPullAt, lastPushAt, lastLogPushAt, settingsAt, settingsHash, lastSyncAt, …}` | il server come dispositivo di sincronizzazione (`SYNC.md` §7) |
+| `localStorage 'docmap_v26_srv'` | `{url, token, basic}` | solo PC `file://`: indirizzo e codice del server (come gli altri dati locali, in chiaro; mai nei backup) |
+| `localStorage 'docmap_v26_vault_srv'` | blob cifrato | web + `apiBase`: token del server nella cassaforte del dispositivo |
+
+Il database del server ha un suo schema (`API-CONTRACT.md` §6): i record sono gli stessi oggetti `binder` / `client`
+di questo documento, cifrati uno per uno.
+
 ### v10 — Pagine e PDF (stream R)
 
 | Dove | Campo | Significato |

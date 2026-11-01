@@ -51,6 +51,7 @@ What changed from v7 is summarised in §10.
 | 6d | `assets/js/06d-info.js` | top bar (`topbarHTML`, `NAV_MAIN`, `NAV_MORE`, `<details id="nav-more">` "Funzioni avanzate" menu), view `info` (`viewInfo`, `INFO_TABS`, `INFO_LISTS`, `infoRename`/`infoDelete`/merge), category colours (`infoApplyCatColors`), QR overview + "Ristampa solo QR" (`qrReprint`, `qrRestorePrint`, `S.printPrev`), label kind `Q` (`renderQrLabel`), `INFO_ACTIONS`, help topics `nav`, `info`, `qr-reprint` |
 | 6e | `assets/js/06e-log.js` | activity log (v9): `logAct(action, target, summary, details, source)`, `LOG` (memory mirror) + SQLite `activity_log`, wrappers around exports/print/sessions/Informazioni/undo, view `log` (`viewLog`, filters `LOGV`, CSV), `S.settings.operator`, help topic `log` |
 | 6f | `assets/js/06f-sync.js` | v10 manual sync local ⇄ web app (docs/SYNC.md): change tracking inside `persist()` (`syncTrack`: bumps `updated_at` when content changed without a bump, writes tombstones `S.tombstones` for vanished ids), stable `S.settings.deviceId` (+ localStorage `docmap_v26_device`), package `docmap-sync` v1 (`syncBuildPackage`, `syncExport`), optional AES-256-GCM/PBKDF2 wrapper `docmap-sync-enc` (`syncEncrypt`/`syncDecrypt`), `syncParse` → `syncAnalyze` (review plan: new/updated/unchanged/older/delete/conflict/propagate) → `syncApply` (one undo step, `logAct` source `'sync'`), peer bookkeeping `S.sync`, view `sync` (⚙ menu › Dati, pushed onto `NAV_MORE`), `SYNC_ACTIONS`, help topic `sync`. Wraps `persist`, `undoPoint`, `applyWorkspaceObject`, `analyzeImport`, `renderView`, `handleDroppedFile` |
+| 6g | `assets/js/06g-server.js` | **v10.1** sync with the shared online database (`server-php/api.php`): the server is the 06f peer `server:<url>`; `srvSync({interactive})` (pull → `syncAnalyze`/`syncApply` → push, seed confirmation on an empty server, review modal on conflicts), automatic mode in web+apiBase (`srvBoot`, debounced push from a `persist` wrapper, 60 s pull, backoff), top-bar status `#srv-status`, "Server online" card appended to `viewSync`, admin token management, `SRV_ACTIONS` — §14 |
 | 7 | `assets/js/07-help.js` | extra i18n keys, `HELP_TAGS`, `HELP_TOPICS`, help drawer, `helpDot(id)`, onboarding |
 | 8 | `assets/js/08-guide.js` | guided-action engine, `GUIDES` |
 | 8b | `assets/js/10-auth.js` | v10 provider seams (`dmProviders()`, `DataProvider`/`AuthProvider`/`CryptoProvider`/`BlobStore`, local + remote stubs), `DocMapVault` (web-mode encrypted storage, boot gate), Impostazioni › Utenti e accesso, "Anteprima mobile", live merge of mobile edits, help topic `mobile` — §12 |
@@ -146,7 +147,7 @@ The suite opens `index.html` via `file://` in Chromium and checks every view (no
 
 | What | Where | Bump when |
 |------|-------|-----------|
-| `APP_VERSION` (`'26.9.0'`) | 02-core | every release; written into workspace JSON `version` |
+| `APP_VERSION` (`'26.10.1'`) | 02-core | every release; written into workspace JSON `version` |
 | State schema (`26.9`) | `defaultState().schema` and the final `o.schema = …` in `migrate()` | state shape or defaults change; add a guarded step `if (!(st && st.schema >= 26.x)) {…}` |
 | `DB_SCHEMA_VERSION` (`5`) | 06-db | SQLite DDL changes; add an additive migration in `dbMigrate()` (never drop columns), note the change in the comment |
 | `LS_KEY` (`docmap_v26_state`) | 02-core | never (would orphan users' data) |
@@ -216,7 +217,7 @@ Field-level details and file formats: `docs/MODELLO-DATI.md`.
 - **Config** `docmap.config.js` (classic script, loaded first by `index.html` and `scan.html`): `window.DOCMAP_CONFIG =
   {mode:'local'|'web', basePath, apiBase, studioSlug, studioName}`. `dmConfig()` reads it with defaults.
   `local` = unchanged MVP. `web` without `apiBase` = static upload: login on every page, data encrypted in the browser.
-  `web` with `apiBase` (or `mode:'remote'`) = Remote providers (`docs/API-CONTRACT.md`).
+  `web` with `apiBase` = shared online database (v10.1, §14); `mode:'remote'` = future central login (`docs/API-CONTRACT.md` §9).
 - **`scan.html`** + `assets/js/11-scan.js` + `assets/css-scan.css`: the page after scanning a QR. Loads only
   `02-core.js`, `10-auth.js`, `11-scan.js` (no desktop modules); sets a light `S = {lang, settings}` for `t()`/`fmtDate()`.
   Route: `?q=` · `?qr=` · `…/q/<code>` (path, `<base>` fixed by an inline head script) · `#/q/<code>` · `?code=`
@@ -245,6 +246,30 @@ Field-level details and file formats: `docs/MODELLO-DATI.md`.
 - **DB schema**: no DDL from this stream (`DB_SCHEMA_VERSION` 6 comes from `color_locked`, §12). Users and blobs are deliberately not in the SQLite file.
 - **Destination default**: `DEFAULT_DEST = 'https://docmap.pr-it.it/studio-de/q/{short_code}'`; the v9 default is in
   `OLD_DEFAULT_DESTS` and is replaced by `migrate()` only when unchanged.
+
+## 14. v10.1: shared online database (stream W)
+
+- **Server**: `server-php/api.php` (single file, PHP 8.0+, PDO SQLite + OpenSSL), `setup.php` (one-shot: data dir, AES key,
+  tokens → `config.php`, then refuses / renames itself), `config.sample.php`, `.htaccess` (denies `config*.php`,
+  `*.sqlite*`, `*.disabled`, `.ht*`), `data/.htaccess` "Require all denied". Contract and schema: `docs/API-CONTRACT.md`
+  (a Python service may replace the PHP file 1:1). Never commit a `config.php` or a database.
+- **Config**: `docmap.config.js` `apiBase` (deploy default `'server-php/api.php'`, relative to the app;
+  `build_deploy.py --no-server` → `null`). `DocMapVault.isActive()` is now true for every `mode:'web'` (with apiBase the
+  vault is the encrypted offline cache and holds the server token `docmap_v26_vault_srv`: `srv() · srvToken() · srvSet()`).
+- **10-auth.js**: `DMServer` (fetch client: `X-DocMap-Token` same-origin; `simple` mode = POST text/plain + `_token` for
+  `file://`), `RemoteDataProvider` now speaks the PHP contract (`binder`, `patch` + 409 → `DMError('conflict', {current})`),
+  `srvSetupDevice` / `srvSetToken`; lock screen and `scan.html` get a token field on first use (`SC.view` `setup`,
+  `token`). `LocalAuthProvider.currentUser().role` comes from the server token in web+apiBase.
+- **06f-sync.js hooks**: `syncApply(plan, {quiet})`, `plan.onApplied` / `plan.onCancel` for the review modal,
+  peers with `mode:'server'` hidden from the file-export target list, `sy_mode_server`.
+- **02-core.js**: an empty vault in web+apiBase starts with no demo binders (data comes from the server).
+- **No state-schema or DB-schema change** (`schema 26.9`, `DB_SCHEMA_VERSION` unchanged, same `LS_KEY`): v10 data opens
+  as is; the server peer lives in the existing `S.sync.peers`. Upgrade guide: `docs/AGGIORNAMENTO-v10-v10.1.md`,
+  generic procedure `docs/AGGIORNAMENTI.md` (every release must ship a data-preserving upgrade path + a test).
+- **Log actions**: `sync.server` (desktop sync line), `sync.token` (token created / revoked).
+- **Tests**: `// @@STREAM-W@@` builds the deploy into `tests/shots/srv/`, runs `setup.php` through `php -S` with
+  `tests/php-router.php` (applies the `.htaccess` deny rules), then API, encryption at rest, web app, scan page,
+  desktop seed + review, v10 data preservation, rate limit. Skipped with a notice when `php` (pdo_sqlite + openssl) is missing.
 
 ## v10 E — Bulk edit ("Modifica massiva", `05d-bulk.js`)
 

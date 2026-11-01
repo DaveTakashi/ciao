@@ -270,3 +270,15 @@ Ogni riga passa da `mapRecord()` (alias intestazioni → campi), riceve codice p
 - Rendering a finestra: in DOM solo le righe visibili (altezza fissa 34 px) più un margine, così 2000+ faldoni scorrono fluidi.
 - Le celle usano il typeahead dell'editor (`taAttach` + `ED_SOURCES`) per non creare doppioni (grafia del cliente, categorie, tag, posizioni).
 
+## 13. v10.1: database online condiviso (`06g-server.js`, `server-php/`)
+
+- **Server**: `server-php/api.php` (PHP 8 + PDO SQLite, WAL, transazioni; record cifrati AES-256-GCM) implementa
+  `API-CONTRACT.md`. Nessun file del server viene caricato dall'app `file://`: lo usa solo via HTTP.
+- **Client**: il server è un peer del motore di sincronizzazione 06f (`S.sync.peers['server:<url>']`). Ogni `pull`
+  diventa un pacchetto `docmap-sync` → `syncAnalyze` → `syncApply`; il push invia ciò che è cambiato dopo l'ultimo
+  push riuscito (`SYNC.md` §7). Web app con `apiBase`: automatico (dopo lo sblocco, dopo ogni `commit()`, ogni 60 s,
+  al focus e all'evento `online`); PC: a richiesta dalla scheda "Server online" con la stessa revisione dei conflitti.
+- **Provider** (10-auth.js): in `web` + `apiBase` `LocalAuthProvider` (utente e PIN del dispositivo, cassaforte) +
+  `RemoteDataProvider` (client `DMServer`) per `scan.html`; il token del server sta cifrato nella cassaforte.
+- **Memorizzazione invariata**: stesse chiavi `localStorage` / IndexedDB, nessuna modifica di schema; i dati v10 si
+  aprono così come sono.

@@ -102,6 +102,26 @@ La cartella `deploy/studio-de/` è un sito **statico**: sul server c'è solo il 
   - la sincronizzazione automatica.
 - **Cosa ti chiedo:** sono questi i punti da costruire con il back-end. Quando l'API è pronta, la stessa app passa ai provider remoti impostando `apiBase` in `docmap.config.js`. Dettagli in `docs/SICUREZZA.md`.
 
+## 4b. Dalla v10.1: c'è già un server di riferimento (PHP)
+
+- `docmapv1/server-php/api.php` è l'**implementazione di riferimento attuale** di `docs/API-CONTRACT.md`: un solo file
+  PHP 8 + PDO SQLite pensato per l'hosting condiviso SiteGround dello studio (niente Node né Python). La tua API Python
+  **la sostituisce 1:1**: stesse rotte (`ping`, `me`, `pull`, `push`, `binder`, `patch`, `tokens`, `token_create`,
+  `token_revoke`), stesso JSON, stesse regole (vince il più recente per record, tombstone, `409` con `current`,
+  ruoli `viewer` / `editor` / `admin` controllati dal server). Se l'app trova le stesse risposte, non cambia nulla nel
+  front-end: basta puntare `apiBase` in `docmap.config.js` all'API Python.
+- **Schema del server** (`API-CONTRACT.md` §6): tabelle `meta` (versione, `key_check`), `records` (tipo, id, blob
+  cifrato AES-256-GCM con AAD `records/<tipo>/<id>`, `updated_at`, `deleted`, indici HMAC `k_short` / `k_code` /
+  `k_cab`), `changes` (sequenza per il pull incrementale, chi e quando), `settings`, `activity`, `tokens`, `auth_fail`.
+  Per migrare i dati dal PHP al Python: leggi il database con la chiave di `config.php`, oppure fai un `pull` completo
+  con un token admin e poi un `push` verso la nuova API.
+- Il front-end tratta il server come un "dispositivo" del motore di sincronizzazione (`docs/SYNC.md` §7, modulo
+  `06g-server.js`); la versione web con `apiBase` lavora online con una copia cifrata offline nel browser.
+- **Regola per ogni versione futura**: ogni rilascio deve portare con sé un **percorso di aggiornamento che conserva i
+  dati** (chiavi di `localStorage` / IndexedDB invariate, migrazioni solo additive, guida `docs/AGGIORNAMENTO-vX-vY.md`
+  sul modello di `docs/AGGIORNAMENTO-v10-v10.1.md`) e un test nella suite che apre dati della versione precedente.
+  La procedura standard è in `docs/AGGIORNAMENTI.md`.
+
 ## 5. Regole da rispettare
 
 - **Non rompere l'uso offline:** l'app deve continuare ad aprirsi con doppio clic e a funzionare senza server. Il server è un'aggiunta, scelta con i provider.
@@ -111,6 +131,7 @@ La cartella `deploy/studio-de/` è un sito **statico**: sul server c'è solo il 
   - la suite deve restare al 100% verde, con `errors: none`.
 - **Dati reali:** l'elenco clienti reale dello studio non va mai messo nel repository o nei test; usa dati inventati.
 - **Lingua:** testi per l'utente in italiano, con l'inglese come seconda lingua (i18n già presente con `t()`). Il codice e i commenti possono restare in inglese.
+- **Aggiornamenti senza perdita di dati:** vedi §4b e `docs/AGGIORNAMENTI.md`.
 - **Documentazione:** aggiorna `AGENTS.md` e `docs/` a ogni cambiamento strutturale. Sono la base di conoscenza per i prossimi agenti.
 
 ## 6. Come iniziare

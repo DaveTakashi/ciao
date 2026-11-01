@@ -15,3 +15,8 @@ html.vl-locked .topbar{display:none}
 .vl-lang button.on{background:var(--text);color:#fff}
 .vl-lockbtn{position:fixed;left:12px;bottom:12px;z-index:45;display:flex;align-items:center;gap:6px;border:1px solid var(--border-2);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;color:var(--text-2);box-shadow:var(--shadow);cursor:pointer}
 @media print{.vl-lockbtn,#vault-lock{display:none!important}}
+/* v10.1 shared online database: status pill in the top bar (06g-server.js) */
+.status.err{color:#7F1D1D;background:#FEE2E2;border-color:#FECACA}
+.status.err .dot{background:#DC2626}
+button.srv-st{cursor:pointer;font-family:inherit;white-space:nowrap;margin-right:6px}
+@media (max-width:900px){button.srv-st .sb-t{display:none}}
