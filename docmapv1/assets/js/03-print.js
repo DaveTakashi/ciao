@@ -50,7 +50,9 @@ function contentsBlock(items, x, y, w, hAvail, fMax, opts){
     rowsPer = Math.ceil((shown.length + (extra ? 1 : 0)) / cols);
   }
   LM.listFs = fs;
-  const rowsHtml = shown.map(it => '<div class="ln" style="line-height:' + LH + '">' + (it.year ? '<b class="lmono" style="font-weight:800;margin-right:' + MM(fs * 0.4) + '">' + esc(it.year) + '</b>' : '') + esc(it.description) + '</div>').join('') +
+  // items not in the binder (given to the client / in use) get a subtle marker: "↗ cliente"
+  const away = (it) => it.status === 'client' || it.status === 'in_use' ? '<i style="font-size:.82em;margin-left:' + MM(fs * 0.4) + ';color:#333">↗ ' + esc(t(it.status === 'client' ? 'l_ci_client' : 'l_ci_in_use')) + '</i>' : '';
+  const rowsHtml = shown.map(it => '<div class="ln" style="line-height:' + LH + '">' + (it.year ? '<b class="lmono" style="font-weight:800;margin-right:' + MM(fs * 0.4) + '">' + esc(it.year) + '</b>' : '') + esc(it.description) + away(it) + '</div>').join('') +
     (extra ? '<div class="ln" style="line-height:' + LH + ';color:#444;font-style:italic">' + esc(t('l_more', {n:extra})) + '</div>' : '');
   return '<div style="position:absolute;left:' + MM(x) + ';top:' + MM(y) + ';width:' + MM(w) + ';height:' + MM(hAvail) + ';overflow:hidden;font-size:' + MM(fs) + ';display:grid;grid-auto-flow:column;grid-template-rows:repeat(' + rowsPer + ',auto);grid-template-columns:repeat(' + cols + ',minmax(0,1fr));column-gap:' + MM(Math.max(2, fs)) + ';align-content:start;color:#000">' + rowsHtml + '</div>';
 }
@@ -62,7 +64,7 @@ function contentsBlock(items, x, y, w, hAvail, fMax, opts){
    (74 wide × 105 tall): code + QR on top, category, company, place,
    Multi, location, title, year, contents, tags, date, extra codes.
    --------------------------------------------------------------------- */
-const DEFAULT_FIELDS = { category:true, city:true, multi:true, url:true, title:true, year:true, contents:true, tags:true, extra:true, location:true, date:'created', empty:false };
+const DEFAULT_FIELDS = { category:true, city:true, multi:true, url:true, title:true, year:true, contents:true, tags:true, extra:true, location:true, contacts:false, notes:false, date:'created', empty:false };
 function pf(k){ const f = Object.assign({}, DEFAULT_FIELDS, S.print.fields || {}); return f[k]; }
 /* Reading frame of a slot: on "turned" sheets (MRINK143) labels are read with the sheet rotated. */
 function frameGeo(g){ return g.turn ? Object.assign({}, g, {w:g.h, h:g.w, radius:0}) : g; }
@@ -139,8 +141,18 @@ function renderFull(b, g, P){
   const footLines = foot.length > 3 ? 2 : 1;
   const footH = ff * 1.35 * footLines;
   html += '<div style="position:absolute;left:' + MM(x0) + ';width:' + MM(iw) + ';top:' + MM(y0 + ih - footH) + ';height:' + MM(footH) + ';font-size:' + MM(ff) + ';line-height:1.35;color:#000;display:flex;flex-wrap:wrap;column-gap:' + MM(ff) + ';align-items:baseline;overflow:hidden;border-top:' + MM(0.15) + ' solid #000">' + foot.join('') + '</div>';
+  // ---- optional lines above the footer (off by default, Print › Fields): people/contacts, notes
+  const xl = [];
+  [['contacts', 'l_contacts'], ['notes', 'l_notes']].forEach(([k, lab]) => { if (pf(k) && (b[k] || E)) xl.push([t(lab), b[k] || '']); });
+  let xH = 0;
+  if (xl.length){
+    const fx = clamp(ff * 1.05, 1.8, 2.6); xH = xl.length * fx * 1.3;
+    html += '<div style="position:absolute;left:' + MM(x0) + ';width:' + MM(iw) + ';top:' + MM(y0 + ih - footH - xH - ff * 0.15) + ';height:' + MM(xH) + ';font-size:' + MM(fx) + ';line-height:1.3;color:#000;overflow:hidden">' +
+      xl.map(([lab, v]) => '<div class="ln">' + (v ? '<b>' + esc(lab) + ':</b> ' + esc(v) : blankField(lab, fx, iw * 0.6)) + '</div>').join('') + '</div>';
+    xH += ff * 0.15;
+  }
   // ---- archive part: title + year, then contents
-  const yEnd = y0 + ih - footH - ff * 0.4;
+  const yEnd = y0 + ih - footH - xH - ff * 0.4;
   y += Math.max(0.8, ih * 0.01);
   const fh = clamp(Math.min(iw * 0.06, ih * 0.045), 2.6, 4.2);
   const title = pf('title') ? (b.binder_title || '') : '';

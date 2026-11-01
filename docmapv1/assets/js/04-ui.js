@@ -197,6 +197,8 @@ const HEADER_ALIASES = {
   ref_year:['ref_year','anno','anno_riferimento','anno_rif','esercizio','year','reference_year'],
   extra_codes:['extra_codes','codici_extra','altri_codici','codici_aggiuntivi','extra','protocollo'],
   shelf_color:['shelf_color','colore_ripiano','shelf_colour'],
+  contacts:['contacts','contatti','contatto','persone','persone_coinvolte','referenti','referente','contact','people'],
+  notes:['notes','note','annotazioni','annotazione','nota'],
   binder_title:['binder_title','titolo','title','titolo_faldone','faldone','descrizione_faldone','oggetto'],
   room_code:['room_code','stanza','room','zona','zone'],
   cabinet_code:['cabinet_code','armadio','cabinet','mobile'],
@@ -258,7 +260,7 @@ function mapRecord(raw){
 /* ---------------- Export builders ---------------- */
 function binderToCsvRow(b){
   return [b.speaking_code, b.multi_code, b.company_name, b.company_city, b.category, b.binder_title, b.ref_year, b.room_code, b.cabinet_code, b.shelf_code, b.sector_code, b.location_code, b.archive_state,
-    contentsToPipe(b.contents_items), b.tags, b.color_hex, b.short_code, b.short_url, destFor(b), b.extra_codes, b.shelf_color, b.selected_for_print ? '1' : '0', b.id, b.created_at, b.updated_at];
+    contentsToPipe(b.contents_items), b.tags, b.color_hex, b.short_code, b.short_url, destFor(b), b.extra_codes, b.shelf_color, b.contacts || '', b.notes || '', b.selected_for_print ? '1' : '0', b.id, b.created_at, b.updated_at];
 }
 function sortedBinders(){ return S.binders.slice().sort((a, b) => naturalCmp(a.speaking_code, b.speaking_code)); }
 function manifestRow(b){ return [b.short_code, b.short_url, destFor(b), manifestTags(b)]; }
@@ -328,7 +330,7 @@ function quickBackup(){
 }
 
 /* ---------------- AI prompt ---------------- */
-function csvTemplateHeader(){ return 'speaking_code;multi_code;company_name;category;binder_title;room_code;cabinet_code;shelf_code;sector_code;location_code;archive_state;contents;tags;color_hex;short_code;short_url;final_destination;company_city;ref_year;extra_codes'; }
+function csvTemplateHeader(){ return 'speaking_code;multi_code;company_name;category;binder_title;room_code;cabinet_code;shelf_code;sector_code;location_code;archive_state;contents;tags;color_hex;short_code;short_url;final_destination;company_city;ref_year;extra_codes;contacts;notes'; }
 function buildAIPrompt(includeCtx){
   const F = '```';
   const codes = sortedBinders().map(b => b.speaking_code);
@@ -346,7 +348,7 @@ function buildAIPrompt(includeCtx){
   L.push('1. Reply with EXACTLY ONE fenced code block labelled csv and NOTHING ELSE: no greeting, no explanation, no notes before or after the block.');
   L.push('2. Delimiter: semicolon ( ; ). Encoding: UTF-8. The FIRST line must be this exact header, unchanged:');
   L.push(csvTemplateHeader());
-  L.push('3. Every row must have exactly 20 fields (19 semicolons). Keep empty fields empty (e.g. ";;").');
+  L.push('3. Every row must have exactly 22 fields (21 semicolons). Keep empty fields empty (e.g. ";;").');
   L.push('4. One row per physical binder. Never merge two binders into one row and never split one binder into two rows.');
   L.push('5. Never use a semicolon inside a value (replace it with a comma). Do not wrap values in quotes. No line breaks inside values.');
   L.push('6. Do not invent clients, documents or locations that the user did not provide or that are not visible in the photos. If a field is unknown, leave it empty.');
@@ -371,6 +373,9 @@ function buildAIPrompt(includeCtx){
   L.push('- final_destination: leave EMPTY (DocMap fills it from the studio template).');
   L.push('- ref_year: optional reference year of the contents (e.g. 2025, or a range like 2020-2024). Not the creation date.');
   L.push('- extra_codes: optional other identifiers printed on the archive part of the label (protocol numbers, practice numbers…), comma-separated. Never invent them.');
+  L.push('- contacts: optional people involved with the binder (client contact, colleague in charge…), comma-separated, as the user wrote them. Never invent names.');
+  L.push('- notes: optional short free note (e.g. "Documento uscito il 12/03 per verifica"). No line breaks, no semicolons.');
+  L.push('- In contents, a document that is NOT in the binder can be marked with a suffix: " [in uso]" (taken out / in use) or " [cliente]" (given back to the client). Example: 2024: Bilancio [cliente]. Without a suffix the document is in the archive.');
   L.push('');
   if (includeCtx && codes.length){
     L.push('EXISTING ARCHIVE CONTEXT (do NOT reuse these speaking codes; continue numbering after them):');
@@ -384,8 +389,8 @@ function buildAIPrompt(includeCtx){
   L.push('EXAMPLE OF A VALID REPLY (format only — use the user\'s real data):');
   L.push(F + 'csv');
   L.push(csvTemplateHeader());
-  L.push('BL4;M-10234;Barbieri Luigi S.r.l.;Ordinaria;Banche e Finanziamenti;A;1;γ;;A1-γ;CURRENT;2025: Estratti conto bancari|2025: Contratti di finanziamento;banche,finanziamenti,2025;#2563EB;;;;Parma (PR);2025;');
-  L.push('VR1;;Verdi Rita;Privati;Dichiarazioni Personali;B;3;α;SX;B3-α-SX;HISTORICAL;2023: Modello 730|2024: Modello 730|2024: Spese mediche;730,privati,dichiarazioni;#475569;;;;;2023-2024;');
+  L.push('BL4;M-10234;Barbieri Luigi S.r.l.;Ordinaria;Banche e Finanziamenti;A;1;γ;;A1-γ;CURRENT;2025: Estratti conto bancari|2025: Contratti di finanziamento;banche,finanziamenti,2025;#2563EB;;;;Parma (PR);2025;;Mario Barbieri;');
+  L.push('VR1;;Verdi Rita;Privati;Dichiarazioni Personali;B;3;α;SX;B3-α-SX;HISTORICAL;2023: Modello 730|2024: Modello 730|2024: Spese mediche [cliente];730,privati,dichiarazioni;#475569;;;;;2023-2024;;;Spese mediche restituite alla cliente');
   L.push(F);
   L.push('');
   L.push('');

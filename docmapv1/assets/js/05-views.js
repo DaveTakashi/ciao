@@ -45,7 +45,7 @@ function filteredBinders(){
     if (UI.fRoom && b.room_code !== UI.fRoom) return false;
     if (UI.fCat && b.category !== UI.fCat) return false;
     if (!q) return true;
-    const hay = [b.speaking_code, b.multi_code, b.company_name, b.company_city, b.ref_year, b.extra_codes, b.category, b.binder_title, b.location_code, b.tags, b.short_code, contentsToPipe(b.contents_items), t('s_' + b.archive_state)].join(' ').toLowerCase();
+    const hay = [b.speaking_code, b.multi_code, b.company_name, b.company_city, b.ref_year, b.extra_codes, b.category, b.binder_title, b.location_code, b.tags, b.short_code, contentsToPipe(b.contents_items), t('s_' + b.archive_state), b.contacts, b.notes, ciSearchWords(b)].join(' ').toLowerCase();
     return q.split(/\s+/).every(w => hay.indexOf(w) >= 0);
   });
 }
@@ -90,7 +90,7 @@ function renderArchiveResults(){
       '<td><span class="code-chip"><span class="bar" style="background:' + esc(b.color_hex) + '"></span>' + esc(b.speaking_code) + '</span>' + (b.multi_code ? '<div class="multi-tag" title="' + esc(t('f_multi')) + '">' + esc(b.multi_code) + '</div>' : '') + '</td>' +
       '<td><div class="co">' + esc(b.company_name) + '</div><div class="ti">' + esc(b.binder_title) + (b.category ? ' · ' + esc(b.category) : '') + '</div></td>' +
       '<td>' + (b.location_code ? '<span class="loc">' + esc(b.location_code) + '</span>' : '<span class="muted small">—</span>') + '</td>' +
-      '<td><div class="cnt-list">' + (b.contents_items.length ? b.contents_items.slice(0, 2).map(i => (i.year ? '<b>' + esc(i.year) + '</b> ' : '') + esc(i.description)).join('<br>') + (b.contents_items.length > 2 ? '<br><span class="muted">+' + (b.contents_items.length - 2) + '…</span>' : '') : '<span class="muted">' + esc(t('no_contents')) + '</span>') + '</div></td>' +
+      '<td><div class="cnt-list">' + (b.contents_items.length ? b.contents_items.slice(0, 2).map(i => (i.year ? '<b>' + esc(i.year) + '</b> ' : '') + esc(i.description)).join('<br>') + (b.contents_items.length > 2 ? '<br><span class="muted">+' + (b.contents_items.length - 2) + '…</span>' : '') : '<span class="muted">' + esc(t('no_contents')) + '</span>') + ciSummaryHTML(b) + '</div></td>' +
       '<td>' + stateBadge(b.archive_state) + '</td>' +
       '<td><span class="sc">' + esc(b.short_code) + '</span> <button class="icon-btn" style="width:28px;height:28px" data-a="copy-url" data-id="' + b.id + '" title="' + esc(b.short_url) + '">' + ic('copy') + '</button></td>' +
       '<td class="acts"><button class="icon-btn" data-a="locate" data-id="' + b.id + '" title="' + esc(t('act_locate')) + '">' + ic('pin') + (pc[b.id] ? '<span class="ph-n">' + pc[b.id] + '</span>' : '') + '</button><button class="icon-btn" data-a="show-qr" data-id="' + b.id + '" title="' + esc(t('act_qr')) + '">' + ic('qr') + '</button><button class="icon-btn" data-a="edit" data-id="' + b.id + '" title="' + esc(t('act_edit')) + '">' + ic('pencil') + '</button><button class="icon-btn" data-a="dup" data-id="' + b.id + '" title="' + esc(t('act_dup')) + '">' + ic('copy') + '</button><button class="icon-btn danger" data-a="del" data-id="' + b.id + '" title="' + esc(t('act_del')) + '">' + ic('trash') + '</button></td></tr>').join('') +
@@ -144,29 +144,22 @@ function openEditor(id, preset){
   const d = src ? clone(src) : normalizeBinder(Object.assign({ id:uuid(), short_code:newShortCode(), category:'Ordinaria', color_hex:'#2563EB', archive_state:'CURRENT', selected_for_print:true, contents_items:[{year:'', description:t('arch_n', {n:1})}] }, preset || {}));
   if (!src && !d.speaking_code && d.company_name) d.speaking_code = suggestSpeakingCode(d.company_name);
   UI.ed = { isNew:!src, d, pipeMode:false, base:JSON.stringify(d) };
-  const companies = Array.from(new Set(S.binders.map(b => b.company_name).concat((S.clients || []).map(c => c.name)).filter(Boolean))).sort(naturalCmp);
-  const multis = Array.from(new Set(S.binders.map(b => b.multi_code).concat((S.clients || []).map(c => c.multi_code)).filter(Boolean))).sort(naturalCmp);
-  const cities = Array.from(new Set(S.binders.map(b => b.company_city).concat((S.clients || []).map(clientPlace)).filter(Boolean))).sort(naturalCmp);
-  const cats = Array.from(new Set(CATEGORIES.concat(S.binders.map(b => b.category).filter(Boolean))));
   const f = (key, label, extra, attrs) => '<div class="field"><label for="ed-' + key + '">' + esc(label) + '</label><input class="inp ' + (extra || '') + '" id="ed-' + key + '" data-ed="' + key + '" value="' + esc(d[key]) + '" ' + (attrs || '') + '></div>';
   const body = '<div class="edit-grid"><div class="stack">' +
     '<div class="grid g2">' +
       '<div class="field"><label for="ed-speaking_code">' + esc(t('f_speaking')) + '</label><div class="row" style="flex-wrap:nowrap"><input class="inp mono" id="ed-speaking_code" data-ed="speaking_code" value="' + esc(d.speaking_code) + '" style="font-weight:800;font-size:17px;text-transform:uppercase" placeholder="BL1"><button class="btn" data-a="ed-suggest" type="button">' + ic('sparkles') + esc(t('f_suggest')) + '</button></div><div class="err-t" id="err-speaking_code"></div></div>' +
-      '<div class="field"><label for="ed-company_name">' + esc(t('f_company')) + '</label><input class="inp" id="ed-company_name" data-ed="company_name" list="dl-companies" value="' + esc(d.company_name) + '" placeholder="Barbieri Luigi S.r.l."><datalist id="dl-companies">' + companies.map(c => '<option value="' + esc(c) + '">').join('') + '</datalist><div class="err-t" id="err-company_name"></div></div>' +
+      '<div class="field"><label for="ed-company_name">' + esc(t('f_company')) + '</label><input class="inp" id="ed-company_name" data-ed="company_name" value="' + esc(d.company_name) + '" placeholder="Barbieri Luigi S.r.l." autocomplete="off"><div class="err-t" id="err-company_name"></div><div class="ed-note" id="ed-company-note" aria-live="polite"></div></div>' +
     '</div>' +
-    '<div class="grid g2"><div class="field"><label for="ed-multi_code">' + esc(t('f_multi')) + ' <span class="muted" style="font-weight:500;text-transform:none">' + esc(t('optional')) + '</span></label><input class="inp mono" id="ed-multi_code" data-ed="multi_code" list="dl-multi" value="' + esc(d.multi_code) + '" placeholder="M-10234" autocomplete="off"><datalist id="dl-multi">' + multis.map(m => '<option value="' + esc(m) + '">').join('') + '</datalist><div class="hint">' + esc(t('f_multi_d')) + '</div></div>' +
-      '<div class="field"><label for="ed-company_city">' + esc(t('f_city')) + ' <span class="muted" style="font-weight:500;text-transform:none">' + esc(t('optional')) + '</span></label><input class="inp" id="ed-company_city" data-ed="company_city" list="dl-cities" value="' + esc(d.company_city) + '" placeholder="Parma (PR)" autocomplete="off"><datalist id="dl-cities">' + cities.map(c => '<option value="' + esc(c) + '">').join('') + '</datalist></div></div>' +
+    '<div class="grid g2"><div class="field"><label for="ed-multi_code">' + esc(t('f_multi')) + ' <span class="muted" style="font-weight:500;text-transform:none">' + esc(t('optional')) + '</span></label><input class="inp mono" id="ed-multi_code" data-ed="multi_code" value="' + esc(d.multi_code) + '" placeholder="M-10234" autocomplete="off"><div class="hint">' + esc(t('f_multi_d')) + '</div></div>' +
+      '<div class="field"><label for="ed-company_city">' + esc(t('f_city')) + ' <span class="muted" style="font-weight:500;text-transform:none">' + esc(t('optional')) + '</span></label><input class="inp" id="ed-company_city" data-ed="company_city" value="' + esc(d.company_city) + '" placeholder="Parma (PR)" autocomplete="off"></div></div>' +
     '<div class="grid g2">' + f('binder_title', t('f_title'), '', 'placeholder="Fatture e Contabilità IVA"') +
-      '<div class="field"><label for="ed-category">' + esc(t('f_category')) + '</label><input class="inp" id="ed-category" data-ed="category" list="dl-cats" value="' + esc(d.category) + '"><datalist id="dl-cats">' + cats.map(c => '<option value="' + esc(c) + '">').join('') + '</datalist></div></div>' +
+      '<div class="field"><label for="ed-category">' + esc(t('f_category')) + '</label><input class="inp" id="ed-category" data-ed="category" value="' + esc(d.category) + '" autocomplete="off"></div></div>' +
     '<div class="grid g2">' + f('ref_year', t('f_year_ref') + ' ' + t('optional'), 'mono', 'placeholder="2025" maxlength="9"') + f('extra_codes', t('f_extra') + ' ' + t('optional'), 'mono', 'placeholder="' + esc(t('f_extra_ph')) + '"') + '</div>' +
     '<div class="field"><label>' + esc(t('f_color')) + '</label><div class="swatches" id="ed-swatches">' + swatchesHTML(d.color_hex) + '</div></div>' +
-    '<div class="grid g4">' + f('room_code', t('f_room'), 'mono', 'placeholder="A"') + f('cabinet_code', t('f_cabinet'), 'mono', 'placeholder="1"') +
-      '<div class="field"><label for="ed-shelf_code">' + esc(t('f_shelf')) + '</label><input class="inp mono" id="ed-shelf_code" data-ed="shelf_code" value="' + esc(d.shelf_code) + '" placeholder="' + esc((SHELF_TYPES[S.settings.shelfType || 'greek'] || [])[0] || t('st_text_ph')) + '"><div id="ed-shelf-tools">' + shelfToolsHTML(d) + '</div></div>' +
-      '<div class="field"><label for="ed-sector_code">' + esc(t('f_sector')) + '</label><select class="inp mono" id="ed-sector_code" data-ed="sector_code">' + ['', 'SX', 'CX', 'DX'].map(s => '<option' + (d.sector_code === s ? ' selected' : '') + '>' + s + '</option>').join('') + (['', 'SX', 'CX', 'DX'].includes(d.sector_code) ? '' : '<option selected>' + esc(d.sector_code) + '</option>') + '</select></div></div>' +
-    '<div class="row"><span class="lbl">' + esc(t('f_location')) + '</span><span class="loc" id="ed-loc" style="font-size:16px">' + esc(computeLocation(d) || '—') + '</span></div>' +
+    edLocationHTML(d) +
     '<div class="field"><label>' + esc(t('f_state')) + '</label><div class="seg" id="ed-state">' + STATES.map(s => '<button type="button" data-a="ed-state" data-s="' + s + '" class="' + (d.archive_state === s ? 'on' : '') + '">' + esc(t('s_' + s)) + '</button>').join('') + '</div></div>' +
-    '<div class="field"><div class="row between"><label class="lbl">' + esc(t('f_contents')) + '</label><label class="chk small"><input type="checkbox" data-a="ed-pipe-toggle">' + esc(t('f_lines')) + '</label></div><div id="ed-contents"></div></div>' +
-    f('tags', t('f_tags'), '', 'placeholder="iva,fatture,2025"') +
+    '<div class="field" id="ed-ci-field"><div class="row between"><label class="lbl">' + esc(t('f_contents')) + '</label><div class="row ed-ci-tools"><span id="ed-ci-sum"></span><button type="button" class="btn btn-sm" data-a="ed-lines" id="ed-lines-btn">' + ic('pencil') + esc(t('f_lines')) + '</button></div></div><div id="ed-contents"></div></div>' +
+    f('tags', t('f_tags'), '', 'placeholder="iva,fatture,2025" autocomplete="off"') + edOtherHTML(d) +
     '<div class="grid g2"><div class="field"><label for="ed-short_code">' + esc(t('f_short')) + '</label><div class="row" style="flex-wrap:nowrap"><input class="inp mono" id="ed-short_code" data-ed="short_code" value="' + esc(d.short_code) + '" maxlength="12"><button class="btn" type="button" data-a="ed-regen" title="' + esc(t('f_regen')) + '">' + ic('refresh') + '</button></div><div class="err-t" id="err-short_code"></div></div>' +
       '<div class="field"><label>' + esc(t('f_shorturl')) + '</label><div class="inp mono" id="ed-shorturl" style="background:var(--surface-2);display:flex;align-items:center;font-size:13px">' + esc(shortUrl(d.short_code)) + '</div></div></div>' +
     '<div class="field"><label for="ed-final_destination">' + esc(t('f_dest')) + '</label><input class="inp mono small" id="ed-final_destination" data-ed="final_destination" value="' + esc(d.final_destination) + '" placeholder="' + esc(renderDest(S.settings.destTemplate, d)) + '"></div>' +
@@ -174,7 +167,7 @@ function openEditor(id, preset){
     '</div><div><div class="lbl" style="margin-bottom:8px">' + esc(t('preview')) + ' — <span class="mono" style="text-transform:none">' + esc(findPreset(S.print.presetId).name) + '</span></div><div class="prev-box" id="ed-preview"></div><div style="margin-top:16px"><div class="lbl" style="margin-bottom:6px">' + esc(t('ph_binder')) + '</div><div data-ph-slot data-type="binder" data-key="' + d.id + '">' + phThumbsHTML('binder', d.id) + '</div><div class="hint">' + esc(t('ph_hint')) + '</div></div></div></div>';
   openModal({ title: UI.ed.isNew ? t('ed_new') : t('ed_edit') + ' ' + d.speaking_code, size:'xl', body, autofocus:false,
     buttons:[{label:t('cancel'), cls:'btn', action:'modal-close'}, {label:t('save'), cls:'btn btn-primary btn-lg', icon:'save', fn:saveEditor}],
-    onMount: () => { renderEdContents(); renderEdPreview(); setTimeout(() => { if (!UI.ed) return; const el = UI.ed.isNew ? $('#ed-company_name') : $('#ed-binder_title'); el && el.focus(); }, 40); },
+    onMount: () => { renderEdContents(); renderEdPreview(); edEnhance(); setTimeout(() => { if (!UI.ed) return; const el = UI.ed.isNew ? $('#ed-company_name') : $('#ed-binder_title'); el && el.focus(); }, 40); },
     beforeClose: () => {
       if (!UI.ed || JSON.stringify(UI.ed.d) === UI.ed.base) return true;
       confirmAction({ plain:true, title:t('ed_discard_t'), detail:t('ed_discard_d'), okLabel:t('ed_discard_ok'), onOk: () => closeModal(true) });
@@ -193,16 +186,8 @@ function shelfToolsHTML(d){
     (picks.length ? '<div class="greek">' + picks.slice(0, 8).map(g => '<button type="button" data-a="ed-greek" data-g="' + esc(g) + '" class="' + (d.shelf_code === g ? 'on' : '') + '">' + esc(g) + '</button>').join('') + '</div>' : '') +
     '<div class="shelf-col" title="' + esc(t('st_color')) + '">' + [''].concat(SHELF_COLORS).map(c => '<button type="button" data-a="ed-shelfcol" data-c="' + c + '" class="' + ((d.shelf_color || '') === c ? 'on' : '') + (c ? '' : ' none') + '" style="' + (c ? 'background:' + c : '') + '" aria-label="' + esc(c || t('st_nocolor')) + '"></button>').join('') + '</div></div>';
 }
-function contentsToLines(items){ return (items || []).map(i => (i.year ? i.year + ': ' : '') + (i.description || '')).filter(x => x.trim()).join('\n'); }
-function renderEdContents(){
-  const ed = UI.ed, box = $('#ed-contents'); if (!ed || !box) return;
-  if (ed.pipeMode){
-    box.innerHTML = '<textarea class="inp mono small" data-ed="__pipe" rows="6" placeholder="Archivio 1&#10;2025: Fatture acquisto&#10;2025: Liquidazioni IVA">' + esc(contentsToLines(ed.d.contents_items)) + '</textarea><div class="hint">' + esc(t('f_lines_hint')) + '</div>';
-    return;
-  }
-  box.innerHTML = ed.d.contents_items.map((it, i) => '<div class="ci-row"><input class="inp mono" placeholder="' + esc(t('f_year')) + '" data-ci="year" data-i="' + i + '" value="' + esc(it.year) + '"><input class="inp" placeholder="' + esc(t('f_desc')) + '" data-ci="description" data-i="' + i + '" value="' + esc(it.description) + '"><button type="button" class="icon-btn danger" data-a="ed-ci-del" data-i="' + i + '">' + ic('x') + '</button></div>').join('') +
-    '<button type="button" class="btn btn-sm" data-a="ed-ci-add">' + ic('plus') + esc(t('f_add_item')) + '</button>';
-}
+function contentsToLines(items){ return (items || []).filter(i => String(i.year || '').trim() || String(i.description || '').trim()).map(ciText).join('\n'); }
+function renderEdContents(){ edRenderContents(); }   // rows with status + "one line per item" mode: see 04b-typeahead.js
 function labelPreviewHTML(kind, b, maxW, gOver){
   const g = gOver || S.print.geometry, s = Math.min(1, maxW / (g.w * PX_PER_MM));
   return '<div class="lbl-holder" style="width:' + (g.w * PX_PER_MM * s) + 'px;height:' + (g.h * PX_PER_MM * s) + 'px;position:relative;overflow:hidden;' + (g.radius ? 'border-radius:' + (g.radius * PX_PER_MM * s) + 'px' : '') + '">' +
@@ -225,6 +210,7 @@ function edRefreshDerived(){
   const loc = $('#ed-loc'); if (loc) loc.textContent = computeLocation(d) || '—';
   const su = $('#ed-shorturl'); if (su) su.textContent = shortUrl(d.short_code);
   const fd = $('#ed-final_destination'); if (fd) fd.placeholder = renderDest(S.settings.destTemplate, d);
+  edSyncLoc();
   validateEditor(false);
   clearTimeout(edRefreshDerived._t); edRefreshDerived._t = setTimeout(renderEdPreview, 120);
 }
@@ -232,7 +218,7 @@ function validateEditor(show){
   const d = UI.ed.d, errs = {};
   const code = String(d.speaking_code || '').trim().toUpperCase();
   if (!code) errs.speaking_code = t('e_req_code');
-  else if (S.binders.some(b => b.id !== d.id && b.speaking_code.toUpperCase() === code)) errs.speaking_code = t('e_dup_code');
+  else if (S.binders.some(b => b.id !== d.id && b.speaking_code.toUpperCase() === code)) errs.speaking_code = t('e_dup_code2', {c:edNextFreeCode(code, d.id)});
   if (!String(d.company_name || '').trim()) errs.company_name = t('e_req_company');
   if (!SC_RE.test(d.short_code || '')) errs.short_code = t('e_sc_format');
   else if (allShortCodes(d.id).has(d.short_code)) errs.short_code = t('e_sc_dup');
@@ -240,12 +226,14 @@ function validateEditor(show){
     const el = $('#err-' + k), inp = $('#ed-' + k);
     const visible = show || (k !== 'company_name' && k !== 'speaking_code') || (inp && inp.value);
     if (el) el.textContent = errs[k] && visible ? errs[k] : '';
+    if (el && k === 'speaking_code' && errs[k] && visible && code && errs[k] !== t('e_req_code')) el.insertAdjacentHTML('beforeend', edCodeFixHTML(code, d.id));   // one-click fix: next free number
     if (inp) inp.classList.toggle('err', !!(errs[k] && visible));
   });
   return errs;
 }
 function saveEditor(){
   const ed = UI.ed; if (!ed) return;
+  edBeforeSave(ed);   // pending line-mode text, tidy comma lists, existing company spelling
   const errs = validateEditor(true);
   if (Object.keys(errs).length){ const k = Object.keys(errs)[0]; const el = $('#ed-' + k); el && el.focus(); toast(errs[k], 'err'); return; }
   const d = clone(ed.d);
@@ -255,7 +243,7 @@ function saveEditor(){
   const doSave = () => {
     const i = S.binders.findIndex(x => x.id === b.id);
     if (i >= 0) S.binders[i] = b; else S.binders.push(b);
-    commit(); closeModal(true); toast(t('saved') + ': ' + b.speaking_code);
+    commit(); closeModal(true); edSavedToast(b, ed);
     renderView();
   };
   doSave();
@@ -300,7 +288,7 @@ function viewPrint(){
         opt('cmode', 'split', t('cm_split'), t('cm_split_d'), P.contentMode, true) + opt('cmode', 'pair', t('cm_pair'), t('cm_pair_d'), P.contentMode, true) + opt('cmode', 'a', t('cm_a'), t('cm_a_d'), P.contentMode) + opt('cmode', 'b', t('cm_b'), t('cm_b_d'), P.contentMode) + opt('cmode', 'u', t('cm_u'), t('cm_u_d'), P.contentMode, true) +
         '</div><div class="geo-row" style="margin-top:10px"><span class="lbl">' + esc(t('copies')) + '</span><input class="inp" style="width:90px;min-height:38px" type="number" min="1" max="50" step="1" value="' + (P.copies || 1) + '" data-pp="copies"></div></div>' +
       '<div class="panel-sec" id="pr-fields"><h3>' + esc(t('pr_fields')) + helpDot('fields') + '</h3><div class="fld-grid">' +
-        [['category','f_category'],['city','f_city'],['multi','f_multi'],['url','qr_url_s'],['title','f_title_s'],['year','f_year_ref'],['contents','f_contents_s'],['tags','f_tags'],['extra','f_extra'],['location','fl_location']].map(([k, lab]) => '<label class="chk small"><input type="checkbox" data-fld="' + k + '"' + (pf(k) ? ' checked' : '') + '>' + esc(t(lab)) + '</label>').join('') +
+        [['category','f_category'],['city','f_city'],['multi','f_multi'],['url','qr_url_s'],['title','f_title_s'],['year','f_year_ref'],['contents','f_contents_s'],['tags','f_tags'],['extra','f_extra'],['location','fl_location'],['contacts','f_contacts_s'],['notes','f_notes']].map(([k, lab]) => '<label class="chk small"><input type="checkbox" data-fld="' + k + '"' + (pf(k) ? ' checked' : '') + '>' + esc(t(lab)) + '</label>').join('') +
         '<label class="chk small fld-empty"><input type="checkbox" data-fld="empty"' + (pf('empty') ? ' checked' : '') + '><span><b>' + esc(t('f_empty')) + '</b><br><span class="muted">' + esc(t('f_empty_d')) + '</span></span></label>' +
         '</div><div class="geo-row" style="margin-top:10px"><span class="lbl">' + esc(t('f_date')) + '</span><select class="inp" style="width:auto;min-height:34px;padding:4px 8px" data-fld="date">' + [['created','fd_created'],['updated','fd_updated'],['none','fd_none']].map(([v, lab]) => '<option value="' + v + '"' + (pf('date') === v ? ' selected' : '') + '>' + esc(t(lab)) + '</option>').join('') + '</select></div>' +
         '<div class="hint" style="margin-top:6px">' + esc(t('pr_fields_d')) + '</div></div>' +
@@ -482,7 +470,7 @@ function analyzeImport(text){
       UI.importParsed = {clients:analyzeClients(recs), format:'CSV anagrafica clienti', delim}; return;
     }
     // No recognisable header (e.g. rows pasted without the first line): assume the standard AI/template column order.
-    if (rows.length && rows[0].length >= 2 && !head.some(h => ALIAS_LOOKUP[normHeader(h)])){ head = csvTemplateHeader().split(';').concat(['selected_for_print','id','updated_at']); if (rows[0].length < 20){ head = head.filter(h => !['company_city','ref_year','extra_codes'].includes(h)); if (rows[0].length !== 17) head = head.filter(h => h !== 'multi_code'); } // short rows: v5 order (17 fields) or the order before the Codice Multi column
+    if (rows.length && rows[0].length >= 2 && !head.some(h => ALIAS_LOOKUP[normHeader(h)])){ head = csvTemplateHeader().split(';').concat(['selected_for_print','id','updated_at']); if (rows[0].length < 22) head = head.filter(h => !['contacts','notes'].includes(h)); if (rows[0].length < 20){ head = head.filter(h => !['company_city','ref_year','extra_codes'].includes(h)); if (rows[0].length !== 17) head = head.filter(h => h !== 'multi_code'); } // short rows: v5 order (17 fields) or the order before the Codice Multi column
       rows.unshift(head); headerless = true; }
     if (rows.length < 2){ UI.importParsed = {error:t('im_none')}; return; }
     records = rows.slice(1).map(r => { const o = {}; head.forEach((h, i) => { o[h] = r[i] != null ? r[i] : ''; }); return o; });
