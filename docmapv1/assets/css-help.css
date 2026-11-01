@@ -1,0 +1,58 @@
+/* =====================================================================
+   v10 (stream G) — help centre (sort, favourites, two tag filters) and
+   guided-tour additions (exit question, keyboard hint, missing target).
+   Base help / guide styles stay in docmap.css.
+   ===================================================================== */
+.sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+/* sort + filters */
+.help-sort{display:flex;align-items:center;gap:8px;margin:12px 0 6px;flex-wrap:wrap}
+.help-sort .seg button{padding:6px 10px;font-size:12.5px;display:inline-flex;align-items:center;gap:4px}
+.help-sort .seg svg.ic{width:13px;height:13px}
+.hf-l{font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-right:2px}
+.help-filters{margin:4px 0 12px}
+.hf-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px}
+.hf-legend{margin-top:8px;font-size:12px;color:var(--muted);line-height:1.4}
+.htag.btn-tag.lit{background:var(--text);color:#fff;border-color:var(--text)}
+.htag.nomatch,.hact.nomatch{display:none}
+/* action tags: --hc text/border, --hb tint (set inline from HELP_ACTS) */
+.hact{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;padding:2px 8px 2px 7px;border-radius:999px;background:var(--hb,#F1F5F9);color:var(--hc,#334155);border:1px solid color-mix(in srgb,var(--hc,#334155) 35%,transparent)}
+.hact::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--hc,#334155);flex:none}
+.hact.btn-tag{cursor:pointer;font-family:var(--font);padding:5px 11px 5px 9px;font-size:12.5px}
+.hact.btn-tag.on,.hact.btn-tag.lit{background:var(--hc);color:#fff;border-color:var(--hc)}
+.hact.btn-tag.on::before,.hact.btn-tag.lit::before{background:#fff}
+.btn-tag:focus-visible,.help-star:focus-visible,.help-g:focus-visible,.help-item:focus-visible{outline:none;box-shadow:0 0 0 3px var(--accent-ring)}
+
+/* sections and rows */
+.help-sec{margin-top:14px}
+.help-sec > .lbl{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.help-sec > .lbl svg.ic{width:14px;height:14px}
+.help-row{display:flex;align-items:stretch;gap:6px}
+.help-row > .help-item,.help-row > .help-g{flex:1;min-width:0}
+.help-g{display:flex;align-items:center;gap:10px;text-align:left;width:100%;padding:10px 12px;border:1px solid #BFDBFE;border-radius:12px;background:var(--accent-weak);cursor:pointer;font-weight:650;color:var(--text)}
+.help-g:hover{border-color:var(--accent);background:#DBEAFE}
+.hg-ic{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;flex:none}
+.hg-ic svg.ic{width:12px;height:12px;fill:#fff;stroke:#fff}
+.help-g .hi-t{flex:1;min-width:0}
+.hg-n{font-size:11.5px;color:var(--muted);font-weight:600;white-space:nowrap}
+.help-star{flex:none;width:40px;border:1px solid var(--border);border-radius:12px;background:#fff;color:#94A3B8;cursor:pointer;display:grid;place-items:center;padding:0}
+.help-star:hover{color:#B45309;border-color:#FCD34D;background:#FFFBEB}
+.help-star.on{color:#B45309;border-color:#FCD34D;background:#FFFBEB}
+.help-star.on svg.ic{fill:#F59E0B;stroke:#B45309}
+.help-title-row{display:flex;align-items:flex-start;gap:10px}
+.help-title-row .help-title{flex:1}
+.help-title-row .help-star{height:40px}
+.guide-cta .help-star{height:auto;min-height:44px}
+.help-title:focus{outline:none}
+.help-resume{display:flex;gap:10px;align-items:flex-start;margin-top:12px;padding:12px 14px;border-radius:12px;background:var(--green-weak);border:1px solid #A7F3D0;color:#065F46}
+.help-resume > svg.ic{margin-top:2px;fill:currentColor}
+
+/* guided tour: exit question, keys hint, missing target */
+.g-keys{margin-top:8px;font-size:11px;color:var(--muted)}
+.g-miss{color:#92400E;font-weight:600}
+.g-confirm-back{position:fixed;inset:0;z-index:220;background:rgba(15,23,42,.35)}
+.g-confirm{position:fixed;z-index:221;left:50%;top:50%;transform:translate(-50%,-50%);width:min(420px,calc(100vw - 32px));background:#fff;border-radius:16px;border:1px solid var(--border);box-shadow:var(--shadow-lg);padding:18px 18px 16px}
+.g-confirm h4{margin:0 0 6px;font-size:17px}
+.g-confirm p{margin:0;color:var(--text-2);font-size:14px;line-height:1.5}
+.g-confirm .g-actions{margin-top:16px}
+@media print{.g-confirm,.g-confirm-back{display:none!important}}

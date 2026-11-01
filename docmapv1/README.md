@@ -37,7 +37,7 @@ Al primo avvio parte un breve tour. Il pulsante **?** in alto (o F1) apre la gui
 - **Anagrafica clienti** importabile dal vostro CSV (es. `CLIENTI STORICI ELENCO TIPIZZATO.csv`): il faldone nuovo si compila da solo.
 - Posizione tutta facoltativa, **stanze con nome** ("Ufficio 1"), **tipo e colore del ripiano**.
 - Contenuti con **"Archivio 1"** di partenza e modifica rapida **una riga per voce**.
-- Guida libera: **Avanti e Indietro funzionano sempre**, cliccando un altro campo la guida salta al suo passo.
+- Guida libera: **Avanti e Indietro funzionano sempre**, cliccando un altro campo la guida salta al suo passo (v10: vedi "Guida e azioni guidate").
 - Faldoni di esempio con tag **demo**, da nascondere o eliminare con un clic.
 
 ## Checklist prima della prima stampa
@@ -222,6 +222,10 @@ Nel menu **⚙ Funzioni avanzate › Registro attività** trovi l'elenco di tutt
 ## Sincronizzazione PC ⇄ web app (v10)
 
 DocMap funziona sia sul PC (doppio clic su `index.html`) sia come web app su **https://docmap.pr-it.it/studio-de/**. Per ora le due copie dei dati si allineano a mano da **⚙ Funzioni avanzate › Sincronizzazione**: sul PC premi **Copia export per web app** (la prima volta "Tutto l'archivio", poi "Solo modifiche dall'ultima sincronizzazione"), scrivi una passphrase (consigliato: il file viene cifrato AES-256 e la passphrase non viene mai salvata) e scarica il file; nella web app premi **Importa dati da client locale**, scegli il file, scrivi la passphrase e **Analizza**. Al contrario è uguale: **Esporta per il client locale** nella web app e **Importa dati dalla web app** sul PC. Prima di applicare vedi quanti faldoni e clienti sono nuovi, aggiornati, invariati, più vecchi (ignorati), eliminati e in conflitto. Regola: per ogni faldone vince la modifica **più recente in ordine di tempo**, da qualunque lato sia stata fatta; se lo stesso faldone è cambiato da entrambe le parti dopo l'ultima sincronizzazione vedi i campi diversi affiancati e scegli "Tieni locale" / "Tieni importato" (o "Applica a tutti: il più recente"). Anche le eliminazioni viaggiano; un faldone eliminato da una parte ma modificato dopo dall'altra resta ed è segnalato. Tutto si annulla con un clic su **Annulla** e finisce nel registro attività. Sotto trovi la coda: modifiche locali non ancora esportate, dispositivi conosciuti e cronologia. Dettagli tecnici: `docs/SYNC.md`.
+
+## Guida e azioni guidate (v10)
+
+Il pulsante **?** in alto (o **F1**) apre la guida. In cima ci sono le cose che si fanno più spesso: *Come creo un nuovo faldone*, *Come stampo le etichette*, *Come creo un nuovo cliente*, *Come importo un elenco*, *Come trovo un faldone*, *Come scarico il PDF*; poi l'ordine si adatta a quello che usate davvero su questo PC. Puoi ordinare anche per **Preferiti** (stella ☆ accanto a un argomento o a un'azione guidata; con il nome operatore in Impostazioni ognuno ha i suoi) o **A-Z**. Due file di etichette aiutano a filtrare: grigie per l'**argomento** (Stampa, Etichette, Clienti…) e colorate per **cosa vuoi fare** (Come fare, Cos'è, Creare, Modificare, Eliminare, Stampare, Importare/Esportare, Trovare, Risolvere problemi). Appena scrivi nella ricerca i filtri si azzerano e restano accese solo le etichette dei risultati; la ricerca capisce accenti, plurali e sinonimi (faldone/raccoglitore/archivio, cliente/ditta/azienda, stampa/stampare, QR/codice QR). Le **14 azioni guidate** (nuovo faldone, stampa, PDF, nuovo cliente, trova, modifica, calibrazione, foglio già usato, manifest, AI, sessione, backup, import, registro) non si chiudono mai per sbaglio: Esc, la ✕ o un secondo clic fuori chiedono "Vuoi davvero uscire dalla guida?" (Continua è il pulsante evidenziato); cliccando un campo di un altro passo la guida salta a quel passo; Invio o → avanti, ← indietro. Se esci a metà, la guida ricorda il passo: trovi **Riprendi la guida** in cima alla guida.
 
 ## Problemi comuni
 
