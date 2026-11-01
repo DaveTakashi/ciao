@@ -519,6 +519,7 @@ function bkColorHook(b, patch, how){
   if (typeof fn !== 'function') return patch;
   try {
     const m = Object.assign(bkMerged(b), patch), before = JSON.stringify(m);
+    if (how === 'auto' && 'color_locked' in m) m.color_locked = false;   // "Colore automatico" unlocks, like the editor's Automatico
     const r = fn(m, S.binders);
     if (how === 'auto' && typeof r === 'string' && normHex(r)) m.color_hex = normHex(r);
     if (JSON.stringify(m) !== before || how === 'auto') Object.keys(m).forEach(k => { if (typeof m[k] !== 'object' && String(m[k]) !== String(bkVal(b, k))) patch[k] = m[k]; });
