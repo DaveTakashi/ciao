@@ -108,6 +108,8 @@ function locImportWorkspace(list, replace){
 }
 const LOC_CNT = { ver:-1, arr:null, bArr:null, len:-1, own:new Map(), all:new Map() };
 /** Binder counts per node: own (directly inside) and all (subtree). Cached per index version + binders array. */
+/** "N faldoni qui" with the singular for 1 (v11.1; la_in_box1 lives in 07b-helpx.js, falls back to la_in_box). */
+function laInBox(n){ return t(n === 1 && I18N.it.la_in_box1 ? 'la_in_box1' : 'la_in_box', {n}); }
 function locCounts(){
   const X = locIndex(), C = LOC_CNT, sig = S.binders.length + ':' + S.binders.reduce((n, b) => n + (b.location_id ? b.location_id.length : 0), 0);
   if (C.ver === X.built && C.arr === X.arr && C.bArr === sig) return C;
@@ -134,7 +136,7 @@ function locOptionsHTML(cur, o){
   return out.join('');
 }
 /** Typeahead source of locations (editor, assign dialog). */
-function locTaSource(){ return locArr().map(l => ({value:l.code, meta:locPathText(l.id) + (locCounts().own.get(l.id) ? ' · ' + t('la_in_box', {n:locCounts().own.get(l.id)}) : ''), match:l.code + ' ' + locPathText(l.id, ' ') + ' ' + l.short_code, id:l.id, count:locCounts().own.get(l.id) || 0})); }
+function locTaSource(){ return locArr().map(l => ({value:l.code, meta:locPathText(l.id) + (locCounts().own.get(l.id) ? ' · ' + laInBox(locCounts().own.get(l.id)) : ''), match:l.code + ' ' + locPathText(l.id, ' ') + ' ' + l.short_code, id:l.id, count:locCounts().own.get(l.id) || 0})); }
 function locFindTyped(v){
   const s = String(v || '').trim(); if (!s) return null;
   const p = assocParseCode(s); const all = locArr();
@@ -295,7 +297,7 @@ function locDetailHTML(){
   return '<div class="lo-crumbs">' + locPath(l.id).map((p, i, a) => i < a.length - 1 ? '<button type="button" class="lo-crumb" data-a="lo-sel" data-id="' + esc(p.id) + '">' + esc(p.seg) + '</button>' + ic('chevr', 'lo-sep') : '<span class="lo-crumb cur">' + esc(p.seg) + '</span>').join('') + '</div>' +
     '<div class="lo-head"><div class="lo-qr" title="' + esc(l.short_url) + '">' + qr + '<span class="mono">' + esc(l.short_code) + '</span></div>' +
       '<div class="lo-head-tx"><div class="lo-kind">' + esc(locKind(l)) + '</div><div class="lo-code mono" id="lo-code">' + esc(l.code) + '</div><div class="lo-path">' + esc(locPathText(l.id)) + '</div>' +
-      '<div class="lo-stats"><span class="badge">' + esc(t('la_in_box', {n:C.own.get(l.id) || 0})) + '</span>' + (C.all.get(l.id) !== (C.own.get(l.id) || 0) ? '<span class="badge">' + esc(t('lo_binders_sub', {n:C.all.get(l.id) || 0})) + '</span>' : '') + (locChildren(l.id).length ? '<span class="badge">' + esc(t('lo_children', {n:locChildren(l.id).length})) + '</span>' : '') + '</div></div></div>' +
+      '<div class="lo-stats"><span class="badge">' + esc(laInBox(C.own.get(l.id) || 0)) + '</span>' + (C.all.get(l.id) !== (C.own.get(l.id) || 0) ? '<span class="badge">' + esc(t('lo_binders_sub', {n:C.all.get(l.id) || 0})) + '</span>' : '') + (locChildren(l.id).length ? '<span class="badge">' + esc(t('lo_children', {n:locChildren(l.id).length})) + '</span>' : '') + '</div></div></div>' +
     '<div class="lo-acts">' +
       (next ? '<button class="btn btn-sm" data-a="lo-add" data-id="' + esc(l.id) + '" id="lo-add-child">' + ic('plus') + esc(t('lo_add_child', {l:next.toLowerCase()})) + '</button><button class="btn btn-sm" data-a="lo-bulk" data-id="' + esc(l.id) + '" id="lo-bulk">' + ic('layers') + esc(t('lo_bulk')) + '</button>' : '') +
       '<button class="btn btn-sm" data-a="lo-print" data-id="' + esc(l.id) + '" id="lo-print-one">' + ic('printer') + esc(t('lo_print_one')) + '</button>' +
@@ -435,7 +437,7 @@ function locOpenAssign(ids){
 function locAssocHTML(){
   const A = LUI.assoc, l = locById(A.loc), C = locCounts();
   return '<div class="la-card' + (l ? ' on' : '') + '" id="la-card"><div class="la-top"><div class="la-ic">' + ic('scan') + '</div><div class="la-st">' +
-      (l ? '<div class="la-cap">' + esc(t('la_active')) + ' · ' + esc(locKind(l)) + '</div><div class="la-code mono" id="la-code">' + esc(l.code) + '</div><div class="la-path">' + esc(locPathText(l.id)) + ' · <b id="la-n">' + esc(t('la_in_box', {n:C.own.get(l.id) || 0})) + '</b></div>'
+      (l ? '<div class="la-cap">' + esc(t('la_active')) + ' · ' + esc(locKind(l)) + '</div><div class="la-code mono" id="la-code">' + esc(l.code) + '</div><div class="la-path">' + esc(locPathText(l.id)) + ' · <b id="la-n">' + esc(laInBox(C.own.get(l.id) || 0)) + '</b></div>'
          : '<div class="la-cap">' + esc(t('la_h')) + '</div><div class="la-code la-wait">' + esc(t('la_none')) + '</div><div class="la-path">' + esc(t('la_p')) + '</div>') + '</div>' +
       '<button class="btn btn-sm" data-a="la-cam" id="la-cam-btn">' + ic('camera') + esc(A.cam ? t('la_cam_off') : t('la_cam')) + '</button><button class="btn btn-sm btn-danger" data-a="la-stop" id="la-stop">' + ic('stop') + esc(t('la_stop')) + '</button></div>' +
     '<div class="la-in"><input class="inp mono" id="la-scan" placeholder="' + esc(t('la_scan_ph')) + '" autocomplete="off" spellcheck="false" aria-label="' + esc(t('la_scan_ph')) + '"><span class="hint">' + esc(t('la_scan_hint')) + '</span></div>' +

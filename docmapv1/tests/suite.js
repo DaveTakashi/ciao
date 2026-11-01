@@ -3458,6 +3458,125 @@ const sec = (n) => console.log('\n== ' + n);
       ok(Jcc === Jdd && Jv2.a === 'C' && Jv2.kinds === 'package:import,package:export,package:export,package:import', 'J local⇄local: C\'s manual choice travels back (stamped later) and both PCs converge; D\'s journal lists import, export, export, import', Jv2);
     } finally { await JC.c.close(); await JD.c.close(); }
   }
+  // @@STREAM-H@@
+  sec('v11.1 H: knowledge base, contextual help, i18n completeness, Informazioni su DocMap, a11y');
+  {
+    let Hv;
+    await p.evaluate(() => { guideStop(); while (topModal()) closeModal(true); helpClose(); S.lang = 'it'; HELP.q = ''; HELP.tag = ''; HELP.act = ''; S.view = 'archive'; renderAll(); });
+    // ---- new topics: present, bilingual, tagged, findable
+    Hv = await p.evaluate(() => { helpEnsure(); const ids = ['first-run', 'server', 'multi-device', 'upgrade', 'scanner', 'troubleshoot', 'about', 'journal'];
+      return {miss:ids.filter(id => { const tp = helpTopic(id); return !tp || !(tp.body.it.length > 600 && tp.body.en.length > 600 && tp.title.it && tp.title.en) || tp.acts.some(a => !HELP_ACTS[a]) || tp.tags.some(g => !HELP_TAGS[g]); }),
+        tags:['start', 'online'].every(k => HELP_TAGS[k] && HELP_TAGS[k].it && HELP_TAGS[k].en), online:HELP_TOPICS.filter(tp => tp.tags.includes('online')).map(tp => tp.id), start:HELP_TOPICS.filter(tp => tp.tags.includes('start')).map(tp => tp.id),
+        rel:helpTopic('sync').related.includes('server') && helpTopic('info').related.includes('locations'), stale:/FastAPI|nessun server/.test(JSON.stringify(HELP_TOPICS.map(tp => tp.body.it)) + t('se_about')),
+        nav:/Sincronizzazione/.test(helpTopic('nav').body.it) && /Ubicazioni/.test(helpTopic('info').body.it) && /Registro attività/.test(helpTopic('journal').body.it)}; });
+    ok(!Hv.miss.length && Hv.tags && ['server', 'multi-device', 'troubleshoot', 'journal', 'sync', 'mobile'].every(x => Hv.online.includes(x)) && ['first-run', 'upgrade', 'create'].every(x => Hv.start.includes(x)) && Hv.rel && !Hv.stale && Hv.nav,
+      'H help: new topics (primo avvio, server, più PC e telefoni, aggiornamento, lettore QR, risoluzione problemi, informazioni) IT+EN, tags "Primi passi" / "Online e sincronizzazione", stale texts fixed', Hv);
+    Hv = await p.evaluate(() => { const r = (q) => { HELP.q = q; return helpList().map(x => x.id); }; const o = {};
+      [['401', 'troubleshoot'], ['errore 429', 'troubleshoot'], ['non vedo i dati', 'troubleshoot'], ['fotocamera bloccata', 'troubleshoot'], ['pistola', 'scanner'], ['lettore barcode', 'scanner'], ['aggiornare versione', 'upgrade'],
+       ['migrazione', 'upgrade'], ['collegare server', 'server'], ['token', 'server'], ['più pc', 'multi-device'], ['contestazione', 'journal'], ['primo avvio', 'first-run'], ['installazione', 'first-run'], ['dati per l\'assistenza', 'about']]
+        .forEach(([q, id]) => { o[q] = r(q)[0] === id ? 1 : r(q).slice(0, 3); });
+      S.lang = 'en'; [['upgrade', 'upgrade'], ['scan gun', 'scanner'], ['troubleshooting', 'troubleshoot'], ['connect server', 'server'], ['dispute', 'journal']].forEach(([q, id]) => { o['EN ' + q] = r(q)[0] === id ? 1 : r(q).slice(0, 3); });
+      S.lang = 'it'; HELP.q = ''; return o; });
+    ok(Object.values(Hv).every(x => x === 1), 'H help: the search finds the new topics first (synonyms + hidden keywords: 401, 429, pistola, migrazione, contestazione, scan gun…)', Hv);
+    await p.click('[data-a="help-open"]'); await p.waitForTimeout(120);
+    await p.click('#help-filters [data-a="help-tag"][data-t="online"]'); await p.waitForTimeout(80);
+    Hv = await p.evaluate(() => ({ids:$$('#help-topics .help-item').map(b => b.dataset.id), g:$$('#help-guides .help-g').map(b => b.dataset.id), first:$$('#help-topics .help-item')[0].dataset.id}));
+    await p.click('#help-filters [data-a="help-tag"][data-t=""]'); await p.waitForTimeout(80);
+    Hv.top = await p.evaluate(() => $$('#help-topics .help-item').slice(0, 3).map(b => b.dataset.id).join());
+    ok(['server', 'multi-device', 'troubleshoot', 'journal'].every(x => Hv.ids.includes(x)) && ['server', 'journal'].every(x => Hv.g.includes(x)) && Hv.first === 'troubleshoot' && Hv.top === 'create,print,client-new', 'H help: tag filter "Online e sincronizzazione" lists the online topics and tours by popularity; default order unchanged', Hv);
+    await p.click('#help-topics [data-a="help-topic"][data-id="troubleshoot"]'); await p.waitForTimeout(100);
+    Hv = await p.evaluate(() => ({dt:$$('.wiki .hx-faq dt').length, rel:$$('.help-body .help-item').map(b => b.dataset.id), use:helpUseCount('t:troubleshoot') > 0, w:[document.documentElement.scrollWidth, innerWidth]}));
+    ok(Hv.dt >= 10 && Hv.rel.includes('upgrade') && Hv.use && Hv.w[0] <= Hv.w[1] + 1, 'H help: FAQ page (10+ questions), related topics, usage counted', Hv);
+    await p.evaluate(() => helpClose());
+    // ---- new tours exist and start on the right view (the G section runs every tour start → end)
+    Hv = await p.evaluate(() => ['firstrun', 'server', 'journal'].map(id => { const g = GUIDES[id]; return g && g.steps.length >= 5 && g.steps.every(s => s.title.it && s.title.en && s.text.it && s.text.en) && guideViewAt(g, 1); }));
+    ok(Hv.join() === 'settings,sync,sync' && await p.evaluate(() => helpTopic('server').guide === 'server' && helpTopic('journal').guide === 'journal' && helpTopic('first-run').guide === 'firstrun'), 'H tours: firstrun (Impostazioni → nome dispositivo), server, journal linked to their topics', Hv);
+    // ---- contextual "?"
+    const Hdot = async (sel) => { await p.click(sel); await p.waitForTimeout(80); const id = await p.evaluate(() => HELP.topic); await p.evaluate(() => helpClose()); return id; };
+    await p.evaluate(() => { S.view = 'info'; S.infoTab = 'loc'; renderAll(); }); Hv = [await Hdot('.page-h .help-dot')];
+    await p.evaluate(() => { S.infoTab = 'qr'; renderAll(); }); Hv.push(await Hdot('.page-h .help-dot'));
+    await p.evaluate(() => { S.infoTab = 'tags'; renderAll(); }); Hv.push(await Hdot('.page-h .help-dot'));
+    await p.evaluate(() => { S.view = 'sync'; renderAll(); }); Hv.push(await Hdot('.page-h .help-dot'), await Hdot('#srv-card .help-dot'), await Hdot('#jr-card .help-dot'));
+    Hv.push(await p.evaluate(() => { const e = $('#jr-empty'); return e ? e.textContent : ''; }));
+    await p.evaluate(() => { S.view = 'settings'; renderAll(); }); Hv.push(await Hdot('#hx-about .help-dot'));
+    ok(Hv.slice(0, 6).join() === 'locations,qr-reprint,info,sync,server,journal' && (Hv[6] === '' || Hv[6] === await p.evaluate(() => t('hx_jr_empty')) || Hv[6] === await p.evaluate(() => t('jr_none'))) && Hv[7] === 'about',
+      'H contextual help: "?" opens the topic of the Informazioni sub-tab (Ubicazioni, QR), Server online, Registro sincronizzazioni, Informazioni su DocMap', Hv);
+    // ---- i18n completeness: every t('key') used by the scripts of a page exists in I18N.it and I18N.en
+    const Hpath = require('path'), Hroot = Hpath.resolve(__dirname, '..');
+    const Hkeys = (page) => { const m = new Map(); const files = [...fs.readFileSync(Hpath.join(Hroot, page), 'utf8').matchAll(/<script src="assets\/js\/([\w.-]+)"/g)].map(x => x[1]);
+      for (const f of files){ const s = fs.readFileSync(Hpath.join(Hroot, 'assets', 'js', f), 'utf8'); for (const x of s.matchAll(/(?<![\w.$])t\(\s*'([A-Za-z0-9_.\-]+)'\s*[,)]/g)) if (!m.has(x[1])) m.set(x[1], f); }
+      return {files, keys:[...m]}; };
+    const HchkI18n = (pg, ks, skip) => pg.evaluate(([ks, skip]) => ({miss:ks.filter(([k]) => !new RegExp(skip).test(k) && (!(k in I18N.it) || !(k in I18N.en))).map(([k, f]) => k + '@' + f),
+      onlyIt:Object.keys(I18N.it).filter(k => !(k in I18N.en)), onlyEn:Object.keys(I18N.en).filter(k => !(k in I18N.it))}), [ks, skip]);
+    const HkI = Hkeys('index.html'), HkS = Hkeys('scan.html');
+    // index.html: sa_ / sc_ keys belong to the phone-only code paths of 06i/11b (they run only when 11-scan.js is loaded)
+    Hv = await HchkI18n(p, HkI.keys, '^(sa|sc)_');
+    ok(HkI.keys.length > 1000 && HkI.files.includes('07b-helpx.js') && !Hv.miss.length && !Hv.onlyIt.length && !Hv.onlyEn.length, 'H i18n: index.html — every t(\'key\') used in its scripts exists in Italian and English (' + HkI.keys.length + ' keys)', Hv);
+    const Hsp = await ctx.newPage(); Hsp.on('pageerror', e => errs.push('H SCAN PAGEERR ' + e.message));
+    await Hsp.goto('file://' + Hpath.join(Hroot, 'scan.html').replace(/\\/g, '/')); await Hsp.waitForTimeout(600);
+    // scan.html: hx_ keys are read by 06i only when 07b-helpx.js (desktop) defined them
+    Hv = await HchkI18n(Hsp, HkS.keys, '^hx_');
+    Hv.sy = await Hsp.evaluate(() => [t('sy_mode_server'), t('sy_field')].join('|'));
+    await Hsp.close();
+    ok(HkS.keys.length > 200 && !Hv.miss.length && !Hv.onlyIt.length && !Hv.onlyEn.length && Hv.sy === 'Server online|Campo', 'H i18n: scan.html — every key exists in IT + EN (fixed: the phone journal showed the raw keys sy_mode_server / sy_field)', Hv);
+    // ---- Informazioni su DocMap
+    Hv = await p.evaluate(() => ({ver:($('#hx-ver') || {}).textContent, db:($('#hx-db') || {}).textContent, srv:($('#hx-srv') || {}).textContent, dev:($('#hx-dev') || {}).textContent, id:syncDeviceId(), name:syncDeviceLabel(), exp:String(DB_SCHEMA_VERSION),
+      w:[document.documentElement.scrollWidth, innerWidth]}));
+    ok(Hv.ver === await p.evaluate(() => APP_VERSION) && Hv.db === 'schema ' + Hv.exp && Hv.srv === await p.evaluate(() => t('hx_srv_none')) && Hv.dev.includes(Hv.name) && Hv.dev.includes(Hv.id.slice(0, 12)) && Hv.w[0] <= Hv.w[1] + 1,
+      'H about: Impostazioni › Informazioni su DocMap shows version, local DB schema, server state, device name / id', Hv);
+    await p.click('#hx-about-btn'); await p.waitForTimeout(150);
+    Hv = await p.evaluate(() => ({path:($('#hx-m-path') || {}).textContent || '', docs:$('#hx-about-body').textContent.includes('docs/AGGIORNAMENTI.md'), ping:!!$('#hx-ping'), title:topModal() && topModal().querySelector('.modal-h h2').textContent}));
+    ok(/index\.html$/.test(Hv.path) && Hv.docs && !Hv.ping && Hv.title === 'Informazioni su DocMap', 'H about: details modal (program path, upgrade guides; no server check without a server)', Hv);
+    await p.evaluate(() => { while (topModal()) closeModal(true); });
+    // server configured (fake address + secret token) and a stubbed ping: schema shown, warning for an old server, token never copied
+    Hv = await p.evaluate(async () => {
+      const keep = localStorage.getItem(SRV_LS), f0 = window.fetch, calls = [];
+      localStorage.setItem(SRV_LS, JSON.stringify({url:'https://srv.example.test/studio-de/', token:'SECRET-TOKEN-H-123', basic:'u:PASSWORD-H'}));
+      let schema = 1;
+      window.fetch = async (u, o) => { calls.push({u:String(u), body:o && o.body || ''}); return new Response(JSON.stringify({ok:true, api:'docmap-php', version:'1.2', schema, server_time:new Date().toISOString(), php:'8.3'}), {status:200, headers:{'Content-Type':'application/json'}}); };
+      const o = {};
+      try {
+        S.view = 'settings'; renderAll(); o.cfg = $('#hx-srv').textContent;
+        hxAboutOpen(); o.btn = !!$('#hx-ping'); await hxPing();
+        o.srv = $('#hx-m-srv').textContent; o.warn = $('#hx-about-body').textContent.includes(t('hx_srv_old')); o.card = ($('#hx-srv') || {}).textContent; o.cardWarn = !!$('#hx-srv-warn');
+        o.url = calls[0] && calls[0].u; o.noTok = calls.every(c => !String(c.body).includes('SECRET'));
+        schema = 2; await hxPing(); o.warn2 = $('#hx-about-body').textContent.includes(t('hx_srv_old'));
+        const txt = hxSupportText(); o.txt = /26\.11/.test(txt) && txt.includes(syncDeviceId()) && txt.includes('schema 2') && txt.includes('srv.example.test'); o.leak = /SECRET|PASSWORD-H/.test(txt);
+      } finally { window.fetch = f0; if (keep == null) localStorage.removeItem(SRV_LS); else localStorage.setItem(SRV_LS, keep); HX.ping = null; HX.pingErr = ''; while (topModal()) closeModal(true); renderAll(); }
+      return o; });
+    ok(Hv.cfg === await p.evaluate(() => t('hx_srv_cfg')) && Hv.btn && /schema 1/.test(Hv.srv) && /API 1\.2/.test(Hv.srv) && Hv.warn && Hv.cardWarn && /schema 1/.test(Hv.card) && /srv\.example\.test\/studio-de\/server-php\/api\.php\?r=ping/.test(Hv.url) && Hv.noTok && !Hv.warn2 && Hv.txt && !Hv.leak,
+      'H about: "Verifica server" pings (no token sent), shows API + schema, warns when the server schema is older; "Copia dati per l\'assistenza" never contains token or password', Hv);
+    // ---- archive search: a QR read by a scanner finds its binder
+    Hv = await p.evaluate(() => { S.view = 'archive'; renderAll(); const b = filteredBinders()[0]; UI.q = 'https://qr7.it/' + b.short_code; const r = filteredBinders().map(x => x.id); UI.q = ''; renderAll(); return {ok:r.length === 1 && r[0] === b.id}; });
+    ok(Hv.ok, 'H scanner: a scanned QR URL in the Archive search finds its binder', Hv);
+    // ---- association mode: feedback repeated in a persistent aria-live region; singular "1 faldone qui"
+    Hv = await p.evaluate(async () => {
+      const snap = {loc:JSON.stringify(S.locations || []), b:JSON.stringify(S.binders)};
+      const wait = (ms) => new Promise(r => setTimeout(r, ms)); const o = {};
+      try {
+        locBulkCreate('', [{n:1, prefix:'HMAG', pad:1}, {n:1, prefix:'HB', pad:2}]); commit();
+        const box = S.locations.find(l => l.code === 'HMAG1-HB01'), bin = S.binders.find(b => !b.location_id) || S.binders[0];
+        locAssocStart(); await wait(60);
+        locAssocInput(box.short_code, 'scanner'); await wait(80); o.sw = $('#hx-live').textContent === LUI.assoc.msg.text;
+        locAssocInput('https://qr7.it/' + bin.short_code, 'scanner'); await wait(80);
+        o.ok = $('#hx-live').textContent === LUI.assoc.msg.text && LUI.assoc.msg.kind === 'ok'; o.live = $('#hx-live').getAttribute('aria-live'); o.n = ($('#la-n') || {}).textContent;
+        locAssocUndo(0); await wait(80); o.undo = $('#hx-live').textContent === LUI.assoc.msg.text;
+      } finally { locAssocStop(); S.locations = JSON.parse(snap.loc); S.binders = JSON.parse(snap.b); locTouch(); commit(); S.view = 'archive'; renderAll(); }
+      return o; });
+    ok(Hv.sw && Hv.ok && Hv.undo && Hv.live === 'polite' && Hv.n === '1 faldone qui', 'H a11y: association feedback announced in a persistent aria-live region; "1 faldone qui" (singular)', Hv);
+    // ---- phone width: Impostazioni and Stampa etichette no longer scroll sideways
+    await p.setViewportSize({width:390, height:844});
+    Hv = {};
+    for (const v of ['settings', 'print', 'sync', 'archive']){ await p.evaluate(v => { S.view = v; renderAll(); }, v); await p.waitForTimeout(200); Hv[v] = await p.evaluate(() => document.documentElement.scrollWidth - innerWidth); }
+    await p.evaluate(() => { S.view = 'info'; S.infoTab = 'loc'; renderAll(); }); await p.waitForTimeout(150); Hv.loc = await p.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+    await p.screenshot({path:'shots/h_phone_loc.png'});
+    await p.setViewportSize({width:1366, height:768});
+    await p.evaluate(() => { S.view = 'archive'; renderAll(); });
+    ok(Object.values(Hv).every(x => x <= 1), 'H layout: no horizontal scroll at 390×844 in Impostazioni, Stampa, Sincronizzazione, Archivio, Ubicazioni', Hv);
+    // ---- English
+    Hv = await p.evaluate(() => { S.lang = 'en'; S.view = 'settings'; renderAll(); const o = {h:$('#hx-about-h').textContent, t:L(helpTopic('troubleshoot').title), tag:helpTagLabel('online')}; S.lang = 'it'; S.view = 'archive'; renderAll(); return o; });
+    ok(/^About DocMap/.test(Hv.h) && /^Troubleshooting/.test(Hv.t) && Hv.tag === 'Online & sync', 'H English: about panel, topics and tags', Hv);
+  }
   console.log('\nerrors:', errs.length ? errs.join('\n') : 'none');
   if (errs.length) fails += errs.length;
   console.log(`\nRESULT: ${passes} passed, ${fails} failed`);

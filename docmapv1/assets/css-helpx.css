@@ -1,0 +1,32 @@
+/* DocMap 2026 — v11.1 (stream H): "Informazioni su DocMap", help FAQ list, phone-width polish */
+
+/* About block (Impostazioni › Dati e sicurezza) and modal */
+.hx-about{border-top:1px solid var(--border);padding-top:14px;display:flex;flex-direction:column;gap:10px}
+.hx-about h3{display:flex;align-items:center;gap:8px;margin:0;font-size:14px}
+.hx-about h3 .ic{color:var(--accent)}
+.hx-dl{display:grid;gap:6px;margin:0}
+.hx-kv{display:grid;grid-template-columns:minmax(120px,38%) minmax(0,1fr);gap:10px;align-items:baseline;font-size:13px}
+.hx-kv dt{color:var(--muted);font-weight:600}
+.hx-kv dd{margin:0;min-width:0}
+.hx-dl-full .hx-kv{padding:8px 0;border-bottom:1px solid var(--border)}
+.hx-dl-full .hx-kv:last-child{border-bottom:0}
+.hx-break{word-break:break-all}
+.hx-acts{gap:8px;flex-wrap:wrap}
+@media (max-width:560px){ .hx-kv{grid-template-columns:minmax(0,1fr);gap:2px} }
+
+/* FAQ in the help drawer (topic "Risoluzione problemi") */
+.wiki .hx-faq{margin:0}
+.wiki .hx-faq dt{font-weight:700;margin-top:12px}
+.wiki .hx-faq dt:first-child{margin-top:0}
+.wiki .hx-faq dd{margin:4px 0 0}
+
+/* Phone width: single-column grids must not grow to the min-content of a long button or URL,
+   and long button labels wrap instead of widening the page (Impostazioni, Stampa etichette). */
+@media (max-width:760px){
+  .g2,.g3,.g4{grid-template-columns:minmax(0,1fr)}
+  main .btn{white-space:normal;text-align:center;line-height:1.25;padding-top:6px;padding-bottom:6px}
+}
+
+/* Keyboard focus: the same visible ring everywhere (some controls had only the faint browser default) */
+.help-dot:focus-visible,.seg button:focus-visible,.lang button:focus-visible,.chk input:focus-visible,details > summary:focus-visible{outline:none;box-shadow:0 0 0 3px var(--accent-ring)}
+.chk input:focus-visible{border-radius:4px}

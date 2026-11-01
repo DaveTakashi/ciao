@@ -527,7 +527,7 @@ function viewSync(){
     '<div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-lg btn-primary" data-a="sy-export">' + ic('download') + esc(t('sy_download')) + '</button><button class="btn btn-lg" data-a="sy-copy">' + ic('clipboard') + esc(t('sy_copy')) + '</button></div>';
   const im = '<div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn" data-a="sy-pick">' + ic('upload') + esc(t('sy_pick')) + '</button><span class="small muted mono" id="sy-fname">' + esc(SYV.fileName) + '</span>' +
       '<input type="file" id="sy-file" accept=".json,application/json" hidden></div>' +
-    '<textarea class="inp mono" id="sy-text" rows="4" placeholder="' + esc(t('sy_paste_ph')) + '" style="font-size:12px;resize:vertical">' + esc(SYV.text.length < 200000 ? SYV.text : '') + '</textarea>' +
+    '<textarea class="inp mono" id="sy-text" rows="4" placeholder="' + esc(t('sy_paste_ph')) + '" aria-label="' + esc(t('sy_paste_ph')) + '" style="font-size:12px;resize:vertical">' + esc(SYV.text.length < 200000 ? SYV.text : '') + '</textarea>' +
     '<div class="field"><label for="sy-ipass">' + esc(t('sy_ipass')) + '</label><input class="inp" type="password" id="sy-ipass" autocomplete="off"></div>' +
     '<div><button class="btn btn-lg btn-dark" data-a="sy-analyze">' + ic('eye') + esc(t('sy_analyze')) + '</button></div>';
   return '<div class="page-h"><div><h1>' + esc(t('sy_h')) + helpDot('sync') + '</h1><p>' + esc(t('sy_p')) + '</p></div><div><span class="badge ' + (mode === 'web' ? 'b-upd' : 'b-new') + '">' + ic(mode === 'web' ? 'globe' : 'database') + esc(t('sy_mode_' + mode)) + '</span></div></div>' +

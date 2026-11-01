@@ -845,7 +845,7 @@ function infoOptionsHTML(P){
 }
 function edgePanelHTML(){
   const P = S.print, e = edgeCfg(P), on = edgeOn(P), F = edgeInsetFrame(P.geometry, P);
-  const num = (k, v, max) => '<input class="inp" type="number" min="0" max="' + max + '" step="0.5" value="' + v + '" data-edge="' + k + '" style="width:90px;min-height:34px;padding:4px 8px"' + (on ? '' : ' disabled') + '>';
+  const num = (k, v, max) => '<input class="inp" type="number" min="0" max="' + max + '" step="0.5" value="' + v + '" data-edge="' + k + '" aria-label="' + esc(t('edge_' + k)) + '" style="width:90px;min-height:34px;padding:4px 8px"' + (on ? '' : ' disabled') + '>';
   return '<div class="adv-sub" id="edge-box"><h3>' + esc(t('edge_h')) + helpDot('edge') + '</h3>' +
     '<label class="chk small"><input type="checkbox" data-a="edge-on"' + (on ? ' checked' : '') + '><span><b>' + esc(t('edge_on')) + '</b><br><span class="muted">' + esc(t('edge_on_d')) + '</span></span></label>' +
     '<div class="geo-row"><span class="lbl">' + esc(t('edge_outer')) + '</span>' + num('outer', e.outer, 10) + '</div>' +

@@ -31,7 +31,8 @@ function renderAll(){ document.body.dataset.drop = t('drop_here'); renderBanner(
 /* ---------------- Archive ---------------- */
 function stateBadge(s){ const c = s === 'CURRENT' ? 'b-current' : s === 'HISTORICAL' ? 'b-historical' : 'b-out'; return '<span class="badge ' + c + '">' + esc(t('s_' + s)) + '</span>'; }
 function filteredBinders(){
-  const q = UI.q.trim().toLowerCase();
+  let q = UI.q.trim().toLowerCase();
+  if (/[:\/]/.test(q) && typeof assocParseCode === 'function'){ const pc = assocParseCode(UI.q); if (pc.type === 'binder') q = pc.code.toLowerCase(); }   // v11.1: a QR read by a scanner into the search (https://qr7.it/dm26…) finds its binder
   return sortedBinders().filter(b => {
     if (S.settings.hideDemo && isDemo(b)) return false;
     if (UI.fState && b.archive_state !== UI.fState) return false;
@@ -47,7 +48,7 @@ function filteredBinders(){
 function viewArchive(){
   const rooms = Array.from(new Set(S.binders.map(b => b.room_code).filter(Boolean))).sort(naturalCmp);
   const cats = Array.from(new Set(S.binders.map(b => b.category).filter(Boolean))).sort(naturalCmp);
-  const sel = (id, all, opts, cur) => '<select class="inp" data-bind="' + id + '"><option value="">' + esc(all) + '</option>' + opts.map(o => '<option value="' + esc(o[0]) + '"' + (cur === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('') + '</select>';
+  const sel = (id, all, opts, cur) => '<select class="inp" data-bind="' + id + '" aria-label="' + esc(all) + '"><option value="">' + esc(all) + '</option>' + opts.map(o => '<option value="' + esc(o[0]) + '"' + (cur === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('') + '</select>';
   return '<div class="page-h"><div><h1>' + esc(t('arch_h')) + helpDot('create') + '</h1><p>' + esc(t('arch_p')) + '</p></div>' +
     '<div class="row"><button class="btn btn-lg btn-primary" data-a="new-binder">' + ic('plus') + esc(t('new_binder')) + '</button></div></div>' +
     demoBarHTML() + infoFilterBarHTML() +
@@ -284,11 +285,11 @@ function viewPrint(){
       '<div class="panel-sec"><h3>' + esc(t('pr_sheet')) + '</h3><div class="preset-list">' + presets + '</div></div>' +
       '<div class="panel-sec"><h3>' + esc(t('pr_content')) + helpDot('split') + '</h3><div class="opt-grid">' +
         LABEL_TEMPLATES.map(T => opt('cmode', T.id, t(T.name), t(T.desc), P.contentMode, T.full).replace('<b>', tplRecommended(T, P.presetId) ? '<b><span class="pop rec tpl-rec">✓ ' + esc(t('tpl_rec')) + '</span> ' : '<b>')).join('') +
-        '</div>' + (curTpl && curTpl.options ? curTpl.options(P) : '') + '<div class="geo-row" style="margin-top:10px"><span class="lbl">' + esc(t('copies')) + '</span><input class="inp" style="width:90px;min-height:38px" type="number" min="1" max="50" step="1" value="' + (P.copies || 1) + '" data-pp="copies"></div></div>' +
+        '</div>' + (curTpl && curTpl.options ? curTpl.options(P) : '') + '<div class="geo-row" style="margin-top:10px"><span class="lbl">' + esc(t('copies')) + '</span><input class="inp" style="width:90px;min-height:38px" type="number" min="1" max="50" step="1" value="' + (P.copies || 1) + '" data-pp="copies" aria-label="' + esc(t('copies')) + '"></div></div>' +
       '<div class="panel-sec" id="pr-fields"><h3>' + esc(t('pr_fields')) + helpDot('fields') + '</h3><div class="fld-grid">' +
         [['category','f_category'],['city','f_city'],['multi','f_multi'],['url','qr_url_s'],['title','f_title_s'],['year','f_year_ref'],['contents','f_contents_s'],['tags','f_tags'],['extra','f_extra'],['location','fl_location'],['contacts','f_contacts_s'],['notes','f_notes']].map(([k, lab]) => '<label class="chk small"><input type="checkbox" data-fld="' + k + '"' + (pf(k) ? ' checked' : '') + '>' + esc(t(lab)) + '</label>').join('') +
         '<label class="chk small fld-empty"><input type="checkbox" data-fld="empty"' + (pf('empty') ? ' checked' : '') + '><span><b>' + esc(t('f_empty')) + '</b><br><span class="muted">' + esc(t('f_empty_d')) + '</span></span></label>' +
-        '</div><div class="geo-row" style="margin-top:10px"><span class="lbl">' + esc(t('f_date')) + '</span><select class="inp" style="width:auto;min-height:34px;padding:4px 8px" data-fld="date">' + [['created','fd_created'],['updated','fd_updated'],['none','fd_none']].map(([v, lab]) => '<option value="' + v + '"' + (pf('date') === v ? ' selected' : '') + '>' + esc(t(lab)) + '</option>').join('') + '</select></div>' +
+        '</div><div class="geo-row" style="margin-top:10px"><span class="lbl">' + esc(t('f_date')) + '</span><select class="inp" style="width:auto;min-height:34px;padding:4px 8px" data-fld="date" aria-label="' + esc(t('f_date')) + '">' + [['created','fd_created'],['updated','fd_updated'],['none','fd_none']].map(([v, lab]) => '<option value="' + v + '"' + (pf('date') === v ? ' selected' : '') + '>' + esc(t(lab)) + '</option>').join('') + '</select></div>' +
         '<div class="hint" style="margin-top:6px">' + esc(t('pr_fields_d')) + '</div></div>' +
       (P.contentMode === 'pair' || P.contentMode === 'a' ? '<div class="panel-sec"><h3>' + esc(t('pr_tpl')) + helpDot('templates') + '</h3><div class="opt-grid">' +
         opt('tpl', 'classic', t('tp_classic'), t('tp_classic_d'), P.template || 'classic') + opt('tpl', 'multi', t('tp_multi'), t('tp_multi_d'), P.template) + opt('tpl', 'bold', t('tp_bold'), t('tp_bold_d'), P.template) + opt('tpl', 'minimal', t('tp_min'), t('tp_min_d'), P.template) +
@@ -314,13 +315,13 @@ function viewPrint(){
         '<div class="row" style="margin-top:8px"><button class="btn btn-sm" data-a="geo-reset">' + ic('rotate') + esc(t('g_reset')) + '</button><button class="btn btn-sm" data-a="geo-save">' + ic('save') + esc(t('g_savepreset')) + '</button></div>' +
         '<div class="geo-warn err-t" id="geo-warn" style="margin-top:8px"></div></div>' +
         '<div class="adv-sub"><h3>' + esc(t('sp_h')) + helpDot('split') + '</h3>' +
-          '<div class="geo-row"><span class="lbl">' + esc(t('sp_rot')) + '</span><select class="inp" style="width:auto;min-height:34px;padding:4px 8px" data-sp="rotate"><option value="-90"' + ((P.split || {}).rotate !== 90 ? ' selected' : '') + '>' + esc(t('sp_rot_l')) + '</option><option value="90"' + ((P.split || {}).rotate === 90 ? ' selected' : '') + '>' + esc(t('sp_rot_r')) + '</option></select></div>' +
+          '<div class="geo-row"><span class="lbl">' + esc(t('sp_rot')) + '</span><select class="inp" style="width:auto;min-height:34px;padding:4px 8px" data-sp="rotate" aria-label="' + esc(t('sp_rot')) + '"><option value="-90"' + ((P.split || {}).rotate !== 90 ? ' selected' : '') + '>' + esc(t('sp_rot_l')) + '</option><option value="90"' + ((P.split || {}).rotate === 90 ? ' selected' : '') + '>' + esc(t('sp_rot_r')) + '</option></select></div>' +
           '<label class="chk small"><input type="checkbox" data-sp="guides"' + ((P.split || {}).guides !== false ? ' checked' : '') + '>' + esc(t('sp_guides')) + '</label></div>' +
         edgePanelHTML() +
       '<div class="panel-sec"><h3>' + esc(t('pr_slots')) + helpDot('partial') + '</h3><div class="slotmap-wrap"><div class="slotmap" id="slotmap"></div><div class="stack">' +
         '<div class="hint">' + esc(t('sl_hint')) + '</div><div class="small" id="sl-count" style="font-weight:700"></div>' +
         '<button class="btn btn-sm" data-a="slots-free">' + ic('check') + esc(t('sl_all_free')) + '</button>' +
-        '<div class="row" style="gap:6px"><span class="small">' + esc(t('sl_start')) + '</span><input class="inp" id="sl-start" type="number" min="1" style="width:76px;min-height:34px;padding:4px 8px" value="1"><button class="btn btn-sm" data-a="slots-start">' + esc(t('sl_apply')) + '</button></div>' +
+        '<div class="row" style="gap:6px"><span class="small">' + esc(t('sl_start')) + '</span><input class="inp" id="sl-start" aria-label="' + esc(t('sl_start')) + '" type="number" min="1" style="width:76px;min-height:34px;padding:4px 8px" value="1"><button class="btn btn-sm" data-a="slots-start">' + esc(t('sl_apply')) + '</button></div>' +
         '<div class="tiny muted"><span class="slot" style="position:static;display:inline-block;width:14px;height:10px;vertical-align:middle"></span> ' + esc(t('sl_avail')) + ' &nbsp; <span class="slot used" style="position:static;display:inline-block;width:14px;height:10px;vertical-align:middle"></span> ' + esc(t('sl_used')) + ' &nbsp; <span class="slot q" style="position:static;display:inline-block;width:14px;height:10px;vertical-align:middle"></span> ' + esc(t('pv_labels')) + '</div>' +
       '</div></div></div>' +
       '<div class="panel-sec"><div class="info-box small">' + ic('crosshair') + '<div><b>' + esc(t('pr_calib')) + '</b>' + helpDot('calib') + '<br>' + esc(t('pr_calib_d')) + '</div></div></div>' +
@@ -640,6 +641,6 @@ function viewSettings(){
       '<button class="btn" data-a="se-prev">' + ic('rotate') + esc(t('se_prev_restore')) + '</button>' +
       '<button class="btn" data-a="se-demo">' + ic('refresh') + esc(t('se_demo')) + '</button>' +
       '<button class="btn btn-danger" data-a="se-wipe">' + ic('trash') + esc(t('se_wipe')) + '</button>' +
-      '<div class="sep"></div><div class="tiny muted">' + esc(t('se_about', {v:APP_VERSION})) + '<br>localStorage: <span class="mono">' + LS_KEY + '</span></div></div></div>' + colorSettingsHTML() +   // Colori dei dorsi (02b-colors.js)
+      (typeof hxAboutHTML === 'function' ? hxAboutHTML() : '<div class="sep"></div><div class="tiny muted">' + esc(t('se_about', {v:APP_VERSION})) + '<br>localStorage: <span class="mono">' + LS_KEY + '</span></div>') + '</div></div>' + colorSettingsHTML() +   // v11.1: Informazioni su DocMap (07b-helpx.js) · Colori dei dorsi (02b-colors.js)
     (typeof authSettingsHTML === 'function' ? authSettingsHTML() : '');   // v10: Utenti e accesso (10-auth.js)
 }

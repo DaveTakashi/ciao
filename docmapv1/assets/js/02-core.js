@@ -110,7 +110,7 @@ const I18N = {
     se_dest_prev:'Esempio', se_apply_dest:'Applica il modello a tutti i faldoni (sovrascrive le destinazioni personalizzate)', se_lang:'Lingua interfaccia',
     se_data:'Dati e sicurezza', se_storage:'Spazio occupato in localStorage: {k} KB', se_restore:'Ripristina da backup JSON', se_demo:'Ricarica dataset demo', se_wipe:'Svuota area di lavoro',
     se_wiped:'Area di lavoro svuotata', se_demo_done:'Dataset demo caricato', se_prev_restore:'Ripristina snapshot precedente', se_prev_done:'Snapshot precedente ripristinato',
-    se_prev_none:'Nessuno snapshot precedente disponibile', se_about:'DocMap 2026 (DM26) • versione {v} • file unico offline, nessun server. I dati restano nel tuo browser.',
+    se_prev_none:'Nessuno snapshot precedente disponibile', se_about:'DocMap 2026 (DM26) • versione {v} • funziona offline; i dati restano in questo browser (e sul server online dello studio, se collegato).',
     regenerated:'Nuovo short code generato', qr_modal:'QR Code', open_url:'Apri link'
   },
   en:{
@@ -190,7 +190,7 @@ const I18N = {
     se_dest_prev:'Example', se_apply_dest:'Apply the template to all binders (overwrites custom destinations)', se_lang:'Interface language',
     se_data:'Data & safety', se_storage:'localStorage usage: {k} KB', se_restore:'Restore from JSON backup', se_demo:'Reload demo dataset', se_wipe:'Clear workspace',
     se_wiped:'Workspace cleared', se_demo_done:'Demo dataset loaded', se_prev_restore:'Restore previous snapshot', se_prev_done:'Previous snapshot restored',
-    se_prev_none:'No previous snapshot available', se_about:'DocMap 2026 (DM26) • version {v} • single offline file, no server. Your data stays in your browser.',
+    se_prev_none:'No previous snapshot available', se_about:'DocMap 2026 (DM26) • version {v} • works offline; data stays in this browser (and on the studio online server, if connected).',
     regenerated:'New short code generated', qr_modal:'QR Code', open_url:'Open link'
   }
 };

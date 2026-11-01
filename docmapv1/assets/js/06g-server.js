@@ -312,13 +312,13 @@ function srvCardInner(){
     (SRV.role === 'viewer' ? '<div class="small muted">' + esc(t('sv_e_ro')) + '</div>' : '') + skew;
   const tokBtn = SRV.role === 'admin' ? '<button class="btn" data-a="srv-tokens">' + ic('users') + esc(t('sv_tokens')) + '</button>' : '';
   if (auto){
-    return '<div class="row between"><h2 style="margin:0">' + ic('globe') + ' ' + esc(t('sv_h')) + '</h2>' + srvStatusHTML().replace('id="srv-status"', 'id="srv-status-card"') + '</div>' +
+    return '<div class="row between"><h2 style="margin:0">' + ic('globe') + ' ' + esc(t('sv_h')) + (typeof helpDot === 'function' ? helpDot('server') : '') + '</h2>' + srvStatusHTML().replace('id="srv-status"', 'id="srv-status-card"') + '</div>' +
       '<div class="small muted">' + esc(t('sv_mode_auto')) + ' · <span class="mono">' + esc(dmServerUrl(dmConfig().apiBase)) + '</span></div>' + info +
       '<div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-primary" data-a="srv-sync">' + ic('sync') + esc(t('sv_sync_now')) + '</button>' + tokBtn + '</div>' +
       '<div class="row" style="gap:8px;align-items:flex-end;flex-wrap:wrap"><div class="field" style="min-width:260px"><label for="srv-newtok">' + esc(t('sv_newtok')) + '</label><input class="inp mono" id="srv-newtok" type="password" autocomplete="off"></div><button class="btn" data-a="srv-newtok">' + esc(t('sv_newtok_btn')) + '</button></div>';
   }
   const [bu, bp] = String(lc.basic || ':').split(/:(.*)/s);
-  return '<div class="row between"><h2 style="margin:0">' + ic('globe') + ' ' + esc(t('sv_h')) + '</h2></div><div class="small muted">' + esc(t('sv_p')) + '</div>' +
+  return '<div class="row between"><h2 style="margin:0">' + ic('globe') + ' ' + esc(t('sv_h')) + (typeof helpDot === 'function' ? helpDot('server') : '') + '</h2></div><div class="small muted">' + esc(t('sv_p')) + '</div>' +
     '<div class="grid g2" style="gap:10px"><div class="field"><label for="srv-url">' + esc(t('sv_url')) + '</label><input class="inp mono" id="srv-url" value="' + esc(lc.url || '') + '" placeholder="' + esc(t('sv_url_ph')) + '" autocomplete="off" spellcheck="false"></div>' +
       '<div class="field"><label for="srv-token">' + esc(t('sv_token')) + '</label><input class="inp mono" id="srv-token" type="password" value="' + esc(lc.token || '') + '" autocomplete="off"></div></div>' +
     '<details' + (lc.basic ? ' open' : '') + '><summary class="small">' + esc(t('sv_basic')) + '</summary><div class="grid g2" style="gap:10px;margin-top:6px"><div class="field"><label for="srv-buser">' + esc(t('sv_buser')) + '</label><input class="inp" id="srv-buser" value="' + esc(lc.basic ? bu : '') + '" autocomplete="off"></div>' +
