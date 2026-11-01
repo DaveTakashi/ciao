@@ -202,3 +202,15 @@ locale oggi e stub remoti pronti:
 
 Contratto completo: `API-CONTRACT.md`. Modello di sicurezza: `SICUREZZA.md`. Pubblicazione statica: `DEPLOY-WEB.md`.
 La pagina mobile del QR è `scan.html` (`11-scan.js`); la destinazione predefinita è `https://docmap.pr-it.it/studio-de/q/{short_code}`.
+
+
+## Fase successiva: mappatura location con QR location
+
+Rimandata dopo l'MVP. La posizione resta facoltativa nei campi `room_code`, `cabinet_code`, `shelf_code`, `sector_code` e `location_code`. Il progetto per la fase successiva prevede quattro elementi:
+
+1. **Tabella gerarchica** `locations(id, parent_id, kind, code, name, qr_short_code)`.
+2. **QR location**: un tipo di QR distinto da quello del faldone.
+3. **Scansione in "ascolto" da mobile**: si inquadra un QR location e poi i QR dei faldoni. Ogni faldone inquadrato viene assegnato a quella location finché non si inquadra la location successiva.
+4. **Inserimento manuale e import CSV**, che restano disponibili.
+
+Le assegnazioni finiscono in `activity_log`. Vedi anche `docs/HANDOFF_PROMPT.md` §3b.

@@ -78,6 +78,17 @@ Usa questo MVP **come front-end** e costruisci dietro di lui la parte di gestion
    - Il manifest per qr7.it si esporta dall'app (`short_code;short_url;final_destination;tags`).
 7. **Analisi e funzioni avanzate:** analisi profonda, ricerca, AI con un'API indipendente dal fornitore, hub multi-utente. Segui HUB-E-API.md come progetto di partenza.
 
+## 3b. Prossima fase già decisa: mappatura delle location con i "QR location"
+
+Nell'MVP la posizione del faldone (stanza, armadio, ripiano, settore) è **facoltativa**: sta nel database e, se si vuole, sull'etichetta. La mappatura completa degli archivi l'ho rimandata a una fase successiva, che ti chiedo di progettare così:
+
+1. **Inizializzazione degli archivi:** una pipeline in cui creo tutti gli ambienti di lavoro: sedi, stanze, armadi, scaffali, scatole. Ogni contenitore ha un genitore, così il contenitore più piccolo sta dentro quello più grande, e ha il suo **QR location** (un nuovo tipo di QR, distinto da quello del faldone, stampabile con lo stesso motore di etichette).
+2. **Mappatura veloce con il telefono:**
+   - Inquadro un QR location: l'app entra in "ascolto" e assegna a quella location ogni QR di faldone che inquadro dopo.
+   - Quando inquadro il QR location successivo, chiude la location precedente (riepilogo: quanti faldoni, eventuali spostamenti da un'altra location) e passa ad ascoltare la nuova.
+   - Così mappo in fretta un archivio esistente dopo aver attaccato le etichette.
+3. **Flessibilità:** le location devono restare inseribili anche a mano e con import CSV, come oggi (`room_code`, `cabinet_code`, `shelf_code`, `sector_code`, `location_code`). Il modello gerarchico delle location deve restare compatibile con questi campi. Ogni assegnazione va nel registro attività.
+
 ## 4. Cosa protegge oggi la versione web e cosa no (da sapere)
 
 La cartella `deploy/studio-de/` è un sito **statico**: sul server c'è solo il programma, **nessun dato**.
