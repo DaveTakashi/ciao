@@ -481,6 +481,21 @@ const sec = (n) => console.log('\n== ' + n);
   await p.evaluate(() => { guideStop(); closeModal(true); S.print.advanced = false; S.view = 'print'; renderAll(); guideStart('partial'); }); await p.waitForTimeout(900);
   ok(await p.evaluate(() => $('#pr-adv').open), 'guide opens "Advanced options" when its step is inside');
   await p.evaluate(() => { guideStop(); S.view = 'archive'; renderAll(); });
+  // ===== v8 stream A (navigation + Informazioni + QR overview) — add tests below this line =====
+  // @@STREAM-A@@
+
+  // ----------------------------------------------------------------------
+
+  // ===== v8 stream B (binder editor: typeahead, contents status, quick location, contacts/notes) =====
+  // @@STREAM-B@@
+
+  // ----------------------------------------------------------------------
+
+  // ===== v8 stream C (Excel import + column mapping) =====
+  // @@STREAM-C@@
+
+  // ----------------------------------------------------------------------
+
   console.log('\nerrors:', errs.length ? errs.join('\n') : 'none');
   if (errs.length) fails += errs.length;
   console.log(`\nRESULT: ${passes} passed, ${fails} failed`);
