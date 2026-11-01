@@ -858,6 +858,12 @@ const sec = (n) => console.log('\n== ' + n);
   ok(/Match the columns/.test(v.h) && v.help && v.accept.includes('.xlsx'), 'English mapping screen, Excel help topic, .xlsx accepted by the file picker', v);
   await p.evaluate(() => { S.lang = 'it'; UI.imap = null; UI.importParsed = null; UI.importText = ''; S.view = 'archive'; renderAll(); });
 
+  // @@STREAM-T@@
+
+  // @@STREAM-P@@
+
+  // @@STREAM-L@@
+
   // ----------------------------------------------------------------------
 
   console.log('\nerrors:', errs.length ? errs.join('\n') : 'none');
