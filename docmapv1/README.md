@@ -10,6 +10,14 @@ Archivio fisico-digitale: raccoglitori con codice parlante (BL1), posizione sull
 
 Al primo avvio parte un breve tour. Il pulsante **?** in alto (o F1) apre la guida con le azioni guidate.
 
+## Novità v9 in breve
+
+- **Etichetta informazioni** (nuovo modello predefinito su MRINK143): Codice Multi grande, ragione sociale grandissima che va a capo senza spezzare le parole, QR con indirizzo. L'etichetta completa di prima resta come **classica**.
+- **Etichetta del contenuto** facoltativa sull'altra metà della stessa etichetta fisica.
+- **Bordi uguali**: compensa il bordo non stampabile e il taglio a mano.
+- **Scarica PDF**: file pronto per la stampa, da stampare anche da un altro PC al 100%.
+- **Registro attività** con il nome di chi ha fatto cosa.
+
 ## Novità v8 in breve
 
 - **Barra in alto più semplice:** solo Archivio, Stampa etichette e Informazioni. Import, export, AI, database e impostazioni sono nel menu **⚙ Funzioni avanzate**.
@@ -228,4 +236,4 @@ Servono Node.js, `playwright`, `jsqr`, `pngjs` e Python con `pypdfium2`.
 cd tests && npm i playwright jsqr pngjs && pip install pypdfium2 && node suite.js
 ```
 
-La suite (569 controlli) apre l'app in Chromium. Controlla tutte le schermate e stampa ogni formato in PDF, leggendo ogni QR uno per uno. Verifica anche import ed export, SQLite, le guide, le prestazioni con 2000 faldoni e i casi limite trovati nella caccia ai bug. Dalla v6–v7 controlla anche le 8 etichette di MRINK143, la vista orizzontale, i campi vuoti, campi, anagrafica clienti, dati demo, ripiani e la guida libera. Dalla v8 anche menu e Informazioni, ristampa solo QR, suggerimenti dell'editor, stato dei documenti, posizione rapida, contatti e note, import Excel.
+La suite (oltre 650 controlli) apre l'app in Chromium. Controlla tutte le schermate e stampa ogni formato in PDF, leggendo ogni QR uno per uno. Verifica anche import ed export, SQLite, le guide, le prestazioni con 2000 faldoni e i casi limite trovati nella caccia ai bug. Dalla v6–v7 controlla anche le 8 etichette di MRINK143, la vista orizzontale, i campi vuoti, campi, anagrafica clienti, dati demo, ripiani e la guida libera. Dalla v8 anche menu e Informazioni, ristampa solo QR, suggerimenti dell'editor, stato dei documenti, posizione rapida, contatti e note, import Excel. Dalla v9 anche l'etichetta informazioni, i bordi uguali, lo Scarica PDF (QR letti dal PDF scaricato) e il registro attività.

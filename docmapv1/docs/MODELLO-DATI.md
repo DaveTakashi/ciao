@@ -2,7 +2,7 @@
 
 **Questo documento è il contratto tra l'MVP e il sistema Python dello studio.** In caso di dubbio vincono il modello dati e la UX dell'MVP: il sistema Python si allinea a questi nomi, tipi e regole.
 
-Baseline: **v8** — `APP_VERSION '26.8.0'`, schema stato `26.8`, `DB_SCHEMA_VERSION 4`.
+Baseline: **v9** — `APP_VERSION '26.9.0'`, schema stato `26.9`, `DB_SCHEMA_VERSION 5` (v9 aggiunge i modelli di etichetta, `print.info`, `print.edge`, il registro attività e lo Scarica PDF; vedi §11).
 I campi nuovi della v8 sono segnati **(v8)**; il riepilogo delle differenze dalla v7 è nel §10.
 
 Fonti nel codice: `assets/js/02-core.js` (`normalizeBinder`, `normalizeClient`, `CSV_COLUMNS`, `CI_STATUSES`, `normCiStatus`, `pipeToContents`, `defaultState`, `migrate`), `04-ui.js` (`HEADER_ALIASES`, `binderToCsvRow`, `workspaceJSON`, `csvTemplateHeader`), `06-db.js` (`DB_DDL`, `dbMigrate`, `dbReadWorkspace`), `06b-photos.js`, `06c-clients.js`, `06d-info.js` (`catColors`, `qrPreset`, `printPrev`), `05b-import-map.js` (`importMappings`).
@@ -110,7 +110,7 @@ Le chiavi di `settings` viaggiano nel workspace JSON e nella tabella SQLite `set
 | `geometryModified` | `true` se diversa dal preset |
 | `padding` | margine interno mm (default 4) |
 | `offsetX`, `offsetY` | calibrazione mm (default 0) |
-| `contentMode` | `split` (etichetta completa, default) · `pair` · `a` · `b` · `u` · `qr` **(v8)** (solo QR, tipo di etichetta `Q`) |
+| `contentMode` | **v9:** `info` (etichetta informazioni, default; tipi `I` + `C` se `info.pair`) · `split` (etichetta completa classica) · `pair` · `a` · `b` · `u` · `qr` **(v8)** (solo QR, tipo di etichetta `Q`) |
 | `template` | `classic` · `multi` · `bold` · `minimal` (etichetta A) |
 | `showMulti` | default `true` |
 | `fields` | sovrascritture di `{category, city, multi, url, title, year, contents, tags, extra, location, contacts, notes, date:'created'|'updated'|'none', empty}`; default tutti `true` tranne `contacts:false`, `notes:false` **(v8)**, `date:'created'`, `empty:false` |
@@ -344,11 +344,11 @@ Regole:
 {
   "app": "DocMap26",
   "format": "docmap_workspace",
-  "version": "26.8.0",
+  "version": "26.9.0",
   "exported_at": "2026-11-01T10:00:00.000Z",
   "settings": {"studioName": "…", "destTemplate": "https://studiodallasta.it/docmap/?code={speaking_code}&qr={short_code}", "qrEcc": "M", "catColors": {}, "qrPreset": "l7159"},
   "lang": "it",
-  "print": {"presetId": "mrink143", "geometry": {"w":105,"h":74,"cols":2,"rows":4,"marginTop":0.5,"marginLeft":0,"gapX":0,"gapY":0,"radius":0,"cut":false,"group":2,"turn":true}, "contentMode": "split", "…": "…"},
+  "print": {"presetId": "mrink143", "geometry": {"w":105,"h":74,"cols":2,"rows":4,"marginTop":0.5,"marginLeft":0,"gapX":0,"gapY":0,"radius":0,"cut":false,"group":2,"turn":true}, "contentMode": "info", "info": {"items": 2, "pair": false}, "edge": {"outer": 4, "cut": 1, "byPreset": {}}, "…": "…"},
   "customPresets": [],
   "usedSlots": {"mrink143": []},
   "binders": [{
@@ -395,3 +395,16 @@ Una sessione è una riga di `sessions` con `name`, `note`, `created_at`, `binder
 Versioni: `APP_VERSION 26.8.0`, schema stato `26.8` (unico passo di `migrate()`: `view:'clients'` → `view:'info'` + `infoTab:'clients'`), `DB_SCHEMA_VERSION 4` (migrazione additiva in `dbMigrate()`).
 Non implementato in v8: contatti come lista strutturata (`{name, role, phone, email}`), note stampate nel Registro Generale, stato delle voci nel Registro Generale, chiave esterna `client_id` tra faldone e cliente.
 Per i campi futuri: aggiungerli **in coda** a `CSV_COLUMNS` (dopo `updated_at`), con alias, `ALTER TABLE` additivo, bump di schema e prompt AI. Checklist completa in `../AGENTS.md` §4.
+
+
+## 11. Novità v9 (APP_VERSION 26.9.0, schema stato 26.9, DB 5)
+
+| Dove | Campo | Significato |
+|---|---|---|
+| `S.print.contentMode` | `'info'` (nuovo default) | Modello "Etichetta informazioni": Multi grande (o codice parlante con didascalia CODICE), categoria · codice, ragione sociale adattata allo spazio e mai spezzata a metà parola, QR + URL, prime voci, tag e data. Registro dei modelli: `LABEL_TEMPLATES` in 03-print.js. |
+| `S.print.info` | `{items:0..2, pair:false}` | `items` = prime voci del contenuto stampate in fondo; `pair` = stampa anche l'etichetta del contenuto (tipo `C`) sull'altra metà della stessa etichetta fisica. |
+| `S.print.edge` | `{outer:4, cut:1, byPreset:{[presetId]:bool}}` | Bordi uguali: ogni etichetta stampa dentro la stessa area sicura centrata (inset = max(padding, outer) + `cut` sui lati tagliati a mano). Acceso di default sui fogli tagliati a mano (MRINK143), spento sui fustellati. |
+| `S.settings.operator` | stringa | Nome dell'operatore scritto nel registro attività (vuoto → "Questo PC"). |
+| SQLite `activity_log` | vedi §7.2 | Registro attività, ultime 20 000 voci, anche nel backup JSON (`activity_log`). |
+
+Migrazione `migrate()` 26.9: se il preset è `mrink143` e la modalità era `split`, passa una volta a `info`. Lo Scarica PDF (05c-pdf.js, font in `vendor/pdf-fonts.js`) non aggiunge campi: costruisce il PDF dall'HTML di `buildLabelSheets(false)`.

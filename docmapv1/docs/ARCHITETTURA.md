@@ -246,3 +246,12 @@ Ogni riga passa da `mapRecord()` (alias intestazioni → campi), riceve codice p
 - Stato: `schema` 26.7 → 26.8; `view:'clients'` diventa `view:'info'` con `infoTab:'clients'`. Nessun altro passo: i faldoni ricevono `contacts:''`, `notes:''` e ogni voce `status:'archive'` da `normalizeBinder()`.
 - SQLite: `DB_SCHEMA_VERSION` 3 → 4, `dbMigrate()` aggiunge `binders.contacts`, `binders.notes` e `contents_items.status DEFAULT 'archive'` ai file vecchi; `dbReadWorkspace()` legge `contents_items` con `SELECT *` per accettare anche i file senza `status`.
 - CSV: 25 → 27 colonne (`contacts`, `notes` dopo `shelf_color`); i file v7 si importano ancora per intestazione. Dettagli in `MODELLO-DATI.md`.
+
+
+## 11. v9: modelli di etichetta, bordi uguali, Scarica PDF, registro
+
+- **Registro dei modelli** `LABEL_TEMPLATES` (03-print.js): ogni voce dice quali tipi di etichetta stampa per faldone (`info` → `I`, oppure `I`+`C` in coppia se `S.print.info.pair`; `split` → `S`; `pair` → `A`+`B`; `a`, `b`, `u`, `qr`), se è in coppia, su quali preset è consigliato e quali opzioni mostra. `modeKinds(m, P)`, i pulsanti "Contenuto etichette" e l'anteprima leggono dal registro. I modelli in coppia iniziano sempre su un'etichetta fisica nuova.
+- **Adattamento del testo**: `fitWrap` / `fitLine` misurano in un elemento sonda nascosto (`.lab.lab-probe`) con ricerca binaria e cache (testo + riquadro); la dimensione finale è scritta nell'HTML, quindi anteprima, stampa e PDF coincidono. La cache si svuota quando i font finiscono di caricarsi.
+- **Bordi uguali** (`S.print.edge`): `renderSlotLabel` disegna ogni etichetta nella stessa area sicura centrata; il contorno tratteggiato è solo a schermo.
+- **Scarica PDF** (05c-pdf.js): impagina fuori schermo l'HTML di `buildLabelSheets(false)`, misura ogni etichetta non ruotata e la riposiziona con una matrice; rettangoli e QR vettoriali, testo vero con sottoinsiemi di Inter / JetBrains Mono incorporati (CIDFontType2, Identity-H, ToUnicode), stream compressi con `CompressionStream`. Ciò che `@media print` nasconde non entra nel PDF.
+- **Registro attività** (06e-log.js): `logAct(action, target, summary, details, source)`; tabella SQLite `activity_log`, specchio in memoria, voci in attesa in `localStorage docmap_v26_log_pending`. Gli hook sono wrapper installati al caricamento, quindi 03-print.js non dipende dal registro.

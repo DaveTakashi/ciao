@@ -8,7 +8,7 @@ User-facing docs are Italian (`README.md`, `docs/*.md`); code, identifiers and t
 - Future online hub & API blueprint, not implemented (IT): `docs/HUB-E-API.md`
 - Guide for the Python team (IT): `docs/ALLINEAMENTO-PYTHON.md`
 
-Baseline described here: **v8** (`APP_VERSION = '26.8.0'`, state `schema: 26.8`, `DB_SCHEMA_VERSION = 4`).
+Baseline described here: **v9** (`APP_VERSION = '26.9.0'`, state `schema: 26.9`, `DB_SCHEMA_VERSION = 5`). v9 adds the label template registry `LABEL_TEMPLATES` (03-print.js; default `info`), `S.print.info`, `S.print.edge`, the PDF exporter (05c-pdf.js) and the activity log (06e-log.js, `logAct()`). To add a label template: add an entry to `LABEL_TEMPLATES` (kinds per binder, paired or not, recommended presets, options HTML), a renderer for any new kind in `renderLabel`, i18n keys, and tests; the PDF exporter needs no change because it reads the rendered DOM.
 What changed from v7 is summarised in §10.
 
 ---
@@ -130,9 +130,9 @@ The suite opens `index.html` via `file://` in Chromium and checks every view (no
 
 | What | Where | Bump when |
 |------|-------|-----------|
-| `APP_VERSION` (`'26.8.0'`) | 02-core | every release; written into workspace JSON `version` |
-| State schema (`26.8`) | `defaultState().schema` and the final `o.schema = …` in `migrate()` | state shape or defaults change; add a guarded step `if (!(st && st.schema >= 26.x)) {…}` |
-| `DB_SCHEMA_VERSION` (`4`) | 06-db | SQLite DDL changes; add an additive migration in `dbMigrate()` (never drop columns), note the change in the comment |
+| `APP_VERSION` (`'26.9.0'`) | 02-core | every release; written into workspace JSON `version` |
+| State schema (`26.9`) | `defaultState().schema` and the final `o.schema = …` in `migrate()` | state shape or defaults change; add a guarded step `if (!(st && st.schema >= 26.x)) {…}` |
+| `DB_SCHEMA_VERSION` (`5`) | 06-db | SQLite DDL changes; add an additive migration in `dbMigrate()` (never drop columns), note the change in the comment |
 | `LS_KEY` (`docmap_v26_state`) | 02-core | never (would orphan users' data) |
 
 Migrations must be **idempotent and additive**: old JSON, CSV (17/16-column) and `.sqlite` files must keep importing.
