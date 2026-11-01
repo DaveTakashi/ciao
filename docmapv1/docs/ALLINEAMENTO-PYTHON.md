@@ -10,7 +10,7 @@ Guida breve per il team Python dello studio, aggiornata alla **v8** (`APP_VERSIO
 | `docmap_workspace.json` | ⚙ Funzioni avanzate › Esporta e Salva → Sessione completa JSON (o Backup rapido) | faldoni, clienti, impostazioni, stampa, preset, fogli parziali (no foto) | scambio programmatico semplice |
 | `docmap_full_backup.csv` | ⚙ Funzioni avanzate › Esporta e Salva → Database completo CSV | faldoni, 27 colonne `;`, BOM UTF-8 | Excel, controlli manuali |
 | `docmap_clienti.csv` | Informazioni › Clienti → Esporta | anagrafica | confronto con il gestionale |
-| `manifest_qr7_dm26.csv` | ⚙ Funzioni avanzate › Esporta e Salva → Manifest | `short_code;short_url;final_destination;tags` | server di redirect qr7.it |
+| `manifest_qr7_dm26.csv` | ⚙ Funzioni avanzate › Esporta e Salva → Manifest | `short_code;short_url;final_destination;tags;` (ogni riga termina con `;`, v11) | server di redirect qr7.it |
 
 In ingresso DocMap accetta gli stessi formati: CSV (27, 25, 22 o 20 colonne, intestazioni anche in italiano; colonne con altri nomi si abbinano a mano), Excel `.xlsx`, workspace JSON, `.sqlite` (anche v1–v3), e l'anagrafica clienti con intestazione `TIPO;Ditta;Ragione_soc;Indirizzo;Codice_com;Cap;Localita;Provincia;ETS_ENC`.
 

@@ -185,7 +185,7 @@ Field-level details and file formats: `docs/MODELLO-DATI.md`.
 
 - Don't add `type="module"`, `import`/`export`, `fetch()` of local files, CDNs, web fonts, analytics or any network call.
 - Don't add frameworks, TypeScript, build steps or npm runtime deps.
-- Don't rename or reorder existing `CSV_COLUMNS`, manifest header (`short_code;short_url;final_destination;tags`), SQLite columns, `LS_KEY` or state keys.
+- Don't rename or reorder existing `CSV_COLUMNS`, manifest header (`short_code;short_url;final_destination;tags;` (every line ends with `;` since v11)), SQLite columns, `LS_KEY` or state keys.
 - Don't regenerate or reuse an existing `short_code` silently; don't change `id`s on import/merge.
 - Don't invent `multi_code`, clients, documents or locations (in code, demo data or AI prompts).
 - Don't print the `demo` tag or demo binders when `hideDemo` is on.

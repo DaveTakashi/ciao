@@ -270,9 +270,13 @@ const MANIFEST_HEADER = ['short_code','short_url','final_destination','tags'];
 function exportManifest(){
   const rows = [MANIFEST_HEADER].concat(sortedBinders().filter(b => b.short_code).map(manifestRow));
   const name = 'manifest_qr7_dm26.csv';
-  download(name, toCSV(rows, ';').replace(/\r\n/g, '\n'), 'text/csv');
+  download(name, manifestText(rows), 'text/csv');
   markExported(name); toast(t('ex_done', {f:name}));
 }
+// qr7 manifest format (v11): every line, header included, ends with the delimiter ';'
+function manifestLineEnd(line, delim){ delim = delim || ';'; return (!line.trim() || line.endsWith(delim)) ? line : line + delim; }
+// rows we generate always get the extra ';' (a row whose last field is empty must still end with one more ';')
+function manifestText(rows){ return rows.map(r => r.map(v => csvField(v, ';')).join(';') + ';').join('\n') + '\n'; }
 function mergeManifest(text, prune){
   const bom = text.charCodeAt(0) === 0xFEFF;
   let src = bom ? text.slice(1) : text;
@@ -295,7 +299,7 @@ function mergeManifest(text, prune){
     const val = {short_code:b.short_code, short_url:b.short_url, final_destination:destFor(b), tags:manifestTags(b)};
     ours.set(b.short_code, normCols.map(c => csvField(val[c] != null ? val[c] : '', delim)).join(delim));
   });
-  const out = [header]; let kept = 0, updated = 0, removed = 0;
+  const out = [manifestLineEnd(header, delim)]; let kept = 0, updated = 0, removed = 0;
   const seenOurs = new Set();
   body.forEach(line => {
     if (!line.trim()){ out.push(line); return; }
@@ -303,9 +307,9 @@ function mergeManifest(text, prune){
     const code = f.trim();
     if (ours.has(code)){ if (!seenOurs.has(code)){ updated++; seenOurs.add(code); } return; }
     if (prune && /^dm26[A-Za-z0-9]{8}$/.test(code)){ removed++; return; }
-    out.push(line); kept++;
+    out.push(manifestLineEnd(line, delim)); kept++;
   });
-  ours.forEach(row => out.push(row));
+  ours.forEach(row => out.push(row + delim));
   return { text:(bom ? '﻿' : '') + out.join(eol) + eol, kept, updated, added:ours.size - updated, removed };
 }
 function exportFullCSV(){

@@ -588,7 +588,7 @@ function applyImport(mode){
 function viewExport(){
   const card = (n, title, desc, inner) => '<div class="card card-p exp-card"><div class="row" style="flex-wrap:nowrap;align-items:flex-start"><div class="exp-n">' + n + '</div><div><h2>' + esc(title) + '</h2><p class="card-sub" style="margin:4px 0 0">' + esc(desc) + '</p></div></div>' + inner + '</div>';
   const sample = sortedBinders().slice(0, 3).filter(b => b.short_code);
-  const manPrev = [MANIFEST_HEADER.join(';')].concat(sample.map(b => manifestRow(b).join(';'))).join('\n');
+  const manPrev = manifestText([MANIFEST_HEADER].concat(sample.map(manifestRow))).trimEnd();
   return '<div class="page-h"><div><h1>' + esc(t('ex_h')) + helpDot('manifest') + '</h1><p>' + esc(t('ex_p')) + '</p></div><div class="small muted">' + esc(S.lastExportAt ? t('ex_last', {d:fmtDate(S.lastExportAt, true)}) + ' • ' + (S.lastExportFile || '') : t('ex_never')) + '</div></div>' +
     '<div class="grid g2">' +
     card(1, t('ex1'), t('ex1_d'), '<div class="codebox" style="max-height:150px">' + esc(manPrev) + (S.binders.length > 3 ? '\n…' : '') + '</div><button class="btn btn-lg btn-primary" data-a="ex-manifest">' + ic('download') + esc(t('ex1_btn')) + '</button>' +

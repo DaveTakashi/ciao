@@ -216,9 +216,11 @@ Generato da `csvTemplateHeader()` e incluso nel prompt di `buildAIPrompt()`, che
 ### 6.3 Manifest qr7.it `manifest_qr7_dm26.csv`
 
 ```
-short_code;short_url;final_destination;tags
-dm26K8m2P9xL;https://qr7.it/dm26K8m2P9xL;https://docmap.pr-it.it/studio-de/q/dm26K8m2P9xL;docmap26,BL1,multi-m-10234,barbieri-luigi
+short_code;short_url;final_destination;tags;
+dm26K8m2P9xL;https://qr7.it/dm26K8m2P9xL;https://docmap.pr-it.it/studio-de/q/dm26K8m2P9xL;docmap26,BL1,multi-m-10234,barbieri-luigi;
 ```
+
+**v11:** ogni riga, intestazione compresa, termina con `;` (formato richiesto da qr7.it). L'export e l'unione lo aggiungono sempre alle righe generate; le righe esistenti conservate dall'unione lo ricevono se mancante. In lettura il campo vuoto finale si ignora.
 
 `tags` = `docmap26`, codice parlante, `multi-<slug multi_code>` (se presente), slug del cliente. L'unione con un `manifest.csv` esistente conserva tutte le righe non `dm26`, il delimitatore, il BOM e il fine riga originali.
 Nota: la vista SQLite `v_manifest_qr7` usa tag ridotti (`docmap26,<speaking_code>`); il file esportato dall'app è quello di riferimento.

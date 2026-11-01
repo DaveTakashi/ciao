@@ -183,7 +183,7 @@ Predefinito: **MRINK143** (4 etichette fisiche 105×148 = 8 etichette 105×74). 
 - Fai spesso "Backup rapido" (JSON) oppure scarica il `.sqlite`.
 - Il CSV di backup è protetto dalle formule di Excel: le celle che iniziano con `= + - @` ricevono un apostrofo, che DocMap toglie da solo quando reimporti il file.
 - CSV: separatore `;`. Excel va bene in UTF-8, UTF-16 o ANSI (Windows-1252): la codifica viene riconosciuta da sola.
-- Manifest qr7.it: `short_code;short_url;final_destination;tags`. La destinazione predefinita (v10) è `https://docmap.pr-it.it/studio-de/q/{short_code}` e si cambia nelle Impostazioni.
+- Manifest qr7.it: `short_code;short_url;final_destination;tags;` (ogni riga termina con `;`, v11). La destinazione predefinita (v10) è `https://docmap.pr-it.it/studio-de/q/{short_code}` e si cambia nelle Impostazioni.
 
 ## Colori dei dorsi (v10)
 
