@@ -255,3 +255,13 @@ Ogni riga passa da `mapRecord()` (alias intestazioni → campi), riceve codice p
 - **Bordi uguali** (`S.print.edge`): `renderSlotLabel` disegna ogni etichetta nella stessa area sicura centrata; il contorno tratteggiato è solo a schermo.
 - **Scarica PDF** (05c-pdf.js): impagina fuori schermo l'HTML di `buildLabelSheets(false)`, misura ogni etichetta non ruotata e la riposiziona con una matrice; rettangoli e QR vettoriali, testo vero con sottoinsiemi di Inter / JetBrains Mono incorporati (CIDFontType2, Identity-H, ToUnicode), stream compressi con `CompressionStream`. Ciò che `@media print` nasconde non entra nel PDF.
 - **Registro attività** (06e-log.js): `logAct(action, target, summary, details, source)`; tabella SQLite `activity_log`, specchio in memoria, voci in attesa in `localStorage docmap_v26_log_pending`. Gli hook sono wrapper installati al caricamento, quindi 03-print.js non dipende dal registro.
+
+## 12. v10: Modifica massiva (`05d-bulk.js`)
+
+- Sotto-vista dell'Archivio (pulsante **Modifica massiva**), attiva finché `BK.on` è vero (stato effimero, non salvato). `renderView()` mostra `viewBulk()` al posto di `viewArchive()`.
+- Righe = `filteredBinders()` (stessi filtri dell'archivio), ordinate e raggruppate a richiesta; colonne da `BULK_COLS`, visibili secondo `S.settings.bulkCols`.
+- Le modifiche sono **in sospeso** in `BK.draft` (id → campi); ogni operazione è un passo annullabile (`BK.hist`). La validazione (`bkValidate`) usa le stesse regole dell'editor: codice parlante obbligatorio e unico su tutto l'archivio, cliente obbligatorio.
+- Salvataggio: `undoPoint()` → `normalizeBinder()` per ogni faldone cambiato → una sola voce `binder.bulk_edit` nel registro con i campi cambiati per faldone → `commit()` → `undoToast()` (un solo Annulla ripristina tutto).
+- Rendering a finestra: in DOM solo le righe visibili (altezza fissa 34 px) più un margine, così 2000+ faldoni scorrono fluidi.
+- Le celle usano il typeahead dell'editor (`taAttach` + `ED_SOURCES`) per non creare doppioni (grafia del cliente, categorie, tag, posizioni).
+
