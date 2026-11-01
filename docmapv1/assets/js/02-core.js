@@ -383,8 +383,8 @@ const BUILTIN_PRESETS = [
   {id:'a4-5s', kind:'full', name:'A4 adesivo intero — 5 strisce dorso 190×54 (1×5)', w:190, h:54, cols:1, rows:5, marginTop:13.5, marginLeft:10, gapX:0, gapY:0, radius:0, cut:true},
   {id:'a4-4s', kind:'full', name:'A4 adesivo intero — 4 strisce dorso larghe 190×66 (1×4)', w:190, h:66, cols:1, rows:4, marginTop:16.5, marginLeft:10, gapX:0, gapY:0, radius:0, cut:true}
 ];
-const DEFAULT_DEST = 'https://studiodallasta.it/docmap/?code={speaking_code}&qr={short_code}';
-const OLD_DEFAULT_DESTS = ['https://archivio.studiodemo.it/view?code={speaking_code}&qr={short_code}'];
+const DEFAULT_DEST = 'https://docmap.pr-it.it/studio-de/q/{short_code}';   // v10: pilot web app (path routing, docs/DEPLOY-WEB.md)
+const OLD_DEFAULT_DESTS = ['https://archivio.studiodemo.it/view?code={speaking_code}&qr={short_code}', 'https://studiodallasta.it/docmap/?code={speaking_code}&qr={short_code}'];   // replaced by DEFAULT_DEST only when left unchanged
 const GEO_KEYS = ['w','h','cols','rows','marginTop','marginLeft','gapX','gapY','radius'];
 function allPresets(){ return BUILTIN_PRESETS.concat(S.customPresets || []); }
 function findPreset(id){ return allPresets().find(p => p.id === id) || BUILTIN_PRESETS[0]; }
@@ -460,6 +460,12 @@ function migrate(st){
   return o;
 }
 function loadState(){
+  // v10 web mode: the state comes from the encrypted vault, decrypted at login (10-auth.js DocMapVault)
+  if (window.DocMapVault && DocMapVault.isActive()){
+    const vs = DocMapVault.takeState();
+    if (vs) return migrate(vs);
+    const st0 = defaultState(); S = st0; window.S = st0; st0.binders = demoBinders(); return st0;
+  }
   let raw = null;
   try { raw = localStorage.getItem(LS_KEY); } catch(e){ storageOk = false; }
   if (raw){
@@ -475,6 +481,11 @@ function loadState(){
 let saveTimer = null;
 function persist(){
   S.lastSavedAt = nowISO();
+  if (window.DocMapVault && DocMapVault.isActive()){   // v10 web mode: encrypted at rest, never plaintext in localStorage
+    DocMapVault.saveState(S); storageOk = true;
+    if (typeof dbScheduleSync === 'function') dbScheduleSync();
+    return;
+  }
   try {
     const cur = localStorage.getItem(LS_KEY);
     if (cur) localStorage.setItem(LS_PREV, cur);
@@ -501,7 +512,7 @@ function markExported(file){
   persist(); renderTopbar();
 }
 window.addEventListener('beforeunload', (e) => {
-  if (S && S.hasUnexportedChanges){ e.preventDefault(); e.returnValue = ''; return ''; }
+  if (S && S.hasUnexportedChanges && !window.__dmLocking){ e.preventDefault(); e.returnValue = ''; return ''; }
 });
 window.addEventListener('storage', (e) => {
   if (e.key === LS_KEY && e.newValue && S){

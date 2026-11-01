@@ -183,7 +183,7 @@ Predefinito: **MRINK143** (4 etichette fisiche 105×148 = 8 etichette 105×74). 
 - Fai spesso "Backup rapido" (JSON) oppure scarica il `.sqlite`.
 - Il CSV di backup è protetto dalle formule di Excel: le celle che iniziano con `= + - @` ricevono un apostrofo, che DocMap toglie da solo quando reimporti il file.
 - CSV: separatore `;`. Excel va bene in UTF-8, UTF-16 o ANSI (Windows-1252): la codifica viene riconosciuta da sola.
-- Manifest qr7.it: `short_code;short_url;final_destination;tags`. La destinazione predefinita è `https://studiodallasta.it/docmap/?code={speaking_code}&qr={short_code}` e si cambia nelle Impostazioni.
+- Manifest qr7.it: `short_code;short_url;final_destination;tags`. La destinazione predefinita (v10) è `https://docmap.pr-it.it/studio-de/q/{short_code}` e si cambia nelle Impostazioni.
 
 ## Colori dei dorsi (v10)
 
@@ -192,6 +192,28 @@ I colori dei faldoni ora si scelgono da soli, in modo armonioso. Ogni categoria 
 ## Registro attività
 
 Nel menu **⚙ Funzioni avanzate › Registro attività** trovi l'elenco di tutto quello che è stato fatto, dal più recente: faldoni creati, modificati (con i campi cambiati, prima → dopo), duplicati ed eliminati, operazioni annullate, import, export e backup, stampe e PDF delle etichette, modifiche in Informazioni e nell'anagrafica clienti, sessioni e file del database. Per sapere **chi** ha fatto cosa scrivi il tuo nome in **Impostazioni › Il tuo nome (operatore)** (o in cima al registro); senza nome le operazioni risultano fatte da "Questo PC". Puoi cercare per testo, tipo di operazione, persona e date, cliccare il codice di un faldone per aprirlo ed esportare le righe in CSV per Excel. Il registro sta nel database SQLite (anche nel `.sqlite` scaricato) e nei backup JSON; restano le ultime 20.000 operazioni.
+
+## Telefono, login e versione web (v10)
+
+- **Dopo la scansione del QR** si apre la pagina mobile del faldone (`scan.html`). Senza login non mostra nessun dato,
+  nemmeno il codice: solo il nome dello studio e il modulo di accesso. Dopo il login: codice grande, Multi, cliente,
+  **Dov'è?** (con la foto dell'armadio e il ripiano segnato, se c'è), contenuti con lo stato, ultima modifica.
+- Chi **può modificare** tocca il grande pulsante tondo **Modifica**: stato del faldone, stato di ogni documento
+  (in archivio / in uso / al cliente), posizione rapida (es. `B2-γ-DX`), note e tag. Se intanto il faldone è stato
+  cambiato dal PC, il telefono avvisa e chiede se ricaricare o salvare comunque. Ogni modifica va nel **Registro
+  attività** con la fonte **mobile**.
+- **Utenti**: in ⚙ Funzioni avanzate › **Impostazioni › Utenti e accesso** (nome utente, PIN o password, ruolo
+  *Solo lettura* / *Può modificare* / *Amministratore*). Il PIN è salvato solo come impronta PBKDF2. Sul PC, in locale,
+  il programma continua a funzionare senza login. **Anteprima mobile** (finestra QR e scheda del faldone) apre la
+  pagina del telefono in una nuova scheda.
+- **Destinazione predefinita dei QR**: `https://docmap.pr-it.it/studio-de/q/{short_code}` (se non l'avevi cambiata).
+- **Versione web** (`https://docmap.pr-it.it/studio-de/`): `python3 docmapv1/tools/build_deploy.py` crea la cartella
+  `deploy/studio-de/` da caricare. Sul server c'è solo il programma; i dati restano **cifrati nel browser** di ogni
+  dispositivo e si aprono con il login (ogni dispositivo crea il suo amministratore al primo accesso e importa i dati
+  dal pacchetto di sincronizzazione). Dettagli: `docs/DEPLOY-WEB.md`, `docs/SICUREZZA.md`, `docs/API-CONTRACT.md`.
+- Limiti di oggi: utenti e dati valgono solo nel browser dove sono stati creati; niente sincronizzazione automatica
+  né revoca a distanza (arrivano con il back-end Python); PIN perso da tutti gli amministratori = dati di quel
+  browser da reimportare.
 
 ## Problemi comuni
 
@@ -215,7 +237,7 @@ Nel menu **⚙ Funzioni avanzate › Registro attività** trovi l'elenco di tutt
 
 - [ ] Prova su stampante reale con il foglio MRINK143 (verso di rotazione e linea di taglio), poi L7160 e A4 intero
 - [ ] Test su Firefox e Safari
-- [ ] Pagina di atterraggio su studiodallasta.it/docmap
+- [x] Pagina di atterraggio del QR (`scan.html`, v10) e pubblicazione su docmap.pr-it.it/studio-de
 - [ ] Redirect dinamico su qr7.it collegato al manifest
 - [ ] Fase multi-utente con server (FastAPI) e sincronizzazione
 - [ ] Foto in un file separato (ZIP) per backup JSON completi
@@ -225,6 +247,8 @@ Nel menu **⚙ Funzioni avanzate › Registro attività** trovi l'elenco di tutt
 
 ```
 index.html            apertura con doppio clic
+scan.html             pagina mobile dopo la scansione del QR (v10: 10-auth.js, 11-scan.js, css-scan.css)
+docmap.config.js      modalità local (predefinita) o web; tools/build_deploy.py crea la cartella per il sito
 assets/docmap.css     stile (più css-info, css-editor, css-import per le parti v8)
 assets/fonts/         Inter e JetBrains Mono (licenza OFL)
 assets/js/01..09-*.js QR, dati, stampa, interfaccia, SQLite, foto (06b), clienti (06c), Informazioni (06d),

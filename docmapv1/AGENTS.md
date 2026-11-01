@@ -7,6 +7,7 @@ User-facing docs are Italian (`README.md`, `docs/*.md`); code, identifiers and t
 - Data model / file formats — the contract with the Python system (IT): `docs/MODELLO-DATI.md`
 - Future online hub & API blueprint, not implemented (IT): `docs/HUB-E-API.md`
 - Guide for the Python team (IT): `docs/ALLINEAMENTO-PYTHON.md`
+- v10 REST contract for auth + mobile page + blobs (IT): `docs/API-CONTRACT.md` · security model (IT): `docs/SICUREZZA.md` · static web deploy (IT): `docs/DEPLOY-WEB.md`
 
 Baseline described here: **v9** (`APP_VERSION = '26.9.0'`, state `schema: 26.9`, `DB_SCHEMA_VERSION = 5`). v9 adds the label template registry `LABEL_TEMPLATES` (03-print.js; default `info`), `S.print.info`, `S.print.edge`, the PDF exporter (05c-pdf.js) and the activity log (06e-log.js, `logAct()`). To add a label template: add an entry to `LABEL_TEMPLATES` (kinds per binder, paired or not, recommended presets, options HTML), a renderer for any new kind in `renderLabel`, i18n keys, and tests; the PDF exporter needs no change because it reads the rendered DOM.
 What changed from v7 is summarised in §10.
@@ -49,6 +50,7 @@ What changed from v7 is summarised in §10.
 | 6e | `assets/js/06e-log.js` | activity log (v9): `logAct(action, target, summary, details, source)`, `LOG` (memory mirror) + SQLite `activity_log`, wrappers around exports/print/sessions/Informazioni/undo, view `log` (`viewLog`, filters `LOGV`, CSV), `S.settings.operator`, help topic `log` |
 | 7 | `assets/js/07-help.js` | extra i18n keys, `HELP_TAGS`, `HELP_TOPICS`, help drawer, `helpDot(id)`, onboarding |
 | 8 | `assets/js/08-guide.js` | guided-action engine, `GUIDES` |
+| 8b | `assets/js/10-auth.js` | v10 provider seams (`dmProviders()`, `DataProvider`/`AuthProvider`/`CryptoProvider`/`BlobStore`, local + remote stubs), `DocMapVault` (web-mode encrypted storage, boot gate), Impostazioni › Utenti e accesso, "Anteprima mobile", live merge of mobile edits, help topic `mobile` — §12 |
 | 9 | `assets/js/09-actions.js` | `ACTIONS` map, global event delegation (click/input/change/keydown/drag-drop), file inputs, **boot** (`loadState` → `ensureIntegrity` → `persist` → `renderAll` → `maybeOnboard` → `dbInit`), `window.DocMap` test hook |
 
 CSS: `assets/docmap.css` (main) + `css-info.css` (top bar, Informazioni), `css-editor.css` (typeahead, editor), `css-import.css` (column mapping), loaded in that order.
@@ -187,3 +189,38 @@ Field-level details and file formats: `docs/MODELLO-DATI.md`.
 - **Stale selection**: `sig` records the layout the choice was made for; if the queue changes the pages, `labelPageOrder` ignores `sel`/`order` and `pagesCheck()` (05c) resets them with a notice (`reverse` is kept).
 - **UI** (05c-pdf.js): `pagesPanelHTML()` / `renderPagesPanel()` (called by `refreshPrint()`), section `#pr-pages-sec` in `viewPrint()`, `PAGE_ACTIONS` (`pg-all`, `pg-rev`, `pg-tick`, `pg-up`, `pg-down`, `pg-first`, `pg-reset`, `pdf-cmyk`), `#pg-sel` change handler, styles injected as `<style id="css-pages">`, help topics `pages` (new) and `pdf` (updated).
 - **PDF writer guarantees** (keep them when touching 05c): `%PDF-1.4` + binary line, classic xref, trailer `/ID`, `/Info` + XMP, fonts embedded (FontFile2, CIDToGIDMap /Identity, /W, /CIDSet, ToUnicode), no transparency (alpha and CSS opacity are flattened with `pdfColor(css, op)`), all page boxes = A4, `/Rotate 0`, no annotations, `/PrintScaling /None`, strokes >= 0.1 pt (`pdfLW`), QR as merged rectangles in one fill (`pdfQrRects`). Colour operators go through `pdfFillOp` / `pdfStrokeOp`; `S.print.pdfCmyk` switches them to DeviceCMYK with neutral colours as K only (`pdfCMYK`).
+
+## 13. v10: mobile page, provider seams, web mode (stream M)
+
+- **Config** `docmap.config.js` (classic script, loaded first by `index.html` and `scan.html`): `window.DOCMAP_CONFIG =
+  {mode:'local'|'web', basePath, apiBase, studioSlug, studioName}`. `dmConfig()` reads it with defaults.
+  `local` = unchanged MVP. `web` without `apiBase` = static upload: login on every page, data encrypted in the browser.
+  `web` with `apiBase` (or `mode:'remote'`) = Remote providers (`docs/API-CONTRACT.md`).
+- **`scan.html`** + `assets/js/11-scan.js` + `assets/css-scan.css`: the page after scanning a QR. Loads only
+  `02-core.js`, `10-auth.js`, `11-scan.js` (no desktop modules); sets a light `S = {lang, settings}` for `t()`/`fmtDate()`.
+  Route: `?q=` · `?qr=` · `…/q/<code>` (path, `<base>` fixed by an inline head script) · `#/q/<code>` · `?code=`
+  (`scResolveRoute`). Views in `SC.view`: `nousers | login | noqr | notfound | card | edit` (+ `nocrypto`, `error`).
+  Logged out renders no binder data at all. Editors get the round "Modifica" button → `MOBILE_FIELDS`
+  (`archive_state, contents_items, room_code, cabinet_code, shelf_code, sector_code, notes, tags`).
+- **Providers** (`10-auth.js`, JSDoc interfaces at each class): `dmProviders()` → `{mode, cfg, auth, data, crypto, blobs}`.
+  `LocalDataProvider.saveBinderPatch(id, patch, {etag, user, force})` re-reads the stored state, checks
+  `updated_at === etag` (else `DMError('conflict', {current})`), applies only the patched fields (`mobileApplyPatch`,
+  normalised, `updated_at` strictly increasing), writes `LS_KEY` (+ `LS_PREV`) or the vault, and appends an activity-log
+  entry `{action:'binder.edit', source:'mobile', details:{changed, patch, base_updated_at, new_updated_at, user_id, forced}}`
+  to `docmap_v26_log_pending` (or the vault log). 06e-log accepts `source:'mobile'`. The open desktop applies the same
+  patch live (`mobileLiveMerge`, storage event) when its copy of the binder is unchanged; otherwise the reload banner stays.
+- **Auth**: users in `localStorage 'docmap_v26_auth'` (not in S, backups, CSV or SQLite), hash
+  `pbkdf2_sha256$600000$salt$hash`, backoff counters `docmap_v26_auth_fail`, session `sessionStorage 'docmap_v26_session'`.
+  Desktop UI: `authSettingsHTML()` appended to `viewSettings()`, actions `au-add`, `au-edit`, `au-del`, `mob-preview`, `vl-lock`
+  (`AUTH_ACTIONS`, merged on DOMContentLoaded). Log actions `settings.user_add|user_edit|user_delete`.
+- **Web-mode vault** `window.DocMapVault` (`isActive · isUnlocked · loadState · saveState · flush · lock · gateBoot`):
+  `02-core.js` `loadState()`/`persist()` route through it, `09-actions.js` boot is `dmBoot()` behind
+  `DocMapVault.gateBoot(dmBoot)`, `idbGet/idbSet('db')` and `logSavePending` are wrapped here. Storage keys:
+  `docmap_v26_vault`, `_vault_prev`, `_vault_log`, `sessionStorage 'docmap_v26_vault_session'`, IndexedDB `docmap_v26_keys`.
+  A sync import (06f-sync.js) just mutates `S` and calls `commit()`: it is stored encrypted automatically.
+- **BlobStore**: IndexedDB `docmap_v26_blobs`; photos (06b) are **not** migrated yet — see `docs/SICUREZZA.md` §4.
+- **Deploy**: `python3 tools/build_deploy.py [TARGET] [--base-path /studio-de/]` → static folder (default
+  `../deploy/studio-de/`) with web config, `.htaccess`, `404.html`, `robots.txt`, nginx example, `README-DEPLOY.md`, manifest.
+- **DB schema**: no DDL from this stream (`DB_SCHEMA_VERSION` 6 comes from `color_locked`, §12). Users and blobs are deliberately not in the SQLite file.
+- **Destination default**: `DEFAULT_DEST = 'https://docmap.pr-it.it/studio-de/q/{short_code}'`; the v9 default is in
+  `OLD_DEFAULT_DESTS` and is replaced by `migrate()` only when unchanged.

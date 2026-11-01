@@ -22,7 +22,7 @@ const sec = (n) => console.log('\n== ' + n);
   await p.evaluate(() => document.fonts.ready);
   ok(await p.evaluate(() => document.fonts.check('700 16px "DM Inter"') && document.fonts.check('800 16px "DM Mono"') && [...document.fonts].some(f => f.family.includes('DM Inter') && f.status === 'loaded')), 'bundled fonts load from file://');
   ok(await p.evaluate(() => DB.ready && !DB.error), 'SQLite ready', await p.evaluate(() => DB.error));
-  ok(await p.evaluate(() => S.settings.destTemplate.startsWith('https://studiodallasta.it/')), 'default destination on studiodallasta.it');
+  ok(await p.evaluate(() => S.settings.destTemplate === 'https://docmap.pr-it.it/studio-de/q/{short_code}'), 'default destination on docmap.pr-it.it/studio-de/q/ (v10)');
   ok(await p.evaluate(() => S.binders.length === 5 && new Set(S.binders.map(b => b.short_code)).size === 5 && S.binders.every(b => /^dm26[A-HJ-NP-Za-km-np-z2-9]{8}$/.test(b.short_code))), 'demo data + unambiguous dm26 codes');
 
   sec('views at 1366x768 (no horizontal scroll)');
@@ -147,7 +147,7 @@ const sec = (n) => console.log('\n== ' + n);
   await p.evaluate(() => { S.view = 'export'; renderAll(); });
   const manF = await dl('[data-a="ex-manifest"]');
   const man = fs.readFileSync(manF, 'utf8').split('\n');
-  ok(man[0] === 'short_code;short_url;final_destination;tags' && man.length === 7 && man[1].split(';').length === 4 && man[1].includes('https://studiodallasta.it/'), 'manifest header + rows', man.slice(0, 2));
+  ok(man[0] === 'short_code;short_url;final_destination;tags' && man.length === 7 && man[1].split(';').length === 4 && man[1].includes('https://docmap.pr-it.it/studio-de/q/dm26'), 'manifest header + rows', man.slice(0, 2));
   const codes = await p.evaluate(() => S.binders.map(b => b.short_code));
   const mm = await p.evaluate(([c0]) => mergeManifest('﻿short_code;short_url;final_destination;tags\r\n1TSE0G;https://qr7.it/1TSE0G;https://x/a;c\r\n' + c0 + ';https://qr7.it/' + c0 + ';https://old;o\r\n' + c0 + ';dup;dup;dup\r\nOliva01;https://qr7.it/Oliva01;https://x/o;olio\r\ndm26Gone2345;https://qr7.it/dm26Gone2345;x;y\r\n', true), [codes[0]]);
   const mlines = mm.text.replace(/^﻿/, '').trim().split('\r\n');
@@ -1645,6 +1645,275 @@ const sec = (n) => console.log('\n== ' + n);
   }
 
   // @@STREAM-M@@
+  sec('v10 stream M: mobile scan page, local login, provider seams, encrypted blobs');
+  const Mstart = await p.evaluate(() => nowISO());
+  const MSCAN = 'file://' + require('path').resolve(__dirname, '..', 'scan.html').replace(/\\/g, '/');
+  await p.evaluate(() => { ['docmap_v26_auth', 'docmap_v26_auth_fail', 'docmap_v26_scan_lang', 'docmap_v26_scan_user', 'docmap_v26_scan_outbox'].forEach(k => localStorage.removeItem(k)); });
+  const Mb = await p.evaluate(async () => {
+    const b = normalizeBinder({speaking_code:'MT1', short_code:newShortCode(), company_name:'Mobiletest Zeta S.r.l.', multi_code:'M-99001', category:'Ordinaria', binder_title:'Faldone di prova mobile',
+      room_code:'A', cabinet_code:'3', shelf_code:'β', archive_state:'CURRENT', contents_items:'2025: Fatture Zeta|2025: Registri Zeta [in uso]', tags:'zeta,prova', notes:''});
+    b.updated_at = '2026-01-01T10:00:00.000Z';
+    S.binders.push(b); commit(); dbSyncFromState('t'); await dbPersist();
+    return {id:b.id, qr:b.short_code, upd:b.updated_at};
+  });
+  const Mp = await ctx.newPage();
+  Mp.on('pageerror', e => errs.push('MOBILE PAGEERR ' + e.message)); Mp.on('console', m => { if (m.type() === 'error') errs.push('MOBILE CONSOLE ' + m.text()); });
+  await Mp.setViewportSize({width:390, height:844});
+  const Murl = MSCAN + '?code=MT1&qr=' + Mb.qr;
+  await Mp.goto(Murl); await Mp.waitForTimeout(500);
+  const Mnoscroll = async (name) => { const w = await Mp.evaluate(() => [document.documentElement.scrollWidth, innerWidth]); ok(w[0] <= w[1] + 1, 'scan: no horizontal scroll at 390×844 — ' + name, w); };
+  let Mv = await Mp.evaluate(() => ({txt:document.body.innerText, html:document.getElementById('app').innerHTML, form:!!document.querySelector('form[data-s="login-form"]'), view:SC.view}));
+  ok(Mv.view === 'nousers' && /Nessun utente configurato: crea un utente in DocMap › Impostazioni › Utenti e accesso/.test(Mv.txt) && !Mv.form, 'scan: no users → setup message, no login form', Mv.view);
+  ok(!/MT1|Mobiletest|M-99001|Zeta/.test(Mv.html), 'scan: no users → no binder data in the DOM');
+  ok(/Studio Demo/.test(Mv.txt), 'scan: studio name shown logged out');
+  // desktop: Impostazioni › Utenti e accesso
+  await p.evaluate(() => { S.view = 'settings'; renderAll(); });
+  Mv = await p.evaluate(() => ({card:!!document.querySelector('#au-card'), none:!!document.querySelector('#au-card .warn-box'), help:!!helpTopic('mobile')}));
+  ok(Mv.card && Mv.none && Mv.help, 'settings: "Utenti e accesso" section with empty-state warning + help topic mobile', Mv);
+  await p.click('#au-card [data-a="au-add"]'); await p.waitForTimeout(100);
+  await p.fill('#au-f-user', 'MTest'); await p.fill('#au-f-name', 'Marta Test'); await p.selectOption('#au-f-role', 'editor');
+  await p.fill('#au-f-pin', '246810'); await p.fill('#au-f-pin2', '246811');
+  await p.locator('.modal-f .btn-primary').last().click(); await p.waitForTimeout(150);
+  ok((await p.textContent('#au-f-err')).length > 3 && await p.evaluate(() => !localStorage.getItem('docmap_v26_auth')), 'settings: mismatched PIN refused');
+  await p.fill('#au-f-pin2', '246810'); await p.locator('.modal-f .btn-primary').last().click(); await p.waitForTimeout(900);
+  Mv = await p.evaluate(() => { const st = JSON.parse(localStorage.getItem('docmap_v26_auth') || '{}'); const u = (st.users || [])[0] || {}; return {n:(st.users || []).length, user:u.username, role:u.role, hash:u.password_hash, row:!!document.querySelector('#au-card tr[data-uid]'), modal:!!topModal(), log:LOG.entries.some(e => e.action === 'settings.user_add')}; });
+  ok(Mv.n === 1 && Mv.user === 'mtest' && Mv.role === 'editor' && Mv.row && !Mv.modal && Mv.log, 'settings: user created (normalised username, role, listed, logged)', Mv);
+  ok(/^pbkdf2_sha256\$600000\$[A-Za-z0-9+\/]{22}==\$[A-Za-z0-9+\/]{43}=$/.test(Mv.hash || ''), 'auth: PBKDF2-SHA256 hash format, 600 000 iterations, salt + hash', Mv.hash);
+  Mv = await p.evaluate(async () => { const st = JSON.parse(localStorage.getItem('docmap_v26_auth')); const u = st.users[0]; return {ok:await authVerifySecret('246810', u.password_hash), bad:await authVerifySecret('246811', u.password_hash), diff:(await authHashSecret('246810', 1000)) !== (await authHashSecret('246810', 1000))}; });
+  ok(Mv.ok && !Mv.bad && Mv.diff, 'auth: verify right/wrong secret, per-user random salt', Mv);
+  // the open scan page notices the new user and shows the login form, still without data
+  await Mp.waitForTimeout(400);
+  Mv = await Mp.evaluate(() => ({view:SC.view, html:document.getElementById('app').innerHTML}));
+  ok(Mv.view === 'login' && !/MT1|Mobiletest|M-99001|Zeta|A3-β/.test(Mv.html), 'scan: logged out → login form only, no binder data (not even the code)', Mv.view);
+  await Mnoscroll('login');
+  await Mp.fill('#sc-user', 'mtest'); await Mp.fill('#sc-pin', '111111'); await Mp.click('#sc-enter'); await Mp.waitForTimeout(900);
+  Mv = await Mp.evaluate(() => ({view:SC.view, err:document.getElementById('sc-login-err').textContent, fail:JSON.parse(localStorage.getItem('docmap_v26_auth_fail') || '{}').mtest, pin:document.getElementById('sc-pin').value}));
+  ok(Mv.view === 'login' && /non corretti/.test(Mv.err) && Mv.fail && Mv.fail.n === 1 && Mv.pin === '', 'scan: wrong PIN refused, counter 1, PIN field cleared', Mv);
+  Mv = await Mp.evaluate(async () => { const A = dmProviders().auth, r = []; for (let i = 0; i < 2; i++){ try { await A.login('mtest', '999999'); r.push('in'); } catch(e){ r.push(e.code + ':' + ((e.data && e.data.retry_in) || 0)); } }
+    let right; try { await A.login('mtest', '246810'); right = 'in'; } catch(e){ right = e.code; } return {r, right, lock:A.lockInfo('mtest')}; });
+  ok(Mv.r[0].startsWith('unauthorized') && /^locked:1[45]$/.test(Mv.r[1]) && Mv.right === 'locked' && Mv.lock.retry_in > 0, 'auth: backoff after 3 failures, even the right PIN waits', Mv);
+  await Mp.fill('#sc-user', 'mtest'); await Mp.fill('#sc-pin', '246810'); await Mp.click('#sc-enter'); await Mp.waitForTimeout(300);
+  ok(/Troppi tentativi/.test(await Mp.textContent('#sc-login-err')) && await Mp.evaluate(() => SC.view === 'login'), 'scan: locked message with countdown');
+  await Mp.evaluate(() => { const f = JSON.parse(localStorage.getItem('docmap_v26_auth_fail')); f.mtest.until = Date.now() - 1; localStorage.setItem('docmap_v26_auth_fail', JSON.stringify(f)); });
+  await Mp.fill('#sc-pin', '246810'); await Mp.click('#sc-enter'); await Mp.waitForTimeout(1200);
+  Mv = await Mp.evaluate(() => ({view:SC.view, txt:document.body.innerText, edit:!!document.querySelector('#sc-edit'), code:(document.querySelector('#sc-code') || {}).textContent, loc:(document.querySelector('#sc-loc') || {}).textContent,
+    chips:Array.from(document.querySelectorAll('#sc-items .sc-ci')).map(x => x.textContent), fail:JSON.parse(localStorage.getItem('docmap_v26_auth_fail') || '{}').mtest, ss:sessionStorage.getItem('docmap_v26_session')}));
+  ok(Mv.view === 'card' && Mv.code === 'MT1' && /Mobiletest Zeta S\.r\.l\./.test(Mv.txt) && /M-99001/.test(Mv.txt) && Mv.loc === 'A3-β' && /Ripiano β \(2° dall'alto\)/.test(Mv.txt), 'scan: right PIN → binder card (code, Multi, company, location + hint)', Mv);
+  ok(Mv.chips.join('|') === 'In archivio|In uso' && Mv.edit && /Ultima modifica/.test(Mv.txt) && !Mv.fail, 'scan: contents with status chips, big edit button for editor, counter reset', Mv.chips);
+  ok(Mv.ss && !/246810/.test(Mv.ss) && /"exp":\d+/.test(Mv.ss), 'auth: session in sessionStorage with expiry, no secret inside');
+  await Mnoscroll('card');
+  // no plaintext PIN anywhere in web storage or IndexedDB
+  Mv = await Mp.evaluate(async () => {
+    const all = []; for (let i = 0; i < localStorage.length; i++) all.push(localStorage.getItem(localStorage.key(i))); for (let i = 0; i < sessionStorage.length; i++) all.push(sessionStorage.getItem(sessionStorage.key(i)));
+    const dbBytes = await new Promise(res => { const r = indexedDB.open('docmap_v26_sqlite', 1); r.onsuccess = () => { const q = r.result.transaction('kv').objectStore('kv').get('db'); q.onsuccess = () => res(q.result); }; });
+    const s = new TextDecoder('latin1').decode(dbBytes);
+    return {ls:all.some(v => String(v).includes('246810')), db:s.includes('246810') || s.includes('pbkdf2_sha256')};
+  });
+  ok(!Mv.ls && !Mv.db, 'auth: no plaintext PIN in localStorage/sessionStorage, no credentials in the SQLite file', Mv);
+  // viewer: no edit button
+  await p.evaluate(async () => { await dmProviders().auth.addUser({username:'mview', display_name:'Vera', role:'viewer', secret:'135790'}); });
+  await Mp.click('[data-s="logout"]'); await Mp.waitForTimeout(200);
+  ok(await Mp.evaluate(() => SC.view === 'login' && !/MT1/.test(document.getElementById('app').innerHTML) && !sessionStorage.getItem('docmap_v26_session')), 'scan: logout clears the session and the data');
+  await Mp.fill('#sc-user', 'mview'); await Mp.fill('#sc-pin', '135790'); await Mp.click('#sc-enter'); await Mp.waitForTimeout(1000);
+  Mv = await Mp.evaluate(() => ({view:SC.view, edit:!!document.querySelector('#sc-edit'), ro:!!document.querySelector('.sc-ro'), can:dmProviders().auth.can('edit')}));
+  ok(Mv.view === 'card' && !Mv.edit && Mv.ro && !Mv.can, 'scan: viewer sees the card without the edit button', Mv);
+  Mv = await Mp.evaluate(() => { const s = JSON.parse(sessionStorage.getItem('docmap_v26_session')); const st = JSON.parse(localStorage.getItem('docmap_v26_auth')); s.role = 'admin'; sessionStorage.setItem('docmap_v26_session', JSON.stringify(s)); return dmProviders().auth.currentUser().role; });
+  ok(Mv === 'viewer', 'auth: role always read from the user store, not from the session object', Mv);
+  await Mp.click('[data-s="logout"]'); await Mp.waitForTimeout(150);
+  await Mp.fill('#sc-user', 'mtest'); await Mp.fill('#sc-pin', '246810'); await Mp.click('#sc-enter'); await Mp.waitForTimeout(1000);
+  // editor edits state, item status, location, notes, tags
+  await Mp.click('#sc-edit'); await Mp.waitForTimeout(150);
+  ok(await Mp.evaluate(() => SC.view === 'edit' && document.querySelectorAll('[data-s="state"]').length === 3 && document.querySelectorAll('[data-s="ci"]').length === 6), 'scan: mobile edit form (state, item status)');
+  await Mnoscroll('edit');
+  await Mp.click('[data-s="state"][data-v="CHECKED_OUT"]'); await Mp.click('[data-s="ci"][data-i="0"][data-v="client"]'); await Mp.click('[data-s="ci"][data-i="1"][data-v="archive"]');
+  await Mp.fill('#sc-quick', 'b2 gamma dx'); await Mp.waitForTimeout(50);
+  Mv = await Mp.evaluate(() => ({prev:document.getElementById('sc-quick-prev').textContent, room:SC.draft.room_code, shelf:SC.draft.shelf_code, sec:SC.draft.sector_code}));
+  ok(Mv.prev === 'B2-γ-DX' && Mv.room === 'B' && Mv.shelf === 'γ' && Mv.sec === 'DX', 'scan: quick position parsed like the desktop (b2 gamma dx → B2-γ-DX)', Mv);
+  await Mp.fill('#sc-notes-in', 'Portato in sala riunioni'); await Mp.fill('#sc-tags-in', 'zeta, prova, riunione');
+  const Mdesk0 = await p.evaluate((id) => S.binders.find(b => b.id === id).updated_at, Mb.id);
+  await Mp.click('#sc-save'); await Mp.waitForTimeout(600);
+  Mv = await Mp.evaluate(() => ({view:SC.view, msg:(document.querySelector('.sc-msg.ok') || {}).textContent, loc:(document.querySelector('#sc-loc') || {}).textContent, notes:(document.querySelector('#sc-notes') || {}).textContent}));
+  ok(Mv.view === 'card' && /Salvato/.test(Mv.msg || '') && Mv.loc === 'B2-γ-DX' && Mv.notes === 'Portato in sala riunioni', 'scan: save → success feedback, card updated', Mv);
+  Mv = await p.evaluate((id) => { const b = S.binders.find(x => x.id === id); return {st:b.archive_state, loc:b.location_code, ci:b.contents_items.map(i => i.status).join(','), notes:b.notes, tags:b.tags, upd:b.updated_at, banner:otherTabChanged}; }, Mb.id);
+  ok(Mv.st === 'CHECKED_OUT' && Mv.loc === 'B2-γ-DX' && Mv.ci === 'client,archive' && Mv.tags === 'zeta,prova,riunione' && Mv.upd > Mdesk0 && !Mv.banner, 'desktop: open app merges the mobile edit live (no reload banner)', Mv);
+  await p.reload(); await p.waitForTimeout(1800);
+  Mv = await p.evaluate((id) => { const b = S.binders.find(x => x.id === id); const e = LOG.entries.filter(x => x.source === 'mobile' && x.target && x.target.id === id);
+    const row = DB.ready ? dbQuery("SELECT source, who, action FROM activity_log WHERE target_id = ? AND source = 'mobile'", [id]) : [];
+    return {st:b.archive_state, loc:b.location_code, notes:b.notes, ci:b.contents_items.map(i => i.status).join(','), upd:b.updated_at, n:e.length, act:e[0] && e[0].action, who:e[0] && e[0].who, keys:e[0] ? Object.keys(e[0].details.changed).sort().join(',') : '', base:e[0] && e[0].details.base_updated_at, row:row.length, rowSrc:row[0] && row[0].source}; }, Mb.id);
+  ok(Mv.st === 'CHECKED_OUT' && Mv.loc === 'B2-γ-DX' && Mv.notes === 'Portato in sala riunioni' && Mv.ci === 'client,archive' && Mv.upd > Mb.upd, 'desktop after reload: mobile changes persisted, updated_at bumped', Mv);
+  ok(Mv.n === 1 && Mv.act === 'binder.edit' && Mv.who === 'Marta Test' && Mv.keys === 'archive_state,cabinet_code,contents_items,location_code,notes,room_code,sector_code,shelf_code,tags' && Mv.base === Mb.upd && Mv.row === 1 && Mv.rowSrc === 'mobile', 'desktop: activity log entry source "mobile" with diff (memory + SQLite)', Mv);
+  await p.evaluate(() => { S.view = 'log'; renderAll(); });
+  ok(/mobile/.test(await p.textContent('#lg-results')), 'log view shows the "mobile" source');
+  // conflict: the desktop changes the same binder while the phone is editing
+  await Mp.click('#sc-edit'); await Mp.waitForTimeout(100);
+  await p.evaluate((id) => { const b = S.binders.find(x => x.id === id); b.notes = 'Cambiato dal PC'; b.updated_at = nowISO(); commit(); }, Mb.id);
+  await Mp.waitForTimeout(300);
+  ok(await Mp.evaluate(() => SC.stale === true && /appena cambiato/.test(document.body.innerText)), 'scan: edit form warns that the binder changed elsewhere');
+  await Mp.fill('#sc-notes-in', 'Nota dal telefono'); await Mp.click('#sc-save'); await Mp.waitForTimeout(300);
+  Mv = await Mp.evaluate(() => ({view:SC.view, conflict:!!document.querySelector('#sc-conflict'), txt:(document.querySelector('#sc-conflict') || {}).textContent || ''}));
+  ok(Mv.view === 'edit' && Mv.conflict && /note/.test(Mv.txt), 'scan: conflict detected (etag = updated_at), changed fields listed', Mv);
+  ok(await p.evaluate((id) => S.binders.find(x => x.id === id).notes === 'Cambiato dal PC', Mb.id), 'conflict: the desktop change is not overwritten');
+  await Mp.click('[data-s="conflict-reload"]'); await Mp.waitForTimeout(300);
+  ok(await Mp.evaluate(() => SC.view === 'card' && document.getElementById('sc-notes').textContent === 'Cambiato dal PC'), 'conflict → reload shows the desktop version');
+  await Mp.click('#sc-edit'); await Mp.waitForTimeout(100);
+  await p.evaluate((id) => { const b = S.binders.find(x => x.id === id); b.tags = 'zeta,dal-pc'; b.updated_at = nowISO(); commit(); }, Mb.id);
+  await Mp.waitForTimeout(200);
+  await Mp.click('[data-s="state"][data-v="CURRENT"]'); await Mp.click('#sc-save'); await Mp.waitForTimeout(300);
+  ok(await Mp.evaluate(() => !!document.querySelector('#sc-conflict')), 'conflict again (desktop changed tags)');
+  await Mp.click('[data-s="conflict-force"]'); await Mp.waitForTimeout(400);
+  Mv = await p.evaluate((id) => { const b = S.binders.find(x => x.id === id); const st = JSON.parse(localStorage.getItem(LS_KEY)).binders.find(x => x.id === id); return {st:b.archive_state, tags:b.tags, sst:st.archive_state, stags:st.tags, forced:LOG.entries.some(e => e.source === 'mobile' && e.details && e.details.forced)}; }, Mb.id);
+  ok(Mv.st === 'CURRENT' && Mv.tags === 'zeta,dal-pc' && Mv.sst === 'CURRENT' && Mv.stags === 'zeta,dal-pc' && Mv.forced, 'conflict → "save anyway" writes only the patched fields (desktop tags kept)', Mv);
+  // cabinet photo with the shelf highlighted (06b-photos data, read-only from the phone)
+  await p.evaluate(async (id) => {
+    const cv = document.createElement('canvas'); cv.width = 200; cv.height = 300; const cx = cv.getContext('2d'); cx.fillStyle = '#8B5CF6'; cx.fillRect(0, 0, 200, 300);
+    const bl = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.8)); const bytes = new Uint8Array(await bl.arrayBuffer());
+    DB.db.run('INSERT INTO photos(id, owner_type, owner_key, mime, data, width, height, caption, marks_json, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)', ['mt-photo', 'cabinet', 'B2', 'image/jpeg', bytes, 200, 300, 'Armadio B2', JSON.stringify({'γ|DX':{x:0.7, y:0.4}}), nowISO()]);
+    await dbPersist();
+  }, Mb.id);
+  await Mp.reload(); await Mp.waitForTimeout(1800);
+  Mv = await Mp.evaluate(() => { const img = document.querySelector('#sc-photo img'), pin = document.querySelector('#sc-photo .sc-pinm'); return {img:!!img && img.naturalWidth === 200, pin:pin ? pin.style.left + ' ' + pin.style.top + ' ' + pin.textContent : '', view:SC.view}; });
+  ok(Mv.view === 'card' && Mv.img && Mv.pin === '70% 40% B2-γ-DX', 'scan: "Dov\'è?" shows the cabinet photo with the shelf marked (session survives reload)', Mv);
+  // unknown QR + manual search
+  await Mp.goto(MSCAN + '?qr=dm26ZZZZZZZZ'); await Mp.waitForTimeout(500);
+  Mv = await Mp.evaluate(() => ({view:SC.view, txt:document.body.innerText, logout:!!document.querySelector('#sc-notfound [data-s="logout"]')}));
+  ok(Mv.view === 'notfound' && /Faldone non trovato/.test(Mv.txt) && Mv.logout && !/MT1/.test(Mv.txt), 'scan: unknown QR → "Faldone non trovato" with logout', Mv.view);
+  await Mp.fill('#sc-find', 'mt1'); await Mp.press('#sc-find', 'Enter'); await Mp.waitForTimeout(400);
+  ok(await Mp.evaluate(() => SC.view === 'card' && document.getElementById('sc-code').textContent === 'MT1' && /code=MT1/.test(location.search)), 'scan: search by speaking code from the not-found page');
+  // English
+  await Mp.click('[data-s="lang"][data-l="en"]'); await Mp.waitForTimeout(100);
+  Mv = await Mp.evaluate(() => ({lang:document.documentElement.lang, txt:document.body.innerText, fab:document.getElementById('sc-edit').textContent}));
+  ok(Mv.lang === 'en' && /Where is it\?/i.test(Mv.txt) && /Contents/i.test(Mv.txt) && Mv.fab === 'Edit' && /Sign out/.test(Mv.txt), 'scan: English UI', Mv.fab);
+  await Mp.click('#sc-edit'); await Mp.waitForTimeout(100);
+  ok(/Binder state/i.test(await Mp.innerText('body')) && /At client/.test(await Mp.innerText('body')), 'scan: English edit form');
+  await Mp.click('[data-s="cancel"]'); await Mp.click('[data-s="lang"][data-l="it"]'); await Mp.waitForTimeout(100);
+  // session expiry
+  Mv = await Mp.evaluate(() => { const s = JSON.parse(sessionStorage.getItem('docmap_v26_session')); s.exp = Date.now() - 1000; sessionStorage.setItem('docmap_v26_session', JSON.stringify(s)); scCheckSession(); return new Promise(r => setTimeout(() => r({view:SC.view, html:document.getElementById('app').innerHTML}), 200)); });
+  ok(Mv.view === 'login' && !/MT1/.test(Mv.html), 'auth: expired session → back to login, data removed', Mv.view);
+  // desktop: "Anteprima mobile" in the QR window and in the binder form
+  await p.evaluate(() => { S.view = 'archive'; renderAll(); });
+  Mv = await p.evaluate((id) => { const b = S.binders.find(x => x.id === id); showQR(b); const r = {qr:!!document.querySelector('.overlay [data-a="mob-preview"]'), url:mobPreviewUrl(b)}; closeModal(true); openEditor(id); r.ed = !!document.querySelector('.modal-f .ed-mob'); closeModal(true); openEditor(); r.edNew = !!document.querySelector('.modal-f .ed-mob'); closeModal(true); return r; }, Mb.id);
+  ok(Mv.qr && Mv.ed && !Mv.edNew && Mv.url === 'scan.html?code=MT1&qr=' + Mb.qr, 'desktop: "Anteprima mobile" in QR window and binder form (not for a new binder)', Mv);
+  await p.evaluate((id) => showQR(S.binders.find(x => x.id === id)), Mb.id);
+  const [Mpop] = await Promise.all([ctx.waitForEvent('page'), p.click('.overlay [data-a="mob-preview"]')]);
+  await Mpop.waitForLoadState(); await Mpop.waitForTimeout(300);
+  ok(/scan\.html\?code=MT1&qr=/.test(Mpop.url()) && await Mpop.evaluate(() => SC.view === 'login'), 'desktop: mobile preview opens scan.html in a new tab (login required)', Mpop.url());
+  await Mpop.close(); await p.evaluate(() => { while (topModal()) closeModal(true); });
+  // desktop: edit + delete a user from the settings
+  await p.evaluate(() => { S.view = 'settings'; renderAll(); });
+  const Muid = await p.evaluate(() => dmProviders().auth.listUsers().find(u => u.username === 'mview').id);
+  await p.click('#au-card [data-a="au-edit"][data-id="' + Muid + '"]'); await p.waitForTimeout(100);
+  await p.selectOption('#au-f-role', 'editor'); await p.fill('#au-f-pin', '97531'); await p.fill('#au-f-pin2', '97531');
+  await p.locator('.modal-f .btn-primary').last().click(); await p.waitForTimeout(700);
+  Mv = await p.evaluate(async (id) => { const u = dmProviders().auth.store().users.find(x => x.id === id); return {role:u.role, pin:await authVerifySecret('97531', u.password_hash)}; }, Muid);
+  ok(Mv.role === 'editor' && Mv.pin, 'settings: edit user role + new PIN', Mv);
+  await p.click('#au-card [data-a="au-del"][data-id="' + Muid + '"]'); await p.waitForTimeout(100); await p.locator('.modal-f .btn-danger-solid').last().click(); await p.waitForTimeout(150);
+  ok(await p.evaluate(() => dmProviders().auth.listUsers().length === 1 && document.querySelectorAll('#au-card tr[data-uid]').length === 1), 'settings: delete user (with confirmation)');
+  await p.evaluate(() => { S.lang = 'en'; renderAll(); });
+  ok(/Users & access/.test(await p.textContent('#au-card h2')), 'settings: English "Users & access"');
+  await p.evaluate(() => { S.lang = 'it'; renderAll(); });
+  // BlobStore + CryptoProvider round trip
+  Mv = await Mp.evaluate(async () => {
+    const P = dmProviders(), plain = 'SEGRETO-DOCMAP-' + 'x'.repeat(40);
+    const meta = await P.blobs.putBlob(new TextEncoder().encode(plain), {content_type:'text/plain', owner_type:'binder', owner_key:'mt', name:'nota.txt'});
+    const raw = new Uint8Array(await P.blobs.rawBlob(meta.id));
+    const got = await P.blobs.getBlob(meta.id), txt = await got.blob.text();
+    const kek = await P.crypto.kek();
+    const tampered = (async () => { try { await P.crypto.decrypt(meta.envelope, raw, 'another-id'); return false; } catch(e){ return true; } })();
+    const list = await P.blobs.listBlobs({owner_key:'mt'});
+    await P.blobs.deleteBlob(meta.id);
+    return {enc:meta.encrypted, alg:meta.envelope.alg, kw:meta.envelope.kw, size:raw.length === plain.length + 16, differs:!new TextDecoder('latin1').decode(raw).includes('SEGRETO'), same:txt === plain, sha:meta.sha256.length === 64, policy:meta.policy,
+      ext:kek.key.extractable, aad:await tampered, listed:list.length === 1, gone:(await P.blobs.getBlob(meta.id)) === null};
+  });
+  ok(Mv.enc && Mv.alg === 'A256GCM' && Mv.kw === 'A256KW' && Mv.size && Mv.differs && Mv.same && Mv.sha && Mv.policy === 'working-copy', 'BlobStore: AES-256-GCM envelope, stored bytes ≠ plaintext, decrypts back', Mv);
+  ok(Mv.ext === false && Mv.aad && Mv.listed && Mv.gone, 'BlobStore: workspace key non-extractable, AAD binds blob id, list + delete', Mv);
+  Mv = await Mp.evaluate(async () => {
+    const cv = document.createElement('canvas'); cv.width = 3000; cv.height = 2000; const cx = cv.getContext('2d'); cx.fillStyle = '#0a0'; cx.fillRect(0, 0, 3000, 2000);
+    const png = await new Promise(r => cv.toBlob(r, 'image/png'));
+    const P = dmProviders(), meta = await P.blobs.putBlob(png, {owner_type:'cabinet', owner_key:'mt', name:'foto.png'});
+    const got = await P.blobs.getBlob(meta.id), bm = await createImageBitmap(got.blob); const r = {ct:meta.content_type, w:bm.width, h:bm.height, enc:meta.encrypted};
+    await P.blobs.deleteBlob(meta.id);
+    let big; try { await P.blobs.putBlob(new Uint8Array(BLOB_POLICY.pdfMaxBytes + 1), {content_type:'application/pdf'}); big = 'stored'; } catch(e){ big = e.code + ':' + e.message; }
+    r.big = big; return r;
+  });
+  ok(Mv.ct === 'image/jpeg' && Mv.w === 1400 && Mv.h === 933 && Mv.enc && Mv.big === 'invalid:too_large', 'BlobStore: photos re-encoded ≤1400 px JPEG (working copy), oversize PDF refused', Mv);
+  ok(await p.evaluate(() => typeof RemoteDataProvider === 'function' && typeof RemoteAuthProvider === 'function' && dmProviders().mode === 'local' && (() => { try { dmProviders({mode:'remote', apiBase:'http://x'}); return false; } catch(e){ return e.code === 'config'; } })()), 'providers: local by default, remote stub requires an https apiBase');
+  await p.evaluate(() => { DM_PROVIDERS = null; dmProviders(); });
+  // clean up
+  await Mp.close();
+  await p.evaluate(async ([id, start]) => {
+    while (topModal()) closeModal(true);
+    ['docmap_v26_auth', 'docmap_v26_auth_fail', 'docmap_v26_scan_lang', 'docmap_v26_scan_user', 'docmap_v26_scan_outbox'].forEach(k => localStorage.removeItem(k));
+    S.binders = S.binders.filter(b => b.id !== id);
+    DB.db.run("DELETE FROM photos WHERE id = 'mt-photo'");
+    DB.db.run('DELETE FROM activity_log WHERE at >= ?', [start]); LOG.entries = LOG.entries.filter(e => e.at < start); LOG.pending = []; logSavePending();
+    S.lang = 'it'; S.view = 'archive'; commit(); renderAll(); dbSyncFromState('t'); await dbPersist();
+    await new Promise(r => { const q = indexedDB.deleteDatabase('docmap_v26_blobs'); q.onsuccess = q.onerror = q.onblocked = r; });
+  }, [Mb.id, Mstart]);
+  ok(await p.evaluate((id) => !S.binders.some(b => b.id === id) && !localStorage.getItem('docmap_v26_auth') && !LOG.entries.some(e => e.source === 'mobile'), Mb.id), 'stream M: test data cleaned up');
+  // destination default (v10: pilot web app, path routing) + migration of the old default only
+  Mv = await p.evaluate(() => ({def:DEFAULT_DEST, cur:S.settings.destTemplate, old:migrate({schema:26.9, settings:{destTemplate:'https://studiodallasta.it/docmap/?code={speaking_code}&qr={short_code}'}}).settings.destTemplate,
+    custom:migrate({schema:26.9, settings:{destTemplate:'https://example.it/x/{speaking_code}'}}).settings.destTemplate, ex:renderDest(DEFAULT_DEST, {short_code:'dm26AbCdEfGh'})}));
+  ok(Mv.def === 'https://docmap.pr-it.it/studio-de/q/{short_code}' && Mv.cur === Mv.def && Mv.old === Mv.def && Mv.custom === 'https://example.it/x/{speaking_code}' && Mv.ex === 'https://docmap.pr-it.it/studio-de/q/dm26AbCdEfGh', 'destination: default docmap.pr-it.it/studio-de/q/{short_code}, old default migrated, custom kept', Mv);
+  // QR route resolution on a static host
+  const Rp = await ctx.newPage(); await Rp.goto(MSCAN); await Rp.waitForTimeout(200);
+  Mv = await Rp.evaluate(() => { const r = (pathname, search, hash) => { const x = scResolveRoute({pathname, search:search || '', hash:hash || ''}); return x.qr + '|' + x.code; }; return [
+    r('/studio-de/q/dm26AbCdEfGh'), r('/studio-de/q/dm26AbCdEfGh/'), r('/studio-de/scan.html', '?q=dm26AbCdEfGh'), r('/studio-de/scan.html', '?qr=dm26AbCdEfGh&code=BL1'), r('/studio-de/scan.html', '', '#/q/dm26AbCdEfGh'), r('/studio-de/scan.html', '?code=BL1'), r('/studio-de/scan.html', '?q=<x>')]; });
+  await Rp.close();
+  ok(Mv.join(' ') === 'dm26AbCdEfGh| dm26AbCdEfGh| dm26AbCdEfGh| dm26AbCdEfGh|BL1 dm26AbCdEfGh| |BL1 |', 'scan routing: /q/<code> path, ?q=, ?qr=, #/q/, ?code=, invalid code ignored', Mv);
+  // web deploy (tools/build_deploy.py) opened in a fresh browser profile: login required everywhere, data encrypted at rest
+  const WDIR = require('path').resolve(__dirname, 'shots', 'deploy', 'studio-de');
+  const Wbuild = () => require('child_process').execFileSync('python3', [require('path').resolve(__dirname, '..', 'tools', 'build_deploy.py'), WDIR, '--studio-name', 'Studio Web Prova']);
+  Wbuild();
+  const Wf = (f) => fs.existsSync(require('path').join(WDIR, f)) ? fs.readFileSync(require('path').join(WDIR, f), 'utf8') : null;
+  const Wex = (f) => fs.existsSync(require('path').join(WDIR, f));
+  Mv = {cfg:Wf('docmap.config.js'), ht:Wf('.htaccess'), e404:Wf('404.html'), rob:Wf('robots.txt'), rd:Wf('README-DEPLOY.md'), man:Wf('DEPLOY-MANIFEST.txt')};
+  ok(/"mode": "web"/.test(Mv.cfg || '') && /Object\.freeze/.test(Mv.cfg) && /"basePath": "\/studio-de\/"/.test(Mv.cfg) && Wex('index.html') && Wex('scan.html') && Wex('vendor/sql-wasm.js') && !Wex('tests') && !Wex('tools') && !Wex('docs'), 'deploy: web config (frozen), app files, no tests/tools/docs', Mv.cfg);
+  ok(/RewriteRule \^q\/\(\[A-Za-z0-9_-\]\{1,40\}\)\/\?\$ scan\.html/.test(Mv.ht || '') && /RewriteBase \/studio-de\//.test(Mv.ht) && /Content-Security-Policy/.test(Mv.ht) && /ErrorDocument 404 \/studio-de\/404\.html/.test(Mv.ht), 'deploy: .htaccess rewrite /studio-de/q/* → scan.html + security headers');
+  ok(/scan\.html\?q=/.test(Mv.e404 || '') && Mv.rob === 'User-agent: *\nDisallow: /\n' && /docmap\.pr-it\.it\/studio-de\//.test(Mv.rd || '') && Mv.man.split('\n').filter(Boolean).length > 40 && Wex('nginx-docmap.conf.example'), 'deploy: 404.html fallback, robots Disallow, README-DEPLOY, nginx example, sha256 manifest');
+  Wbuild();
+  ok(Wf('DEPLOY-MANIFEST.txt') === Mv.man, 'deploy: build is deterministic (same manifest twice)');
+  const Wctx = await b.newContext({viewport:{width:1366, height:768}});
+  const Wp = await Wctx.newPage();
+  Wp.on('pageerror', e => errs.push('WEB PAGEERR ' + e.message)); Wp.on('console', m => { if (m.type() === 'error') errs.push('WEB CONSOLE ' + m.text()); }); Wp.on('dialog', d => d.accept());
+  const WURL = 'file://' + WDIR.replace(/\\/g, '/') + '/';
+  await Wp.goto(WURL + 'index.html'); await Wp.waitForTimeout(700);
+  Mv = await Wp.evaluate(() => ({lock:!!document.querySelector('#vault-lock form[data-vl="setup"]'), view:document.getElementById('view').innerHTML.length, top:document.getElementById('topbar').innerHTML.length, S:!!(S && S.binders), studio:/Studio Web Prova/.test(document.body.innerText)}));
+  ok(Mv.lock && Mv.view === 0 && Mv.top === 0 && !Mv.S && Mv.studio, 'web mode: first run → set-up screen, nothing rendered, no state loaded', Mv);
+  await Wp.fill('#vl-user', 'Dave'); await Wp.fill('#vl-name', 'Davide'); await Wp.fill('#vl-pin', '8642'); await Wp.fill('#vl-pin2', '8642');
+  await Wp.click('#vl-go'); await Wp.waitForTimeout(2500);
+  Mv = await Wp.evaluate(() => { while (topModal()) closeModal(true); return {lock:!!document.getElementById('vault-lock'), n:S.binders.length, db:DB.ready, btn:!!document.getElementById('vl-lockbtn'), user:dmProviders().auth.currentUser()}; });
+  ok(!Mv.lock && Mv.n === 5 && Mv.db && Mv.btn && Mv.user && Mv.user.role === 'admin', 'web mode: first admin created, vault unlocked, app booted', Mv);
+  const Wqr = await Wp.evaluate(async () => { const b = S.binders.find(x => x.speaking_code === 'BL2'); b.notes = 'Nota cifrata WEBX'; commit(); dbSyncFromState('t'); await dbPersist(); await DocMapVault.flush(); return b.short_code; });
+  Mv = await Wp.evaluate(async () => {
+    const all = []; for (let i = 0; i < localStorage.length; i++) all.push(localStorage.key(i) + '=' + localStorage.getItem(localStorage.key(i)));
+    const rec = await new Promise(res => { const r = indexedDB.open('docmap_v26_sqlite', 1); r.onsuccess = () => { const q = r.result.transaction('kv').objectStore('kv').get('db'); q.onsuccess = () => res(q.result); }; });
+    const u = JSON.parse(localStorage.getItem('docmap_v26_auth')).users[0];
+    return {plainKey:!!localStorage.getItem('docmap_v26_state') || !!localStorage.getItem('docmap_v26_log_pending'), leak:all.some(v => /Barbieri|WEBX|8642/.test(v)), vault:!!localStorage.getItem('docmap_v26_vault'),
+      dbEnc:!!(rec && rec.vault && rec.ct), dbLeak:rec && rec.ct ? new TextDecoder('latin1').decode(rec.ct).includes('Barbieri') : true, wrap:!!(u.vault && u.vault.wrapped && u.vault.salt)};
+  });
+  ok(!Mv.plainKey && !Mv.leak && Mv.vault && Mv.dbEnc && !Mv.dbLeak && Mv.wrap, 'web mode: state, log and SQLite encrypted at rest (no plaintext data or PIN in storage)', Mv);
+  await Wp.reload(); await Wp.waitForTimeout(2000);
+  ok(await Wp.evaluate(() => !document.getElementById('vault-lock') && S.binders.find(x => x.speaking_code === 'BL2').notes === 'Nota cifrata WEBX'), 'web mode: reload in the same tab resumes the session and decrypts the data');
+  await Wp.goto(WURL + 'scan.html?q=' + Wqr); await Wp.waitForTimeout(1500);
+  Mv = await Wp.evaluate(() => ({view:SC.view, code:(document.getElementById('sc-code') || {}).textContent}));
+  ok(Mv.view === 'card' && Mv.code === 'BL2', 'web mode: scan.html?q= in the same session shows the binder from the vault', Mv);
+  await Wp.click('#sc-edit'); await Wp.click('[data-s="state"][data-v="HISTORICAL"]'); await Wp.click('#sc-save'); await Wp.waitForTimeout(700);
+  await Wp.goto(WURL + 'index.html'); await Wp.waitForTimeout(2000);
+  Mv = await Wp.evaluate(() => ({st:S.binders.find(x => x.speaking_code === 'BL2').archive_state, log:LOG.entries.some(e => e.source === 'mobile' && e.target && e.target.code === 'BL2')}));
+  ok(Mv.st === 'HISTORICAL' && Mv.log, 'web mode: mobile edit saved in the vault, seen by the desktop with its log entry', Mv);
+  await Wp.evaluate(() => { while (topModal()) closeModal(true); }); await Wp.click('#vl-lockbtn'); await Wp.waitForTimeout(1500);
+  Mv = await Wp.evaluate(() => ({lock:!!document.querySelector('#vault-lock form[data-vl="login"]'), view:document.getElementById('view').innerHTML.length, S:!!(S && S.binders), ss:sessionStorage.length, leak:/BL2|Barbieri/.test(document.body.innerHTML)}));
+  ok(Mv.lock && Mv.view === 0 && !Mv.S && Mv.ss === 0 && !Mv.leak, 'web mode: "Esci" locks the vault → login screen, no data in the page', Mv);
+  await Wp.fill('#vl-user', 'dave'); await Wp.fill('#vl-pin', '1111'); await Wp.click('#vl-go'); await Wp.waitForTimeout(900);
+  ok(await Wp.evaluate(() => !!document.getElementById('vault-lock') && /non corretti|Wrong/.test(document.getElementById('vl-err').textContent)), 'web mode: wrong PIN keeps the vault locked');
+  const Wp2 = await Wctx.newPage();
+  await Wp2.goto(WURL + 'scan.html#/q/' + Wqr); await Wp2.waitForTimeout(600);
+  ok(await Wp2.evaluate(() => SC.view === 'login' && SC.params.qr.length === 12 && !/BL2|Barbieri/.test(document.getElementById('app').innerHTML)), 'web mode: scan page in a new tab requires login (#/q/ route), no data');
+  await Wp2.close();
+  await Wp.fill('#vl-user', 'dave'); await Wp.fill('#vl-pin', '8642'); await Wp.click('#vl-go'); await Wp.waitForTimeout(2500);
+  ok(await Wp.evaluate(() => !document.getElementById('vault-lock') && S.binders.find(x => x.speaking_code === 'BL2').archive_state === 'HISTORICAL'), 'web mode: right PIN unlocks the data again');
+  ok(await Wp.evaluate(() => { const P = dmProviders().auth; try { P.removeUser(P.listUsers()[0].id); return false; } catch(e){ return e.message === 'last_admin'; } }), 'web mode: the last administrator cannot be removed (vault would be unreadable)');
+  await Wctx.close();
 
   console.log('\nerrors:', errs.length ? errs.join('\n') : 'none');
   if (errs.length) fails += errs.length;

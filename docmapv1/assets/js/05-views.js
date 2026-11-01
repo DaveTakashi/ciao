@@ -127,7 +127,7 @@ function showQR(b){
       '<div class="stack"><div><div class="lbl">' + esc(t('f_short')) + '</div><div class="mono" style="font-size:20px;font-weight:800">' + esc(b.short_code) + '</div></div>' +
       '<div><div class="lbl">' + esc(t('f_shorturl')) + '</div><a class="mono" href="' + esc(b.short_url) + '" target="_blank" rel="noopener">' + esc(b.short_url) + '</a></div>' +
       '<div><div class="lbl">final_destination</div><div class="mono small" style="word-break:break-all">' + esc(destFor(b)) + '</div></div>' +
-      '<div class="row"><button class="btn btn-sm" data-a="copy-url" data-id="' + b.id + '">' + ic('copy') + 'URL</button></div></div></div>',
+      '<div class="row"><button class="btn btn-sm" data-a="copy-url" data-id="' + b.id + '">' + ic('copy') + 'URL</button>' + (typeof mobPreviewBtnHTML === 'function' ? mobPreviewBtnHTML(b) : '') + '</div></div></div>',
     buttons:[{label:t('close'), cls:'btn', action:'modal-close'}] });
 }
 
@@ -160,7 +160,7 @@ function openEditor(id, preset){
     '<label class="chk"><input type="checkbox" data-ed="selected_for_print"' + (d.selected_for_print ? ' checked' : '') + '>' + esc(t('f_selprint')) + '</label>' +
     '</div><div><div class="lbl" style="margin-bottom:8px">' + esc(t('preview')) + ' — <span class="mono" style="text-transform:none">' + esc(findPreset(S.print.presetId).name) + '</span></div><div class="prev-box" id="ed-preview"></div><div style="margin-top:16px"><div class="lbl" style="margin-bottom:6px">' + esc(t('ph_binder')) + '</div><div data-ph-slot data-type="binder" data-key="' + d.id + '">' + phThumbsHTML('binder', d.id) + '</div><div class="hint">' + esc(t('ph_hint')) + '</div></div></div></div>';
   openModal({ title: UI.ed.isNew ? t('ed_new') : t('ed_edit') + ' ' + d.speaking_code, size:'xl', body, autofocus:false,
-    buttons:[{label:t('cancel'), cls:'btn', action:'modal-close'}, {label:t('save'), cls:'btn btn-primary btn-lg', icon:'save', fn:saveEditor}],
+    buttons:(src && typeof mobPreviewUrl === 'function' ? [{label:t('mob_preview'), cls:'btn ed-mob', icon:'eye', fn:() => window.open(mobPreviewUrl(src), '_blank', 'noopener')}] : []).concat([{label:t('cancel'), cls:'btn', action:'modal-close'}, {label:t('save'), cls:'btn btn-primary btn-lg', icon:'save', fn:saveEditor}]),
     onMount: () => { renderEdContents(); renderEdPreview(); edEnhance(); setTimeout(() => { if (!UI.ed) return; const el = UI.ed.isNew ? $('#ed-company_name') : $('#ed-binder_title'); el && el.focus(); }, 40); },
     beforeClose: () => {
       if (!UI.ed || JSON.stringify(UI.ed.d) === UI.ed.base) return true;
@@ -632,5 +632,6 @@ function viewSettings(){
       '<button class="btn" data-a="se-prev">' + ic('rotate') + esc(t('se_prev_restore')) + '</button>' +
       '<button class="btn" data-a="se-demo">' + ic('refresh') + esc(t('se_demo')) + '</button>' +
       '<button class="btn btn-danger" data-a="se-wipe">' + ic('trash') + esc(t('se_wipe')) + '</button>' +
-      '<div class="sep"></div><div class="tiny muted">' + esc(t('se_about', {v:APP_VERSION})) + '<br>localStorage: <span class="mono">' + LS_KEY + '</span></div></div></div>' + colorSettingsHTML();   // Colori dei dorsi (02b-colors.js)
+      '<div class="sep"></div><div class="tiny muted">' + esc(t('se_about', {v:APP_VERSION})) + '<br>localStorage: <span class="mono">' + LS_KEY + '</span></div></div></div>' + colorSettingsHTML() +   // Colori dei dorsi (02b-colors.js)
+    (typeof authSettingsHTML === 'function' ? authSettingsHTML() : '');   // v10: Utenti e accesso (10-auth.js)
 }

@@ -317,7 +317,9 @@ document.addEventListener('toggle', (e) => { if (e.target && e.target.id === 'pr
 Object.assign(ACTIONS, PHOTO_ACTIONS, CLIENT_ACTIONS, IMPORT_MAP_ACTIONS, EDITOR_ACTIONS, INFO_ACTIONS, PDF_ACTIONS, TEMPLATE_ACTIONS, PAGE_ACTIONS);
 
 /* ---------------- Boot ---------------- */
-(function boot(){
+/* v10: in web mode (docmap.config.js) DocMapVault.gateBoot shows the login / lock screen first and runs boot()
+   only after the encrypted local vault is unlocked (10-auth.js). In local mode boot runs immediately as before. */
+function dmBoot(){
   S = loadState(); window.S = S;
   // integrity: guarantee unique, valid short codes
   if (ensureIntegrity()) S.hasUnexportedChanges = true;
@@ -326,4 +328,5 @@ Object.assign(ACTIONS, PHOTO_ACTIONS, CLIENT_ACTIONS, IMPORT_MAP_ACTIONS, EDITOR
   maybeOnboard();
   dbInit();
   window.DocMap = { state:() => S, DMQR, layoutLabels, buildLabelSheets, buildCalibSheet, buildRegisterHTML, mergeManifest, analyzeImport, applyImport, buildAIPrompt, parseCSV };
-})();
+}
+if (!(window.DocMapVault && DocMapVault.gateBoot(dmBoot))) dmBoot();

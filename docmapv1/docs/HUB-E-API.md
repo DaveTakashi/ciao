@@ -128,7 +128,7 @@ Esempio di faldone (stessa forma di `MODELLO-DATI.md` §8, più i campi di hub):
   "contents_items": [{"year": "2025", "description": "Fatture Acquisto Q1-Q4", "status": "archive"}],
   "tags": "iva,fatture,2025", "contacts": "", "notes": "",
   "short_code": "dm26K8m2P9xL", "short_url": "https://qr7.it/dm26K8m2P9xL",
-  "final_destination": "", "resolved_destination": "https://studiodallasta.it/docmap/?code=BL1&qr=dm26K8m2P9xL",
+  "final_destination": "", "resolved_destination": "https://docmap.pr-it.it/studio-de/q/dm26K8m2P9xL",
   "selected_for_print": true,
   "created_at": "2026-10-31T09:12:44.120Z", "updated_at": "2026-10-31T09:12:44.120Z", "deleted_at": null
 }
@@ -187,3 +187,18 @@ Oggi l'MVP **non chiama nessuna AI**: copia negli appunti un prompt (`buildAIPro
 | **Hub 2 — API + sync** | autenticazione, tenant unico (Studio Dall'Asta), API REST, push/pull + WebSocket, foto su object storage, webhook verso il sistema Python | l'app MVP diventa "online-capable" |
 | **Hub 3 — multi-tenant** | tenant, ruoli, RLS, piani, feature flag, licenze offline, chiavi API | prodotto vendibile ad altri studi |
 | **Hub 4 — AI gateway** | registro provider, template, metering con markup, BYOK, provider locali | il pulsante "Genera con AI" chiama il gateway |
+
+## 12. v10: seam già pronti nel front-end
+
+Il front-end ha già le interfacce che il back-end deve soddisfare (`assets/js/10-auth.js`), con implementazione
+locale oggi e stub remoti pronti:
+
+| Interfaccia | Locale (MVP) | Remota (back-end) |
+|---|---|---|
+| `AuthProvider` (`login · logout · currentUser · getToken · onChange · can`) | `LocalAuthProvider`: utenti PBKDF2 in `localStorage 'docmap_v26_auth'` | `RemoteAuthProvider`: `POST /v1/auth/token` (o OIDC) |
+| `DataProvider` (`getBinderByQr · getBinderByCode · saveBinderPatch · listChanges · getCabinetPhoto · context`) | `LocalDataProvider`: stesso stato del desktop (o la cassaforte in modalità web) | `RemoteDataProvider`: `GET /v1/binders/by-short/…`, `PATCH` con `If-Match` |
+| `CryptoProvider` (`encrypt · decrypt · sha256`) | AES-256-GCM a busta, KEK non estraibile in IndexedDB | KMS per tenant |
+| `BlobStore` (`putBlob · getBlob · deleteBlob · listBlobs`) | IndexedDB `docmap_v26_blobs`, cifrato | `POST /v1/blobs` + object storage |
+
+Contratto completo: `API-CONTRACT.md`. Modello di sicurezza: `SICUREZZA.md`. Pubblicazione statica: `DEPLOY-WEB.md`.
+La pagina mobile del QR è `scan.html` (`11-scan.js`); la destinazione predefinita è `https://docmap.pr-it.it/studio-de/q/{short_code}`.
