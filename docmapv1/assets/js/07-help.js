@@ -356,6 +356,7 @@ const HELP_META = {
   'qr-reprint':{acts:['how','print','fix'], pop:66, title:{it:'Come ristampo solo i QR rovinati', en:'How do I reprint only damaged QR codes?'}},
   excel:       {acts:['how','io'], pop:74, title:{it:'Come importo un file Excel (.xlsx) e abbino le colonne', en:'How do I import an Excel file (.xlsx) and match the columns?'}},
   pdf:         {acts:['how','print','io'], pop:84, guide:'pdf', title:{it:'Come scarico il PDF delle etichette (per stampare da un altro PC)', en:'How do I download the labels as PDF (to print from another PC)?'}},
+  colors:      {acts:['how','edit','what'], pop:40, tags:['label'], title:{it:'Come funzionano i colori dei dorsi (spettro, regole colore, colori bloccati)', en:'How do spine colours work (spectrum, colour rules, locked colours)?'}},
   log:         {acts:['what','find'], pop:32, title:{it:'Cos\'è il registro attività (chi ha fatto cosa)', en:'What is the activity log (who did what)?'}}
 };
 HELP_TOPICS.push(

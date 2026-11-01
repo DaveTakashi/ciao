@@ -13,7 +13,7 @@
        since: ISO | null (null = full package), target: deviceId | '',
        ack: {peerDeviceId: lastSeenRemoteExportAt},          // "I have your data up to your time X"
        records:{binders:[...], clients:[...]}, tombstones:[{type, id, code, deletedAt, who}],
-       settingsSubset:{studioName, destTemplate, catColors}, activity_log:[...], counts:{...} }
+       settingsSubset:{studioName, destTemplate, catColors, colorMode, catFamilies, colorRules, colorUpdatedAt}, activity_log:[...], counts:{...} }
    Package (encrypted, WebCrypto): { format:'docmap-sync-enc', v:1,
        kdf:{name:'PBKDF2', hash:'SHA-256', iterations, salt}, cipher:'AES-256-GCM', iv, ct }   (base64; AAD 'docmap-sync-enc/1')
 
@@ -258,7 +258,7 @@ function syncBuildPackage(opts){
     source:{deviceId:syncDeviceId(), deviceLabel:syncDeviceLabel(), mode:syncMode(), operator:String(S.settings.operator || '')},
     since:since || null, target:opts.target || '', ack,
     records:{binders:clone(ch.binders), clients:clone(ch.clients)}, tombstones:clone(ch.tombstones),
-    settingsSubset:{studioName:S.settings.studioName || '', destTemplate:S.settings.destTemplate || '', catColors:clone(S.settings.catColors || {})},
+    settingsSubset:{studioName:S.settings.studioName || '', destTemplate:S.settings.destTemplate || '', catColors:clone(S.settings.catColors || {}), ...colorSyncSubset()},   // colour block: 02b-colors.js
     activity_log:log.map(e => ({id:e.id, at:e.at, who:e.who, action:e.action, target:e.target, summary:e.summary, details:e.details, source:e.source})),
     counts:{binders:ch.binders.length, clients:ch.clients.length, tombstones:ch.tombstones.length, log:log.length}
   };
@@ -419,6 +419,7 @@ function syncApply(plan){
     if (typeof ss.studioName === 'string' && ss.studioName) S.settings.studioName = ss.studioName;
     if (typeof ss.destTemplate === 'string' && /^https?:\/\//i.test(ss.destTemplate)) S.settings.destTemplate = ss.destTemplate;
     if (ss.catColors && typeof ss.catColors === 'object') S.settings.catColors = Object.assign({}, S.settings.catColors || {}, syncClean(ss.catColors));
+    colorSyncApply(ss);   // colorMode / catFamilies / colorRules: newer colorUpdatedAt wins (02b-colors.js)
   }
   // peer bookkeeping
   const pid = plan.peer.id, p = S.sync.peers[pid] = Object.assign({id:pid, label:'', mode:'local', lastImportAt:null, lastSeenRemoteExportAt:null, lastExportAt:null, ackedAt:null}, S.sync.peers[pid] || {});

@@ -284,6 +284,10 @@ function infoRename(id, key, newVal){
     const cf = S.settings.catFamilies, old = Object.keys(cf).find(k => infoKey(k) === key);
     if (old && old !== target){ if (!Object.keys(cf).some(k => infoKey(k) === infoKey(target))) cf[target] = cf[old]; delete cf[old]; }
   }
+  if (id === 'category' && S.settings.colorRules){   // keyword colour rules follow the rename
+    const cr = S.settings.colorRules, old = Object.keys(cr).find(k => infoKey(k) === key);
+    if (old && old !== target){ if (!Object.keys(cr).some(k => infoKey(k) === infoKey(target))) cr[target] = cr[old]; delete cr[old]; }
+  }
   return Object.assign(r, {merged, target});
 }
 function infoDelete(id, key){
@@ -291,6 +295,7 @@ function infoDelete(id, key){
   const r = infoRewrite(id, (v) => infoKey(v) === key ? '' : v);
   if (id === 'category' && S.settings.catColors) Object.keys(S.settings.catColors).forEach(k => { if (infoKey(k) === key) delete S.settings.catColors[k]; });
   if (id === 'category' && S.settings.catFamilies) Object.keys(S.settings.catFamilies).forEach(k => { if (infoKey(k) === key) delete S.settings.catFamilies[k]; });
+  if (id === 'category' && S.settings.colorRules) Object.keys(S.settings.colorRules).forEach(k => { if (infoKey(k) === key) delete S.settings.colorRules[k]; });
   return r;
 }
 /* Archive filter set from a usage count. */
@@ -345,13 +350,13 @@ function renderInfoResults(){
   if (!rows.length){ box.innerHTML = '<div class="empty">' + esc(t('in_none')) + '</div>'; return; }
   const max = Math.max.apply(null, all.map(e => e.nB)) || 1, hasC = !!L.client, isCat = id === 'category';
   const cc = S.settings.catColors || {};
-  box.innerHTML = '<div class="tbl-wrap"><table class="tbl info-tbl"><thead><tr><th>' + esc(t('in_value')) + '</th><th>' + esc(t('in_binders')) + '</th>' + (hasC ? '<th class="hide-sm">' + esc(t('in_clients_n')) + '</th>' : '') + (isCat ? '<th>' + esc(t('in_color')) + '</th>' : '') + '<th></th></tr></thead><tbody>' +
+  box.innerHTML = (isCat ? colorRulesOverviewHTML() : '') + '<div class="tbl-wrap"><table class="tbl info-tbl"><thead><tr><th>' + esc(t('in_value')) + '</th><th>' + esc(t('in_binders')) + '</th>' + (hasC ? '<th class="hide-sm">' + esc(t('in_clients_n')) + '</th>' : '') + (isCat ? '<th>' + esc(t('in_color')) + '</th>' : '') + '<th></th></tr></thead><tbody>' +
     rows.slice(0, 600).map(e => {
       const lock = infoProtected(id, e.key), k = esc(e.key);
       const val = id === 'tags' ? '<span class="tagpill' + (lock ? ' demo' : '') + '">' + esc(e.value) + '</span>' + (lock ? ' <span class="badge b-historical" title="' + esc(t('in_demo_lock')) + '">' + esc(t('in_demo')) + '</span>' : '')
         : '<span class="iv' + (L.mono ? ' mono' : '') + '">' + esc(e.value) + '</span>';
       const cnt = e.nB ? '<button class="cnt-btn" data-a="info-filter" data-l="' + id + '" data-k="' + k + '" title="' + esc(t('in_show')) + '"><span class="cnt-bar"><span style="width:' + Math.max(4, Math.round(e.nB / max * 100)) + '%"></span></span><b>' + e.nB + '</b>' + ic('arrowRight') + '</button>' : '<span class="muted small">0</span>';
-      const col = isCat ? (() => { const hex = colorCategoryHex(e.value), fid = colorFamilyId(e.value); return '<td><button class="swatch-btn" data-a="info-color" data-k="' + k + '" title="' + esc(t('in_color_t', {v:e.value}) + ' — ' + t('co_family_of', {f:colorFamilyName(fid)})) + '"><span class="sw-dot" style="background:' + esc(hex) + '"></span>' + colorStrip(fid, {shades:colorShades(e.value)}) + '<span class="mono small hide-sm">' + esc(hex) + '</span></button></td>'; })() : '';   // family strip: 02b-colors.js
+      const col = isCat ? (() => { const hex = colorCategoryHex(e.value), fid = colorFamilyId(e.value); return '<td><button class="swatch-btn" data-a="info-color" data-k="' + k + '" title="' + esc(t('in_color_t', {v:e.value}) + ' — ' + t('co_family_of', {f:colorFamilyName(fid)})) + '"><span class="sw-dot" style="background:' + esc(hex) + '"></span>' + colorStrip(fid, {shades:colorShades(e.value)}) + '<span class="mono small hide-sm">' + esc(hex) + '</span>' + (colorRulesFor(e.value).length ? '<span class="co-nrules small">' + esc(t('co_rule_count', {n:colorRulesFor(e.value).length, m:COLOR_RULES_MAX})) + '</span>' : '') + '</button></td>'; })() : '';   // family strip: 02b-colors.js
       return '<tr><td>' + val + '</td><td>' + cnt + '</td>' + (hasC ? '<td class="hide-sm">' + (e.nC ? '<span class="mono">' + e.nC + '</span>' : '<span class="muted small">0</span>') + '</td>' : '') + col +
         '<td class="acts">' + (lock ? '' : '<button class="btn btn-sm btn-ghost" data-a="info-rename" data-l="' + id + '" data-k="' + k + '">' + ic('pencil') + '<span class="hide-sm">' + esc(t('in_rename')) + '</span></button><button class="btn btn-sm btn-ghost" data-a="info-merge" data-l="' + id + '" data-k="' + k + '"' + (all.length < 2 ? ' disabled' : '') + '>' + ic('merge') + '<span class="hide-sm">' + esc(t('in_merge')) + '</span></button><button class="icon-btn danger" data-a="info-del" data-l="' + id + '" data-k="' + k + '" title="' + esc(t('act_del')) + '" aria-label="' + esc(t('act_del')) + '">' + ic('trash') + '</button>') + '</td></tr>';
     }).join('') + '</tbody></table></div>';
@@ -404,46 +409,8 @@ function askInfoDelete(id, key){
     infoDone(r, 'in_deleted', {v:e.value});
   } });
 }
-/* Category colour dialog (v10): colour family (02b-colors.js) + the category's own colour + optional recolour.
-   Stored: S.settings.catFamilies[cat] when a family is picked (or was already chosen), S.settings.catColors[cat]
-   only when the colour differs from what the category gets without it (the family's first shade / v9 default). */
-function openCatColor(key){
-  const e = infoEntry('category', key); if (!e) return;
-  const cc = S.settings.catColors || {}, own = Object.keys(cc).find(x => infoKey(x) === key);
-  const cf = S.settings.catFamilies || {}, ownF = Object.keys(cf).find(x => infoKey(x) === key);
-  const M = UI.coCat = { fam:colorFamilyId(e.value), famSet:!!ownF, cur:colorCategoryHex(e.value) };
-  const famHTML = () => COLOR_FAMILIES.map(f => '<button type="button" class="co-fambtn' + (f.id === M.fam ? ' on' : '') + '" data-a="co-fam" data-f="' + f.id + '" aria-pressed="' + (f.id === M.fam) + '"><span>' + esc(colorFamilyName(f.id)) + '</span>' + colorStrip(f.id) + '</button>').join('');
-  const sw = () => Array.from(new Set(COLOR_FAMILY[M.fam].shades.concat(COLORS, SHELF_COLORS))).map(c => '<button type="button" class="sw' + (c === M.cur ? ' on' : '') + '" data-a="info-sw" data-c="' + c + '" style="background:' + c + '" aria-label="' + c + '"></button>').join('');
-  M.pickFamily = (id) => {
-    if (!COLOR_FAMILY[id]) return;
-    M.fam = id; M.famSet = true; M.cur = COLOR_FAMILY[id].shades[0];
-    const f = $('#info-fams'), s = $('#info-sws'), i = $('#info-col');
-    if (f) f.innerHTML = famHTML(); if (s) s.innerHTML = sw(); if (i) i.value = M.cur;
-  };
-  const apply = (fam, hex) => {
-    S.settings.catColors = Object.assign({}, cc); if (own) delete S.settings.catColors[own];
-    S.settings.catFamilies = Object.assign({}, cf); if (ownF) delete S.settings.catFamilies[ownF];
-    if (fam) S.settings.catFamilies[e.value] = fam;
-    if (hex && hex !== colorCategoryHex(e.value)) S.settings.catColors[e.value] = hex;   // the category's own colour = family anchor
-    infoApplyCatColors();
-  };
-  const recolor = () => { if ($('#info-col-all') && $('#info-col-all').checked) recolorAll({onlyUnlocked:true, category:e.value, mode:colorMode() === 'manual' ? 'category' : undefined, noUndo:true, noCommit:true, silent:true}); };
-  openModal({ title:t('in_color_t', {v:e.value}),
-    body:'<p class="small muted" style="margin-top:0">' + esc(t('in_color_d')) + '</p>' +
-      '<div class="lbl" style="margin-bottom:6px">' + esc(t('co_family')) + helpDot('colors') + '</div><div class="co-fampick" id="info-fams">' + famHTML() + '</div><div class="hint" style="margin:6px 0 12px">' + esc(t('co_cat_family_d')) + '</div>' +
-      '<div class="swatches" id="info-sws">' + sw() + '</div><label class="row small info-custom">' + esc(t('in_color_custom')) + ' <input type="color" id="info-col" value="' + esc(M.cur || '#2563EB') + '" title="#RRGGBB"></label>' +
-      '<label class="chk small" style="margin-top:14px"><input type="checkbox" id="info-col-all">' + esc(t('co_cat_recolor', {n:e.nB})) + '</label>',
-    buttons:[{label:t('in_color_reset'), cls:'btn btn-ghost', fn: () => {
-      undoPoint(); apply('', ''); recolor();
-      closeModal(true); commit(); renderView(); undoToast(t('in_color_saved', {v:e.value}));
-    }}, {label:t('cancel'), cls:'btn', action:'modal-close'}, {label:t('save'), cls:'btn btn-primary', icon:'check', fn: () => {
-      const hex = normHex($('#info-col').value); if (!hex) return;
-      undoPoint();
-      apply(M.famSet ? M.fam : '', hex); recolor();
-      closeModal(true); commit(); renderView(); undoToast(t('in_color_saved', {v:e.value}));
-    }}],
-    onClose: () => { UI.coCat = null; } });
-}
+/* Category colour dialog: spectrum, category colour, keyword rules (02b-colors.js colorCatDialog). */
+function openCatColor(key){ const e = infoEntry('category', key); if (e) colorCatDialog(e); }
 
 /* ---------------- QR overview & reprint ---------------- */
 const QR_PRESETS = ['l7159','l7160','l7162','l7163','a4-21','a4-14'];
