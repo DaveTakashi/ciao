@@ -90,7 +90,9 @@ class Registry:
     def __init__(self, data_dir: Path):
         self.path = Path(data_dir) / DB_NAME
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.conn = sqlite3.connect(str(self.path))
+        # check_same_thread=False: the web page serves requests one at a time from a
+        # worker thread; access stays serialised.
+        self.conn = sqlite3.connect(str(self.path), check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA foreign_keys = ON")
         self.migrate()
