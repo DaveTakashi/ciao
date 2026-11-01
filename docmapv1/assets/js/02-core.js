@@ -2,7 +2,7 @@
    DocMap 2026 — core: i18n, state, persistence, data model helpers
    ===================================================================== */
 'use strict';
-const APP_VERSION = '26.7.0';
+const APP_VERSION = '26.8.0';
 const LS_KEY = 'docmap_v26_state';
 const LS_PREV = 'docmap_v26_state_prev';
 const SC_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
@@ -414,7 +414,7 @@ function demoBinders(){
 /* ---------------- State ---------------- */
 function defaultState(){
   return {
-    schema:26.7, app:'DocMap26', lang:'it', view:'archive',
+    schema:26.8, app:'DocMap26', lang:'it', view:'archive',
     settings:{ studioName:'Studio Demo Commercialisti Associati', destTemplate:DEFAULT_DEST, qrEcc:'M' },
     binders:[],
     print:{ presetId:'mrink143', geometry:geoFromPreset(BUILTIN_PRESETS[0]), geometryModified:false, padding:4, offsetX:0, offsetY:0,
@@ -445,7 +445,7 @@ function migrate(st){
   // v7: each physical MRINK143 label holds 2 complete labels (8 per sheet); old 105×148 geometry and slot maps are reset once
   if (!(st && st.schema >= 26.7) && o.print.presetId === 'mrink143'){ o.print.geometry = presetGeo('mrink143'); o.print.geometryModified = false; o.usedSlots.mrink143 = []; }
   o.print.pvLandscape = !!o.print.pvLandscape;
-  o.schema = 26.7;
+  o.schema = 26.8;
   o.binders = Array.isArray(o.binders) ? o.binders.map(normalizeBinder) : [];
   if (!['it','en'].includes(o.lang)) o.lang = 'it';
   if (o.view === 'clients'){ o.view = 'info'; o.infoTab = 'clients'; }   // v8: the client register lives in Informazioni

@@ -617,6 +617,8 @@ const sec = (n) => console.log('\n== ' + n);
   await p.evaluate(() => { S.lang = 'en'; S.view = 'info'; S.infoTab = 'tags'; renderAll(); });
   ok((await p.innerText('.nav')).includes('Information') && (await p.innerText('#info-panel')).includes('Rename'), 'Informazioni in English');
   await p.evaluate(() => { S.lang = 'it'; S.view = 'archive'; renderAll(); });
+  // restore the values renamed above so later blocks see the original fixtures
+  await p.evaluate(() => { infoRename('tags', 'fatturazione', 'fatture'); infoRename('multi', 'm-16', '16'); infoRename('place', 'busseto (pr)', 'BUSSETO (PR)'); commit(); });
 
   // ----------------------------------------------------------------------
 
@@ -791,7 +793,7 @@ const sec = (n) => console.log('\n== ' + n);
   ok(v.saved >= 1 && v.bar, 'mapping remembered in S.settings.importMappings, preview offers "Modifica abbinamento colonne"', v);
   await p.click('[data-a="cl-apply"]'); await p.waitForTimeout(300);
   v = await p.evaluate(() => ({view:S.view, n:S.clients.length, c:S.clients.find(c => c.multi_code === '007')}));
-  ok(v.view === 'clients' && v.n === 6 && v.c && v.c.name === 'APS L\'ÀNCORA "Blu"; sede àèìòù', 'client import via xlsx adds the clients to the register', v);
+  ok(v.view === 'info' && v.n === 6 && v.c && v.c.name === 'APS L\'ÀNCORA "Blu"; sede àèìòù', 'client import via xlsx adds the clients to the register', v);
   // re-import the same file: remembered mapping, one click; change a mapping → different result
   await p.evaluate(() => { S.view = 'import'; renderAll(); });
   await p.setInputFiles('#file-import', 'shots/stream_c_clienti_faldoni.xlsx'); await p.waitForTimeout(700);

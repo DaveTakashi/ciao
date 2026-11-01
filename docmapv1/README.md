@@ -10,6 +10,18 @@ Archivio fisico-digitale: raccoglitori con codice parlante (BL1), posizione sull
 
 Al primo avvio parte un breve tour. Il pulsante **?** in alto (o F1) apre la guida con le azioni guidate.
 
+## Novità v8 in breve
+
+- **Barra in alto più semplice:** solo Archivio, Stampa etichette e Informazioni. Import, export, AI, database e impostazioni sono nel menu **⚙ Funzioni avanzate**.
+- **Informazioni** (prima "Clienti"): clienti, tag, categorie, anni, luoghi, codici Multi, codici extra e QR. Rinomini o unisci una voce e cambia in tutti i faldoni.
+- **Suggerimenti mentre scrivi** per cliente, Multi, luogo, categoria, anno, codici extra e tag, con le 3-4 voci più usate appena entri nel campo. Niente clienti doppi; codice parlante già usato = avviso con il prossimo libero.
+- **Stato di ogni documento:** in archivio, in uso, al cliente.
+- **Una riga per voce** con pulsante Conferma; **Posizione rapida** in un solo campo (es. `A1-β-SX`) con le posizioni recenti.
+- **Contatti e note** del faldone, non stampati se non li accendi.
+- **Import diretto da Excel (.xlsx)** con abbinamento colonne da confermare.
+- **Ristampa solo QR** su etichette piccole per i QR rovinati.
+- Documentazione tecnica in `AGENTS.md` e `docs/` (architettura, modello dati, allineamento con il sistema Python, progetto hub/API).
+
 ## Novità v6–v7 in breve
 
 - **Foglio predefinito MRINK143**: 4 etichette fisiche 105×148 per A4, ognuna con 2 etichette complete da separare con la taglierina (8 per foglio). Anteprima verticale o orizzontale.
@@ -32,7 +44,7 @@ Al primo avvio parte un breve tour. Il pulsante **?** in alto (o F1) apre la gui
 ## Uso quotidiano
 
 - **Nuovo faldone:** archivio, poi "Nuovo faldone". Codice parlante, short code e posizione si compilano quasi da soli.
-- **Import:** trascina un CSV, JSON o `.sqlite` ovunque nella finestra, oppure incolla il testo (anche la risposta dell'AI con il blocco ```csv).
+- **Import:** trascina un file Excel `.xlsx`, CSV, JSON o `.sqlite` ovunque nella finestra, oppure incolla il testo (anche la risposta dell'AI con il blocco ```csv).
 - **Annulla:** dopo un'eliminazione, un import, il ripristino di una sessione o l'apertura di un `.sqlite` compare "Annulla" per alcuni secondi.
 - **Scorciatoie:** `F1` guida, `Ctrl+S` salva il faldone aperto (o fa il backup rapido), `Esc` chiude guida, aiuto o finestra. Se il faldone ha modifiche non salvate, `Esc` chiede conferma.
 
@@ -56,6 +68,10 @@ Il **codice parlante** c'è sempre. Si possono accendere o spegnere: categoria, 
 ### Stampa: base e Opzioni avanzate
 
 La colonna di sinistra mostra solo coda di stampa, foglio (con il consigliato in evidenza), contenuto, campi, QR e qualità. **Opzioni avanzate** (riquadro richiudibile, resta come l'hai lasciato) contiene geometria del foglio, offset e margine interno, verso di lettura e linea di taglio, recupero dei fogli parziali e calibrazione. Le guide lo aprono da sole quando serve.
+
+## Importazione da Excel
+
+In **⚙ › Importa** puoi trascinare direttamente un file Excel **.xlsx** (non serve più salvarlo in CSV): DocMap lo legge offline, anche aperto con doppio clic. Se il file ha più fogli scegli quello giusto; titoli e righe vuote sopra la tabella vengono saltati. Prima dell'anteprima compare il passo **Abbina le colonne**: per ogni colonna del file vedi l'intestazione, alcuni valori di esempio e il campo DocMap proposto (dai nomi delle colonne, anche simili, e dai valori: codici dm26, colori #RRGGBB, anni, CAP, province). Correggi i menu se serve, scegli se importare **Faldoni** o **Anagrafica clienti** e premi **Conferma abbinamento**. L'abbinamento viene ricordato, quindi reimportare lo stesso file richiede un solo clic. Lo stesso passo vale per i CSV e per le celle copiate da Excel e incollate; i CSV di DocMap e i JSON vanno diretti all'anteprima, con il link «Modifica abbinamento colonne». Testi e caratteri speciali restano identici (apostrofi come LESIGNANO DE' BAGNI, virgolette, punto e virgola, accenti, zeri iniziali come 007, a capo nelle celle); le date diventano AAAA-MM-GG e nella colonna Contenuti ogni riga o ogni «|» diventa una voce. I vecchi file .xls vanno prima salvati come .xlsx o CSV. Limiti: le celle unite non vengono espanse, le formule senza valore salvato arrivano vuote, serve Chrome/Edge 103 o successivo.
 
 ## Barra in alto e Informazioni
 
@@ -162,6 +178,7 @@ Predefinito: **MRINK143** (4 etichette fisiche 105×148 = 8 etichette 105×74). 
 | "Il motore SQLite non si è avviato" | Apri `index.html` dalla cartella estratta, non da dentro lo zip. |
 | Su MRINK143 il testo è capovolto | In Opzioni avanzate › Verso di lettura scegli l'altra rotazione (+90° / −90°). |
 | La linea di taglio non cade a metà | Controlla Scala 100% e Margini nessuno; se serve correggi gli offset con la calibrazione. |
+| Il file Excel non si apre | Serve un `.xlsx` (non `.xls`) e Chrome o Edge aggiornati. In alternativa salva come CSV UTF-8. |
 | L'elenco clienti viene letto come faldoni | Deve esserci la colonna `Ragione_soc` (o `ragione_sociale`) e nessuna colonna da faldone come `speaking_code`. |
 
 ## Cose da fare
@@ -178,12 +195,14 @@ Predefinito: **MRINK143** (4 etichette fisiche 105×148 = 8 etichette 105×74). 
 
 ```
 index.html            apertura con doppio clic
-assets/docmap.css     stile
+assets/docmap.css     stile (più css-info, css-editor, css-import per le parti v8)
 assets/fonts/         Inter e JetBrains Mono (licenza OFL)
-assets/js/01..09-*.js QR, dati, stampa, interfaccia, SQLite, foto (06b), clienti (06c), guida
+assets/js/01..09-*.js QR, dati, stampa, interfaccia, SQLite, foto (06b), clienti (06c), Informazioni (06d),
+                      suggerimenti dell'editor (04b), import Excel (05b), guida
 vendor/sql-wasm.js    sql.js 1.10.3 con WASM incluso
 tests/suite.js        test automatici (solo sviluppo)
-tests/fixtures/       piccolo elenco clienti di prova (dati inventati)
+tests/fixtures/       piccolo elenco clienti di prova e generatore .xlsx (dati inventati)
+AGENTS.md, docs/      documentazione tecnica per sviluppatori e agenti AI
 ```
 
 ## Test (solo per sviluppatori)
@@ -194,4 +213,4 @@ Servono Node.js, `playwright`, `jsqr`, `pngjs` e Python con `pypdfium2`.
 cd tests && npm i playwright jsqr pngjs && pip install pypdfium2 && node suite.js
 ```
 
-La suite (459 controlli) apre l'app in Chromium. Controlla tutte le schermate e stampa ogni formato in PDF, leggendo ogni QR uno per uno. Verifica anche import ed export, SQLite, le guide, le prestazioni con 2000 faldoni e i casi limite trovati nella caccia ai bug. Dalla v6–v7 controlla anche le 8 etichette di MRINK143, la vista orizzontale, i campi vuoti, campi, anagrafica clienti, dati demo, ripiani e la guida libera.
+La suite (569 controlli) apre l'app in Chromium. Controlla tutte le schermate e stampa ogni formato in PDF, leggendo ogni QR uno per uno. Verifica anche import ed export, SQLite, le guide, le prestazioni con 2000 faldoni e i casi limite trovati nella caccia ai bug. Dalla v6–v7 controlla anche le 8 etichette di MRINK143, la vista orizzontale, i campi vuoti, campi, anagrafica clienti, dati demo, ripiani e la guida libera. Dalla v8 anche menu e Informazioni, ristampa solo QR, suggerimenti dell'editor, stato dei documenti, posizione rapida, contatti e note, import Excel.
