@@ -3639,6 +3639,9 @@ const sec = (n) => console.log('\n== ' + n);
     ok(+Vv.ver === 8 && Vv.col === '#9C051E' && Vv.tags === 'aps,proloco' && Vv.up === '2026-11-01T10:00:00.000Z' && Vv.multi === 'V111' && Vv.ex2 == null && Vv.old === 'Vecchio Cliente/777' && Vv.oldCol,
       'v11.1: client colour / tags / updated_at round-trip through SQLite (clients.extra_json); a schema-7 file migrates and keeps its clients', Vv);
   }
+  // @@STREAM-Q@@
+  // @@STREAM-A@@
+  // @@STREAM-C@@
   console.log('\nerrors:', errs.length ? errs.join('\n') : 'none');
   if (errs.length) fails += errs.length;
   console.log(`\nRESULT: ${passes} passed, ${fails} failed`);
