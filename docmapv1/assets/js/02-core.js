@@ -12,7 +12,7 @@ const GREEK = ['α','β','γ','δ','ε','ζ','η','θ'];
 const CATEGORIES = ['Ordinaria','Semplificata','Societario','Lavoro','Dichiarativi','Contenzioso','Privati'];
 const CAT_COLOR = {Ordinaria:'#2563EB',Semplificata:'#059669',Societario:'#7C3AED',Lavoro:'#D97706',Dichiarativi:'#DC2626'};
 const STATES = ['CURRENT','HISTORICAL','CHECKED_OUT'];
-const CSV_COLUMNS = ['speaking_code','multi_code','company_name','company_city','category','binder_title','ref_year','room_code','cabinet_code','shelf_code','sector_code','location_code','archive_state','contents','tags','color_hex','short_code','short_url','final_destination','extra_codes','shelf_color','selected_for_print','id','created_at','updated_at'];
+const CSV_COLUMNS = ['speaking_code','multi_code','company_name','company_city','category','binder_title','ref_year','room_code','cabinet_code','shelf_code','sector_code','location_code','archive_state','contents','tags','color_hex','short_code','short_url','final_destination','extra_codes','shelf_color','contacts','notes','selected_for_print','id','created_at','updated_at'];
 /* Shelf naming styles: the quick-pick buttons in the binder form follow the chosen style. */
 const SHELF_TYPES = {
   number:['1','2','3','4','5','6','7','8'], letter:['A','B','C','D','E','F','G','H'], greek:GREEK,
@@ -259,13 +259,30 @@ function parseLocation(code){
   if (!m) return null;
   return { room_code:m[1] || '', cabinet_code:m[2] || '', shelf_code:m[3] || '', sector_code:m[4] || '' };
 }
-function contentsToPipe(items){ return (items || []).map(i => (i.year ? i.year + ': ' : '') + (i.description || '')).filter(x => x.trim()).join('|'); }
+/* Contents items (Modulo B): {year, description, status}. status: 'archive' (in archivio, default) | 'in_use' (in uso / prelevato) | 'client' (dato al cliente).
+   Pipe / CSV / "one line per item" text stays "YEAR: Description" (backward compatible); an item that is not in the archive gets a suffix:
+   "2025: Fatture acquisto [cliente]", "2025: F24 [in uso]". Accepted on import: [cliente] [al cliente] [client] [in uso] [in use] [prelevato] [archivio]. */
+const CI_STATUSES = ['archive','in_use','client'];
+const CI_SUFFIX = {in_use:'in uso', client:'cliente'};
+const CI_SUFFIX_RE = /\s*\[\s*(in archivio|archivio|archive|in uso|in use|in_use|prelevato|cliente|al cliente|dato al cliente|client)\s*\]\s*$/i;
+function normCiStatus(v){
+  const s = String(v || '').trim().toLowerCase().replace(/[\s\-]+/g, '_');
+  if (CI_STATUSES.includes(s)) return s;
+  if (/^(al_|dato_al_)?client[ei]?$/.test(s)) return 'client';
+  if (/^(in_uso|in_use|uso|prelevato|fuori|out|checked_out)$/.test(s)) return 'in_use';
+  return 'archive';
+}
+function ciText(i){ return (i.year ? i.year + ': ' : '') + (i.description || '') + (CI_SUFFIX[i.status] ? ' [' + CI_SUFFIX[i.status] + ']' : ''); }
+function contentsToPipe(items){ return (items || []).filter(i => String(i.year || '').trim() || String(i.description || '').trim()).map(ciText).join('|'); }
 function pipeToContents(str){
-  if (Array.isArray(str)) return str.map(x => typeof x === 'string' ? pipeToContents(x)[0] : {year:String(x.year || '').trim(), description:String(x.description || x.desc || '').trim()}).filter(x => x && (x.year || x.description));
+  if (Array.isArray(str)) return str.map(x => typeof x === 'string' ? pipeToContents(x)[0] : {year:String(x.year || '').trim(), description:String(x.description || x.desc || '').trim(), status:normCiStatus(x.status)}).filter(x => x && (x.year || x.description));
   return String(str || '').split(/\||\n/).map(p => p.trim()).filter(Boolean).map(p => {
+    let status = 'archive';
+    const sm = p.match(CI_SUFFIX_RE);
+    if (sm){ status = normCiStatus(sm[1]); p = p.slice(0, sm.index).trim(); }
     const m = p.match(/^(\d{4}(?:\s*[-\/]\s*\d{2,4})?)\s*[:\-–—]\s*(.+)$/);
-    return m ? {year:m[1].replace(/\s+/g, ''), description:m[2].trim()} : {year:'', description:p};
-  });
+    return m ? {year:m[1].replace(/\s+/g, ''), description:m[2].trim(), status} : {year:'', description:p, status};
+  }).filter(x => x.year || x.description);
 }
 const STOP = new Set(['il','lo','la','i','gli','le','aps','ets','odv','onlus','asd','ssd','coop','srl','s','r','l','spa','p','a','snc','n','c','sas','di','de','del','della','dei','e','ed','&','the','and','of','studio','dott','dr','sig','geom','ing','avv','rag']);
 function initialsOf(name){
@@ -325,10 +342,10 @@ function manifestTags(b){ return ['docmap26', b.speaking_code, b.multi_code ? 'm
 function normalizeBinder(b){
   const o = Object.assign({
     id:uuid(), speaking_code:'', multi_code:'', company_name:'', company_city:'', ref_year:'', extra_codes:'', shelf_color:'', category:'', color_hex:'#2563EB', binder_title:'', room_code:'', cabinet_code:'', shelf_code:'', sector_code:'',
-    location_code:'', archive_state:'CURRENT', contents_items:[], tags:'', short_code:'', short_url:'', final_destination:'', selected_for_print:false,
+    location_code:'', archive_state:'CURRENT', contents_items:[], tags:'', short_code:'', short_url:'', final_destination:'', contacts:'', notes:'', selected_for_print:false,
     created_at:nowISO(), updated_at:nowISO()
   }, b || {});
-  ['speaking_code','multi_code','company_name','company_city','ref_year','extra_codes','shelf_color','category','binder_title','room_code','cabinet_code','shelf_code','sector_code','tags','short_code','final_destination'].forEach(k => o[k] = String(o[k] == null ? '' : o[k]).trim());
+  ['speaking_code','multi_code','company_name','company_city','ref_year','extra_codes','shelf_color','category','binder_title','room_code','cabinet_code','shelf_code','sector_code','tags','short_code','final_destination','contacts','notes'].forEach(k => o[k] = String(o[k] == null ? '' : o[k]).trim());
   o.speaking_code = o.speaking_code.toUpperCase().replace(/\s+/g, '');
   if (/^[a-z]{1,2}$/i.test(o.room_code)) o.room_code = o.room_code.toUpperCase();   // short room letters (a → A); names like "Ufficio 1" stay as typed
   o.shelf_color = normHex(o.shelf_color);

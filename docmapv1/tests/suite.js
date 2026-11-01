@@ -294,8 +294,8 @@ const sec = (n) => console.log('\n== ' + n);
   ok(v.multi_code === '00123' && v.company_name === 'Cliente Multi', 'Italian header "Codice Multi" recognised', v);
   v = await p.evaluate(() => { analyzeImport('BL9;Barbieri Luigi;Lavoro'); const a = UI.importParsed.rows[0].p; analyzeImport('ZZ7;M-1;Zeta Srl;Lavoro;T;A;1;α;;A1-α;CURRENT;2025: X;;;;;'); const c = UI.importParsed.rows[0].p; UI.importParsed = null; return {a, c}; });
   ok(v.a.company_name === 'Barbieri Luigi' && !v.a.multi_code && v.c.multi_code === 'M-1' && v.c.company_name === 'Zeta Srl', 'headerless rows: old 16-col and new 17-col orders', v);
-  v = await p.evaluate(() => { const pr = buildAIPrompt(true); return {hdr:pr.includes('speaking_code;multi_code;company_name'), n:pr.includes('exactly 20 fields'), rule:pr.includes('Never invent it'), ctx:pr.includes('Codice Multi (reuse it')}; });
-  ok(v.hdr && v.n && v.rule && v.ctx, 'AI prompt: multi_code column, 20 fields, never invented, known codes in context', v);
+  v = await p.evaluate(() => { const pr = buildAIPrompt(true); return {hdr:pr.includes('speaking_code;multi_code;company_name'), n:pr.includes('exactly 22 fields'), rule:pr.includes('Never invent it'), ctx:pr.includes('Codice Multi (reuse it')}; });
+  ok(v.hdr && v.n && v.rule && v.ctx, 'AI prompt: multi_code column, 22 fields, never invented, known codes in context', v);
   v = await p.evaluate(() => { const b = S.binders[0]; return {tags:manifestTags(b).includes('multi-m-00777-a'), dest:renderDest('https://x/?m={multi_code}', b) === 'https://x/?m=M-00777%2FA', mm:mergeManifest('', false).text.split('\n')[0] === 'short_code;short_url;final_destination;tags'}; });
   ok(v.tags && v.dest && v.mm, 'manifest: Multi in tags, {multi_code} placeholder, header unchanged', v);
   v = await p.evaluate(async () => { dbSyncFromState('t'); const ws = dbReadWorkspace(DB.db); const n = dbScalar("SELECT COUNT(*) FROM binders WHERE multi_code = 'M-00777/A'"); return {n, ws:ws.binders.find(b => b.multi_code === 'M-00777/A') ? 1 : 0}; });
@@ -440,14 +440,14 @@ const sec = (n) => console.log('\n== ' + n);
   ok(v[0] === '8' && v[1] === "LESIGNANO DE' BAGNI (PR)", 'typing a known client name fills Multi code and place', v);
   // new columns: CSV, AI prompt, SQLite, workspace
   v = await p.evaluate(() => { const b = S.binders.find(x => x.speaking_code === 'TS1'); const row = binderToCsvRow(b); return {len:row.length, cols:CSV_COLUMNS.length, city:row[CSV_COLUMNS.indexOf('company_city')], year:row[CSV_COLUMNS.indexOf('ref_year')], extra:row[CSV_COLUMNS.indexOf('extra_codes')], hdr:csvTemplateHeader().split(';').length}; });
-  ok(v.len === v.cols && v.city === 'Parma (PR)' && v.year === '2024' && v.extra === 'Prot. 77' && v.hdr === 20, 'full CSV and AI template carry place, reference year and extra codes', v);
+  ok(v.len === v.cols && v.city === 'Parma (PR)' && v.year === '2024' && v.extra === 'Prot. 77' && v.hdr === 22, 'full CSV and AI template carry place, reference year and extra codes', v);
   v = await p.evaluate(() => { analyzeImport('BX9;M-9;Bix Srl;Ordinaria;Bilancio;A;1;α;;A1-α;CURRENT;2025: Doc;iva;#2563EB;;;;Parma (PR);2025;Prot. 9'); const r = UI.importParsed.rows[0].p; UI.importParsed = null; return [r.company_city, r.ref_year, r.extra_codes, r.multi_code]; });
   ok(v.join('|') === 'Parma (PR)|2025|Prot. 9|M-9', 'headerless 20-field AI rows map the new columns', v);
   v = await p.evaluate(() => { analyzeImport('speaking_code;company_name;luogo;anno;codici_extra\nZZ1;Zeta;Fidenza (PR);2023;P-1'); const r = UI.importParsed.rows[0].p; UI.importParsed = null; return [r.company_city, r.ref_year, r.extra_codes]; });
   ok(v.join('|') === 'Fidenza (PR)|2023|P-1', 'Italian column names for the new fields', v);
   v = await p.evaluate(async () => { dbSyncFromState('t'); await dbPersist(); const d2 = new DB.SQL.Database(DB.db.export()); const W = dbReadWorkspace(d2); const nC = dbScalar('SELECT COUNT(*) FROM clients', null, d2); const ver = dbScalar("SELECT value FROM meta WHERE key='schema_version'", null, d2); d2.close();
     const b = W.binders.find(x => x.speaking_code === 'TS1'); return {nC, ver, wc:W.clients.length, city:b.company_city, year:b.ref_year, extra:b.extra_codes, json:JSON.parse(workspaceJSON()).clients.length}; });
-  ok(v.nC === 3 && v.ver === '3' && v.wc === 3 && v.city === 'Parma (PR)' && v.year === '2024' && v.extra === 'Prot. 77' && v.json === 3, 'SQLite schema 3: clients table + new binder columns, also in the workspace JSON', v);
+  ok(v.nC === 3 && v.ver === '4' && v.wc === 3 && v.city === 'Parma (PR)' && v.year === '2024' && v.extra === 'Prot. 77' && v.json === 3, 'SQLite schema 4: clients table + new binder columns, also in the workspace JSON', v);
   v = await p.evaluate(() => { const d = new DB.SQL.Database(); d.exec("CREATE TABLE binders(id TEXT PRIMARY KEY, speaking_code TEXT NOT NULL UNIQUE, company_name TEXT, category TEXT, color_hex TEXT, binder_title TEXT, room_code TEXT, cabinet_code TEXT, shelf_code TEXT, sector_code TEXT, location_code TEXT, archive_state TEXT, tags TEXT, short_code TEXT UNIQUE, short_url TEXT, final_destination TEXT, final_destination_custom TEXT, selected_for_print INTEGER, created_at TEXT, updated_at TEXT)"); dbMigrate(d); const c = dbQuery('PRAGMA table_info(binders)', null, d).map(r => r.name); d.close(); return ['multi_code','company_city','ref_year','extra_codes','shelf_color'].every(x => c.includes(x)); });
   ok(v, 'old .sqlite files are migrated (new columns added)');
   // demo data
@@ -490,6 +490,140 @@ const sec = (n) => console.log('\n== ' + n);
 
   // ===== v8 stream B (binder editor: typeahead, contents status, quick location, contacts/notes) =====
   // @@STREAM-B@@
+  sec('v8 B: binder editor (typeahead, duplicates, contents status, quick position, contacts/notes)');
+  {
+    const taState = () => p.evaluate(() => { const pop = $('#ta-pop'); return {open:!!pop && !pop.hidden, opts:$$('#ta-pop .ta-opt').map(o => o.querySelector('.ta-v').textContent), meta:$$('#ta-pop .ta-opt').map(o => (o.querySelector('.ta-m') || {}).textContent || ''), active:document.activeElement && document.activeElement.getAttribute('aria-activedescendant'), head:!!$('#ta-pop .ta-h')}; });
+    const edNew = async () => { await p.evaluate(() => { while (topModal()) closeModal(true); S.view = 'archive'; renderAll(); openEditor(null); }); await p.waitForTimeout(250); };
+    await edNew();
+    // 1. typeahead: most used values on focus, filtering, keyboard
+    let v = await taState();
+    const topCo = await p.evaluate(() => edCompanies().sort((a, b) => b.count - a.count)[0].value);
+    ok(v.open && v.head && v.opts.length >= 1 && v.opts.length <= 4 && v.opts[0] === topCo, 'typeahead: focusing the empty client field shows the most used clients (max 4)', v);
+    ok(await p.evaluate(() => $('#ed-company_name').getAttribute('role') === 'combobox' && $('#ed-company_name').getAttribute('aria-expanded') === 'true' && $('#ta-pop').getAttribute('role') === 'listbox' && $$('#ta-pop [role="option"]').length > 0 && !document.querySelector('#ed-company_name[list], datalist')), 'typeahead: combobox/listbox roles, no native datalist left');
+    ok(await p.evaluate(() => +getComputedStyle($('#ta-pop')).zIndex > +topModal().style.zIndex), 'typeahead popup sits above the editor modal');
+    await p.keyboard.type('ross'); await p.waitForTimeout(120);
+    v = await taState();
+    ok(v.opts[0] === 'Rossi Costruzioni S.p.A.' && v.meta[0].includes('M-20871') && v.active === 'ta-opt-0' && !v.head, 'typeahead: filters while typing, first match active, Multi code in the row', v);
+    v = await p.evaluate(() => taRank([{value:'Acitta Srl', count:9}, {value:'Città Perché Srl', count:0}, {value:'Zeta', count:3}], 'CITTA', {top:4, max:8}).map(c => c.value));
+    ok(v.join('|') === 'Città Perché Srl|Acitta Srl', 'typeahead ranking: accent/case-insensitive, prefix before contains', v);
+    await p.keyboard.press('Enter'); await p.waitForTimeout(150);
+    v = await p.evaluate(() => { const d = UI.ed.d; return {c:d.company_name, m:d.multi_code, city:d.company_city, cat:d.category, code:d.speaking_code, open:!$('#ta-pop').hidden}; });
+    ok(v.c === 'Rossi Costruzioni S.p.A.' && v.m === 'M-20871' && v.city === 'Fidenza (PR)' && v.cat === 'Societario' && v.code === 'RC2' && !v.open, 'Enter picks the suggestion: client, Multi, place, category and next speaking code filled', v);
+    await p.fill('#ed-company_name', ''); await p.keyboard.type('a'); await p.waitForTimeout(100);
+    await p.keyboard.press('ArrowDown'); await p.keyboard.press('ArrowDown'); await p.keyboard.press('ArrowUp'); await p.waitForTimeout(60);
+    v = await taState();
+    ok(v.opts.length > 2 && v.active === 'ta-opt-1', 'keyboard ↓ ↓ ↑ moves the active option (aria-activedescendant)', v);
+    await p.keyboard.press('Escape'); await p.waitForTimeout(80);
+    ok(await p.evaluate(() => $('#ta-pop').hidden && !!UI.ed && !!topModal()), 'Esc closes the suggestions, not the form');
+    // 2. client from the register (no binders yet): Multi + place + category; meta shows Multi and city
+    await edNew();
+    await p.keyboard.type('hand2'); await p.waitForTimeout(120);
+    v = await taState();
+    ok(v.opts[0] === 'HAND2HAND APS TEST' && v.meta[0].includes('16') && v.meta[0].includes('BUSSETO'), 'register client suggested with Multi code and city', v);
+    await p.click('#ta-pop .ta-opt'); await p.waitForTimeout(120);
+    v = await p.evaluate(() => { const d = UI.ed.d; return [d.company_name, d.multi_code, d.company_city, d.category, /^[A-Z]+\d+$/.test(d.speaking_code)]; });
+    ok(v.join('|') === 'HAND2HAND APS TEST|16|BUSSETO (PR)|APS|true', 'mouse pick of a register client fills Multi, place, category and code', v);
+    // Codice Multi → client
+    await edNew();
+    await p.focus('#ed-multi_code'); await p.keyboard.type('M-208'); await p.waitForTimeout(120); await p.keyboard.press('Enter'); await p.waitForTimeout(120);
+    v = await p.evaluate(() => [UI.ed.d.multi_code, UI.ed.d.company_name, UI.ed.d.company_city]);
+    ok(v.join('|') === 'M-20871|Rossi Costruzioni S.p.A.|Fidenza (PR)', 'choosing a known Codice Multi fills the client', v);
+    // 3. multi-value tags: suggestions for the current token, present tokens excluded
+    await p.fill('#ed-tags', ''); await p.keyboard.type('iva,fat'); await p.waitForTimeout(120);
+    v = await taState();
+    ok(v.opts.includes('fatture') && !v.opts.includes('iva'), 'tags: suggestions apply to the current token', v);
+    await p.keyboard.press('Enter'); await p.waitForTimeout(120);
+    v = await p.evaluate(() => ({val:$('#ed-tags').value, d:UI.ed.d.tags, opts:$$('#ta-pop .ta-v').map(x => x.textContent), open:!$('#ta-pop').hidden}));
+    ok(v.val === 'iva,fatture,' && v.d === 'iva,fatture,' && v.open && !v.opts.includes('iva') && !v.opts.includes('fatture') && !v.opts.includes('demo'), 'tags: pick appends the token and keeps suggesting the others (never "demo")', v);
+    // 4. duplicate company spelling → existing spelling on blur
+    await p.fill('#ed-company_name', ''); await p.keyboard.type('ROSSI  costruzioni spa'); await p.waitForTimeout(100);
+    ok(await p.evaluate(() => $('#ed-company-note').textContent.includes('Rossi Costruzioni S.p.A.')), 'same company typed differently: note shows the existing spelling');
+    await p.evaluate(() => taClose()); await p.focus('#ed-binder_title'); await p.waitForTimeout(100);
+    v = await p.evaluate(() => [UI.ed.d.company_name, $('#ed-company_name').value, $('#ed-company-note').classList.contains('norm')]);
+    ok(v[0] === 'Rossi Costruzioni S.p.A.' && v[1] === v[0] && v[2], 'company spelling normalised on blur', v);
+    // 5. duplicate speaking code: inline message + one-click fix
+    await p.fill('#ed-speaking_code', 'BL1'); await p.waitForTimeout(80);
+    const nextBL = await p.evaluate(() => edNextFreeCode('BL1'));
+    v = await p.evaluate(() => ({t:$('#err-speaking_code').textContent, btn:!!$('#err-speaking_code [data-a="ed-code-fix"]'), save:!!validateEditor(true).speaking_code}));
+    ok(v.t.startsWith('Codice già presente: usa ' + nextBL) && v.btn && v.save && /^BL\d+$/.test(nextBL) && nextBL !== 'BL1', 'duplicate speaking code: "Codice già presente: usa BLn" and saving blocked', [v, nextBL]);
+    await p.click('#err-speaking_code [data-a="ed-code-fix"]'); await p.waitForTimeout(80);
+    v = await p.evaluate(() => [UI.ed.d.speaking_code, $('#ed-speaking_code').value, $('#err-speaking_code').textContent, validateEditor(true).speaking_code || '']);
+    ok(v[0] === nextBL && v[1] === nextBL && !v[2] && !v[3], 'one-click fix uses the next free number', v);
+    // 6. quick position
+    v = await p.evaluate(() => [['A1-β-SX', 'A|1|β|SX'], ['b2 3', 'B|2|3|'], ['Ufficio 1 · 2-α', 'Ufficio 1|2|α|'], ['a-1-beta dx', 'A|1|β|DX'], ['A1β', 'A|1|β|'], ['  C3   γ  ', 'C|3|γ|'], ['Archivio 4 2', 'Archivio|4|2|']]
+      .map(([s, exp]) => { const r = parseQuickLocation(s); const got = [r.room_code, r.cabinet_code, r.shelf_code, r.sector_code].join('|'); return got === exp ? '' : s + ' → ' + got; }).filter(Boolean).concat(parseQuickLocation('') === null ? [] : ['empty']));
+    ok(!v.length, 'quick position parses A1-β-SX, b2 3, "Ufficio 1 · 2-α", a-1-beta dx, A1β…', v);
+    await p.evaluate(() => { S.binders.push(normalizeBinder({speaking_code:'QLR1', company_name:'Room Name Test', room_code:'Sala Riunioni', cabinet_code:'2', shelf_code:'α', short_code:newShortCode()})); });
+    v = await p.evaluate(() => { const r = parseQuickLocation('sala riunioni 3 β'); return [r.room_code, r.cabinet_code, r.shelf_code].join('|'); });
+    ok(v === 'Sala Riunioni|3|β', 'quick position recognises a known room name typed without "·"', v);
+    await p.evaluate(() => { S.binders = S.binders.filter(b => b.speaking_code !== 'QLR1'); });
+    await p.fill('#ed-quickloc', 'c3 γ sx'); await p.waitForTimeout(150);
+    v = await p.evaluate(() => { const d = UI.ed.d; return {d:[d.room_code, d.cabinet_code, d.shelf_code, d.sector_code].join('|'), room:$('#ed-room_code').value, sec:$('#ed-sector_code').value, loc:$('#ed-loc').textContent, parts:$('#ed-loc-parts').textContent}; });
+    ok(v.d === 'C|3|γ|SX' && v.room === 'C' && v.sec === 'SX' && v.loc === 'C3-γ-SX' && v.parts.includes('Armadio3'), 'typing the quick position fills Stanza/Armadio/Ripiano/Settore live', v);
+    await p.evaluate(() => taClose()); await p.focus('#ed-binder_title'); await p.waitForTimeout(60);
+    ok(await p.evaluate(() => $('#ed-quickloc').value === 'C3-γ-SX'), 'quick position shows the normalised code after leaving the field');
+    v = await p.evaluate(() => { const c = $('#ed-loc-chips [data-a="ed-loc-chip"]'); if (!c) return null; const l = c.dataset.l; c.click(); return [l, computeLocation(UI.ed.d), $('#ed-quickloc').value, $$('#ed-loc-chips .ed-chip').length]; });
+    ok(v && v[0] === v[1] && v[2] === v[0] && v[3] >= 1 && v[3] <= 4, 'recent/most used position chips fill the position in one click', v);
+    v = await p.evaluate(() => { const det = $('#ed-locdet'); const was = det.open; det.open = true; return {was, field:!!det.querySelector('#ed-room_code') && !!det.querySelector('#ed-shelf-tools')}; });
+    await p.waitForTimeout(80);
+    ok(v.field && await p.evaluate(() => S.settings.edLocOpen === true), 'detailed position fields live under "Dettagli posizione" (open state remembered)', v);
+    await p.evaluate(() => { $('#ed-locdet').open = false; }); await p.waitForTimeout(60);
+    // 7. contents status + line mode
+    await p.evaluate(() => { UI.ed.d.contents_items = [{year:'2025', description:'Fatture acquisto', status:'archive'}, {year:'2024', description:'Bilancio', status:'archive'}]; renderEdContents(); });
+    v = await p.evaluate(() => { const s = $$('#ed-contents [data-cist]'); s[1].value = 'client'; s[1].dispatchEvent(new Event('change', {bubbles:true})); return {st:UI.ed.d.contents_items.map(i => i.status).join(','), cls:$$('#ed-contents .ci-row')[1].className, sum:$('#ed-ci-sum').textContent, opts:$$('option', s[0]).map(o => o.textContent).join('/')}; });
+    ok(v.st === 'archive,client' && v.cls.includes('st-client') && v.sum.includes('1 al cliente') && v.opts === 'In archivio/In uso/Al cliente', 'contents row status control (in archivio / in uso / al cliente)', v);
+    await p.click('[data-a="ed-lines"]'); await p.waitForTimeout(80);
+    v = await p.evaluate(() => ({val:$('#ed-lines').value, ok:!!$('[data-a="ed-lines-ok"]'), cancel:!!$('[data-a="ed-lines-cancel"]'), hint:$('#ed-contents .hint').textContent, btnHidden:$('#ed-lines-btn').classList.contains('hidden')}));
+    ok(v.val === '2025: Fatture acquisto\n2024: Bilancio [cliente]' && v.ok && v.cancel && v.hint.includes('[cliente]') && v.btnHidden, '"Una riga per voce": textarea with hint, Conferma and Annulla', v);
+    await p.fill('#ed-lines', 'scrap'); await p.click('[data-a="ed-lines-cancel"]'); await p.waitForTimeout(80);
+    v = await p.evaluate(() => ({n:$$('#ed-contents .ci-row').length, pipe:contentsToPipe(UI.ed.d.contents_items)}));
+    ok(v.n === 2 && v.pipe === '2025: Fatture acquisto|2024: Bilancio [cliente]', 'Annulla leaves the rows unchanged', v);
+    await p.click('[data-a="ed-lines"]'); await p.waitForTimeout(60);
+    await p.fill('#ed-lines', '2025: Fatture acquisto\n2024: Bilancio [cliente]\n2025: F24 [in uso]\nNuova voce'); await p.click('[data-a="ed-lines-ok"]'); await p.waitForTimeout(80);
+    v = await p.evaluate(() => ({rows:$$('#ed-contents .ci-row').length, st:UI.ed.d.contents_items.map(i => i.status).join(','), pipe:UI.ed.pipeMode}));
+    ok(v.rows === 4 && v.st === 'archive,client,in_use,archive' && v.pipe === false, 'Conferma converts lines back into rows and keeps statuses', v);
+    // 8. contacts / notes, save, register offer
+    await p.fill('#ed-company_name', 'Stato Prova Srl'); await p.evaluate(() => taClose());
+    await p.fill('#ed-speaking_code', 'SPZ1');
+    await p.fill('#ed-contacts', 'Giulia Verdi'); await p.evaluate(() => taClose());
+    await p.fill('#ed-notes', 'Documento uscito il 12/03');
+    await p.evaluate(() => { $('#ed-tags').value = 'prova, prova,  stato,'; $('#ed-tags').dispatchEvent(new Event('input', {bubbles:true})); });
+    await p.click('.overlay .modal-f .btn-primary'); await p.waitForTimeout(250);
+    v = await p.evaluate(() => { const b = S.binders.find(x => x.speaking_code === 'SPZ1'); return b && {c:b.contacts, n:b.notes, tags:b.tags, st:b.contents_items.map(i => i.status).join(','), ed:!!UI.ed, toast:[...document.querySelectorAll('.toast')].map(x => x.textContent).join(' ¦ ')}; });
+    ok(v && v.c === 'Giulia Verdi' && v.n === 'Documento uscito il 12/03' && v.tags === 'prova,stato' && v.st === 'archive,client,in_use,archive' && !v.ed, 'binder saved with contacts, notes, tidy tags and item statuses', v);
+    ok(v && v.toast.includes('non è nell\'anagrafica'), 'saving a company missing from the register offers to add it', v && v.toast);
+    await p.evaluate(() => { const b = [...document.querySelectorAll('.toast-act')].find(x => x.textContent === t('ed_reg_add')); b && b.click(); }); await p.waitForTimeout(100);
+    v = await p.evaluate(() => (S.clients.find(c => c.name === 'Stato Prova Srl') || {}).name);
+    ok(v === 'Stato Prova Srl', 'one click adds the company to the client register', v);
+    v = await p.evaluate(() => { UI.q = 'giulia'; const a = filteredBinders().map(b => b.speaking_code); UI.q = 'uscito 12/03'; const n = filteredBinders().map(b => b.speaking_code); UI.q = ''; return [a.join(','), n.join(',')]; });
+    ok(v[0] === 'SPZ1' && v[1] === 'SPZ1', 'contacts and notes are searchable in the archive', v);
+    ok(await p.evaluate(() => { S.view = 'archive'; renderAll(); const r = [...document.querySelectorAll('#arch-results tr')].find(tr => tr.textContent.includes('SPZ1')); return !!r && r.textContent.includes('1 al cliente') && r.textContent.includes('1 in uso'); }), 'archive row summarises items not in the archive');
+    // 9. persistence: CSV, JSON, SQLite
+    v = await p.evaluate(() => { const b = S.binders.find(x => x.speaking_code === 'SPZ1'); const row = binderToCsvRow(b); const i = (k) => CSV_COLUMNS.indexOf(k); return {len:row.length, cols:CSV_COLUMNS.length, order:CSV_COLUMNS.slice(i('shelf_color'), i('shelf_color') + 4).join(','), c:row[i('contacts')], n:row[i('notes')], cnt:row[i('contents')]}; });
+    ok(v.len === v.cols && v.order === 'shelf_color,contacts,notes,selected_for_print' && v.c === 'Giulia Verdi' && v.n === 'Documento uscito il 12/03' && v.cnt === '2025: Fatture acquisto|2024: Bilancio [cliente]|2025: F24 [in uso]|Nuova voce', 'CSV: contacts/notes columns after shelf_color, status suffix in contents', v);
+    v = await p.evaluate(() => { const csv = toCSV([CSV_COLUMNS].concat([binderToCsvRow(S.binders.find(x => x.speaking_code === 'SPZ1')).map(safeCell)]), ';'); analyzeImport(csv); const r = UI.importParsed.rows[0].p; UI.importParsed = null; return {c:r.contacts, n:r.notes, st:r.contents_items.map(i => i.status).join(','), d:r.contents_items.map(i => i.description).join(',')}; });
+    ok(v.c === 'Giulia Verdi' && v.n === 'Documento uscito il 12/03' && v.st === 'archive,client,in_use,archive' && v.d === 'Fatture acquisto,Bilancio,F24,Nuova voce', 'CSV round trip keeps contacts, notes and item statuses', v);
+    v = await p.evaluate(() => { analyzeImport('cliente;contatti;note;contenuti\nZeta Srl;Anna Neri;Uscito;2025: A [al cliente]|2024: B [in use]|C [archivio]'); const r = UI.importParsed.rows[0].p; UI.importParsed = null; return [r.contacts, r.notes, r.contents_items.map(i => i.status + ':' + i.description).join(',')]; });
+    ok(v.join('|') === 'Anna Neri|Uscito|client:A,in_use:B,archive:C', 'Italian headers contatti/note and status suffix variants', v);
+    v = await p.evaluate(() => { const W = JSON.parse(workspaceJSON()); const b = W.binders.find(x => x.speaking_code === 'SPZ1'); const back = normalizeBinder(b); return {st:b.contents_items.map(i => i.status).join(','), c:b.contacts, back:back.contents_items.map(i => i.status).join(','), n:back.notes}; });
+    ok(v.st === 'archive,client,in_use,archive' && v.c === 'Giulia Verdi' && v.back === v.st && v.n === 'Documento uscito il 12/03', 'JSON workspace keeps status per item, contacts and notes', v);
+    v = await p.evaluate(async () => { dbSyncFromState('t'); const d2 = new DB.SQL.Database(DB.db.export()); const W = dbReadWorkspace(d2); const cols = dbQuery('PRAGMA table_info(contents_items)', null, d2).map(r => r.name); const bcols = dbQuery('PRAGMA table_info(binders)', null, d2).map(r => r.name); const n = dbScalar("SELECT COUNT(*) FROM contents_items WHERE status = 'client'", null, d2); d2.close(); const b = W.binders.find(x => x.speaking_code === 'SPZ1'); return {cols:cols.includes('status'), bcols:bcols.includes('contacts') && bcols.includes('notes'), n, st:b.contents_items.map(i => i.status).join(','), c:b.contacts, no:b.notes}; });
+    ok(v.cols && v.bcols && v.n >= 1 && v.st === 'archive,client,in_use,archive' && v.c === 'Giulia Verdi' && v.no === 'Documento uscito il 12/03', 'SQLite: contents_items.status + binders.contacts/notes round trip', v);
+    v = await p.evaluate(() => { const d = new DB.SQL.Database(); d.exec('CREATE TABLE binders(id TEXT PRIMARY KEY, speaking_code TEXT NOT NULL UNIQUE, company_name TEXT); CREATE TABLE contents_items(id INTEGER PRIMARY KEY AUTOINCREMENT, binder_id TEXT, position INTEGER, year TEXT, description TEXT); CREATE TABLE settings(key TEXT PRIMARY KEY, value TEXT); CREATE TABLE label_presets(id TEXT PRIMARY KEY, name TEXT, geometry_json TEXT)'); d.exec("INSERT INTO binders VALUES ('x1','OLD1','Old'); INSERT INTO contents_items(binder_id,position,year,description) VALUES ('x1',0,'2020','Vecchio')"); const before = dbReadWorkspace(d).binders[0].contents_items[0].status; dbMigrate(d); const c = dbQuery('PRAGMA table_info(contents_items)', null, d).some(r => r.name === 'status') && dbQuery('PRAGMA table_info(binders)', null, d).some(r => r.name === 'notes'); d.close(); return {before, c}; });
+    ok(v.before === 'archive' && v.c, 'old .sqlite without status/contacts/notes: readable and migrated', v);
+    // 10. printing: contacts/notes off by default, printed when toggled; marker for items away
+    v = await p.evaluate(() => { const b = S.binders.find(x => x.speaking_code === 'SPZ1'); S.print.fields = {}; const g = {w:74, h:105, radius:0}; const off = renderLabel('S', b, g, S.print); S.print.fields = {contacts:true, notes:true}; const on = renderLabel('S', b, g, S.print); S.print.fields = {contacts:true, empty:true}; const empty = renderLabel('S', Object.assign({}, b, {contacts:''}), g, S.print); S.print.fields = {}; return {off:off.includes('Giulia Verdi') || off.includes('uscito il'), on:on.includes('Giulia Verdi') && on.includes('Documento uscito il 12/03'), empty:empty.includes('Contatti:'), mark:off.includes('↗ cliente') && off.includes('↗ in uso'), defs:DEFAULT_FIELDS.contacts === false && DEFAULT_FIELDS.notes === false}; });
+    ok(!v.off && v.on && v.empty && v.mark && v.defs, 'label: contacts/notes not printed by default, printed when toggled (empty placeholder too); subtle ↗ marker for items away', v);
+    v = await p.evaluate(() => { S.view = 'print'; renderAll(); const c = $('[data-fld="contacts"]'), n = $('[data-fld="notes"]'); const r = {c:!!c && !c.checked, n:!!n && !n.checked}; S.view = 'archive'; renderAll(); return r; });
+    ok(v.c && v.n, '"Campi da stampare" has Contacts and Notes toggles, off by default', v);
+    // 11. AI prompt: 22 columns; headerless 22-field rows
+    v = await p.evaluate(() => { const pr = buildAIPrompt(true); const hdr = csvTemplateHeader().split(';'); const rows = pr.split('\n').filter(l => /^(BL4|VR1);/.test(l)); return {n:hdr.length, last:hdr.slice(-2).join(','), rule:pr.includes('exactly 22 fields (21 semicolons)'), rows:rows.map(r => r.split(';').length), st:pr.includes('[cliente]')}; });
+    ok(v.n === 22 && v.last === 'contacts,notes' && v.rule && v.rows.length === 2 && v.rows.every(x => x === 22) && v.st, 'AI prompt: 22 columns ending with contacts;notes, examples have 22 fields', v);
+    v = await p.evaluate(() => { analyzeImport('BX9;M-9;Bix Srl;Ordinaria;Bilancio;A;1;α;;A1-α;CURRENT;2025: Doc [cliente];iva;#2563EB;;;;Parma (PR);2025;Prot. 9;Anna Neri;Nota x'); const r = UI.importParsed.rows[0].p; analyzeImport('BX8;M-8;Bax Srl;Ordinaria;Bilancio;A;1;α;;A1-α;CURRENT;2025: Doc;iva;#2563EB;;;;Parma (PR);2025;Prot. 8'); const r20 = UI.importParsed.rows[0].p; UI.importParsed = null; return [r.contacts, r.notes, r.extra_codes, r.contents_items[0].status, r20.extra_codes, r20.contacts || ''].join('|'); });
+    ok(v === 'Anna Neri|Nota x|Prot. 9|client|Prot. 8|', 'headerless 22-field rows import contacts/notes; 20-field rows still work', v);
+    // cleanup: leave the shared state as found
+    await p.evaluate(() => { while (topModal()) closeModal(true); S.binders = S.binders.filter(b => b.speaking_code !== 'SPZ1'); S.clients = S.clients.filter(c => c.name !== 'Stato Prova Srl'); delete S.settings.edLocOpen; S.print.fields = {}; commit(); S.view = 'archive'; renderAll(); });
+  }
 
   // ----------------------------------------------------------------------
 

@@ -6,7 +6,7 @@
    - Download / open .sqlite files; on Chrome/Edge, link a file on disk
      and save to it automatically (File System Access API)
    ===================================================================== */
-const DB_SCHEMA_VERSION = 3;   // 2: binders.multi_code + photos table · 3: place/year/extra codes/shelf colour + clients table
+const DB_SCHEMA_VERSION = 4;   // 2: binders.multi_code + photos table · 3: place/year/extra codes/shelf colour + clients table · 4: binders.contacts/notes + contents_items.status
 const DB = { SQL:null, db:null, ready:false, error:null, version:'', handle:null, handleName:'', handlePerm:'prompt', lastSync:null, lastFileSave:null, timer:null, busy:false, consoleSql:'', consoleResult:null };
 const IDB_NAME = 'docmap_v26_sqlite', IDB_STORE = 'kv';
 
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS binders(
   speaking_code TEXT NOT NULL UNIQUE,
   multi_code TEXT,
   company_name TEXT, company_city TEXT, category TEXT, color_hex TEXT, binder_title TEXT,
-  ref_year TEXT, extra_codes TEXT, shelf_color TEXT,
+  ref_year TEXT, extra_codes TEXT, shelf_color TEXT, contacts TEXT, notes TEXT,
   room_code TEXT, cabinet_code TEXT, shelf_code TEXT, sector_code TEXT, location_code TEXT,
   archive_state TEXT CHECK (archive_state IN ('CURRENT','HISTORICAL','CHECKED_OUT')),
   tags TEXT,
@@ -42,7 +42,8 @@ CREATE TABLE IF NOT EXISTS binders(
 CREATE TABLE IF NOT EXISTS contents_items(
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   binder_id TEXT NOT NULL REFERENCES binders(id) ON DELETE CASCADE,
-  position INTEGER, year TEXT, description TEXT);
+  position INTEGER, year TEXT, description TEXT,
+  status TEXT DEFAULT 'archive');   -- archive | in_use | client
 CREATE INDEX IF NOT EXISTS ix_contents_binder ON contents_items(binder_id);
 CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT);
 CREATE TABLE IF NOT EXISTS label_presets(id TEXT PRIMARY KEY, name TEXT, geometry_json TEXT);
@@ -78,7 +79,8 @@ function dbMigrate(db){
   db.exec(DB_DDL);
   // additive migrations for databases created by older versions
   const cols = dbQuery('PRAGMA table_info(binders)', null, db).map(r => r.name);
-  ['multi_code','company_city','ref_year','extra_codes','shelf_color'].forEach(c => { if (!cols.includes(c)) db.exec('ALTER TABLE binders ADD COLUMN ' + c + ' TEXT'); });
+  ['multi_code','company_city','ref_year','extra_codes','shelf_color','contacts','notes'].forEach(c => { if (!cols.includes(c)) db.exec('ALTER TABLE binders ADD COLUMN ' + c + ' TEXT'); });
+  if (!dbQuery('PRAGMA table_info(contents_items)', null, db).some(r => r.name === 'status')) db.exec("ALTER TABLE contents_items ADD COLUMN status TEXT DEFAULT 'archive'");
   db.exec('CREATE INDEX IF NOT EXISTS ix_binders_multi ON binders(multi_code)');
   db.run("INSERT OR REPLACE INTO meta(key,value) VALUES ('app','DocMap26'),('schema_version',?)", [String(DB_SCHEMA_VERSION)]);
 }
@@ -112,11 +114,11 @@ function dbSyncFromState(reason){
   db.exec('BEGIN');
   try {
     db.exec('DELETE FROM contents_items; DELETE FROM binders; DELETE FROM settings; DELETE FROM label_presets; DELETE FROM clients;');
-    const ins = db.prepare('INSERT INTO binders(id,speaking_code,multi_code,company_name,category,color_hex,binder_title,room_code,cabinet_code,shelf_code,sector_code,location_code,archive_state,tags,short_code,short_url,final_destination,final_destination_custom,selected_for_print,created_at,updated_at,company_city,ref_year,extra_codes,shelf_color) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
-    const ci = db.prepare('INSERT INTO contents_items(binder_id,position,year,description) VALUES (?,?,?,?)');
+    const ins = db.prepare('INSERT INTO binders(id,speaking_code,multi_code,company_name,category,color_hex,binder_title,room_code,cabinet_code,shelf_code,sector_code,location_code,archive_state,tags,short_code,short_url,final_destination,final_destination_custom,selected_for_print,created_at,updated_at,company_city,ref_year,extra_codes,shelf_color,contacts,notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+    const ci = db.prepare('INSERT INTO contents_items(binder_id,position,year,description,status) VALUES (?,?,?,?,?)');
     S.binders.forEach(b => {
-      ins.run([b.id, b.speaking_code, b.multi_code || null, b.company_name, b.category, b.color_hex, b.binder_title, b.room_code, b.cabinet_code, b.shelf_code, b.sector_code, b.location_code, b.archive_state, b.tags, b.short_code || null, b.short_url, destFor(b), b.final_destination || '', b.selected_for_print ? 1 : 0, b.created_at || '', b.updated_at || '', b.company_city || '', b.ref_year || '', b.extra_codes || '', b.shelf_color || '']);
-      b.contents_items.forEach((it, i) => ci.run([b.id, i, it.year, it.description]));
+      ins.run([b.id, b.speaking_code, b.multi_code || null, b.company_name, b.category, b.color_hex, b.binder_title, b.room_code, b.cabinet_code, b.shelf_code, b.sector_code, b.location_code, b.archive_state, b.tags, b.short_code || null, b.short_url, destFor(b), b.final_destination || '', b.selected_for_print ? 1 : 0, b.created_at || '', b.updated_at || '', b.company_city || '', b.ref_year || '', b.extra_codes || '', b.shelf_color || '', b.contacts || '', b.notes || '']);
+      b.contents_items.forEach((it, i) => ci.run([b.id, i, it.year, it.description, normCiStatus(it.status)]));
     });
     ins.free(); ci.free();
     const st = db.prepare('INSERT INTO settings(key,value) VALUES (?,?)');
@@ -158,9 +160,9 @@ async function dbPersist(){
 /* Read a full workspace object out of any DocMap .sqlite database (live tables). */
 function dbReadWorkspace(db){
   const binders = dbQuery('SELECT * FROM binders ORDER BY speaking_code', null, db);
-  const items = dbQuery('SELECT binder_id, position, year, description FROM contents_items ORDER BY binder_id, position', null, db);
+  const items = dbQuery('SELECT * FROM contents_items ORDER BY binder_id, position', null, db);   // SELECT *: files from older versions have no status column
   const byB = {};
-  items.forEach(i => (byB[i.binder_id] = byB[i.binder_id] || []).push({year:i.year || '', description:i.description || ''}));
+  items.forEach(i => (byB[i.binder_id] = byB[i.binder_id] || []).push({year:i.year || '', description:i.description || '', status:normCiStatus(i.status)}));
   const settings = {};
   dbQuery('SELECT key, value FROM settings', null, db).forEach(r => { try { settings[r.key] = JSON.parse(r.value); } catch(e){} });
   let clients = [];
@@ -169,7 +171,7 @@ function dbReadWorkspace(db){
   return {
     clients: clients.map(c => ({id:c.id, multi_code:c.multi_code || '', name:c.name || '', address:c.address || '', cap:c.cap || '', city:c.city || '', province:c.province || '', type:c.type || '', category:c.category || '', notes:c.notes || ''})),
     settings: settings.settings, print: settings.print, usedSlots: settings.usedSlots, lang: settings.lang, customPresets: presets,
-    binders: binders.map(b => ({ id:b.id, speaking_code:b.speaking_code, multi_code:b.multi_code || '', company_name:b.company_name, company_city:b.company_city || '', ref_year:b.ref_year || '', extra_codes:b.extra_codes || '', shelf_color:b.shelf_color || '', category:b.category, color_hex:b.color_hex, binder_title:b.binder_title,
+    binders: binders.map(b => ({ id:b.id, speaking_code:b.speaking_code, multi_code:b.multi_code || '', company_name:b.company_name, company_city:b.company_city || '', ref_year:b.ref_year || '', extra_codes:b.extra_codes || '', shelf_color:b.shelf_color || '', contacts:b.contacts || '', notes:b.notes || '', category:b.category, color_hex:b.color_hex, binder_title:b.binder_title,
       room_code:b.room_code, cabinet_code:b.cabinet_code, shelf_code:b.shelf_code, sector_code:b.sector_code, archive_state:b.archive_state, tags:b.tags,
       short_code:b.short_code, final_destination:b.final_destination_custom || '', selected_for_print: !!b.selected_for_print, created_at:b.created_at, updated_at:b.updated_at,
       contents_items: byB[b.id] || [] }))
@@ -345,6 +347,6 @@ function viewDatabase(){
           '<div class="row" style="gap:6px">' + SQL_EXAMPLES.map((e, i) => '<button class="btn btn-sm" data-a="db-example" data-i="' + i + '">' + esc(t(e[0])) + '</button>').join('') + '</div>' +
           '<textarea class="inp mono small" id="db-sql" rows="5" spellcheck="false">' + esc(DB.consoleSql || SQL_EXAMPLES[0][1]) + '</textarea>' +
           '<div class="row"><button class="btn btn-dark" data-a="db-run"' + (DB.ready ? '' : ' disabled') + '>' + ic('arrowRight') + esc(t('db_run')) + '</button></div><div id="db-result">' + resHTML + '</div></div>' +
-        '<div class="card card-p"><h2>' + esc(t('db_schema')) + '</h2><div class="codebox" style="max-height:220px;margin-top:10px">binders (id, speaking_code, company_name, category, color_hex, binder_title, room_code, cabinet_code, shelf_code, sector_code, location_code, archive_state, tags, short_code, short_url, final_destination, …)\ncontents_items (binder_id → binders.id, position, year, description)\nsessions (id, name, note, created_at, binder_count, workspace_json)\nsettings (key, value JSON) • label_presets • audit_log • meta\nVIEW v_manifest_qr7 (short_code, short_url, final_destination, tags)</div></div>' +
+        '<div class="card card-p"><h2>' + esc(t('db_schema')) + '</h2><div class="codebox" style="max-height:220px;margin-top:10px">binders (id, speaking_code, company_name, category, color_hex, binder_title, room_code, cabinet_code, shelf_code, sector_code, location_code, archive_state, tags, short_code, short_url, final_destination, …)\ncontents_items (binder_id → binders.id, position, year, description, status)\nsessions (id, name, note, created_at, binder_count, workspace_json)\nsettings (key, value JSON) • label_presets • audit_log • meta\nVIEW v_manifest_qr7 (short_code, short_url, final_destination, tags)</div></div>' +
       '</div></div>';
 }

@@ -46,7 +46,6 @@ const ACTIONS = {
   'ed-state': (el) => { UI.ed.d.archive_state = el.dataset.s; $$('#ed-state button').forEach(b => b.classList.toggle('on', b.dataset.s === el.dataset.s)); edRefreshDerived(); },
   'ed-ci-add': () => { UI.ed.d.contents_items.push({year:'', description:t('arch_n', {n:UI.ed.d.contents_items.length + 1})}); renderEdContents(); const rows = $$('#ed-contents [data-ci="description"]'); rows.length && rows[rows.length - 1].focus(); edRefreshDerived(); },
   'ed-ci-del': (el) => { UI.ed.d.contents_items.splice(+el.dataset.i, 1); renderEdContents(); edRefreshDerived(); },
-  'ed-pipe-toggle': (el) => { UI.ed.pipeMode = el.checked; renderEdContents(); },
   // print
   'preset': (el, e) => {
     if (e.target.closest('[data-a="del-preset"]')) return;
@@ -209,11 +208,10 @@ document.addEventListener('input', (e) => {
   }
   if (el.dataset.ed && UI.ed){
     const k = el.dataset.ed, d = UI.ed.d;
-    if (k === '__pipe'){ d.contents_items = pipeToContents(el.value); }
-    else if (k === 'selected_for_print'){ d.selected_for_print = el.checked; }
+    if (k === 'selected_for_print'){ d.selected_for_print = el.checked; }
     else if (k === 'color_hex'){ d.color_hex = el.value.toUpperCase(); const sw = $('#ed-swatches'); if (sw){ $$('.sw', sw).forEach(s => s.classList.toggle('on', s.dataset.c === d.color_hex)); const lab = sw.querySelector('span.mono'); if (lab) lab.textContent = d.color_hex; } }
     else if (k === 'speaking_code'){ const pos = el.selectionStart; el.value = el.value.toUpperCase().replace(/\s+/g, ''); try { el.setSelectionRange(pos, pos); } catch(err){} d.speaking_code = el.value; }
-    else if (k === 'company_name'){ d.company_name = el.value; if (UI.ed.isNew && !UI.ed.codeTouched){ d.speaking_code = el.value.trim() ? suggestSpeakingCode(el.value) : ''; const sc = $('#ed-speaking_code'); if (sc) sc.value = d.speaking_code; } if (UI.ed.isNew && !UI.ed.catTouched){ const same = S.binders.find(b => b.company_name === el.value); const cli = !same && (S.clients || []).find(c => c.name.toLowerCase() === el.value.trim().toLowerCase()); if (cli) applyClientToEditor(cli); if (same){ d.category = same.category; d.color_hex = same.color_hex; if (!d.multi_code && same.multi_code){ d.multi_code = same.multi_code; const mc = $('#ed-multi_code'); if (mc) mc.value = d.multi_code; } const c = $('#ed-category'); if (c) c.value = d.category; $('#ed-swatches').innerHTML = swatchesHTML(d.color_hex); } } }
+    else if (k === 'company_name') edCompanyInput(el);   // speaking code, client defaults, duplicate spelling: 04b-typeahead.js
     else if (k === 'category'){ d.category = el.value; UI.ed.catTouched = true; if (CAT_COLOR[el.value] && UI.ed.isNew){ d.color_hex = CAT_COLOR[el.value]; $('#ed-swatches').innerHTML = swatchesHTML(d.color_hex); } }
     else d[k] = el.value;
     if (k === 'speaking_code') UI.ed.codeTouched = true;
@@ -316,7 +314,7 @@ document.addEventListener('drop', (e) => {
 });
 
 document.addEventListener('toggle', (e) => { if (e.target && e.target.id === 'pr-adv'){ S.print.advanced = e.target.open; savePrefs(); } }, true);
-Object.assign(ACTIONS, PHOTO_ACTIONS, CLIENT_ACTIONS, IMPORT_MAP_ACTIONS);
+Object.assign(ACTIONS, PHOTO_ACTIONS, CLIENT_ACTIONS, IMPORT_MAP_ACTIONS, EDITOR_ACTIONS);
 
 /* ---------------- Boot ---------------- */
 (function boot(){

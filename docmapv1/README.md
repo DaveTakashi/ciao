@@ -82,6 +82,17 @@ Nella scheda **Clienti** importi l'elenco clienti dello studio, ad esempio `CLIE
 - **Contenuti**: partono da "Archivio 1"; "Aggiungi voce" crea "Archivio 2" e così via. Con **"Una riga per voce"** scrivi o incolli l'elenco, una voce per riga (l'anno è facoltativo: `2025: Fatture`).
 - Nuovi campi del faldone: **luogo ditta**, **anno di riferimento** (si riferisce ai contenuti, non alla data di creazione) e **codici extra** (protocolli, numeri pratica).
 
+## Scheda faldone: suggerimenti, posizione rapida, stato dei documenti (v8)
+
+- **Suggerimenti mentre scrivi**: cliente, Codice Multi, luogo, categoria, anno, codici extra, tag, stanza, armadio, persone e descrizioni dei contenuti propongono i valori già usati (i più usati appena entri nel campo vuoto, poi filtrati mentre scrivi, senza badare a maiuscole e accenti). Frecce ↑ ↓, Invio per scegliere, Esc per chiudere. Nei campi con più valori (tag, codici extra, persone) il suggerimento vale per la voce dopo l'ultima virgola.
+- **Cliente**: scegliendo un cliente dell'anagrafica o già in archivio si compilano Codice Multi, luogo e categoria e viene proposto il codice parlante successivo (es. BL4). Scegliendo un Codice Multi noto si compila il cliente.
+- **Niente doppioni**: se scrivi un cliente già presente con un'altra grafia (`ROSSI COSTRUZIONI SPA`) viene usata quella esistente (`Rossi Costruzioni S.p.A.`). Se il cliente non è in anagrafica, dopo il salvataggio un pulsante propone di aggiungerlo. Un codice parlante già usato mostra "Codice già presente: usa BL4" con il pulsante per correggerlo; il salvataggio resta bloccato finché il codice non è unico.
+- **Posizione rapida**: scrivi `A1-β-SX`, `B2 3`, `a-1-beta dx` o `Ufficio 1 · 2-α` e stanza, armadio, ripiano e settore si compilano da soli; sotto ci sono le posizioni recenti/più usate da cliccare. I singoli campi, lo stile e il colore del ripiano sono in **Dettagli posizione**.
+- **Stato di ogni documento (Modulo B)**: *in archivio* (predefinito), *in uso* (prelevato) oppure *al cliente*. In archivio compare un riepilogo ("1 al cliente"); sull'etichetta un piccolo segno "↗ cliente" / "↗ in uso".
+  Nel CSV, nel testo "una riga per voce" e nel prompt AI il formato resta `ANNO: Descrizione`; un documento fuori archivio ha un suffisso: `2024: Bilancio [cliente]`, `2025: F24 [in uso]`. Senza suffisso il documento è in archivio. In JSON il campo è `status` (`archive` / `in_use` / `client`); in SQLite la colonna `contents_items.status`.
+- **Una riga per voce**: apre il testo con l'elenco; **Conferma** lo trasforma di nuovo in righe (gli stati restano grazie ai suffissi), **Annulla** lascia tutto com'era.
+- **Altro**: *persone / contatti coinvolti* (separati da virgola) e *note* (es. "Documento uscito il 12/03"). Si cercano dall'archivio e **non si stampano**, a meno di accenderli in Stampa › Campi ("Contatti", "Note"). Colonne CSV `contacts` e `notes` (dopo `shelf_color`; intestazioni riconosciute anche `contatti`, `persone`, `referenti`, `note`, `annotazioni`).
+
 ## Dati di esempio
 
 I 5 faldoni di esempio hanno il tag `demo`. Finché esistono, in Archivio compare una barra con **Nascondi esempi** (spariscono da elenco, mappa, conteggi e coda di stampa ma restano salvati) ed **Elimina esempi** (si può annullare subito). I tuoi faldoni non vengono toccati.
@@ -96,7 +107,7 @@ Il **Codice Multi** è l'identificativo interno che lo studio ha già assegnato 
 - **CSV e JSON:** colonna `multi_code`, seconda dopo `speaking_code`. Sono riconosciute anche le intestazioni `codice_multi`, `multi` e `codice_interno`. I file vecchi senza questa colonna si importano come prima.
 - **Manifest qr7.it:** il formato resta identico. Il Multi viene aggiunto nei tag (`multi-…`), e nel modello di destinazione puoi usare `{multi_code}`.
 - **SQLite:** colonna `binders.multi_code` con indice. I file `.sqlite` vecchi vengono aggiornati da soli quando li apri.
-- **Prompt AI:** 20 colonne (dalla v6 anche `company_city`, `ref_year`, `extra_codes` in fondo). L'AI copia il Multi esattamente com'è e non lo inventa mai. I CSV a 17 colonne della v5 si importano ancora.
+- **Prompt AI:** 22 colonne (dalla v6 anche `company_city`, `ref_year`, `extra_codes`, dalla v8 `contacts`, `notes` in fondo). Le righe senza intestazione a 22, 20, 17 o 16 campi si importano tutte. L'AI copia il Multi esattamente com'è e non lo inventa mai. I CSV a 17 colonne della v5 si importano ancora.
 
 ## Template etichetta (Stampa, sezione 3)
 
