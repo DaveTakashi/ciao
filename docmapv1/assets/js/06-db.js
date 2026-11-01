@@ -6,7 +6,7 @@
    - Download / open .sqlite files; on Chrome/Edge, link a file on disk
      and save to it automatically (File System Access API)
    ===================================================================== */
-const DB_SCHEMA_VERSION = 2;   // 2: binders.multi_code + photos table
+const DB_SCHEMA_VERSION = 3;   // 2: binders.multi_code + photos table · 3: place/year/extra codes/shelf colour + clients table
 const DB = { SQL:null, db:null, ready:false, error:null, version:'', handle:null, handleName:'', handlePerm:'prompt', lastSync:null, lastFileSave:null, timer:null, busy:false, consoleSql:'', consoleResult:null };
 const IDB_NAME = 'docmap_v26_sqlite', IDB_STORE = 'kv';
 
@@ -30,7 +30,8 @@ CREATE TABLE IF NOT EXISTS binders(
   id TEXT PRIMARY KEY,
   speaking_code TEXT NOT NULL UNIQUE,
   multi_code TEXT,
-  company_name TEXT, category TEXT, color_hex TEXT, binder_title TEXT,
+  company_name TEXT, company_city TEXT, category TEXT, color_hex TEXT, binder_title TEXT,
+  ref_year TEXT, extra_codes TEXT, shelf_color TEXT,
   room_code TEXT, cabinet_code TEXT, shelf_code TEXT, sector_code TEXT, location_code TEXT,
   archive_state TEXT CHECK (archive_state IN ('CURRENT','HISTORICAL','CHECKED_OUT')),
   tags TEXT,
@@ -55,6 +56,10 @@ CREATE TABLE IF NOT EXISTS photos(
   mime TEXT, data BLOB NOT NULL, width INTEGER, height INTEGER,
   caption TEXT, marks_json TEXT, created_at TEXT);
 CREATE INDEX IF NOT EXISTS ix_photos_owner ON photos(owner_type, owner_key);
+CREATE TABLE IF NOT EXISTS clients(
+  id TEXT PRIMARY KEY, multi_code TEXT, name TEXT NOT NULL,
+  address TEXT, cap TEXT, city TEXT, province TEXT, type TEXT, category TEXT, notes TEXT);
+CREATE INDEX IF NOT EXISTS ix_clients_multi ON clients(multi_code);
 CREATE TABLE IF NOT EXISTS audit_log(id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT, action TEXT, detail TEXT);
 DROP VIEW IF EXISTS v_manifest_qr7;
 CREATE VIEW v_manifest_qr7 AS
@@ -73,7 +78,7 @@ function dbMigrate(db){
   db.exec(DB_DDL);
   // additive migrations for databases created by older versions
   const cols = dbQuery('PRAGMA table_info(binders)', null, db).map(r => r.name);
-  if (!cols.includes('multi_code')) db.exec('ALTER TABLE binders ADD COLUMN multi_code TEXT');
+  ['multi_code','company_city','ref_year','extra_codes','shelf_color'].forEach(c => { if (!cols.includes(c)) db.exec('ALTER TABLE binders ADD COLUMN ' + c + ' TEXT'); });
   db.exec('CREATE INDEX IF NOT EXISTS ix_binders_multi ON binders(multi_code)');
   db.run("INSERT OR REPLACE INTO meta(key,value) VALUES ('app','DocMap26'),('schema_version',?)", [String(DB_SCHEMA_VERSION)]);
 }
@@ -106,11 +111,11 @@ function dbSyncFromState(reason){
   ensureIntegrity();
   db.exec('BEGIN');
   try {
-    db.exec('DELETE FROM contents_items; DELETE FROM binders; DELETE FROM settings; DELETE FROM label_presets;');
-    const ins = db.prepare('INSERT INTO binders(id,speaking_code,multi_code,company_name,category,color_hex,binder_title,room_code,cabinet_code,shelf_code,sector_code,location_code,archive_state,tags,short_code,short_url,final_destination,final_destination_custom,selected_for_print,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+    db.exec('DELETE FROM contents_items; DELETE FROM binders; DELETE FROM settings; DELETE FROM label_presets; DELETE FROM clients;');
+    const ins = db.prepare('INSERT INTO binders(id,speaking_code,multi_code,company_name,category,color_hex,binder_title,room_code,cabinet_code,shelf_code,sector_code,location_code,archive_state,tags,short_code,short_url,final_destination,final_destination_custom,selected_for_print,created_at,updated_at,company_city,ref_year,extra_codes,shelf_color) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
     const ci = db.prepare('INSERT INTO contents_items(binder_id,position,year,description) VALUES (?,?,?,?)');
     S.binders.forEach(b => {
-      ins.run([b.id, b.speaking_code, b.multi_code || null, b.company_name, b.category, b.color_hex, b.binder_title, b.room_code, b.cabinet_code, b.shelf_code, b.sector_code, b.location_code, b.archive_state, b.tags, b.short_code || null, b.short_url, destFor(b), b.final_destination || '', b.selected_for_print ? 1 : 0, b.created_at || '', b.updated_at || '']);
+      ins.run([b.id, b.speaking_code, b.multi_code || null, b.company_name, b.category, b.color_hex, b.binder_title, b.room_code, b.cabinet_code, b.shelf_code, b.sector_code, b.location_code, b.archive_state, b.tags, b.short_code || null, b.short_url, destFor(b), b.final_destination || '', b.selected_for_print ? 1 : 0, b.created_at || '', b.updated_at || '', b.company_city || '', b.ref_year || '', b.extra_codes || '', b.shelf_color || '']);
       b.contents_items.forEach((it, i) => ci.run([b.id, i, it.year, it.description]));
     });
     ins.free(); ci.free();
@@ -120,6 +125,9 @@ function dbSyncFromState(reason){
     const pp = db.prepare('INSERT INTO label_presets(id,name,geometry_json) VALUES (?,?,?)');
     (S.customPresets || []).forEach(p => pp.run([p.id, p.name, JSON.stringify(p)]));
     pp.free();
+    const cl = db.prepare('INSERT OR REPLACE INTO clients(id,multi_code,name,address,cap,city,province,type,category,notes) VALUES (?,?,?,?,?,?,?,?,?,?)');
+    (S.clients || []).forEach(c => cl.run([c.id, c.multi_code, c.name, c.address, c.cap, c.city, c.province, c.type, c.category, c.notes]));
+    cl.free();
     db.run("INSERT OR REPLACE INTO meta(key,value) VALUES ('synced_at',?),('studio',?)", [nowISO(), S.settings.studioName || '']);
     db.exec('COMMIT');
     DB.lastSync = nowISO();
@@ -155,10 +163,13 @@ function dbReadWorkspace(db){
   items.forEach(i => (byB[i.binder_id] = byB[i.binder_id] || []).push({year:i.year || '', description:i.description || ''}));
   const settings = {};
   dbQuery('SELECT key, value FROM settings', null, db).forEach(r => { try { settings[r.key] = JSON.parse(r.value); } catch(e){} });
+  let clients = [];
+  try { clients = dbQuery('SELECT * FROM clients ORDER BY name', null, db); } catch(e){}
   const presets = dbQuery('SELECT geometry_json FROM label_presets', null, db).map(r => { try { return JSON.parse(r.geometry_json); } catch(e){ return null; } }).filter(Boolean);
   return {
+    clients: clients.map(c => ({id:c.id, multi_code:c.multi_code || '', name:c.name || '', address:c.address || '', cap:c.cap || '', city:c.city || '', province:c.province || '', type:c.type || '', category:c.category || '', notes:c.notes || ''})),
     settings: settings.settings, print: settings.print, usedSlots: settings.usedSlots, lang: settings.lang, customPresets: presets,
-    binders: binders.map(b => ({ id:b.id, speaking_code:b.speaking_code, multi_code:b.multi_code || '', company_name:b.company_name, category:b.category, color_hex:b.color_hex, binder_title:b.binder_title,
+    binders: binders.map(b => ({ id:b.id, speaking_code:b.speaking_code, multi_code:b.multi_code || '', company_name:b.company_name, company_city:b.company_city || '', ref_year:b.ref_year || '', extra_codes:b.extra_codes || '', shelf_color:b.shelf_color || '', category:b.category, color_hex:b.color_hex, binder_title:b.binder_title,
       room_code:b.room_code, cabinet_code:b.cabinet_code, shelf_code:b.shelf_code, sector_code:b.sector_code, archive_state:b.archive_state, tags:b.tags,
       short_code:b.short_code, final_destination:b.final_destination_custom || '', selected_for_print: !!b.selected_for_print, created_at:b.created_at, updated_at:b.updated_at,
       contents_items: byB[b.id] || [] }))
@@ -168,6 +179,7 @@ function dbReadWorkspace(db){
 function applyWorkspaceObject(W){
   S.binders = (W.binders || []).map(normalizeBinder);
   ensureIntegrity();
+  if (Array.isArray(W.clients)) S.clients = W.clients.map(normalizeClient);
   if (W.settings) S.settings = Object.assign(defaultState().settings, W.settings);
   if (W.print) S.print = Object.assign(defaultState().print, W.print, {geometry:Object.assign(geoFromPreset(BUILTIN_PRESETS[0]), W.print.geometry || {})});
   if (Array.isArray(W.customPresets)) S.customPresets = W.customPresets;
@@ -265,6 +277,7 @@ const SQL_EXAMPLES = [
   ['db_ex_manifest', "SELECT * FROM v_manifest_qr7;"],
   ['db_ex_year', "SELECT b.speaking_code, b.company_name, c.year, c.description\nFROM contents_items c JOIN binders b ON b.id = c.binder_id\nWHERE c.year = '2025' ORDER BY b.speaking_code, c.position;"],
   ['db_ex_multi', "SELECT multi_code AS codice_multi, company_name AS cliente, COUNT(*) AS faldoni,\n       group_concat(speaking_code, ', ') AS codici\nFROM binders WHERE multi_code IS NOT NULL AND multi_code <> ''\nGROUP BY multi_code, company_name ORDER BY multi_code;"],
+  ['db_ex_clients', "SELECT c.multi_code AS codice_multi, c.name AS cliente, c.city AS localita, COUNT(b.id) AS faldoni\nFROM clients c LEFT JOIN binders b ON b.multi_code = c.multi_code OR lower(b.company_name) = lower(c.name)\nGROUP BY c.id ORDER BY faldoni, c.name;"],
   ['db_ex_photos', "SELECT b.speaking_code, b.location_code, COUNT(p.id) AS foto\nFROM binders b LEFT JOIN photos p ON p.owner_type = 'binder' AND p.owner_key = b.id\nGROUP BY b.id ORDER BY foto DESC, b.speaking_code;"],
   ['db_ex_out', "SELECT speaking_code, company_name, location_code, updated_at\nFROM binders WHERE archive_state = 'CHECKED_OUT';"]
 ];

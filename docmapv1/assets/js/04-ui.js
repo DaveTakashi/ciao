@@ -2,6 +2,7 @@
    DocMap 2026 — UI primitives: icons, toasts, modals, download, clipboard
    ===================================================================== */
 const ICONS = {
+  users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
   camera:'<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
   pin:'<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
   archive:'<rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/>',
@@ -57,7 +58,7 @@ function toast(msg, kind, ms, action){
 }
 /* One-level undo for every bulk change (delete, import, session restore, .sqlite open). */
 let UNDO = null;
-function undoPoint(){ UNDO = clone({binders:S.binders, settings:S.settings, print:S.print, customPresets:S.customPresets, usedSlots:S.usedSlots, lang:S.lang}); }
+function undoPoint(){ UNDO = clone({binders:S.binders, clients:S.clients || [], settings:S.settings, print:S.print, customPresets:S.customPresets, usedSlots:S.usedSlots, lang:S.lang}); }
 function undoToast(msg, kind){
   toast(msg, kind || 'ok', 9000, {label:t('undo'), fn: () => {
     if (!UNDO) return; const W = UNDO; UNDO = null;
@@ -191,7 +192,11 @@ const HEADER_ALIASES = {
   speaking_code:['speaking_code','codice_parlante','codice','code','speaking','cod'],
   multi_code:['multi_code','codice_multi','multi','cod_multi','codicemulti','multicode','id_multi','multi_id','codice_interno','id_interno','cod_interno','rif_multi'],
   company_name:['company_name','cliente','client','company','ragione_sociale','azienda','nome_cliente'],
+  company_city:['company_city','luogo','sede','citta','comune','localita','city','place','luogo_ditta'],
   category:['category','categoria','pratica'],
+  ref_year:['ref_year','anno','anno_riferimento','anno_rif','esercizio','year','reference_year'],
+  extra_codes:['extra_codes','codici_extra','altri_codici','codici_aggiuntivi','extra','protocollo'],
+  shelf_color:['shelf_color','colore_ripiano','shelf_colour'],
   binder_title:['binder_title','titolo','title','titolo_faldone','faldone','descrizione_faldone','oggetto'],
   room_code:['room_code','stanza','room','zona','zone'],
   cabinet_code:['cabinet_code','armadio','cabinet','mobile'],
@@ -207,6 +212,7 @@ const HEADER_ALIASES = {
   final_destination:['final_destination','destinazione','destination','url_destinazione'],
   selected_for_print:['selected_for_print','stampa','print','selezionato'],
   id:['id','uuid'],
+  created_at:['created_at','creato','data_creazione'],
   updated_at:['updated_at','aggiornato','data_aggiornamento']
 };
 const ALIAS_LOOKUP = (() => { const m = {}; Object.keys(HEADER_ALIASES).forEach(k => HEADER_ALIASES[k].forEach(a => m[a] = k)); return m; })();
@@ -251,8 +257,8 @@ function mapRecord(raw){
 
 /* ---------------- Export builders ---------------- */
 function binderToCsvRow(b){
-  return [b.speaking_code, b.multi_code, b.company_name, b.category, b.binder_title, b.room_code, b.cabinet_code, b.shelf_code, b.sector_code, b.location_code, b.archive_state,
-    contentsToPipe(b.contents_items), b.tags, b.color_hex, b.short_code, b.short_url, destFor(b), b.selected_for_print ? '1' : '0', b.id, b.updated_at];
+  return [b.speaking_code, b.multi_code, b.company_name, b.company_city, b.category, b.binder_title, b.ref_year, b.room_code, b.cabinet_code, b.shelf_code, b.sector_code, b.location_code, b.archive_state,
+    contentsToPipe(b.contents_items), b.tags, b.color_hex, b.short_code, b.short_url, destFor(b), b.extra_codes, b.shelf_color, b.selected_for_print ? '1' : '0', b.id, b.created_at, b.updated_at];
 }
 function sortedBinders(){ return S.binders.slice().sort((a, b) => naturalCmp(a.speaking_code, b.speaking_code)); }
 function manifestRow(b){ return [b.short_code, b.short_url, destFor(b), manifestTags(b)]; }
@@ -306,7 +312,7 @@ function exportFullCSV(){
 }
 function workspaceJSON(){
   return JSON.stringify({ app:'DocMap26', format:'docmap_workspace', version:APP_VERSION, exported_at:nowISO(),
-    settings:S.settings, lang:S.lang, print:S.print, customPresets:S.customPresets, usedSlots:S.usedSlots, binders:S.binders }, null, 2);
+    settings:S.settings, lang:S.lang, print:S.print, customPresets:S.customPresets, usedSlots:S.usedSlots, binders:S.binders, clients:S.clients || [] }, null, 2);
 }
 function exportJSON(){
   const name = 'docmap_workspace.json';
@@ -322,7 +328,7 @@ function quickBackup(){
 }
 
 /* ---------------- AI prompt ---------------- */
-function csvTemplateHeader(){ return 'speaking_code;multi_code;company_name;category;binder_title;room_code;cabinet_code;shelf_code;sector_code;location_code;archive_state;contents;tags;color_hex;short_code;short_url;final_destination'; }
+function csvTemplateHeader(){ return 'speaking_code;multi_code;company_name;category;binder_title;room_code;cabinet_code;shelf_code;sector_code;location_code;archive_state;contents;tags;color_hex;short_code;short_url;final_destination;company_city;ref_year;extra_codes'; }
 function buildAIPrompt(includeCtx){
   const F = '```';
   const codes = sortedBinders().map(b => b.speaking_code);
@@ -340,7 +346,7 @@ function buildAIPrompt(includeCtx){
   L.push('1. Reply with EXACTLY ONE fenced code block labelled csv and NOTHING ELSE: no greeting, no explanation, no notes before or after the block.');
   L.push('2. Delimiter: semicolon ( ; ). Encoding: UTF-8. The FIRST line must be this exact header, unchanged:');
   L.push(csvTemplateHeader());
-  L.push('3. Every row must have exactly 17 fields (16 semicolons). Keep empty fields empty (e.g. ";;").');
+  L.push('3. Every row must have exactly 20 fields (19 semicolons). Keep empty fields empty (e.g. ";;").');
   L.push('4. One row per physical binder. Never merge two binders into one row and never split one binder into two rows.');
   L.push('5. Never use a semicolon inside a value (replace it with a comma). Do not wrap values in quotes. No line breaks inside values.');
   L.push('6. Do not invent clients, documents or locations that the user did not provide or that are not visible in the photos. If a field is unknown, leave it empty.');
@@ -349,19 +355,22 @@ function buildAIPrompt(includeCtx){
   L.push('- speaking_code: client initials + progressive number per client. Initials = first letter of up to 3 significant words, ignoring legal forms (S.r.l., S.p.A., S.n.c., S.a.s.) and words like "di", "e", "della". Examples: "Barbieri Luigi S.r.l." → BL1, BL2, BL3; "Rossi Costruzioni S.p.A." → RC1; "Farmacia San Giorgio" → FSG1. Uppercase, no spaces, unique.');
   L.push('- multi_code: the studio\'s internal "Codice Multi" (identifier already assigned to the client or to the practice in the management software). Copy it EXACTLY as written (keep letters, digits, dashes, slashes, leading zeros). Never invent it: leave empty if the user did not give it. Binders of the same client/practice usually share the same multi_code.');
   L.push('- company_name: full client / company name exactly as the user wrote it.');
+  L.push('- company_city: place of the client (town, optionally with province in brackets, e.g. "Parma (PR)"). Leave empty if unknown.');
   L.push('- category: choose the closest of: ' + CATEGORIES.join(', ') + '.');
   L.push('- binder_title: short macro title of the binder in Italian (e.g. "Fatture e Contabilità IVA", "Bilancio e Dichiarativi", "Paghe e Personale").');
-  L.push('- room_code: room/zone letter (A, B, S…). cabinet_code: cabinet number (1, 2, 3…).');
-  L.push('- shelf_code: shelf identifier. Use Greek letters from the top shelf downwards: α, β, γ, δ, ε (or R1, R2… / letters if the user uses them).');
+  L.push('- room_code: room letter or name exactly as the user calls it (A, B, "Ufficio 1", "Archivio"…). cabinet_code: cabinet number (1, 2, 3…). All location fields are optional: leave empty what is not known.');
+  L.push('- shelf_code: shelf identifier as the user uses it: numbers (1, 2, 3), letters (A, B), Greek letters from the top down (α, β, γ, δ, ε), an emoji, a symbol or a short name. Default suggestion: Greek letters.');
   L.push('- sector_code: optional horizontal sector: SX (left), CX (centre), DX (right). Leave empty if unknown.');
-  L.push('- location_code: room_code + cabinet_code + "-" + shelf_code, plus "-" + sector_code when present. Examples: A1-α, B2-β-SX.');
+  L.push('- location_code: room_code + cabinet_code + "-" + shelf_code, plus "-" + sector_code when present. Examples: A1-α, B2-β-SX. With a room name use "Ufficio 1 · 2-α". You can also leave it empty: DocMap computes it.');
   L.push('- archive_state: CURRENT (archivio corrente), HISTORICAL (archivio storico), CHECKED_OUT (in uso / prelevato). Default: CURRENT.');
-  L.push('- contents: the documents inside the binder, pipe-separated, each as "YEAR: Description". Example: 2025: Fatture Acquisto Q1-Q4|2025: Liquidazioni IVA|2024: Bilancio d\'esercizio');
+  L.push('- contents: the documents inside the binder, pipe-separated, each as "YEAR: Description" (year optional). Example: 2025: Fatture Acquisto Q1-Q4|2025: Liquidazioni IVA|2024: Bilancio d\'esercizio. If nothing is known, leave empty.');
   L.push('- tags: comma-separated lowercase keywords without spaces (e.g. iva,fatture,bilancio,2025).');
   L.push('- color_hex: by category → Ordinaria #2563EB, Semplificata #059669, Lavoro #D97706, Societario #7C3AED, Dichiarativi #DC2626, any other #475569.');
   L.push('- short_code: PREFERABLY LEAVE EMPTY — DocMap generates a unique code automatically. If you fill it, it must be "dm26" + exactly 8 characters from A-Z a-z 2-9, excluding I O l o (example: dm26K8m2P9xL), unique in the file.');
   L.push('- short_url: leave empty if short_code is empty, otherwise https://qr7.it/{short_code}.');
   L.push('- final_destination: leave EMPTY (DocMap fills it from the studio template).');
+  L.push('- ref_year: optional reference year of the contents (e.g. 2025, or a range like 2020-2024). Not the creation date.');
+  L.push('- extra_codes: optional other identifiers printed on the archive part of the label (protocol numbers, practice numbers…), comma-separated. Never invent them.');
   L.push('');
   if (includeCtx && codes.length){
     L.push('EXISTING ARCHIVE CONTEXT (do NOT reuse these speaking codes; continue numbering after them):');
@@ -375,8 +384,8 @@ function buildAIPrompt(includeCtx){
   L.push('EXAMPLE OF A VALID REPLY (format only — use the user\'s real data):');
   L.push(F + 'csv');
   L.push(csvTemplateHeader());
-  L.push('BL4;M-10234;Barbieri Luigi S.r.l.;Ordinaria;Banche e Finanziamenti;A;1;γ;;A1-γ;CURRENT;2025: Estratti conto bancari|2025: Contratti di finanziamento;banche,finanziamenti,2025;#2563EB;;;');
-  L.push('VR1;;Verdi Rita;Privati;Dichiarazioni Personali;B;3;α;SX;B3-α-SX;HISTORICAL;2023: Modello 730|2024: Modello 730|2024: Spese mediche;730,privati,dichiarazioni;#475569;;;');
+  L.push('BL4;M-10234;Barbieri Luigi S.r.l.;Ordinaria;Banche e Finanziamenti;A;1;γ;;A1-γ;CURRENT;2025: Estratti conto bancari|2025: Contratti di finanziamento;banche,finanziamenti,2025;#2563EB;;;;Parma (PR);2025;');
+  L.push('VR1;;Verdi Rita;Privati;Dichiarazioni Personali;B;3;α;SX;B3-α-SX;HISTORICAL;2023: Modello 730|2024: Modello 730|2024: Spese mediche;730,privati,dichiarazioni;#475569;;;;;2023-2024;');
   L.push(F);
   L.push('');
   L.push('');

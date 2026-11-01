@@ -40,10 +40,11 @@ const ACTIONS = {
   // editor
   'ed-suggest': () => { const d = UI.ed.d; d.speaking_code = suggestSpeakingCode(d.company_name || 'DM'); const el = $('#ed-speaking_code'); if (el) el.value = d.speaking_code; edRefreshDerived(); },
   'ed-regen': () => { const d = UI.ed.d; d.short_code = newShortCode(); const el = $('#ed-short_code'); if (el) el.value = d.short_code; toast(t('regenerated') + ': ' + d.short_code); edRefreshDerived(); },
-  'ed-greek': (el) => { const d = UI.ed.d; d.shelf_code = el.dataset.g; const i = $('#ed-shelf_code'); if (i) i.value = d.shelf_code; edRefreshDerived(); },
+  'ed-greek': (el) => { const d = UI.ed.d; d.shelf_code = el.dataset.g; const i = $('#ed-shelf_code'); if (i) i.value = d.shelf_code; $('#ed-shelf-tools').innerHTML = shelfToolsHTML(d); edRefreshDerived(); },
+  'ed-shelfcol': (el) => { const d = UI.ed.d; d.shelf_color = el.dataset.c; $('#ed-shelf-tools').innerHTML = shelfToolsHTML(d); edRefreshDerived(); },
   'ed-color': (el) => { UI.ed.d.color_hex = el.dataset.c; $('#ed-swatches').innerHTML = swatchesHTML(UI.ed.d.color_hex); edRefreshDerived(); },
   'ed-state': (el) => { UI.ed.d.archive_state = el.dataset.s; $$('#ed-state button').forEach(b => b.classList.toggle('on', b.dataset.s === el.dataset.s)); edRefreshDerived(); },
-  'ed-ci-add': () => { UI.ed.d.contents_items.push({year:String(new Date().getFullYear()), description:''}); renderEdContents(); const rows = $$('#ed-contents [data-ci="description"]'); rows.length && rows[rows.length - 1].focus(); edRefreshDerived(); },
+  'ed-ci-add': () => { UI.ed.d.contents_items.push({year:'', description:t('arch_n', {n:UI.ed.d.contents_items.length + 1})}); renderEdContents(); const rows = $$('#ed-contents [data-ci="description"]'); rows.length && rows[rows.length - 1].focus(); edRefreshDerived(); },
   'ed-ci-del': (el) => { UI.ed.d.contents_items.splice(+el.dataset.i, 1); renderEdContents(); edRefreshDerived(); },
   'ed-pipe-toggle': (el) => { UI.ed.pipeMode = el.checked; renderEdContents(); },
   // print
@@ -64,6 +65,7 @@ const ACTIONS = {
   },
   'geo-step': (el) => {
     const k = el.dataset.k, d = parseFloat(el.dataset.d), isPP = ['padding','offsetX','offsetY'].includes(k);
+    if (k === 'ratio'){ const inp = $('input.inp[data-sp="ratio"]'); if (inp){ inp.value = clamp((parseFloat(inp.value) || 50) + d, 30, 70); inp.dispatchEvent(new Event('input', {bubbles:true})); $$('[data-sp="ratio"]').forEach(x => x.value = inp.value); } return; }
     const cur = isPP ? S.print[k] : S.print.geometry[k];
     setGeo(k, Math.round((cur + d) * 100) / 100, isPP);
   },
@@ -97,7 +99,7 @@ const ACTIONS = {
         commit(); closeModal(); toast(t('preset_saved') + ': ' + name); renderView();
       }}] });
   },
-  'cmode': (el) => { S.print.contentMode = el.dataset.v; savePrefs(); $$('[data-a="cmode"]').forEach(b => b.classList.toggle('on', b === el)); refreshPrint(); },
+  'cmode': (el) => { S.print.contentMode = el.dataset.v; savePrefs(); const y = window.scrollY, pane = $('.studio > .card'), py = pane ? pane.scrollTop : 0; renderView(); window.scrollTo(0, y); const p2 = $('.studio > .card'); if (p2) p2.scrollTop = py; },
   'tpl': (el) => { S.print.template = el.dataset.v; savePrefs(); $$('[data-a="tpl"]').forEach(b => b.classList.toggle('on', b === el)); refreshPrint(); },
   'qmode': (el) => { S.print.qrMode = el.dataset.v; savePrefs(); $$('[data-a="qmode"]').forEach(b => b.classList.toggle('on', b === el)); refreshPrint(); },
   'pv-mode': (el) => { S.print.previewMode = el.dataset.v; savePrefs(); $$('[data-a="pv-mode"]').forEach(b => b.classList.toggle('on', b === el)); refreshPrint(); },
@@ -155,8 +157,8 @@ const ACTIONS = {
   'guide-start': (el) => guideStart(el.dataset.id),
   'guide-close': () => guideStop(),
   'guide-next': () => guideNext(),
-  'guide-back': () => { if (G.i > 0) guideEnter(G.i - 1); },
-  'guide-dot': (el) => { const i = +el.dataset.i; if (i < G.i) guideEnter(i); else if (i > G.i) guideNudge(t('g_future')); },
+  'guide-back': () => { if (G.i > 0) guideEnter(G.i - 1, '', -1); },
+  'guide-dot': (el) => { const i = +el.dataset.i; if (i !== G.i) guideEnter(i, '', i < G.i ? -1 : 1); },
   'guide-extra': () => { const st = guideStep(); if (st && st.extra) st.extra.fn(); },
   'guide-chain': (el) => guideStart(el.dataset.id),
   'guide-goview': (el) => { S.view = el.dataset.v; savePrefs(); renderAll(); },
@@ -201,6 +203,7 @@ document.addEventListener('input', (e) => {
     const k = el.dataset.bind;
     if (k === 'q'){ UI.q = el.value; renderArchiveResults(); }
     else if (k === 'importText'){ UI.importText = el.value; }
+    else if (k === 'clq'){ UI.clq = el.value; renderClientResults(); }
     return;
   }
   if (el.dataset.ed && UI.ed){
@@ -209,7 +212,7 @@ document.addEventListener('input', (e) => {
     else if (k === 'selected_for_print'){ d.selected_for_print = el.checked; }
     else if (k === 'color_hex'){ d.color_hex = el.value.toUpperCase(); const sw = $('#ed-swatches'); if (sw){ $$('.sw', sw).forEach(s => s.classList.toggle('on', s.dataset.c === d.color_hex)); const lab = sw.querySelector('span.mono'); if (lab) lab.textContent = d.color_hex; } }
     else if (k === 'speaking_code'){ const pos = el.selectionStart; el.value = el.value.toUpperCase().replace(/\s+/g, ''); try { el.setSelectionRange(pos, pos); } catch(err){} d.speaking_code = el.value; }
-    else if (k === 'company_name'){ d.company_name = el.value; if (UI.ed.isNew && !UI.ed.codeTouched){ d.speaking_code = el.value.trim() ? suggestSpeakingCode(el.value) : ''; const sc = $('#ed-speaking_code'); if (sc) sc.value = d.speaking_code; } if (UI.ed.isNew && !UI.ed.catTouched){ const same = S.binders.find(b => b.company_name === el.value); if (same){ d.category = same.category; d.color_hex = same.color_hex; if (!d.multi_code && same.multi_code){ d.multi_code = same.multi_code; const mc = $('#ed-multi_code'); if (mc) mc.value = d.multi_code; } const c = $('#ed-category'); if (c) c.value = d.category; $('#ed-swatches').innerHTML = swatchesHTML(d.color_hex); } } }
+    else if (k === 'company_name'){ d.company_name = el.value; if (UI.ed.isNew && !UI.ed.codeTouched){ d.speaking_code = el.value.trim() ? suggestSpeakingCode(el.value) : ''; const sc = $('#ed-speaking_code'); if (sc) sc.value = d.speaking_code; } if (UI.ed.isNew && !UI.ed.catTouched){ const same = S.binders.find(b => b.company_name === el.value); const cli = !same && (S.clients || []).find(c => c.name.toLowerCase() === el.value.trim().toLowerCase()); if (cli) applyClientToEditor(cli); if (same){ d.category = same.category; d.color_hex = same.color_hex; if (!d.multi_code && same.multi_code){ d.multi_code = same.multi_code; const mc = $('#ed-multi_code'); if (mc) mc.value = d.multi_code; } const c = $('#ed-category'); if (c) c.value = d.category; $('#ed-swatches').innerHTML = swatchesHTML(d.color_hex); } } }
     else if (k === 'category'){ d.category = el.value; UI.ed.catTouched = true; if (CAT_COLOR[el.value] && UI.ed.isNew){ d.color_hex = CAT_COLOR[el.value]; $('#ed-swatches').innerHTML = swatchesHTML(d.color_hex); } }
     else d[k] = el.value;
     if (k === 'speaking_code') UI.ed.codeTouched = true;
@@ -218,6 +221,7 @@ document.addEventListener('input', (e) => {
   }
   if (el.dataset.ci && UI.ed){ const it = UI.ed.d.contents_items[+el.dataset.i]; if (it){ it[el.dataset.ci] = el.value; edRefreshDerived(); } return; }
   if (el.dataset.geo){ setGeo(el.dataset.geo, el.value, false); return; }
+  if (el.dataset.sp === 'ratio'){ const v = clamp(parseFloat(el.value) || 50, 30, 70); S.print.split = Object.assign({}, S.print.split, {ratio:v / 100}); $$('[data-sp="ratio"]').forEach(x => { if (x !== el) x.value = v; }); savePrefs(); clearTimeout(setGeo._t); setGeo._t = setTimeout(refreshPrint, 40); return; }
   if (el.dataset.pp){
     const k = el.dataset.pp;
     if (['padding','offsetX','offsetY'].includes(k)){ setGeo(k, el.value, true); return; }
@@ -238,6 +242,10 @@ document.addEventListener('change', (e) => {
     return;
   }
   if (el.dataset.pp === 'cut'){ S.print.geometry.cut = el.checked; S.print.geometryModified = true; savePrefs(); refreshPrint(); const gm = $('#geo-mod'); if (gm) gm.innerHTML = '<span class="badge b-out">' + esc(t('g_modified')) + '</span>'; }
+  if (el.dataset.fld){ S.print.fields = Object.assign({}, S.print.fields, {[el.dataset.fld]: el.type === 'checkbox' ? el.checked : el.value}); savePrefs(); refreshPrint(); }
+  if (el.dataset.sp === 'rotate'){ S.print.split = Object.assign({}, S.print.split, {rotate:+el.value}); savePrefs(); refreshPrint(); }
+  if (el.dataset.sp === 'guides'){ S.print.split = Object.assign({}, S.print.split, {guides:el.checked}); savePrefs(); refreshPrint(); }
+  if (el.hasAttribute && el.hasAttribute('data-shelftype')){ S.settings.shelfType = el.value; savePrefs(); if (UI.ed){ $('#ed-shelf-tools').innerHTML = shelfToolsHTML(UI.ed.d); const i = $('#ed-shelf_code'); if (i) i.placeholder = (SHELF_TYPES[el.value] || [])[0] || t('st_text_ph'); } }
   if (el.dataset.pp === 'showMulti'){ S.print.showMulti = el.checked; savePrefs(); refreshPrint(); }
   if (el.dataset.pp === 'showQrUrl'){ S.print.showQrUrl = el.checked; savePrefs(); refreshPrint(); }
   if (el.dataset.pp === 'qrEcc'){ S.settings.qrEcc = el.value; savePrefs(); refreshPrint(); }
@@ -305,7 +313,8 @@ document.addEventListener('drop', (e) => {
   handleDroppedFile(e.dataTransfer.files[0]);
 });
 
-Object.assign(ACTIONS, PHOTO_ACTIONS);
+document.addEventListener('toggle', (e) => { if (e.target && e.target.id === 'pr-adv'){ S.print.advanced = e.target.open; savePrefs(); } }, true);
+Object.assign(ACTIONS, PHOTO_ACTIONS, CLIENT_ACTIONS);
 
 /* ---------------- Boot ---------------- */
 (function boot(){

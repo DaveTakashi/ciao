@@ -10,16 +10,18 @@ Object.assign(I18N.it, {
   g_step:'Passo {n} di {t}', g_next:'Avanti', g_back:'Indietro', g_close:'Chiudi guida', g_done:'Fatto', g_finish:'Termina',
   g_outside:'La guida è ancora attiva: completa l\'elemento evidenziato oppure chiudi la guida.', g_future:'Completa prima i passi precedenti.',
   g_auto:'Il passo avanza da solo quando hai fatto l\'azione.', g_modal:'Rispondi alla finestra aperta, poi la guida riprende.', g_goto:'Vai a {v}', g_wrongview:'Questo passo si trova in "{v}".',
-  g_sample:'Usa un esempio', g_continue:'Continua: {g}', g_reopen:'Hai chiuso la scheda: la riapro dal passo giusto.'
+  g_sample:'Usa un esempio', g_continue:'Continua: {g}', g_reopen:'Hai chiuso la scheda: la riapro dal passo giusto.',
+  g_anyway:'Premi di nuovo Avanti per proseguire comunque.', g_jump:'Ti ho portato al passo di questo campo.'
 });
 Object.assign(I18N.en, {
   g_step:'Step {n} of {t}', g_next:'Next', g_back:'Back', g_close:'Close guide', g_done:'Done', g_finish:'Finish',
   g_outside:'The guide is still active: complete the highlighted element or close the guide.', g_future:'Complete the previous steps first.',
   g_auto:'This step moves on by itself once you have done the action.', g_modal:'Answer the open window, then the guide resumes.', g_goto:'Go to {v}', g_wrongview:'This step is in "{v}".',
-  g_sample:'Use a sample', g_continue:'Continue: {g}', g_reopen:'You closed the form: reopening it from the right step.'
+  g_sample:'Use a sample', g_continue:'Continue: {g}', g_reopen:'You closed the form: reopening it from the right step.',
+  g_anyway:'Press Next again to go on anyway.', g_jump:'Moved to the step of this field.'
 });
 
-const VIEW_LABEL = { archive:'nav_archive', print:'nav_print', import:'nav_import', export:'nav_export', ai:'nav_ai', settings:'nav_settings', database:'nav_database' };
+const VIEW_LABEL = { archive:'nav_archive', print:'nav_print', clients:'nav_clients', import:'nav_import', export:'nav_export', ai:'nav_ai', settings:'nav_settings', database:'nav_database' };
 const navStep = (view, title, text) => ({ target:'.nav [data-v="' + view + '"]', title, text, done:() => S.view === view });
 const edField = (k) => () => { const el = $('#ed-' + k); return el && el.closest('.field'); };
 const edOpen = () => !!(UI.ed && topModal());
@@ -39,14 +41,24 @@ const GUIDES = {
       require:() => { const e = validateEditor(true); return e.speaking_code ? {it:e.speaking_code, en:e.speaking_code} : null; } },
     { target:edField('binder_title'), guard:() => edOpen() ? null : 1,
       title:{it:'Titolo del faldone', en:'Binder title'}, text:{it:'Una descrizione breve, ad esempio "Fatture e Contabilità IVA".', en:'A short description, e.g. "Fatture e Contabilità IVA".'},
-      require:() => UI.ed.d.binder_title.trim() ? null : {it:'Scrivi il titolo del faldone.', en:'Type the binder title.'} },
+      require:() => UI.ed.d.binder_title.trim() ? null : {it:'Il titolo è consigliato (es. "Fatture e Contabilità IVA").', en:'A title is recommended (e.g. "Invoices and VAT").'} },
+    { target:() => { const el = $('#ed-multi_code'); return el && el.closest('.grid'); }, guard:() => edOpen() ? null : 1,
+      title:{it:'Codice Multi e luogo', en:'Multi code and place'}, text:{it:'Facoltativi. Codice Multi = il vostro codice interno del cliente o della pratica. Luogo = sede della ditta, es. "Parma (PR)". Se il cliente è nell\'anagrafica si compilano da soli.', en:'Optional. Multi code = your internal client/practice id. Place = company town, e.g. "Parma (PR)". Filled automatically for clients in the register.'} },
+    { target:() => { const el = $('#ed-ref_year'); return el && el.closest('.grid'); }, guard:() => edOpen() ? null : 1,
+      title:{it:'Anno di riferimento e codici extra', en:'Reference year and extra codes'}, text:{it:'Facoltativi. L\'anno si riferisce ai contenuti (es. 2025 o 2020-2024), non alla data di creazione. I codici extra (protocolli, numeri pratica) vanno nella parte "Archivio" dell\'etichetta.', en:'Optional. The year refers to the contents (e.g. 2025 or 2020-2024), not the creation date. Extra codes (protocol, practice numbers) go on the "Archive" part of the label.'} },
     { target:() => { const el = $('#ed-room_code'); return el && el.closest('.grid'); }, guard:() => edOpen() ? null : 1,
-      title:{it:'Posizione sullo scaffale', en:'Shelf position'}, text:{it:'Stanza (es. A), armadio (es. 1) e ripiano: usa i pulsanti α β γ (α = ripiano più alto). Il settore SX/CX/DX è facoltativo.', en:'Room (e.g. A), cabinet (e.g. 1) and shelf: use the α β γ buttons (α = top shelf). Sector SX/CX/DX is optional.'},
-      require:() => (UI.ed.d.room_code.trim() && UI.ed.d.shelf_code.trim()) ? null : {it:'Compila almeno stanza e ripiano.', en:'Fill in at least room and shelf.'} },
+      title:{it:'Posizione sullo scaffale', en:'Shelf position'}, text:{it:'Tutto facoltativo. Stanza: una lettera (A) o un nome ("Ufficio 1"). Armadio: es. 1. Ripiano: scegli il tipo (numeri, lettere, greche α β γ, emoji, simboli, nome) e, se vuoi, un colore. Il settore SX/CX/DX è facoltativo.', en:'Room (e.g. A), cabinet (e.g. 1) and shelf: use the α β γ buttons (α = top shelf). Sector SX/CX/DX is optional.'},
+      require:() => (UI.ed.d.room_code.trim() || UI.ed.d.shelf_code.trim()) ? null : {it:'Senza posizione il faldone sarà difficile da ritrovare.', en:'Without a position the binder is hard to find.'} },
     { target:() => { const el = $('#ed-contents'); return el && el.closest('.field'); }, guard:() => edOpen() ? null : 1,
-      title:{it:'Contenuti (Modulo B)', en:'Contents (Module B)'}, text:{it:'Elenca i documenti dentro il faldone: anno + descrizione. "Aggiungi voce" per altre righe.', en:'List the documents in the binder: year + description. "Add item" for more rows.'},
-      require:() => UI.ed.d.contents_items.some(i => String(i.description).trim()) ? null : {it:'Scrivi almeno un documento contenuto.', en:'Type at least one document.'} },
-    { target:'#ed-preview', guard:() => edOpen() ? null : 1, title:{it:'Anteprima etichetta', en:'Label preview'}, text:{it:'Ecco come verranno le due etichette: Modulo A (cliente, codice, posizione, QR) e Modulo B (contenuti). Il QR punta già a https://qr7.it/' , en:'This is how the two labels will look: Module A (client, code, location, QR) and Module B (contents). The QR already points to https://qr7.it/'}, dyn:() => UI.ed ? UI.ed.d.short_code : '' },
+      title:{it:'Contenuti (Modulo B)', en:'Contents (Module B)'}, text:{it:'Facoltativo. Parte da "Archivio 1": rinominalo o premi "Aggiungi voce" per "Archivio 2". Con "Una riga per voce" scrivi o incolli l\'elenco, una voce per riga.', en:'List the documents in the binder: year + description. "Add item" for more rows.'},
+    },
+    { target:edField('tags'), guard:() => edOpen() ? null : 1,
+      title:{it:'Tag', en:'Tags'}, text:{it:'Parole chiave separate da virgola, es. iva,fatture,2025. Servono per cercare; se vuoi si stampano sull\'etichetta (Stampa › Campi).', en:'Comma-separated keywords, e.g. vat,invoices,2025. Used for searching; optionally printed (Print › Fields).'} },
+    { target:() => { const el = $('#ed-short_code'); return el && el.closest('.grid'); }, guard:() => edOpen() ? null : 1,
+      title:{it:'Codice breve del QR', en:'QR short code'}, text:{it:'DocMap ha già creato un codice unico (dm26…): il QR punta a https://qr7.it/ + questo codice. Non serve cambiarlo; ↻ ne genera un altro.', en:'DocMap already made a unique code (dm26…): the QR points to https://qr7.it/ + this code. No need to change it; ↻ makes a new one.'} },
+    { target:edField('final_destination'), guard:() => edOpen() ? null : 1,
+      title:{it:'Destinazione finale', en:'Final destination'}, text:{it:'Dove porta il QR dopo qr7.it. Lascialo vuoto per usare il modello dello studio (studiodallasta.it, in Impostazioni); scrivi un indirizzo solo per un caso particolare.', en:'Where the QR leads after qr7.it. Leave empty to use the studio template (Settings); type an address only for a special case.'} },
+    { target:'#ed-preview', guard:() => edOpen() ? null : 1, title:{it:'Anteprima etichetta', en:'Label preview'}, text:{it:'Ecco come verrà l\'etichetta sul foglio scelto (predefinito: metà alta con codice, cliente e QR; metà bassa "Archivio" con i contenuti). Modulo A (cliente, codice, posizione, QR) e Modulo B (contenuti). Il QR punta già a https://qr7.it/' , en:'This is how the two labels will look: Module A (client, code, location, QR) and Module B (contents). The QR already points to https://qr7.it/'}, dyn:() => UI.ed ? UI.ed.d.short_code : '' },
     { target:() => { const m = topModal(); return m && m.querySelector('.modal-f .btn-primary'); }, guard:(c) => (edOpen() || S.binders.some(b => b.id === c.id)) ? null : 1,
       title:{it:'Salva', en:'Save'}, text:{it:'Clicca "Salva". Il faldone viene salvato e messo in coda di stampa.', en:'Click "Save". The binder is saved and queued for printing.'}, done:(c) => S.binders.some(b => b.id === c.id) && !UI.ed },
     { final:true, title:{it:'Faldone creato ✓', en:'Binder created ✓'}, text:{it:'Il faldone è nell\'archivio e già spuntato per la stampa. Vuoi stampare subito la sua etichetta?', en:'The binder is in the archive and already ticked for printing. Print its label now?'}, chain:'print' }
@@ -55,8 +67,8 @@ const GUIDES = {
     navStep('print', {it:'Apri Stampa Etichette', en:'Open Print Labels'}, {it:'Clicca "Stampa Etichette" in alto.', en:'Click "Print Labels" at the top.'}),
     { target:'#pr-summary', title:{it:'Coda di stampa', en:'Print queue'}, text:{it:'Qui vedi i faldoni spuntati in Archivio. Se la coda è vuota torna in Archivio e spunta i faldoni.', en:'These are the binders ticked in Archive. If empty, go back to Archive and tick some.'},
       require:() => printQueueBinders().length ? null : {it:'La coda è vuota: spunta almeno un faldone in Archivio.', en:'The queue is empty: tick at least one binder in Archive.'} },
-    { target:'.preset-list', title:{it:'Tipo di foglio', en:'Sheet type'}, text:{it:'Scegli il foglio che hai in stampante. "A4 intero" = foglio adesivo unico da tagliare; "Prefustellato" = etichette già fustellate tipo Avery (il codice è sulla confezione).', en:'Pick the sheet in your printer. "Full A4" = one adhesive sheet to cut; "Die-cut" = pre-cut Avery-type labels (code on the box).'} },
-    { target:() => { const b = $('[data-a="cmode"]'); return b && b.parentElement; }, title:{it:'Cosa stampare', en:'What to print'}, text:{it:'"Coppia Sdoppiata" stampa per ogni faldone il Modulo A (da incollare in alto) e il Modulo B (contenuti, sotto). Quando cambiano i contenuti ristampi solo il B.', en:'"Split Pair" prints Module A (stick on top) and Module B (contents, below) for each binder. When contents change you reprint only B.'} },
+    { target:'.preset-list', title:{it:'Tipo di foglio', en:'Sheet type'}, text:{it:'Scegli il foglio che hai in stampante. Consigliato: MRINK143 (4 etichette A6, 8 moduli). Gli altri fogli sono sotto "Altri fogli". "A4 intero" = foglio adesivo unico da tagliare; "Prefustellato" = etichette già fustellate tipo Avery (il codice è sulla confezione).', en:'Pick the sheet in your printer. "Full A4" = one adhesive sheet to cut; "Die-cut" = pre-cut Avery-type labels (code on the box).'} },
+    { target:() => { const b = $('[data-a="cmode"]'); return b && b.parentElement; }, title:{it:'Cosa stampare', en:'What to print'}, text:{it:'Predefinito: "Etichetta divisa" per il foglio MRINK143, ogni etichetta 105×148 diventa due moduli (principale sopra, Archivio sotto) da tagliare a mano. "Coppia Sdoppiata" stampa per ogni faldone il Modulo A (da incollare in alto) e il Modulo B (contenuti, sotto). Quando cambiano i contenuti ristampi solo il B.', en:'"Split Pair" prints Module A (stick on top) and Module B (contents, below) for each binder. When contents change you reprint only B.'} },
     { target:() => { const b = $('[data-a="qmode"]'); return b && b.parentElement; }, title:{it:'QR', en:'QR'}, text:{it:'QR vettoriale = stampato ora. Spazio riservato = lascia un quadrato bianco per un QR adesivo prestampato.', en:'Vector QR = printed now. Reserved space = leaves a white square for a pre-printed QR sticker.'} },
     { target:'#slotmap', title:{it:'Foglio già usato?', en:'Sheet already used?'}, text:{it:'Se il foglio ha già etichette staccate, clicca quelle caselle: resteranno vuote. In blu le caselle che verranno stampate.', en:'If the sheet already has peeled labels, click those slots: they stay blank. Blue = slots that will be printed.'} },
     { target:'#pv-scroll', title:{it:'Anteprima millimetrica', en:'Millimetre preview'}, text:{it:'Questa è la pagina reale in scala. Controlla che sia tutto a posto.', en:'This is the real page to scale. Check that everything is right.'} },
@@ -133,10 +145,13 @@ const GUIDES = {
 
 const G = { id:null, g:null, i:0, ctx:{}, msg:'', raf:0, advancing:false, lastKey:'', els:null, lastScrollEl:null };
 function guideStep(){ return G.g && G.g.steps[G.i]; }
-function guideResolve(target){
+function guideResolve(target, noOpen){
   if (!target) return null;
   const el = typeof target === 'function' ? target() : $(target);
   if (!el) return null;
+  // a target inside a closed <details> (e.g. print "Advanced options") is opened first
+  const d = el.closest && el.closest('details:not([open])');
+  if (d){ if (!noOpen) d.open = true; return null; }
   const r = el.getBoundingClientRect();
   return (r.width || r.height) ? el : null;
 }
@@ -149,7 +164,7 @@ function guideStart(id){
   root.innerHTML = '<div class="g-mask" data-m="t"></div><div class="g-mask" data-m="b"></div><div class="g-mask" data-m="l"></div><div class="g-mask" data-m="r"></div><div class="g-ring"></div><div class="g-card" role="dialog" aria-live="polite"></div>';
   G.els = { masks:$$('.g-mask', root), ring:$('.g-ring', root), card:$('.g-card', root) };
   G.els.masks.forEach(m => {
-    m.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); guideNudge(t('g_outside')); });
+    m.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); if (!guideJumpAt(e.clientX, e.clientY)) guideNudge(t('g_outside')); });
     m.addEventListener('wheel', (e) => { const ov = topModal(); (ov || document.scrollingElement).scrollBy(0, e.deltaY); e.preventDefault(); }, {passive:false});
   });
   document.body.classList.add('guide-on');
@@ -163,18 +178,47 @@ function guideStop(silent){
   document.body.classList.remove('guide-on');
   G.id = null; G.g = null; G.els = null;
 }
-function guideEnter(i, msg){
+function guideEnter(i, msg, dir){
   const steps = G.g.steps;
-  while (i < steps.length - 1 && steps[i].skipIf && steps[i].skipIf(G.ctx)) i++;
-  G.i = i; G.msg = msg || ''; G.advancing = false; G.lastScrollEl = null;
+  if (dir < 0){ while (i > 0 && steps[i].skipIf && steps[i].skipIf(G.ctx)) i--; }
+  else while (i < steps.length - 1 && steps[i].skipIf && steps[i].skipIf(G.ctx)) i++;
+  G.i = i; G.msg = msg || ''; G.advancing = false; G.lastScrollEl = null; G.soft = -1;
   const st = guideStep();
   if (st.onEnter) st.onEnter(G.ctx);
   guideRenderCard();
 }
+/* Next always works: a missing recommended value only warns once (a second click goes on);
+   on an "action" step Next performs the highlighted action (e.g. opens the form, navigates). */
 function guideNext(){
-  const st = guideStep(); if (!st) return;
-  if (st.require){ const m = st.require(G.ctx); if (m){ guideNudge(L(m)); return; } }
+  const st = guideStep(); if (!st || st.final) return;
+  if (st.require && G.soft !== G.i){ const m = st.require(G.ctx); if (m){ G.soft = G.i; guideNudge(L(m) + ' ' + t('g_anyway')); return; } }
+  if (st.done && !st.done(G.ctx)){
+    const el = guideResolve(st.target);
+    const btn = el && (el.matches('[data-a]') ? el : null);
+    if (btn && !btn.disabled && (!topModal() || topModal().contains(btn))){ btn.click(); return; }
+  }
   if (G.i < G.g.steps.length - 1) guideEnter(G.i + 1);
+}
+/* A click on the dimmed page: if it hits the element of another step of this guide, go to that step
+   (and let the click reach the field); otherwise remind that the guide is active. */
+function guideJumpAt(x, y){
+  if (!G.els) return false;
+  G.els.masks.forEach(m => m.style.pointerEvents = 'none'); G.els.ring.style.pointerEvents = 'none';
+  const hit = document.elementFromPoint(x, y);
+  G.els.masks.forEach(m => m.style.pointerEvents = ''); G.els.ring.style.pointerEvents = '';
+  if (!hit || hit.closest('#guide-root')) return false;
+  const steps = G.g.steps;
+  for (let k = 0; k < steps.length; k++){
+    if (k === G.i || steps[k].final || !steps[k].target) continue;
+    if (typeof steps[k].target === 'string' && steps[k].target.indexOf('.nav') === 0) continue;   // leaving the view is "outside"
+    let el = null; try { el = guideResolve(steps[k].target, true); } catch(e){}
+    if (el && el.contains(hit)){
+      guideEnter(k, t('g_jump'));
+      setTimeout(() => { const f = hit.closest('input,textarea,select,button') || el.querySelector('input,textarea,select'); if (f){ f.focus(); if (f.tagName === 'BUTTON' || f.type === 'checkbox') f.click(); } }, 30);
+      return true;
+    }
+  }
+  return false;
 }
 function guideNudge(msg){
   if (!G.els) return;
@@ -185,7 +229,6 @@ function guideRenderCard(){
   if (!G.els) return;
   const st = guideStep(), n = G.g.steps.length;
   const dots = G.g.steps.map((s, k) => '<button class="g-dot ' + (k < G.i ? 'done' : k === G.i ? 'cur' : '') + '" data-a="guide-dot" data-i="' + k + '" aria-label="' + (k + 1) + '"></button>').join('');
-  const manual = !st.final && !st.done && !st.advanceOn;
   const chain = st.chain && GUIDES[st.chain];
   G.els.card.innerHTML = '<div class="g-top"><span class="g-kicker">' + ic('sparkles') + esc(L(G.g.title)) + '</span><button class="icon-btn" data-a="guide-close" title="' + esc(t('g_close')) + '" aria-label="' + esc(t('g_close')) + '">' + ic('x') + '</button></div>' +
     '<div class="g-dots">' + dots + '<span class="g-count">' + esc(t('g_step', {n:G.i + 1, t:n})) + '</span></div>' +
@@ -197,7 +240,7 @@ function guideRenderCard(){
       '<span style="flex:1"></span>' +
       (st.extra ? '<button class="btn btn-sm" data-a="guide-extra">' + esc(t(st.extra.label)) + '</button>' : '') +
       (st.final ? (chain ? '<button class="btn btn-sm" data-a="guide-chain" data-id="' + st.chain + '">' + esc(t('g_continue', {g:L(chain.title)})) + '</button>' : '') + '<button class="btn btn-sm btn-primary" data-a="guide-close">' + ic('check') + esc(t('g_finish')) + '</button>'
-        : manual ? '<button class="btn btn-sm btn-primary" data-a="guide-next">' + esc(t('g_next')) + ' →</button>' : '<span class="tiny muted">' + esc(t('g_auto')) + '</span>') +
+        : '<button class="btn btn-sm btn-primary" data-a="guide-next"' + ((st.done || st.advanceOn) ? ' title="' + esc(t('g_auto')) + '"' : '') + '>' + esc(t('g_next')) + ' →</button>') +
     '</div>';
   G.lastKey = '';
 }

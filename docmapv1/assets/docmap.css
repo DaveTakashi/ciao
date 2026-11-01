@@ -410,3 +410,35 @@ body.dragging::after{content:attr(data-drop);position:fixed;inset:12px;border:2p
 .cab-ph:hover{opacity:1;background:rgba(0,0,0,.06)}
 .cab-ph svg{width:15px;height:15px}
 @media (prefers-reduced-motion:reduce){.cs-cell.hit,.ph-pin i{animation:none}}
+
+/* split label: barely visible cut line (prints as a hairline at ~12% grey) */
+.lab .cut-guide{position:absolute;left:0;right:0;height:0;border-top:0.2mm dashed rgba(0,0,0,.14);pointer-events:none}
+
+/* ---------------- v6: print studio basics / advanced, fields, shelf tools, demo bar ---------------- */
+.preset .pop.rec{background:#DCFCE7;color:#166534;border-color:#86EFAC}
+details.more{margin-top:8px}
+details.more > summary, details.adv > summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;font-weight:700;user-select:none}
+details.more > summary::-webkit-details-marker, details.adv > summary::-webkit-details-marker{display:none}
+details.more > summary{font-size:13px;color:var(--text-2);padding:8px 10px;border:1px dashed var(--border-2);border-radius:10px;margin-bottom:8px}
+details.more > summary::before, details.adv > summary::after{content:'▸';font-size:12px;transition:transform .15s}
+details.more[open] > summary::before{transform:rotate(90deg)}
+details.adv{border-top:1px solid var(--border)}
+details.adv > summary{padding:14px 18px;font-size:14px;background:var(--surface-2)}
+details.adv > summary::after{margin-left:8px}
+details.adv[open] > summary::after{transform:rotate(90deg)}
+details.adv > summary .tiny{flex:1;text-align:right}
+.adv-sub{padding:14px 18px;border-top:1px solid var(--border)}
+.adv-sub h3{margin-top:0}
+.fld-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 14px;margin-top:8px}
+.fld-grid .chk{font-size:13px}
+.fld-grid .field{grid-column:1 / -1;margin-top:4px}
+@media (max-width:560px){ .fld-grid{grid-template-columns:1fr} }
+.shelf-tools{margin-top:6px;display:flex;flex-direction:column;gap:6px}
+.shelf-tools select.inp{height:32px;font-size:12.5px;padding:0 8px}
+.greek button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.shelf-col{display:flex;gap:4px;flex-wrap:wrap}
+.shelf-col button{width:20px;height:20px;border-radius:50%;border:1px solid var(--border-2);cursor:pointer;padding:0}
+.shelf-col button.on{outline:2px solid var(--text);outline-offset:2px}
+.shelf-col button.none{background:repeating-linear-gradient(45deg,#fff 0 3px,#E2E8F0 3px 6px)}
+.demo-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;margin-bottom:14px;border-radius:12px;background:#EFF6FF;border:1px solid #BFDBFE;color:#1E3A8A;font-size:13.5px}
+.demo-bar .ic{flex:none}

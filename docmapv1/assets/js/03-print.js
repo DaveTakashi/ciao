@@ -55,8 +55,92 @@ function contentsBlock(items, x, y, w, hAvail, fMax, opts){
   return '<div style="position:absolute;left:' + MM(x) + ';top:' + MM(y) + ';width:' + MM(w) + ';height:' + MM(hAvail) + ';overflow:hidden;font-size:' + MM(fs) + ';display:grid;grid-auto-flow:column;grid-template-rows:repeat(' + rowsPer + ',auto);grid-template-columns:repeat(' + cols + ',minmax(0,1fr));column-gap:' + MM(Math.max(2, fs)) + ';align-content:start;color:#000">' + rowsHtml + '</div>';
 }
 
+/* ---------------------------------------------------------------------
+   Split label (default MRINK143 sheet): one physical 105×148 label is
+   read in landscape (148×105) and holds two modules, cut apart by hand:
+   top = master (code, category, company, place, Multi, QR + URL),
+   bottom = archive (description, reference year, contents, tags, date, extra codes).
+   Content is rotated inside the portrait slot; the cut line is barely visible.
+   --------------------------------------------------------------------- */
+const DEFAULT_FIELDS = { category:true, city:true, multi:true, url:true, title:true, year:true, contents:true, tags:true, extra:true, location:true, date:'created' };
+function pf(k){ const f = Object.assign({}, DEFAULT_FIELDS, S.print.fields || {}); return f[k]; }
+function splitGeom(g, P){
+  const rotate = g.h > g.w * 1.05;            // portrait slot → rotate content to landscape
+  const W = rotate ? g.h : g.w, H = rotate ? g.w : g.h;
+  const ratio = clamp(+((P.split || {}).ratio) || 0.5, 0.3, 0.7);
+  return { rotate, W, H, Ht:H * ratio, Hb:H * (1 - ratio), dir:((P.split || {}).rotate === 90 ? 90 : -90) };
+}
+function splitTop(b, W, H, P){
+  const pad = clamp(+P.padding || 0, 0, H / 4), sp = clamp(H * 0.08, 2.5, 5);
+  const x0 = sp + pad, y0 = pad, iw = W - x0 - pad, ih = H - 2 * pad;
+  const live = P.qrMode === 'live';
+  let q = 0, urlFs = 0, html = '<div class="spine-bar" style="width:' + MM(sp) + ';background:' + esc(b.color_hex) + '"></div>';
+  if (P.qrMode !== 'none'){
+    if (live && pf('url')) urlFs = clamp(ih * 0.06, 1.6, 2.4);
+    q = Math.min(ih - (urlFs ? urlFs * 1.4 : 0), iw * 0.36);
+    const qx = x0 + iw - q, qy = y0 + (ih - q - (urlFs ? urlFs * 1.4 : 0)) / 2;
+    html += qrBox(b, qx, qy, q, P) + qrUrlText(b, qx, qy + q + urlFs * 0.15, q, urlFs);
+  }
+  const gap = Math.max(2.5, pad);
+  const tw = iw - (q ? q + gap : 0);
+  const codeLen = Math.max(3, (b.speaking_code || '').length);
+  const fc = Math.min(ih * 0.3, tw * 0.55 / (codeLen * 0.62), 16);
+  const fcat = Math.min(fc * 0.52, 6.5);
+  const fco = Math.min(ih * 0.14, 6.2), fci = fco * 0.8, fm = Math.min(fco * 0.82, 4.6);
+  const showCat = pf('category') && b.category, showCity = pf('city') && b.company_city;
+  const multi = pf('multi') && showMulti(b);
+  const chips = [];
+  if (multi) chips.push('<span style="white-space:nowrap"><span style="font-size:' + MM(fm * 0.62) + ';font-weight:800;letter-spacing:.08em;margin-right:' + MM(fm * 0.25) + '">MULTI</span><span class="lmono" style="font-weight:800">' + esc(b.multi_code) + '</span></span>');
+  if (pf('location') && b.location_code) chips.push('<span class="lmono" style="font-weight:800;border:' + MM(Math.max(0.2, fm * 0.07)) + ' solid #000;border-radius:' + MM(fm * 0.25) + ';padding:0 ' + MM(fm * 0.3) + ';white-space:nowrap">' + esc(b.location_code) + '</span>');
+  if (b.archive_state === 'HISTORICAL') chips.push('<b>' + esc(t('l_hist')) + '</b>');
+  LM.S = {q, code:fc, minText:Math.min(fm, fci, urlFs || 99, showCat ? fcat : 99)};
+  html += '<div style="position:absolute;left:' + MM(x0) + ';top:' + MM(y0) + ';width:' + MM(tw) + ';height:' + MM(ih) + ';display:flex;flex-direction:column;overflow:hidden;color:#000">' +
+    '<div style="display:flex;align-items:baseline;gap:' + MM(fc * 0.3) + ';min-width:0">' +
+      '<span class="code" style="font-size:' + MM(fc) + ';flex:none">' + esc(b.speaking_code || '—') + '</span>' +
+      (showCat ? '<span class="ln" style="font-size:' + MM(fcat) + ';font-weight:800;text-transform:uppercase;letter-spacing:.04em;min-width:0">' + esc(b.category) + '</span>' : '') + '</div>' +
+    '<div class="cl2" style="font-size:' + MM(fco) + ';font-weight:800;margin-top:' + MM(fc * 0.12) + '">' + esc(b.company_name) + '</div>' +
+    (showCity ? '<div class="ln" style="font-size:' + MM(fci) + ';font-weight:500;margin-top:' + MM(fci * 0.1) + '">' + esc(b.company_city) + '</div>' : '') +
+    (chips.length ? '<div style="margin-top:auto;display:flex;align-items:center;flex-wrap:wrap;gap:' + MM(fm * 0.6) + ';font-size:' + MM(fm) + ';line-height:1.3">' + chips.join('') + '</div>' : '') +
+  '</div>';
+  return html;
+}
+function splitBottom(b, W, H, P){
+  const pad = clamp(+P.padding || 0, 0, H / 4), sp = clamp(H * 0.08, 2.5, 5);
+  const x0 = sp + pad, y0 = pad, iw = W - x0 - pad, ih = H - 2 * pad;
+  const fh = Math.min(ih * 0.13, 5), ff = clamp(fh * 0.5, 1.8, 2.6);
+  let html = '<div class="spine-bar" style="width:' + MM(sp) + ';background:' + esc(b.color_hex) + '"></div>';
+  const title = pf('title') && b.binder_title ? b.binder_title : t('l_archive');
+  const year = pf('year') && b.ref_year ? b.ref_year : '';
+  html += '<div style="position:absolute;left:' + MM(x0) + ';top:' + MM(y0) + ';width:' + MM(iw) + ';height:' + MM(fh * 1.35) + ';display:flex;align-items:baseline;gap:' + MM(fh * 0.4) + ';border-bottom:' + MM(0.15) + ' solid #000;overflow:hidden;color:#000">' +
+    '<span class="ln" style="font-size:' + MM(fh) + ';font-weight:800;min-width:0">' + esc(title) + '</span>' +
+    (year ? '<span class="lmono" style="font-size:' + MM(fh * 0.72) + ';font-weight:800;border:' + MM(0.2) + ' solid #000;border-radius:' + MM(0.6) + ';padding:0 ' + MM(fh * 0.2) + ';flex:none">' + esc(year) + '</span>' : '') +
+    '<span class="code" style="font-size:' + MM(fh * 0.8) + ';margin-left:auto;flex:none">' + esc(b.speaking_code) + '</span></div>';
+  const foot = [];
+  if (pf('tags') && b.tags) foot.push('<span class="ln" style="min-width:0">' + esc(String(b.tags).split(',').map(x => x.trim()).filter(x => x && x.toLowerCase() !== DEMO_TAG).map(x => '#' + x).join(' ')) + '</span>');
+  if (pf('extra') && b.extra_codes) foot.push('<span class="lmono" style="font-weight:700;white-space:nowrap">' + esc(b.extra_codes) + '</span>');
+  const dk = pf('date');
+  if (dk && dk !== 'none'){ const d = dk === 'updated' ? b.updated_at : (b.created_at || b.updated_at); if (d) foot.push('<span style="white-space:nowrap">' + esc(t(dk === 'updated' ? 'l_updated' : 'l_created')) + ' <b>' + esc(fmtDate(d)) + '</b></span>'); }
+  foot.push('<span class="lmono" style="margin-left:auto;white-space:nowrap">' + esc(b.short_code) + '</span>');
+  const footH = ff * 1.4;
+  const listTop = y0 + fh * 1.35 + fh * 0.3, la = ih - fh * 1.35 - fh * 0.3 - footH - ff * 0.3;
+  if (pf('contents')) html += contentsBlock(b.contents_items, x0, listTop, iw, la, Math.min(fh * 0.8, 3.8));
+  html += '<div style="position:absolute;left:' + MM(x0) + ';width:' + MM(iw) + ';top:' + MM(y0 + ih - footH) + ';font-size:' + MM(ff) + ';line-height:1.35;color:#000;display:flex;gap:' + MM(ff) + ';align-items:baseline;overflow:hidden">' + foot.join('') + '</div>';
+  LM.S.minText = Math.min(LM.S.minText, ff, pf('contents') && b.contents_items.length ? (LM.listFs || 99) : 99);
+  return html;
+}
+function renderSplit(b, g, P){
+  const G2 = splitGeom(g, P);
+  const tf = !G2.rotate ? '' : G2.dir === -90 ? 'transform:translateY(' + MM(g.h) + ') rotate(-90deg);' : 'transform:translateX(' + MM(g.w) + ') rotate(90deg);';
+  const guide = (P.split || {}).guides === false ? '' : '<div class="cut-guide" style="top:' + MM(G2.Ht) + '"></div>';
+  return '<div class="lab"><div style="position:absolute;left:0;top:0;width:' + MM(G2.W) + ';height:' + MM(G2.H) + ';transform-origin:0 0;' + tf + '">' +
+    '<div style="position:absolute;left:0;top:0;width:' + MM(G2.W) + ';height:' + MM(G2.Ht) + ';overflow:hidden">' + splitTop(b, G2.W, G2.Ht, P) + '</div>' +
+    '<div style="position:absolute;left:0;top:' + MM(G2.Ht) + ';width:' + MM(G2.W) + ';height:' + MM(G2.Hb) + ';overflow:hidden">' + splitBottom(b, G2.W, G2.Hb, P) + '</div>' +
+    guide + '</div></div>';
+}
+
 /** Render one label (kind A, B or U) as HTML positioned inside a w×h slot. */
 function renderLabel(kind, b, g, P){
+  if (kind === 'S') return renderSplit(b, g, P);
   const w = g.w, h = g.h, pad = clamp(+P.padding || 0, 0, Math.min(w, h) / 4);
   const spine = clamp(Math.min(w, h) * 0.07, 1.6, 5);
   const x0 = spine + pad, y0 = pad, iw = Math.max(5, w - x0 - pad), ih = Math.max(5, h - 2 * pad);
@@ -183,12 +267,13 @@ function renderLabel(kind, b, g, P){
 
 /* ---------------- Queue & layout ---------------- */
 function printQueueBinders(){
-  return S.binders.filter(b => b.selected_for_print).sort((a, b) => naturalCmp(a.speaking_code, b.speaking_code));
+  return S.binders.filter(b => b.selected_for_print && !(S.settings.hideDemo && isDemo(b))).sort((a, b) => naturalCmp(a.speaking_code, b.speaking_code));
 }
+const modeKinds = (m) => m === 'split' ? ['S'] : m === 'pair' ? ['A','B'] : m === 'a' ? ['A'] : m === 'b' ? ['B'] : ['U'];
 function queueItems(){
   const P = S.print, out = [];
   const copies = clamp(parseInt(P.copies, 10) || 1, 1, 50);
-  const kinds = P.contentMode === 'pair' ? ['A','B'] : P.contentMode === 'a' ? ['A'] : P.contentMode === 'b' ? ['B'] : ['U'];
+  const kinds = modeKinds(P.contentMode);
   printQueueBinders().forEach(b => { for (let c = 0; c < copies; c++) kinds.forEach(k => out.push({kind:k, b})); });
   return out;
 }

@@ -2,7 +2,7 @@
    DocMap 2026 — core: i18n, state, persistence, data model helpers
    ===================================================================== */
 'use strict';
-const APP_VERSION = '26.5.0';
+const APP_VERSION = '26.6.0';
 const LS_KEY = 'docmap_v26_state';
 const LS_PREV = 'docmap_v26_state_prev';
 const SC_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
@@ -12,7 +12,15 @@ const GREEK = ['α','β','γ','δ','ε','ζ','η','θ'];
 const CATEGORIES = ['Ordinaria','Semplificata','Societario','Lavoro','Dichiarativi','Contenzioso','Privati'];
 const CAT_COLOR = {Ordinaria:'#2563EB',Semplificata:'#059669',Societario:'#7C3AED',Lavoro:'#D97706',Dichiarativi:'#DC2626'};
 const STATES = ['CURRENT','HISTORICAL','CHECKED_OUT'];
-const CSV_COLUMNS = ['speaking_code','multi_code','company_name','category','binder_title','room_code','cabinet_code','shelf_code','sector_code','location_code','archive_state','contents','tags','color_hex','short_code','short_url','final_destination','selected_for_print','id','updated_at'];
+const CSV_COLUMNS = ['speaking_code','multi_code','company_name','company_city','category','binder_title','ref_year','room_code','cabinet_code','shelf_code','sector_code','location_code','archive_state','contents','tags','color_hex','short_code','short_url','final_destination','extra_codes','shelf_color','selected_for_print','id','created_at','updated_at'];
+/* Shelf naming styles: the quick-pick buttons in the binder form follow the chosen style. */
+const SHELF_TYPES = {
+  number:['1','2','3','4','5','6','7','8'], letter:['A','B','C','D','E','F','G','H'], greek:GREEK,
+  emoji:['🟥','🟧','🟨','🟩','🟦','🟪','⬛','⬜'], symbol:['★','●','▲','■','◆','♥','✚','✱'], text:[]
+};
+const SHELF_COLORS = ['#EF4444','#F59E0B','#EAB308','#22C55E','#3B82F6','#8B5CF6','#EC4899','#64748B'];
+const DEMO_TAG = 'demo';
+const isDemo = (b) => String(b.tags || '').split(',').map(x => x.trim().toLowerCase()).includes(DEMO_TAG);
 
 /* ---------------- i18n ---------------- */
 const I18N = {
@@ -67,7 +75,7 @@ const I18N = {
     after_print_full:'L\'ultimo foglio è stato usato completamente: la mappa verrà azzerata per un foglio nuovo.', yes_update:'Sì, aggiorna mappa', no_thanks:'No, lascia così',
     queue_sel:'{n} faldoni selezionati', manage_sel:'Gestisci selezione',
     // label texts
-    l_contents:'Contenuti', l_updated:'Agg.', l_more:'+{n} altre voci', l_hist:'STORICO',
+    l_contents:'Contenuti', l_created:'Creata', l_archive:'Archivio', l_updated:'Agg.', l_more:'+{n} altre voci', l_hist:'STORICO',
     // import
     im_h:'Importa CSV / JSON', im_p:'Carica un file oppure incolla il testo generato da un\'AI (ChatGPT, Claude, Gemini). Vedrai un\'anteprima prima di confermare.',
     im_drop:'Trascina qui un file .csv o .json, oppure clicca per sceglierlo', im_paste:'…oppure incolla qui il testo CSV/JSON', im_paste_ph:'speaking_code;company_name;category;…\nBL4;Barbieri Luigi S.r.l.;Ordinaria;…',
@@ -151,7 +159,7 @@ const I18N = {
     after_print_t:'Update the partial sheet map?', after_print_p:'If printing succeeded, I can mark the {n} slots consumed on the last sheet as "used", so the next print starts from slot {s}.',
     after_print_full:'The last sheet was fully used: the map will be reset for a new sheet.', yes_update:'Yes, update map', no_thanks:'No, leave it',
     queue_sel:'{n} binders selected', manage_sel:'Manage selection',
-    l_contents:'Contents', l_updated:'Upd.', l_more:'+{n} more items', l_hist:'HISTORICAL',
+    l_contents:'Contents', l_created:'Created', l_archive:'Archive', l_updated:'Upd.', l_more:'+{n} more items', l_hist:'HISTORICAL',
     im_h:'Import CSV / JSON', im_p:'Upload a file or paste text produced by an AI (ChatGPT, Claude, Gemini). You will see a preview before confirming.',
     im_drop:'Drop a .csv or .json file here, or click to choose', im_paste:'…or paste CSV/JSON text here', im_paste_ph:'speaking_code;company_name;category;…\nBL4;Barbieri Luigi S.r.l.;Ordinaria;…',
     im_analyze:'Analyse and preview', im_clear:'Clear', im_prev:'Import preview', im_rows:'{n} rows read', im_new:'NEW', im_upd:'UPDATE', im_err:'ERROR',
@@ -234,13 +242,20 @@ function normHex(c){
 }
 
 /* ---------------- Binder helpers ---------------- */
+/* Location code: short room letters glue to the cabinet (A + 1 → A1-3); room names stay readable ("Ufficio 1 · 2-4"). */
+function locHead(room, cab){
+  room = String(room || '').trim(); cab = String(cab || '').trim();
+  if (!room || !cab) return room + cab;
+  return /^[A-Za-z]{1,2}$/.test(room) && /^[0-9A-Za-z]{1,3}$/.test(cab) ? room + cab : room + ' · ' + cab;
+}
 function computeLocation(b){
-  const head = String(b.room_code || '').trim() + String(b.cabinet_code || '').trim();
-  return [head, String(b.shelf_code || '').trim(), String(b.sector_code || '').trim()].filter(Boolean).join('-');
+  return [locHead(b.room_code, b.cabinet_code), String(b.shelf_code || '').trim(), String(b.sector_code || '').trim()].filter(Boolean).join('-');
 }
 function parseLocation(code){
   const s = String(code || '').trim(); if (!s) return null;
-  const m = s.match(/^([A-Za-z]*)(\d*)-([^-]+)(?:-(.+))?$/);
+  let m = s.match(/^(.+?)\s*·\s*([^-]+)-([^-]+)(?:-(.+))?$/);
+  if (m) return { room_code:m[1].trim(), cabinet_code:m[2].trim(), shelf_code:m[3].trim(), sector_code:(m[4] || '').trim() };
+  m = s.match(/^([A-Za-z]*)(\d*)-([^-]+)(?:-(.+))?$/);
   if (!m) return null;
   return { room_code:m[1] || '', cabinet_code:m[2] || '', shelf_code:m[3] || '', sector_code:m[4] || '' };
 }
@@ -252,7 +267,7 @@ function pipeToContents(str){
     return m ? {year:m[1].replace(/\s+/g, ''), description:m[2].trim()} : {year:'', description:p};
   });
 }
-const STOP = new Set(['srl','s','r','l','spa','p','a','snc','n','c','sas','di','de','del','della','dei','e','ed','&','the','and','of','studio','dott','dr','sig','geom','ing','avv','rag']);
+const STOP = new Set(['il','lo','la','i','gli','le','aps','ets','odv','onlus','asd','ssd','coop','srl','s','r','l','spa','p','a','snc','n','c','sas','di','de','del','della','dei','e','ed','&','the','and','of','studio','dott','dr','sig','geom','ing','avv','rag']);
 function initialsOf(name){
   const clean = String(name || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/s\.\s?r\.\s?l\.?|s\.\s?p\.\s?a\.?|s\.\s?n\.\s?c\.?|s\.\s?a\.\s?s\.?/gi, ' ');
   const words = clean.split(/[^A-Za-z0-9]+/).filter(w => w && !STOP.has(w.toLowerCase()));
@@ -289,6 +304,13 @@ function ensureIntegrity(){
   });
   return fixed;
 }
+/* Client register (anagrafica): imported from the studio's client list, used to fill new binders. */
+function normalizeClient(c){
+  const o = Object.assign({ id:uuid(), multi_code:'', name:'', address:'', cap:'', city:'', province:'', type:'', category:'', notes:'' }, c || {});
+  Object.keys(o).forEach(k => { o[k] = String(o[k] == null ? '' : o[k]).replace(/\s+/g, ' ').trim(); });
+  return o;
+}
+const clientPlace = (c) => c.city ? c.city + (c.province ? ' (' + c.province + ')' : '') : '';
 function shortUrl(code){ return 'https://qr7.it/' + code; }
 function destFor(b){
   if (b.final_destination && String(b.final_destination).trim()) return String(b.final_destination).trim();
@@ -302,13 +324,14 @@ function renderDest(tpl, b){
 function manifestTags(b){ return ['docmap26', b.speaking_code, b.multi_code ? 'multi-' + slugify(b.multi_code) : '', slugify(b.company_name)].filter(Boolean).join(','); }
 function normalizeBinder(b){
   const o = Object.assign({
-    id:uuid(), speaking_code:'', multi_code:'', company_name:'', category:'', color_hex:'#2563EB', binder_title:'', room_code:'', cabinet_code:'', shelf_code:'', sector_code:'',
+    id:uuid(), speaking_code:'', multi_code:'', company_name:'', company_city:'', ref_year:'', extra_codes:'', shelf_color:'', category:'', color_hex:'#2563EB', binder_title:'', room_code:'', cabinet_code:'', shelf_code:'', sector_code:'',
     location_code:'', archive_state:'CURRENT', contents_items:[], tags:'', short_code:'', short_url:'', final_destination:'', selected_for_print:false,
     created_at:nowISO(), updated_at:nowISO()
   }, b || {});
-  ['speaking_code','multi_code','company_name','category','binder_title','room_code','cabinet_code','shelf_code','sector_code','tags','short_code','final_destination'].forEach(k => o[k] = String(o[k] == null ? '' : o[k]).trim());
+  ['speaking_code','multi_code','company_name','company_city','ref_year','extra_codes','shelf_color','category','binder_title','room_code','cabinet_code','shelf_code','sector_code','tags','short_code','final_destination'].forEach(k => o[k] = String(o[k] == null ? '' : o[k]).trim());
   o.speaking_code = o.speaking_code.toUpperCase().replace(/\s+/g, '');
-  o.room_code = o.room_code.toUpperCase();
+  if (/^[a-z]{1,2}$/i.test(o.room_code)) o.room_code = o.room_code.toUpperCase();   // short room letters (a → A); names like "Ufficio 1" stay as typed
+  o.shelf_color = normHex(o.shelf_color);
   o.multi_code = o.multi_code.replace(/\s+/g, ' ');
   o.contents_items = pipeToContents(o.contents_items);
   o.color_hex = normHex(o.color_hex) || CAT_COLOR[o.category] || '#2563EB';
@@ -323,6 +346,7 @@ function normalizeBinder(b){
 /* Sheet presets, die-cut formats in order of popularity (Avery and compatible
    Herma/Tico/APLI codes share the same geometry). Values from manufacturer templates. */
 const BUILTIN_PRESETS = [
+  {id:'mrink143', kind:'die', recommended:1, name:'4 etichette 105×148 (A6) — 8 moduli da dividere · MRINK143', w:105, h:148, cols:2, rows:2, marginTop:0.5, marginLeft:0, gapX:0, gapY:0, radius:0, cut:false},
   {id:'l7160', kind:'die', popular:1, name:'21 etichette 63,5×38,1 (Avery L7160 / J8160)', w:63.5, h:38.1, cols:3, rows:7, marginTop:15.15, marginLeft:7.2, gapX:2.55, gapY:0, radius:2, cut:false},
   {id:'l7163', kind:'die', popular:2, name:'14 etichette 99,1×38,1 (Avery L7163 / J8163)', w:99.1, h:38.1, cols:2, rows:7, marginTop:15.15, marginLeft:4.65, gapX:2.5, gapY:0, radius:2, cut:false},
   {id:'l7165', kind:'die', popular:3, name:'8 etichette 99,1×67,7 (Avery L7165 / J8165)', w:99.1, h:67.7, cols:2, rows:4, marginTop:13.1, marginLeft:4.65, gapX:2.5, gapY:0, radius:2, cut:false},
@@ -355,15 +379,15 @@ function demoBinders(){
   const list = [];
   const push = (o) => { const b = mk(o); window.__demoTaken.push(b.short_code); list.push(b); };
   push({speaking_code:'BL1', multi_code:'M-10234', company_name:'Barbieri Luigi S.r.l.', category:'Ordinaria', color_hex:'#2563EB', binder_title:'Fatture e Contabilità IVA', room_code:'A', cabinet_code:'1', shelf_code:'α', archive_state:'CURRENT',
-    contents_items:'2025: Fatture Acquisto Q1-Q4|2025: Fatture Vendita Q1-Q4|2025: Liquidazioni IVA mensili|2025: Registri IVA e Corrispettivi', tags:'iva,fatture,contabilità,2025', selected_for_print:true});
+    contents_items:'2025: Fatture Acquisto Q1-Q4|2025: Fatture Vendita Q1-Q4|2025: Liquidazioni IVA mensili|2025: Registri IVA e Corrispettivi', tags:'demo,iva,fatture,contabilità,2025', company_city:'Parma (PR)', ref_year:'2025', selected_for_print:true});
   push({speaking_code:'BL2', multi_code:'M-10234', company_name:'Barbieri Luigi S.r.l.', category:'Ordinaria', color_hex:'#2563EB', binder_title:'Bilancio e Dichiarativi', room_code:'A', cabinet_code:'1', shelf_code:'β', archive_state:'CURRENT',
-    contents_items:'2024: Bilancio d\'esercizio e Nota integrativa|2025: Modello Redditi SC|2025: Dichiarazione IRAP|2025: F24 Versamenti|2025: Verbale approvazione bilancio', tags:'bilancio,redditi,irap,2025', selected_for_print:true});
+    contents_items:'2024: Bilancio d\'esercizio e Nota integrativa|2025: Modello Redditi SC|2025: Dichiarazione IRAP|2025: F24 Versamenti|2025: Verbale approvazione bilancio', tags:'demo,bilancio,redditi,irap,2025', company_city:'Parma (PR)', ref_year:'2025', selected_for_print:true});
   push({speaking_code:'BL3', multi_code:'M-10234', company_name:'Barbieri Luigi S.r.l.', category:'Lavoro', color_hex:'#D97706', binder_title:'Paghe e Personale', room_code:'A', cabinet_code:'2', shelf_code:'α', sector_code:'SX', archive_state:'CURRENT',
-    contents_items:'2025: Cedolini paga Gen-Dic|2025: Certificazione Unica dipendenti|2025: Modello 770|2025: Contratti e comunicazioni UNILAV', tags:'paghe,lavoro,cu,770,2025', selected_for_print:true});
+    contents_items:'2025: Cedolini paga Gen-Dic|2025: Certificazione Unica dipendenti|2025: Modello 770|2025: Contratti e comunicazioni UNILAV', tags:'demo,paghe,lavoro,cu,770,2025', company_city:'Parma (PR)', ref_year:'2025', extra_codes:'INPS 1234567', selected_for_print:true});
   push({speaking_code:'RC1', multi_code:'M-20871', company_name:'Rossi Costruzioni S.p.A.', category:'Societario', color_hex:'#7C3AED', binder_title:'Atti Societari e Verbali', room_code:'B', cabinet_code:'1', shelf_code:'γ', archive_state:'HISTORICAL',
-    contents_items:'2019: Atto costitutivo e Statuto|2022: Verbali assemblea soci|2023: Visure camerali|2023: Libro soci e Libro giornale', tags:'societario,verbali,statuto,visure', selected_for_print:true});
+    contents_items:'2019: Atto costitutivo e Statuto|2022: Verbali assemblea soci|2023: Visure camerali|2023: Libro soci e Libro giornale', tags:'demo,societario,verbali,statuto,visure', company_city:'Fidenza (PR)', selected_for_print:true});
   push({speaking_code:'FSG1', company_name:'Farmacia San Giorgio', category:'Semplificata', color_hex:'#059669', binder_title:'Contabilità Semplificata', room_code:'B', cabinet_code:'2', shelf_code:'β', sector_code:'DX', archive_state:'CHECKED_OUT',
-    contents_items:'2025: Registri IVA acquisti e vendite|2025: Corrispettivi telematici RT|2025: Spese sanitarie Sistema TS|2025: Modello Redditi PF', tags:'farmacia,semplificata,corrispettivi,2025', selected_for_print:true});
+    contents_items:'2025: Registri IVA acquisti e vendite|2025: Corrispettivi telematici RT|2025: Spese sanitarie Sistema TS|2025: Modello Redditi PF', tags:'demo,farmacia,semplificata,corrispettivi,2025', company_city:'Noceto (PR)', ref_year:'2025', selected_for_print:true});
   delete window.__demoTaken;
   return list;
 }
@@ -371,12 +395,12 @@ function demoBinders(){
 /* ---------------- State ---------------- */
 function defaultState(){
   return {
-    schema:26.1, app:'DocMap26', lang:'it', view:'archive',
+    schema:26.6, app:'DocMap26', lang:'it', view:'archive',
     settings:{ studioName:'Studio Demo Commercialisti Associati', destTemplate:DEFAULT_DEST, qrEcc:'M' },
     binders:[],
-    print:{ presetId:'l7160', geometry:geoFromPreset(BUILTIN_PRESETS[0]), geometryModified:false, padding:2.5, offsetX:0, offsetY:0,
-            contentMode:'pair', template:'classic', showMulti:true, qrMode:'live', showQrUrl:true, copies:1, previewMode:'labels' },
-    customPresets:[], usedSlots:{},
+    print:{ presetId:'mrink143', geometry:geoFromPreset(BUILTIN_PRESETS[0]), geometryModified:false, padding:4, offsetX:0, offsetY:0,
+            contentMode:'split', template:'classic', showMulti:true, fields:{}, split:{ratio:0.5, rotate:-90, guides:true}, advanced:false, qrMode:'live', showQrUrl:true, copies:1, previewMode:'labels' },
+    customPresets:[], usedSlots:{}, clients:[],
     hasUnexportedChanges:true, onboarded:false, lastExportAt:null, lastExportFile:null, lastSavedAt:null, archiveView:'table'
   };
 }
@@ -395,6 +419,11 @@ function migrate(st){
   if (!(BUILTIN_PRESETS.concat(o.customPresets || [])).some(p => p.id === o.print.presetId)){ o.print.presetId = BUILTIN_PRESETS[0].id; o.print.geometry = geoFromPreset(BUILTIN_PRESETS[0]); o.print.geometryModified = false; }
   o.customPresets = Array.isArray(o.customPresets) ? o.customPresets : [];
   o.usedSlots = (o.usedSlots && typeof o.usedSlots === 'object') ? o.usedSlots : {};
+  o.clients = Array.isArray(o.clients) ? o.clients.map(normalizeClient) : [];
+  o.print.fields = Object.assign({}, o.print.fields || {}); o.print.split = Object.assign({ratio:0.5, rotate:-90, guides:true}, o.print.split || {});
+  // v6: the MRINK143 split label becomes the default sheet once
+  if (!(st && st.schema >= 26.6)){ o.print.presetId = 'mrink143'; o.print.geometry = geoFromPreset(BUILTIN_PRESETS[0]); o.print.geometryModified = false; o.print.contentMode = 'split'; o.print.padding = 4; }
+  o.schema = 26.6;
   o.binders = Array.isArray(o.binders) ? o.binders.map(normalizeBinder) : [];
   if (!['it','en'].includes(o.lang)) o.lang = 'it';
   return o;

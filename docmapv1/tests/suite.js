@@ -26,7 +26,7 @@ const sec = (n) => console.log('\n== ' + n);
   ok(await p.evaluate(() => S.binders.length === 5 && new Set(S.binders.map(b => b.short_code)).size === 5 && S.binders.every(b => /^dm26[A-HJ-NP-Za-km-np-z2-9]{8}$/.test(b.short_code))), 'demo data + unambiguous dm26 codes');
 
   sec('views at 1366x768 (no horizontal scroll)');
-  for (const v of ['archive','print','import','export','ai','database','settings']){
+  for (const v of ['archive','print','clients','import','export','ai','database','settings']){
     await p.evaluate(v => { S.view = v; renderAll(); }, v); await p.waitForTimeout(250);
     const w = await p.evaluate(() => [document.documentElement.scrollWidth, innerWidth]);
     ok(w[0] <= w[1] + 1, 'no h-scroll in ' + v, w);
@@ -38,7 +38,7 @@ const sec = (n) => console.log('\n== ' + n);
 
   sec('print engine: every preset × mode × QR mode');
   const presets = await p.evaluate(() => BUILTIN_PRESETS.map(x => x.id));
-  for (const pr of presets) for (const m of ['pair','a','b','u']) for (const q of ['live','placeholder','none']){
+  for (const pr of presets) for (const m of ['pair','a','b','u','split']) for (const q of ['live','placeholder','none']){
     const r = await p.evaluate(([pr, m, q]) => {
       const P = BUILTIN_PRESETS.find(x => x.id === pr); S.print.presetId = pr; S.print.geometry = geoFromPreset(P); S.print.contentMode = m; S.print.qrMode = q; S.usedSlots = {};
       const L = layoutLabels(); const sheets = buildLabelSheets(false);
@@ -49,12 +49,12 @@ const sec = (n) => console.log('\n== ' + n);
     ok(r.pages === r.expect && r.sheets === r.expect && r.fits && !r.nan, `layout ${pr}/${m}/${q}`, r);
   }
   // partial sheet
-  const ps = await p.evaluate(() => { S.print.presetId = 'l7160'; S.print.geometry = geoFromPreset(BUILTIN_PRESETS[0]); S.print.contentMode = 'pair'; S.usedSlots = {l7160:[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]}; const L = layoutLabels(); const r = {pages:L.pages.length, first:L.pages[0][0].s}; S.usedSlots = {l7160:[0,1,2]}; const L2 = layoutLabels(); r.first2 = L2.pages[0][0].s; S.usedSlots = {}; return r; });
+  const ps = await p.evaluate(() => { S.print.presetId = 'l7160'; S.print.geometry = geoFromPreset(findPreset('l7160')); S.print.contentMode = 'pair'; S.usedSlots = {l7160:[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]}; const L = layoutLabels(); const r = {pages:L.pages.length, first:L.pages[0][0].s}; S.usedSlots = {l7160:[0,1,2]}; const L2 = layoutLabels(); r.first2 = L2.pages[0][0].s; S.usedSlots = {}; return r; });
   ok(ps.pages === 1 && ps.first === 0 && ps.first2 === 3, 'partial sheet: full-used first sheet skipped, start after used', ps);
 
   sec('QR decode on printed PDFs (every slot, A4 300 dpi)');
   for (const pr of presets){
-    for (const m of ['a','u']){
+    for (const m of ['a','u','split']){
       const info = await p.evaluate(([pr, m]) => {
         const P = BUILTIN_PRESETS.find(x => x.id === pr); S.print.presetId = pr; S.print.geometry = geoFromPreset(P); S.print.contentMode = m; S.print.qrMode = 'live'; S.print.offsetX = 0; S.print.offsetY = 0;
         document.getElementById('page-style').textContent = '@page{size:210mm 297mm;margin:0mm}';
@@ -83,13 +83,13 @@ const sec = (n) => console.log('\n== ' + n);
       ok(good === info.slots.length, `QR decode ${pr}/${m}: ${good}/${info.slots.length}`);
     }
   }
-  await p.evaluate(() => { document.getElementById('print-root').innerHTML = ''; S.print.presetId = 'l7160'; S.print.geometry = geoFromPreset(BUILTIN_PRESETS[0]); S.print.contentMode = 'pair'; savePrefs(); });
+  await p.evaluate(() => { document.getElementById('print-root').innerHTML = ''; S.print.presetId = 'l7160'; S.print.geometry = geoFromPreset(findPreset('l7160')); S.print.contentMode = 'pair'; savePrefs(); });
 
   sec('calibration + register + quality box');
   const cal = await p.evaluate(() => { S.print.offsetX = 1.5; const h = buildCalibSheet(); S.print.offsetX = 0; return {slots:(h.match(/Slot #/g) || []).length, x:h.includes('X: 8.7mm'), nan:h.includes('NaN')}; });
   ok(cal.slots === 21 && cal.x && !cal.nan, 'calibration sheet has 21 slots and offset in coordinates', cal);
   ok(await p.evaluate(() => { const h = buildRegisterHTML(sortedBinders()); return (h.match(/<svg/g) || []).length === S.binders.length; }), 'register has one QR per binder');
-  await p.evaluate(() => { S.view = 'print'; renderAll(); }); await p.waitForTimeout(300);
+  await p.evaluate(() => { S.view = 'print'; S.print.advanced = true; renderAll(); }); await p.waitForTimeout(300);
   ok((await p.innerText('#pr-quality')).includes('QR'), 'quality box rendered', await p.innerText('#pr-quality'));
   await p.click('[data-a="geo-fill"]'); await p.waitForTimeout(150);
   const fill = await p.evaluate(() => { const g = S.print.geometry; return [g.marginLeft, g.marginTop, g.marginLeft + g.cols * g.w + (g.cols - 1) * g.gapX, g.marginTop + g.rows * g.h + (g.rows - 1) * g.gapY]; });
@@ -292,8 +292,8 @@ const sec = (n) => console.log('\n== ' + n);
   ok(v.multi_code === '00123' && v.company_name === 'Cliente Multi', 'Italian header "Codice Multi" recognised', v);
   v = await p.evaluate(() => { analyzeImport('BL9;Barbieri Luigi;Lavoro'); const a = UI.importParsed.rows[0].p; analyzeImport('ZZ7;M-1;Zeta Srl;Lavoro;T;A;1;α;;A1-α;CURRENT;2025: X;;;;;'); const c = UI.importParsed.rows[0].p; UI.importParsed = null; return {a, c}; });
   ok(v.a.company_name === 'Barbieri Luigi' && !v.a.multi_code && v.c.multi_code === 'M-1' && v.c.company_name === 'Zeta Srl', 'headerless rows: old 16-col and new 17-col orders', v);
-  v = await p.evaluate(() => { const pr = buildAIPrompt(true); return {hdr:pr.includes('speaking_code;multi_code;company_name'), n:pr.includes('exactly 17 fields'), rule:pr.includes('Never invent it'), ctx:pr.includes('Codice Multi (reuse it')}; });
-  ok(v.hdr && v.n && v.rule && v.ctx, 'AI prompt: multi_code column, 17 fields, never invented, known codes in context', v);
+  v = await p.evaluate(() => { const pr = buildAIPrompt(true); return {hdr:pr.includes('speaking_code;multi_code;company_name'), n:pr.includes('exactly 20 fields'), rule:pr.includes('Never invent it'), ctx:pr.includes('Codice Multi (reuse it')}; });
+  ok(v.hdr && v.n && v.rule && v.ctx, 'AI prompt: multi_code column, 20 fields, never invented, known codes in context', v);
   v = await p.evaluate(() => { const b = S.binders[0]; return {tags:manifestTags(b).includes('multi-m-00777-a'), dest:renderDest('https://x/?m={multi_code}', b) === 'https://x/?m=M-00777%2FA', mm:mergeManifest('', false).text.split('\n')[0] === 'short_code;short_url;final_destination;tags'}; });
   ok(v.tags && v.dest && v.mm, 'manifest: Multi in tags, {multi_code} placeholder, header unchanged', v);
   v = await p.evaluate(async () => { dbSyncFromState('t'); const ws = dbReadWorkspace(DB.db); const n = dbScalar("SELECT COUNT(*) FROM binders WHERE multi_code = 'M-00777/A'"); return {n, ws:ws.binders.find(b => b.multi_code === 'M-00777/A') ? 1 : 0}; });
@@ -317,7 +317,7 @@ const sec = (n) => console.log('\n== ' + n);
   ok(v, 'register shows the Codice Multi');
   // QR still decodes with the dense templates
   for (const tp of ['multi','bold','minimal']){
-    const info = await p.evaluate((tp) => { S.print.template = tp; S.print.presetId = 'l7160'; S.print.geometry = geoFromPreset(BUILTIN_PRESETS[0]); S.print.contentMode = 'a'; S.print.qrMode = 'live'; S.usedSlots = {}; S.binders.forEach(b => b.selected_for_print = true);
+    const info = await p.evaluate((tp) => { S.print.template = tp; S.print.presetId = 'l7160'; S.print.geometry = geoFromPreset(findPreset('l7160')); S.print.contentMode = 'a'; S.print.qrMode = 'live'; S.usedSlots = {}; S.binders.forEach(b => b.selected_for_print = true);
       document.getElementById('print-root').innerHTML = buildLabelSheets(false)[0]; const L = layoutLabels(); const P = S.print.geometry;
       return {slots:L.pages[0].map(x => Object.assign(slotRect(x.s), {url:x.item.b.short_url})), w:P.w, h:P.h}; }, tp);
     await p.emulateMedia({media:'print'}); const pdf = await p.pdf({width:'210mm', height:'297mm', printBackground:true, preferCSSPageSize:true}); await p.emulateMedia({media:'screen'});
@@ -357,6 +357,110 @@ const sec = (n) => console.log('\n== ' + n);
   ok(await p.evaluate(() => document.querySelectorAll('.spine[data-a="locate"]').length > 0 && document.querySelectorAll('.cab-ph').length > 0), 'shelf map: spines open the locator, cabinets have a photo button');
   await p.evaluate(() => { S.archiveView = 'table'; renderAll(); });
 
+
+  sec('v6: MRINK143 split label, fields, clients, demo, shelves, guide');
+  v = await p.evaluate(() => { const d = defaultState(); const m = migrate(Object.assign(defaultState(), {schema:26.1, print:Object.assign(defaultState().print, {presetId:'l7160', contentMode:'pair', padding:1.5})})); const m2 = migrate(Object.assign(defaultState(), {schema:26.6, print:Object.assign(defaultState().print, {presetId:'l7163', contentMode:'pair'})}));
+    return {dp:d.print.presetId, dm:d.print.contentMode, first:BUILTIN_PRESETS[0].id, mp:m.print.presetId, mm:m.print.contentMode, m2p:m2.print.presetId, m2m:m2.print.contentMode}; });
+  ok(v.dp === 'mrink143' && v.dm === 'split' && v.first === 'mrink143', 'default sheet MRINK143 + split label', v);
+  ok(v.mp === 'mrink143' && v.mm === 'split' && v.m2p === 'l7163' && v.m2m === 'pair', 'migration switches old workspaces to MRINK143 once, later choices are kept', v);
+  v = await p.evaluate(() => { const P = findPreset('mrink143'); return {fits:P.marginLeft + P.cols * P.w <= 210 && P.marginTop + P.rows * P.h <= 297, n:P.cols * P.rows, w:P.w, h:P.h}; });
+  ok(v.fits && v.n === 4 && v.w === 105 && v.h === 148, 'MRINK143 geometry: 4 × 105×148 on A4', v);
+  v = await p.evaluate(() => {
+    S.binders = S.binders.concat([normalizeBinder({speaking_code:'TS1', company_name:'Test Split S.r.l.', company_city:'Parma (PR)', category:'Ordinaria', binder_title:'Titolo split', ref_year:'2024', extra_codes:'Prot. 77', tags:'iva', multi_code:'M-1', short_code:'dm26TestAbCd', room_code:'Ufficio 1', cabinet_code:'2', shelf_code:'3', contents_items:[{year:'2024', description:'Voce uno'}], selected_for_print:true})]); commit();
+    S.print.presetId = 'mrink143'; S.print.geometry = geoFromPreset(findPreset('mrink143')); S.print.contentMode = 'split'; S.print.qrMode = 'live'; S.print.fields = {}; S.print.split = {ratio:0.5, rotate:-90, guides:true}; S.usedSlots = {};
+    const q = printQueueBinders().length, L = layoutLabels(), sh = buildLabelSheets(false);
+    const html = renderLabel('S', S.binders.find(b => b.speaking_code === 'TS1'), S.print.geometry, S.print);
+    return {q, pages:L.pages.length, expect:Math.ceil(q / 4), perPage:L.pages[0].length, cuts:(sh[0].match(/cut-guide/g) || []).length, rot:html.includes('rotate(-90deg)'),
+      has:['TS1', 'ORDINARIA'.toLowerCase(), 'Test Split', 'Parma (PR)', 'M-1', 'Titolo split', '2024', 'Prot. 77', '#iva', 'Voce uno', '>qr7.it/dm26TestAbCd'].filter(x => !html.toLowerCase().includes(x.toLowerCase())), demoTag:renderLabel('S', S.binders.find(isDemo), S.print.geometry, S.print).includes('#demo')};
+  });
+  ok(v.pages === v.expect && v.perPage === Math.min(4, v.q) && v.cuts === v.perPage && v.rot, 'split: 4 labels (8 modules) per sheet, one faint cut line each, rotated −90°', v);
+  ok(!v.has.length && !v.demoTag, 'split label prints code, category, company, place, Multi, title, year, extra codes, tags, contents, URL (never the demo tag)', v);
+  v = await p.evaluate(() => { const b = S.binders.find(x => x.speaking_code === 'TS1'), g = S.print.geometry;
+    S.print.split = {ratio:0.5, rotate:90, guides:false}; const r = renderLabel('S', b, g, S.print);
+    S.print.fields = {category:false, city:false, multi:false, url:false, year:false, extra:false, tags:false, contents:false, date:'none'}; const off = renderLabel('S', b, g, S.print);
+    S.print.fields = {date:'updated'}; const upd = renderLabel('S', b, g, S.print);
+    S.print.fields = {}; S.print.split = {ratio:0.5, rotate:-90, guides:true};
+    return {r90:r.includes('rotate(90deg)'), noCut:!r.includes('cut-guide'), off:['Ordinaria', 'Parma (PR)', 'M-1', '>qr7.it/dm26', 'Prot. 77', '#iva', 'Voce uno', '2024', t('l_created')].filter(x => off.includes(x)), code:off.includes('TS1'), upd:upd.includes(t('l_updated'))}; });
+  ok(v.r90 && v.noCut, 'split options: +90° rotation and cut line off', v);
+  ok(!v.off.length && v.code && v.upd, 'field toggles hide each field (speaking code always printed), date can be creation/update/none', v);
+  await p.evaluate(() => { S.view = 'print'; S.print.advanced = false; renderAll(); }); await p.waitForTimeout(300);
+  v = await p.evaluate(() => { const c = document.querySelector('#pv-scroll .cut-guide'); const cs = c && getComputedStyle(c); const a = cs ? (cs.borderTopColor.match(/rgba?\(([^)]+)\)/) || [])[1] : ''; const alpha = a && a.split(',').length === 4 ? +a.split(',')[3] : 1;
+    return {alpha, adv:!!document.querySelector('#pr-adv') && !document.querySelector('#pr-adv').open, inAdv:['#slotmap', '#geo-offsets'].every(s => document.querySelector(s) && document.querySelector(s).closest('#pr-adv')), fields:document.querySelectorAll('#pr-fields [data-fld]').length, rec:!!document.querySelector('.preset.on .pop.rec')}; });
+  ok(v.alpha > 0 && v.alpha <= 0.2, 'cut line is barely visible (low opacity)', v);
+  ok(v.adv && v.inAdv && v.fields >= 10 && v.rec, 'print studio: basic panel, geometry/partial sheets/calibration under a closed "Advanced options", recommended preset badged', v);
+  await p.screenshot({path:'shots/v6_print.png'});
+  // shelves and rooms
+  v = await p.evaluate(() => ({o:[shelfOrdinal('3'), shelfOrdinal('C'), shelfOrdinal('γ'), shelfOrdinal('🟨'), shelfOrdinal('Alto')], h1:locHead('Ufficio 1', '2'), h2:locHead('a', '1'), loc:computeLocation({room_code:'Ufficio 1', cabinet_code:'2', shelf_code:'3', sector_code:'SX'}), p:JSON.stringify(parseLocation('Ufficio 1 · 2-3-SX')), room:normalizeBinder({room_code:'b'}).room_code, room2:normalizeBinder({room_code:'Ufficio 1'}).room_code}));
+  ok(JSON.stringify(v.o) === '[3,3,3,3,0]' && v.h1 === 'Ufficio 1 · 2' && v.h2 === 'a1' && v.loc === 'Ufficio 1 · 2-3-SX' && v.p.includes('"room_code":"Ufficio 1"') && v.room === 'B' && v.room2 === 'Ufficio 1', 'shelf styles (numbers, letters, Greek, emoji, free text) and named rooms', v);
+  v = await p.evaluate(() => { openEditor(null); const sel = document.querySelector('[data-shelftype]'); sel.value = 'number'; sel.dispatchEvent(new Event('change', {bubbles:true}));
+    const picks = [...document.querySelectorAll('#ed-shelf-tools [data-a="ed-greek"]')].map(x => x.textContent).slice(0, 3).join('');
+    document.querySelector('#ed-shelf-tools [data-a="ed-shelfcol"][data-c="#22C55E"]').click();
+    const c0 = UI.ed.d.contents_items.map(i => i.description).join('|'); document.querySelector('[data-a="ed-ci-add"]').click(); const c1 = UI.ed.d.contents_items.map(i => i.description).join('|');
+    const r = {picks, col:UI.ed.d.shelf_color, c0, c1}; S.settings.shelfType = 'greek'; closeModal(true); return r; });
+  ok(v.picks === '123' && v.col === '#22C55E' && v.c0 === 'Archivio 1' && v.c1 === 'Archivio 1|Archivio 2', 'editor: shelf style menu, shelf colour, contents default "Archivio 1" + "Aggiungi voce" → "Archivio 2"', v);
+  // clients register
+  const csv = fs.readFileSync(__dirname + '/fixtures/clienti_esempio.csv', 'utf8');
+  v = await p.evaluate((csv) => { analyzeImport(csv); const IP = UI.importParsed; return {isC:!!IP.clients, n:IP.clients.length, st:IP.clients.map(r => r.status).join(','), c0:IP.clients[0].c, place:clientPlace(IP.clients[0].c)}; }, csv);
+  ok(v.isC && v.n === 5 && v.st === 'new,new,new,err,err' && v.c0.multi_code === '8' && v.c0.name === 'APS IL ROSMARINO TEST' && v.c0.category === 'APS' && v.place === "LESIGNANO DE' BAGNI (PR)", 'client CSV recognised (Ditta→Multi, Ragione_soc→name, Localita (Provincia)→place, ETS_ENC→category), duplicates and nameless rows flagged', v);
+  await p.evaluate(() => { S.view = 'import'; renderAll(); $('#im-preview').innerHTML = importPreviewHTML(); }); await p.click('[data-a="cl-apply"]'); await p.waitForTimeout(300);
+  v = await p.evaluate(() => ({view:S.view, n:S.clients.length, rows:document.querySelectorAll('#cl-results tbody tr').length}));
+  ok(v.view === 'clients' && v.n === 3 && v.rows === 3, 'clients imported into the register view', v);
+  v = await p.evaluate((csv) => { analyzeImport(csv); return UI.importParsed.clients.map(r => r.status).join(','); }, csv);
+  ok(v === 'upd,upd,upd,err,err', 're-importing the same list updates instead of duplicating', v);
+  await p.evaluate(() => { UI.importParsed = null; });
+  await p.fill('[data-bind="clq"]', 'busseto'); await p.waitForTimeout(150);
+  ok(await p.locator('#cl-results tbody tr').count() === 1, 'client search');
+  await p.click('#cl-results [data-a="cl-binder"]'); await p.waitForTimeout(300);
+  v = await p.evaluate(() => { const d = UI.ed.d; return [d.company_name, d.multi_code, d.company_city, d.category, d.speaking_code]; });
+  ok(v[0] === 'HAND2HAND APS TEST' && v[1] === '16' && v[2] === 'BUSSETO (PR)' && v[3] === 'APS' && /^[A-Z]+\d+$/.test(v[4]), 'new binder from a client is pre-filled', v);
+  await p.evaluate(() => closeModal(true));
+  v = await p.evaluate(() => { openEditor(null); const i = $('#ed-company_name'); i.value = 'APS IL ROSMARINO TEST'; i.dispatchEvent(new Event('input', {bubbles:true})); const r = [UI.ed.d.multi_code, UI.ed.d.company_city]; closeModal(true); return r; });
+  ok(v[0] === '8' && v[1] === "LESIGNANO DE' BAGNI (PR)", 'typing a known client name fills Multi code and place', v);
+  // new columns: CSV, AI prompt, SQLite, workspace
+  v = await p.evaluate(() => { const b = S.binders.find(x => x.speaking_code === 'TS1'); const row = binderToCsvRow(b); return {len:row.length, cols:CSV_COLUMNS.length, city:row[CSV_COLUMNS.indexOf('company_city')], year:row[CSV_COLUMNS.indexOf('ref_year')], extra:row[CSV_COLUMNS.indexOf('extra_codes')], hdr:csvTemplateHeader().split(';').length}; });
+  ok(v.len === v.cols && v.city === 'Parma (PR)' && v.year === '2024' && v.extra === 'Prot. 77' && v.hdr === 20, 'full CSV and AI template carry place, reference year and extra codes', v);
+  v = await p.evaluate(() => { analyzeImport('BX9;M-9;Bix Srl;Ordinaria;Bilancio;A;1;α;;A1-α;CURRENT;2025: Doc;iva;#2563EB;;;;Parma (PR);2025;Prot. 9'); const r = UI.importParsed.rows[0].p; UI.importParsed = null; return [r.company_city, r.ref_year, r.extra_codes, r.multi_code]; });
+  ok(v.join('|') === 'Parma (PR)|2025|Prot. 9|M-9', 'headerless 20-field AI rows map the new columns', v);
+  v = await p.evaluate(() => { analyzeImport('speaking_code;company_name;luogo;anno;codici_extra\nZZ1;Zeta;Fidenza (PR);2023;P-1'); const r = UI.importParsed.rows[0].p; UI.importParsed = null; return [r.company_city, r.ref_year, r.extra_codes]; });
+  ok(v.join('|') === 'Fidenza (PR)|2023|P-1', 'Italian column names for the new fields', v);
+  v = await p.evaluate(async () => { dbSyncFromState('t'); await dbPersist(); const d2 = new DB.SQL.Database(DB.db.export()); const W = dbReadWorkspace(d2); const nC = dbScalar('SELECT COUNT(*) FROM clients', null, d2); const ver = dbScalar("SELECT value FROM meta WHERE key='schema_version'", null, d2); d2.close();
+    const b = W.binders.find(x => x.speaking_code === 'TS1'); return {nC, ver, wc:W.clients.length, city:b.company_city, year:b.ref_year, extra:b.extra_codes, json:JSON.parse(workspaceJSON()).clients.length}; });
+  ok(v.nC === 3 && v.ver === '3' && v.wc === 3 && v.city === 'Parma (PR)' && v.year === '2024' && v.extra === 'Prot. 77' && v.json === 3, 'SQLite schema 3: clients table + new binder columns, also in the workspace JSON', v);
+  v = await p.evaluate(() => { const d = new DB.SQL.Database(); d.exec("CREATE TABLE binders(id TEXT PRIMARY KEY, speaking_code TEXT NOT NULL UNIQUE, company_name TEXT, category TEXT, color_hex TEXT, binder_title TEXT, room_code TEXT, cabinet_code TEXT, shelf_code TEXT, sector_code TEXT, location_code TEXT, archive_state TEXT, tags TEXT, short_code TEXT UNIQUE, short_url TEXT, final_destination TEXT, final_destination_custom TEXT, selected_for_print INTEGER, created_at TEXT, updated_at TEXT)"); dbMigrate(d); const c = dbQuery('PRAGMA table_info(binders)', null, d).map(r => r.name); d.close(); return ['multi_code','company_city','ref_year','extra_codes','shelf_color'].every(x => c.includes(x)); });
+  ok(v, 'old .sqlite files are migrated (new columns added)');
+  // demo data
+  v = await p.evaluate(() => { const n = S.binders.filter(isDemo).length; S.settings.hideDemo = true; const vis = filteredBinders().filter(isDemo).length, q = printQueueBinders().filter(isDemo).length; S.settings.hideDemo = false; return {n, vis, q, allTagged:defaultState().binders.every(isDemo)}; });
+  ok(v.n > 0 && v.vis === 0 && v.q === 0 && v.allTagged, 'demo binders are tagged "demo" and hidden from list and print queue on request', v);
+  await p.evaluate(() => { S.view = 'archive'; S.archiveView = 'table'; renderAll(); });
+  ok(await p.isVisible('.demo-bar'), 'archive shows the demo bar');
+  await p.click('[data-a="demo-delete"]'); await p.waitForTimeout(150); await p.locator('.modal-f .btn-danger-solid').last().click(); await p.waitForTimeout(300);
+  v = await p.evaluate(() => ({demo:S.binders.filter(isDemo).length, mine:S.binders.some(b => b.speaking_code === 'TS1'), bar:!!document.querySelector('.demo-bar')}));
+  ok(v.demo === 0 && v.mine && !v.bar, 'delete demo binders keeps the user binders', v);
+  await p.click('.toast-act'); await p.waitForTimeout(300);
+  ok(await p.evaluate(() => S.binders.filter(isDemo).length > 0 && S.clients.length === 3), 'demo delete can be undone (clients kept)');
+  // guide: free navigation
+  await p.evaluate(() => { S.view = 'archive'; renderAll(); guideStart('create'); }); await p.waitForTimeout(700);
+  await p.click('[data-a="guide-next"]'); await p.waitForTimeout(600);
+  v = await p.evaluate(() => ({i:G.i, ed:!!UI.ed}));
+  ok(v.ed && v.i === 2, 'guide: Next on an action step performs it (opens the form)', v);
+  await p.click('[data-a="guide-next"]'); await p.waitForTimeout(150); const i1 = await p.evaluate(() => G.i);
+  await p.click('[data-a="guide-next"]'); await p.waitForTimeout(150); const i2 = await p.evaluate(() => G.i);
+  ok(i1 === 2 && i2 === 3, 'guide: a missing value warns once, the second Next goes on', [i1, i2]);
+  await p.evaluate(() => $('#ed-tags').scrollIntoView({block:'center'})); await p.waitForTimeout(300);
+  const tb = await p.evaluate(() => { const r = $('#ed-tags').getBoundingClientRect(); return {x:r.x + 30, y:r.y + r.height / 2}; });
+  await p.mouse.click(tb.x, tb.y); await p.waitForTimeout(250);
+  v = await p.evaluate(() => ({t:L(guideStep().title), f:document.activeElement && document.activeElement.id}));
+  ok(v.t === 'Tag' && v.f === 'ed-tags', 'guide: clicking another field jumps to its step and focuses it', v);
+  await p.mouse.click(4, 400); await p.waitForTimeout(150);
+  ok(await p.evaluate(() => G.msg === t('g_outside') && !!UI.ed), 'guide: clicking outside still says the guide is active (form stays open)');
+  await p.click('[data-a="guide-back"]'); await p.waitForTimeout(150);
+  ok(await p.evaluate(() => L(guideStep().title).startsWith('Contenuti')), 'guide: Back always works');
+  await p.evaluate(() => { const d = $$('.g-dot'); d[d.length - 2].click(); }); await p.waitForTimeout(150);
+  ok(await p.evaluate(() => G.i === G.g.steps.length - 2), 'guide: any step can be reached from the dots');
+  ok(await p.evaluate(() => ['Codice Multi', 'Tag', 'Codice breve', 'Destinazione'].every(w => G.g.steps.some(s => L(s.title).includes(w)))), 'create guide covers Multi/place, tags, short code and final destination');
+  await p.evaluate(() => { guideStop(); closeModal(true); S.print.advanced = false; S.view = 'print'; renderAll(); guideStart('partial'); }); await p.waitForTimeout(900);
+  ok(await p.evaluate(() => $('#pr-adv').open), 'guide opens "Advanced options" when its step is inside');
+  await p.evaluate(() => { guideStop(); S.view = 'archive'; renderAll(); });
   console.log('\nerrors:', errs.length ? errs.join('\n') : 'none');
   if (errs.length) fails += errs.length;
   console.log(`\nRESULT: ${passes} passed, ${fails} failed`);

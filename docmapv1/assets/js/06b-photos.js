@@ -114,7 +114,14 @@ function phOpen(id, type, key){
 
 /* ---------------- "Where is it?" locator ---------------- */
 const SECT = ['SX','CX','DX'];
-function shelfOrdinal(s){ const i = GREEK.indexOf(s); return i >= 0 ? i + 1 : 0; }
+/* Position of a shelf from the top (α/1/A/first emoji = 1), 0 when the name has no order (free text). */
+function shelfSeries(s){ s = String(s || ''); if (/^\d{1,2}$/.test(s)) return 'number'; return ['greek','letter','emoji','symbol'].find(k => SHELF_TYPES[k].includes(k === 'letter' ? s.toUpperCase() : s)) || ''; }
+function shelfOrdinal(s){
+  const k = shelfSeries(s); if (!k) return 0;
+  if (k === 'number') return +s || 0;
+  return SHELF_TYPES[k].indexOf(k === 'letter' ? String(s).toUpperCase() : s) + 1;
+}
+function shelfSeriesList(k, n){ return k === 'number' ? Array.from({length:n}, (_, i) => String(i + 1)) : SHELF_TYPES[k].slice(0, n); }
 function locateText(b){
   const parts = [];
   if (b.room_code) parts.push(t('loc_room') + ' ' + b.room_code);
@@ -127,16 +134,19 @@ function locateText(b){
 function cabinetSchemaHTML(b){
   const same = S.binders.filter(x => x.room_code === b.room_code && x.cabinet_code === b.cabinet_code);
   const shelves = Array.from(new Set(same.map(x => x.shelf_code).filter(Boolean)));
-  // show every Greek shelf from the top down to the lowest one in use, so the position is obvious
-  const maxG = Math.max(0, ...shelves.map(shelfOrdinal));
-  const rows = Array.from(new Set(GREEK.slice(0, maxG).concat(shelves))).sort((a, c) => naturalCmp(shelfOrder(a), shelfOrder(c)));
+  // show every shelf from the top down to the lowest one in use (α β γ…, 1 2 3…, A B C…), so the position is obvious
+  const series = Array.from(new Set(shelves.map(shelfSeries)));
+  const maxG = Math.min(20, Math.max(0, ...shelves.map(shelfOrdinal)));
+  const fill = series.length === 1 && series[0] ? shelfSeriesList(series[0], maxG) : [];
+  const rows = Array.from(new Set(fill.concat(shelves))).sort((a, c) => (shelfOrdinal(a) || 99) - (shelfOrdinal(c) || 99) || naturalCmp(a, c));
+  const shelfCol = {}; same.forEach(x => { if (x.shelf_color && x.shelf_code && !shelfCol[x.shelf_code]) shelfCol[x.shelf_code] = x.shelf_color; });
   if (!rows.length) rows.push('');
   const useSect = same.some(x => x.sector_code);
   const cols = useSect ? SECT : [''];
   const chip = (x) => '<button type="button" class="cs-b' + (x.id === b.id ? ' me' : '') + '" style="--c:' + esc(x.color_hex) + '" data-a="locate" data-id="' + x.id + '" title="' + esc(x.speaking_code + ' — ' + x.company_name + ' — ' + x.binder_title) + '">' + esc(x.speaking_code) + '</button>';
   let h = '<div class="cs" style="--cols:' + cols.length + '">' + (useSect ? '<div></div>' + cols.map(c => '<div class="cs-ch">' + c + '</div>').join('') : '');
   rows.forEach(s => {
-    h += '<div class="cs-rl">' + esc(s || '—') + '</div>';
+    h += '<div class="cs-rl"' + (shelfCol[s] ? ' style="box-shadow:inset 4px 0 0 ' + esc(shelfCol[s]) + '"' : '') + '>' + esc(s || '—') + '</div>';
     cols.forEach(c => {
       const here = same.filter(x => (x.shelf_code || '') === s && (!useSect || (x.sector_code || 'CX') === c || (!x.sector_code && c === 'CX')));
       const hit = (b.shelf_code || '') === s && (!useSect || (b.sector_code || 'CX') === c);

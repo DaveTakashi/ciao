@@ -6,7 +6,7 @@ const PX_PER_MM = 96 / 25.4;
 
 /* ---------------- Topbar & banner ---------------- */
 function renderTopbar(){
-  const tabs = [['archive','archive','nav_archive'],['print','printer','nav_print'],['import','upload','nav_import'],['export','download','nav_export'],['ai','sparkles','nav_ai'],['database','database','nav_database'],['settings','sliders','nav_settings']];
+  const tabs = [['archive','archive','nav_archive'],['print','printer','nav_print'],['clients','users','nav_clients'],['import','upload','nav_import'],['export','download','nav_export'],['ai','sparkles','nav_ai'],['database','database','nav_database'],['settings','sliders','nav_settings']];
   const dirty = S.hasUnexportedChanges;
   $('#topbar').innerHTML =
     '<div class="brand"><div class="brand-mark">DM26</div><div><div class="brand-t">DocMap 2026</div><div class="brand-s">' + esc(t('brand_s')) + '</div></div></div>' +
@@ -27,10 +27,11 @@ function renderBanner(){
 function renderView(){
   document.documentElement.lang = S.lang;
   const v = S.view;
-  const fn = {archive:viewArchive, print:viewPrint, import:viewImport, export:viewExport, ai:viewAI, database:viewDatabase, settings:viewSettings}[v] || viewArchive;
+  const fn = {archive:viewArchive, print:viewPrint, import:viewImport, export:viewExport, ai:viewAI, database:viewDatabase, settings:viewSettings, clients:viewClients}[v] || viewArchive;
   $('#view').innerHTML = fn();
   if (v === 'print') mountPrint();
   if (v === 'archive') renderArchiveResults();
+  if (v === 'clients') renderClientResults();
 }
 function renderAll(){ document.body.dataset.drop = t('drop_here'); renderBanner(); renderTopbar(); renderView(); }
 
@@ -39,11 +40,12 @@ function stateBadge(s){ const c = s === 'CURRENT' ? 'b-current' : s === 'HISTORI
 function filteredBinders(){
   const q = UI.q.trim().toLowerCase();
   return sortedBinders().filter(b => {
+    if (S.settings.hideDemo && isDemo(b)) return false;
     if (UI.fState && b.archive_state !== UI.fState) return false;
     if (UI.fRoom && b.room_code !== UI.fRoom) return false;
     if (UI.fCat && b.category !== UI.fCat) return false;
     if (!q) return true;
-    const hay = [b.speaking_code, b.multi_code, b.company_name, b.category, b.binder_title, b.location_code, b.tags, b.short_code, contentsToPipe(b.contents_items), t('s_' + b.archive_state)].join(' ').toLowerCase();
+    const hay = [b.speaking_code, b.multi_code, b.company_name, b.company_city, b.ref_year, b.extra_codes, b.category, b.binder_title, b.location_code, b.tags, b.short_code, contentsToPipe(b.contents_items), t('s_' + b.archive_state)].join(' ').toLowerCase();
     return q.split(/\s+/).every(w => hay.indexOf(w) >= 0);
   });
 }
@@ -53,6 +55,7 @@ function viewArchive(){
   const sel = (id, all, opts, cur) => '<select class="inp" data-bind="' + id + '"><option value="">' + esc(all) + '</option>' + opts.map(o => '<option value="' + esc(o[0]) + '"' + (cur === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('') + '</select>';
   return '<div class="page-h"><div><h1>' + esc(t('arch_h')) + helpDot('create') + '</h1><p>' + esc(t('arch_p')) + '</p></div>' +
     '<div class="row"><button class="btn btn-lg btn-primary" data-a="new-binder">' + ic('plus') + esc(t('new_binder')) + '</button></div></div>' +
+    demoBarHTML() +
     '<div class="kpis" id="kpis"></div>' +
     '<div class="card"><div class="toolbar">' +
       '<div class="search">' + ic('search') + '<input class="inp" type="search" data-bind="q" value="' + esc(UI.q) + '" placeholder="' + esc(t('search_ph')) + '" aria-label="search"></div>' +
@@ -66,9 +69,10 @@ function viewArchive(){
 }
 function renderArchiveResults(){
   const list = filteredBinders();
-  const selN = S.binders.filter(b => b.selected_for_print).length;
+  const selN = printQueueBinders().length;
   const kp = $('#kpis');
-  if (kp) kp.innerHTML = [[S.binders.length, 'k_total'], [new Set(S.binders.map(b => b.company_name)).size, 'k_clients'], [S.binders.filter(b => b.archive_state === 'CHECKED_OUT').length, 'k_out'], [selN, 'k_print']]
+  const vis = S.settings.hideDemo ? S.binders.filter(b => !isDemo(b)) : S.binders;
+  if (kp) kp.innerHTML = [[vis.length, 'k_total'], [new Set(vis.map(b => b.company_name)).size, 'k_clients'], [vis.filter(b => b.archive_state === 'CHECKED_OUT').length, 'k_out'], [selN, 'k_print']]
     .map(([v, k]) => '<div class="card kpi"><div class="v">' + v + '</div><div class="k">' + esc(t(k)) + '</div></div>').join('');
   const bb = $('#bulkbar');
   if (bb) bb.innerHTML = '<button class="btn btn-sm" data-a="sel-all">' + ic('check') + esc(t('sel_all')) + '</button><button class="btn btn-sm" data-a="sel-none">' + esc(t('sel_none')) + '</button>' +
@@ -92,7 +96,7 @@ function renderArchiveResults(){
       '<td class="acts"><button class="icon-btn" data-a="locate" data-id="' + b.id + '" title="' + esc(t('act_locate')) + '">' + ic('pin') + (pc[b.id] ? '<span class="ph-n">' + pc[b.id] + '</span>' : '') + '</button><button class="icon-btn" data-a="show-qr" data-id="' + b.id + '" title="' + esc(t('act_qr')) + '">' + ic('qr') + '</button><button class="icon-btn" data-a="edit" data-id="' + b.id + '" title="' + esc(t('act_edit')) + '">' + ic('pencil') + '</button><button class="icon-btn" data-a="dup" data-id="' + b.id + '" title="' + esc(t('act_dup')) + '">' + ic('copy') + '</button><button class="icon-btn danger" data-a="del" data-id="' + b.id + '" title="' + esc(t('act_del')) + '">' + ic('trash') + '</button></td></tr>').join('') +
     '</tbody></table></div>';
 }
-function shelfOrder(s){ const i = GREEK.indexOf(s); return i >= 0 ? 'a' + i : 'b' + s; }
+function shelfOrder(s){ const o = shelfOrdinal(s); return o ? 'a' + String(o).padStart(3, '0') : 'b' + s; }
 function shelfMapHTML(list){
   const rooms = {};
   const unplaced = [];
@@ -106,13 +110,14 @@ function shelfMapHTML(list){
   Object.keys(rooms).sort(naturalCmp).forEach(r => {
     const cabs = rooms[r];
     const n = Object.values(cabs).reduce((a, c) => a + Object.values(c).reduce((x, y) => x + y.length, 0), 0);
-    h += '<div class="room"><div class="room-h"><span>' + esc((S.lang === 'en' ? 'Room ' : 'Stanza ') + r) + '</span><span class="mono small">' + n + '</span></div>';
+    h += '<div class="room"><div class="room-h"><span>' + esc(r.length > 2 ? r : (S.lang === 'en' ? 'Room ' : 'Stanza ') + r) + '</span><span class="mono small">' + n + '</span></div>';
     Object.keys(cabs).sort(naturalCmp).forEach(c => {
       const nPh = phOk() ? phList('cabinet', r + c).length : 0;
-      h += '<div class="cab"><div class="cab-h"><span>' + esc((S.lang === 'en' ? 'Cabinet ' : 'Armadio ') + r + c) + '</span><button type="button" class="cab-ph" data-a="' + (nPh ? 'ph-open-cab' : 'ph-add') + '" data-type="cabinet" data-key="' + esc(r + c) + '" title="' + esc(nPh ? t('ph_open') : t('ph_add_cab')) + '">' + ic('camera') + (nPh ? '<b>' + nPh + '</b>' : '') + '</button></div>';
+      h += '<div class="cab"><div class="cab-h"><span>' + esc((S.lang === 'en' ? 'Cabinet ' : 'Armadio ') + locHead(r, c)) + '</span><button type="button" class="cab-ph" data-a="' + (nPh ? 'ph-open-cab' : 'ph-add') + '" data-type="cabinet" data-key="' + esc(r + c) + '" title="' + esc(nPh ? t('ph_open') : t('ph_add_cab')) + '">' + ic('camera') + (nPh ? '<b>' + nPh + '</b>' : '') + '</button></div>';
       Object.keys(cabs[c]).sort((a, b) => naturalCmp(shelfOrder(a), shelfOrder(b))).forEach(s => {
         const items = cabs[c][s].slice().sort((a, b) => naturalCmp(({SX:0,CX:1,DX:2})[a.sector_code] ?? 3, ({SX:0,CX:1,DX:2})[b.sector_code] ?? 3) || naturalCmp(a.speaking_code, b.speaking_code));
-        h += '<div class="shelf"><div class="shelf-l">' + esc(r + c + '-' + s) + '</div><div class="shelf-b">' + items.map(spine).join('') + '</div></div>';
+        const sc = (items.find(x => x.shelf_color) || {}).shelf_color;
+        h += '<div class="shelf"><div class="shelf-l"' + (sc ? ' style="box-shadow:inset 4px 0 0 ' + esc(sc) + '"' : '') + '>' + esc(locHead(r, c) + '-' + s) + '</div><div class="shelf-b">' + items.map(spine).join('') + '</div></div>';
       });
       h += '</div>';
     });
@@ -136,11 +141,12 @@ function showQR(b){
 /* ---------------- Editor ---------------- */
 function openEditor(id, preset){
   const src = id ? S.binders.find(b => b.id === id) : null;
-  const d = src ? clone(src) : normalizeBinder(Object.assign({ id:uuid(), short_code:newShortCode(), category:'Ordinaria', color_hex:'#2563EB', archive_state:'CURRENT', selected_for_print:true, contents_items:[{year:String(new Date().getFullYear()), description:''}] }, preset || {}));
+  const d = src ? clone(src) : normalizeBinder(Object.assign({ id:uuid(), short_code:newShortCode(), category:'Ordinaria', color_hex:'#2563EB', archive_state:'CURRENT', selected_for_print:true, contents_items:[{year:'', description:t('arch_n', {n:1})}] }, preset || {}));
   if (!src && !d.speaking_code && d.company_name) d.speaking_code = suggestSpeakingCode(d.company_name);
   UI.ed = { isNew:!src, d, pipeMode:false, base:JSON.stringify(d) };
-  const companies = Array.from(new Set(S.binders.map(b => b.company_name))).sort(naturalCmp);
-  const multis = Array.from(new Set(S.binders.map(b => b.multi_code).filter(Boolean))).sort(naturalCmp);
+  const companies = Array.from(new Set(S.binders.map(b => b.company_name).concat((S.clients || []).map(c => c.name)).filter(Boolean))).sort(naturalCmp);
+  const multis = Array.from(new Set(S.binders.map(b => b.multi_code).concat((S.clients || []).map(c => c.multi_code)).filter(Boolean))).sort(naturalCmp);
+  const cities = Array.from(new Set(S.binders.map(b => b.company_city).concat((S.clients || []).map(clientPlace)).filter(Boolean))).sort(naturalCmp);
   const cats = Array.from(new Set(CATEGORIES.concat(S.binders.map(b => b.category).filter(Boolean))));
   const f = (key, label, extra, attrs) => '<div class="field"><label for="ed-' + key + '">' + esc(label) + '</label><input class="inp ' + (extra || '') + '" id="ed-' + key + '" data-ed="' + key + '" value="' + esc(d[key]) + '" ' + (attrs || '') + '></div>';
   const body = '<div class="edit-grid"><div class="stack">' +
@@ -148,16 +154,18 @@ function openEditor(id, preset){
       '<div class="field"><label for="ed-speaking_code">' + esc(t('f_speaking')) + '</label><div class="row" style="flex-wrap:nowrap"><input class="inp mono" id="ed-speaking_code" data-ed="speaking_code" value="' + esc(d.speaking_code) + '" style="font-weight:800;font-size:17px;text-transform:uppercase" placeholder="BL1"><button class="btn" data-a="ed-suggest" type="button">' + ic('sparkles') + esc(t('f_suggest')) + '</button></div><div class="err-t" id="err-speaking_code"></div></div>' +
       '<div class="field"><label for="ed-company_name">' + esc(t('f_company')) + '</label><input class="inp" id="ed-company_name" data-ed="company_name" list="dl-companies" value="' + esc(d.company_name) + '" placeholder="Barbieri Luigi S.r.l."><datalist id="dl-companies">' + companies.map(c => '<option value="' + esc(c) + '">').join('') + '</datalist><div class="err-t" id="err-company_name"></div></div>' +
     '</div>' +
-    '<div class="grid g2"><div class="field"><label for="ed-multi_code">' + esc(t('f_multi')) + ' <span class="muted" style="font-weight:500;text-transform:none">' + esc(t('optional')) + '</span></label><input class="inp mono" id="ed-multi_code" data-ed="multi_code" list="dl-multi" value="' + esc(d.multi_code) + '" placeholder="M-10234" autocomplete="off"><datalist id="dl-multi">' + multis.map(m => '<option value="' + esc(m) + '">').join('') + '</datalist><div class="hint">' + esc(t('f_multi_d')) + '</div></div><div></div></div>' +
+    '<div class="grid g2"><div class="field"><label for="ed-multi_code">' + esc(t('f_multi')) + ' <span class="muted" style="font-weight:500;text-transform:none">' + esc(t('optional')) + '</span></label><input class="inp mono" id="ed-multi_code" data-ed="multi_code" list="dl-multi" value="' + esc(d.multi_code) + '" placeholder="M-10234" autocomplete="off"><datalist id="dl-multi">' + multis.map(m => '<option value="' + esc(m) + '">').join('') + '</datalist><div class="hint">' + esc(t('f_multi_d')) + '</div></div>' +
+      '<div class="field"><label for="ed-company_city">' + esc(t('f_city')) + ' <span class="muted" style="font-weight:500;text-transform:none">' + esc(t('optional')) + '</span></label><input class="inp" id="ed-company_city" data-ed="company_city" list="dl-cities" value="' + esc(d.company_city) + '" placeholder="Parma (PR)" autocomplete="off"><datalist id="dl-cities">' + cities.map(c => '<option value="' + esc(c) + '">').join('') + '</datalist></div></div>' +
     '<div class="grid g2">' + f('binder_title', t('f_title'), '', 'placeholder="Fatture e Contabilità IVA"') +
       '<div class="field"><label for="ed-category">' + esc(t('f_category')) + '</label><input class="inp" id="ed-category" data-ed="category" list="dl-cats" value="' + esc(d.category) + '"><datalist id="dl-cats">' + cats.map(c => '<option value="' + esc(c) + '">').join('') + '</datalist></div></div>' +
+    '<div class="grid g2">' + f('ref_year', t('f_year_ref') + ' ' + t('optional'), 'mono', 'placeholder="2025" maxlength="9"') + f('extra_codes', t('f_extra') + ' ' + t('optional'), 'mono', 'placeholder="' + esc(t('f_extra_ph')) + '"') + '</div>' +
     '<div class="field"><label>' + esc(t('f_color')) + '</label><div class="swatches" id="ed-swatches">' + swatchesHTML(d.color_hex) + '</div></div>' +
     '<div class="grid g4">' + f('room_code', t('f_room'), 'mono', 'placeholder="A"') + f('cabinet_code', t('f_cabinet'), 'mono', 'placeholder="1"') +
-      '<div class="field"><label for="ed-shelf_code">' + esc(t('f_shelf')) + '</label><input class="inp mono" id="ed-shelf_code" data-ed="shelf_code" value="' + esc(d.shelf_code) + '" placeholder="α"><div class="greek">' + GREEK.slice(0, 6).map(g => '<button type="button" data-a="ed-greek" data-g="' + g + '">' + g + '</button>').join('') + '</div></div>' +
+      '<div class="field"><label for="ed-shelf_code">' + esc(t('f_shelf')) + '</label><input class="inp mono" id="ed-shelf_code" data-ed="shelf_code" value="' + esc(d.shelf_code) + '" placeholder="' + esc((SHELF_TYPES[S.settings.shelfType || 'greek'] || [])[0] || t('st_text_ph')) + '"><div id="ed-shelf-tools">' + shelfToolsHTML(d) + '</div></div>' +
       '<div class="field"><label for="ed-sector_code">' + esc(t('f_sector')) + '</label><select class="inp mono" id="ed-sector_code" data-ed="sector_code">' + ['', 'SX', 'CX', 'DX'].map(s => '<option' + (d.sector_code === s ? ' selected' : '') + '>' + s + '</option>').join('') + (['', 'SX', 'CX', 'DX'].includes(d.sector_code) ? '' : '<option selected>' + esc(d.sector_code) + '</option>') + '</select></div></div>' +
     '<div class="row"><span class="lbl">' + esc(t('f_location')) + '</span><span class="loc" id="ed-loc" style="font-size:16px">' + esc(computeLocation(d) || '—') + '</span></div>' +
     '<div class="field"><label>' + esc(t('f_state')) + '</label><div class="seg" id="ed-state">' + STATES.map(s => '<button type="button" data-a="ed-state" data-s="' + s + '" class="' + (d.archive_state === s ? 'on' : '') + '">' + esc(t('s_' + s)) + '</button>').join('') + '</div></div>' +
-    '<div class="field"><div class="row between"><label class="lbl">' + esc(t('f_contents')) + '</label><label class="chk small"><input type="checkbox" data-a="ed-pipe-toggle">' + esc(t('f_pipe')) + '</label></div><div id="ed-contents"></div></div>' +
+    '<div class="field"><div class="row between"><label class="lbl">' + esc(t('f_contents')) + '</label><label class="chk small"><input type="checkbox" data-a="ed-pipe-toggle">' + esc(t('f_lines')) + '</label></div><div id="ed-contents"></div></div>' +
     f('tags', t('f_tags'), '', 'placeholder="iva,fatture,2025"') +
     '<div class="grid g2"><div class="field"><label for="ed-short_code">' + esc(t('f_short')) + '</label><div class="row" style="flex-wrap:nowrap"><input class="inp mono" id="ed-short_code" data-ed="short_code" value="' + esc(d.short_code) + '" maxlength="12"><button class="btn" type="button" data-a="ed-regen" title="' + esc(t('f_regen')) + '">' + ic('refresh') + '</button></div><div class="err-t" id="err-short_code"></div></div>' +
       '<div class="field"><label>' + esc(t('f_shorturl')) + '</label><div class="inp mono" id="ed-shorturl" style="background:var(--surface-2);display:flex;align-items:center;font-size:13px">' + esc(shortUrl(d.short_code)) + '</div></div></div>' +
@@ -166,7 +174,7 @@ function openEditor(id, preset){
     '</div><div><div class="lbl" style="margin-bottom:8px">' + esc(t('preview')) + ' — <span class="mono" style="text-transform:none">' + esc(findPreset(S.print.presetId).name) + '</span></div><div class="prev-box" id="ed-preview"></div><div style="margin-top:16px"><div class="lbl" style="margin-bottom:6px">' + esc(t('ph_binder')) + '</div><div data-ph-slot data-type="binder" data-key="' + d.id + '">' + phThumbsHTML('binder', d.id) + '</div><div class="hint">' + esc(t('ph_hint')) + '</div></div></div></div>';
   openModal({ title: UI.ed.isNew ? t('ed_new') : t('ed_edit') + ' ' + d.speaking_code, size:'xl', body, autofocus:false,
     buttons:[{label:t('cancel'), cls:'btn', action:'modal-close'}, {label:t('save'), cls:'btn btn-primary btn-lg', icon:'save', fn:saveEditor}],
-    onMount: () => { renderEdContents(); renderEdPreview(); setTimeout(() => { const el = UI.ed.isNew ? $('#ed-company_name') : $('#ed-binder_title'); el && el.focus(); }, 40); },
+    onMount: () => { renderEdContents(); renderEdPreview(); setTimeout(() => { if (!UI.ed) return; const el = UI.ed.isNew ? $('#ed-company_name') : $('#ed-binder_title'); el && el.focus(); }, 40); },
     beforeClose: () => {
       if (!UI.ed || JSON.stringify(UI.ed.d) === UI.ed.base) return true;
       confirmAction({ plain:true, title:t('ed_discard_t'), detail:t('ed_discard_d'), okLabel:t('ed_discard_ok'), onOk: () => closeModal(true) });
@@ -178,17 +186,25 @@ function swatchesHTML(cur){
   return COLORS.map(c => '<button type="button" class="sw ' + (cur.toUpperCase() === c ? 'on' : '') + '" style="background:' + c + '" data-a="ed-color" data-c="' + c + '" aria-label="' + c + '"></button>').join('') +
     '<input type="color" value="' + esc(cur) + '" data-ed="color_hex" style="width:44px;height:34px;border:1px solid var(--border-2);border-radius:8px;padding:2px;background:#fff;cursor:pointer" aria-label="custom colour"><span class="mono small muted">' + esc(cur) + '</span>';
 }
+/* Shelf tools in the binder form: naming style (menu), quick picks in that style, optional shelf colour. */
+function shelfToolsHTML(d){
+  const ty = S.settings.shelfType || 'greek', picks = SHELF_TYPES[ty] || [];
+  return '<div class="shelf-tools"><select class="inp" data-shelftype title="' + esc(t('st_type')) + '" aria-label="' + esc(t('st_type')) + '">' + Object.keys(SHELF_TYPES).map(k => '<option value="' + k + '"' + (k === ty ? ' selected' : '') + '>' + esc(t('st_' + k)) + '</option>').join('') + '</select>' +
+    (picks.length ? '<div class="greek">' + picks.slice(0, 8).map(g => '<button type="button" data-a="ed-greek" data-g="' + esc(g) + '" class="' + (d.shelf_code === g ? 'on' : '') + '">' + esc(g) + '</button>').join('') + '</div>' : '') +
+    '<div class="shelf-col" title="' + esc(t('st_color')) + '">' + [''].concat(SHELF_COLORS).map(c => '<button type="button" data-a="ed-shelfcol" data-c="' + c + '" class="' + ((d.shelf_color || '') === c ? 'on' : '') + (c ? '' : ' none') + '" style="' + (c ? 'background:' + c : '') + '" aria-label="' + esc(c || t('st_nocolor')) + '"></button>').join('') + '</div></div>';
+}
+function contentsToLines(items){ return (items || []).map(i => (i.year ? i.year + ': ' : '') + (i.description || '')).filter(x => x.trim()).join('\n'); }
 function renderEdContents(){
   const ed = UI.ed, box = $('#ed-contents'); if (!ed || !box) return;
   if (ed.pipeMode){
-    box.innerHTML = '<textarea class="inp mono small" data-ed="__pipe" rows="5">' + esc(contentsToPipe(ed.d.contents_items)) + '</textarea><div class="hint">' + esc(t('f_pipe_hint')) + '</div>';
+    box.innerHTML = '<textarea class="inp mono small" data-ed="__pipe" rows="6" placeholder="Archivio 1&#10;2025: Fatture acquisto&#10;2025: Liquidazioni IVA">' + esc(contentsToLines(ed.d.contents_items)) + '</textarea><div class="hint">' + esc(t('f_lines_hint')) + '</div>';
     return;
   }
   box.innerHTML = ed.d.contents_items.map((it, i) => '<div class="ci-row"><input class="inp mono" placeholder="' + esc(t('f_year')) + '" data-ci="year" data-i="' + i + '" value="' + esc(it.year) + '"><input class="inp" placeholder="' + esc(t('f_desc')) + '" data-ci="description" data-i="' + i + '" value="' + esc(it.description) + '"><button type="button" class="icon-btn danger" data-a="ed-ci-del" data-i="' + i + '">' + ic('x') + '</button></div>').join('') +
     '<button type="button" class="btn btn-sm" data-a="ed-ci-add">' + ic('plus') + esc(t('f_add_item')) + '</button>';
 }
-function labelPreviewHTML(kind, b, maxW){
-  const g = S.print.geometry, s = Math.min(1, maxW / (g.w * PX_PER_MM));
+function labelPreviewHTML(kind, b, maxW, gOver){
+  const g = gOver || S.print.geometry, s = Math.min(1, maxW / (g.w * PX_PER_MM));
   return '<div class="lbl-holder" style="width:' + (g.w * PX_PER_MM * s) + 'px;height:' + (g.h * PX_PER_MM * s) + 'px;position:relative;overflow:hidden;' + (g.radius ? 'border-radius:' + (g.radius * PX_PER_MM * s) + 'px' : '') + '">' +
     '<div style="position:absolute;left:0;top:0;width:' + g.w + 'mm;height:' + g.h + 'mm;transform:scale(' + s + ');transform-origin:top left">' + renderLabel(kind, b, g, S.print) + '</div></div>';
 }
@@ -197,8 +213,12 @@ function renderEdPreview(){
   const b = normalizeBinder(Object.assign({}, ed.d, {contents_items:ed.d.contents_items.filter(i => i.year || i.description)}));
   b.updated_at = nowISO();
   const w = Math.max(240, Math.min(440, box.clientWidth - 34 || 400));
-  const kinds = S.print.contentMode === 'u' ? ['U'] : ['A', 'B'];
-  box.innerHTML = kinds.map(k => '<div style="text-align:center"><div class="tiny muted mono" style="margin-bottom:4px">' + (k === 'A' ? 'Modulo A' : k === 'B' ? 'Modulo B' : 'Unificata') + '</div>' + labelPreviewHTML(k, b, w) + '</div>').join('');
+  const kinds = Array.from(new Set(modeKinds(S.print.contentMode)));
+  const g = S.print.geometry;
+  // the split label is shown the way it is read on the binder (landscape), not as it sits on the sheet
+  const gUp = Object.assign({}, g, {w:Math.max(g.w, g.h), h:Math.min(g.w, g.h)});
+  const name = {A:'Modulo A', B:'Modulo B', U:'Unificata', S:t('cm_split')};
+  box.innerHTML = kinds.map(k => '<div style="text-align:center"><div class="tiny muted mono" style="margin-bottom:4px">' + esc(name[k] || k) + '</div>' + labelPreviewHTML(k, b, w, k === 'S' ? gUp : null) + '</div>').join('');
 }
 function edRefreshDerived(){
   const d = UI.ed.d;
@@ -258,19 +278,40 @@ function presetThumb(p){
 function viewPrint(){
   const P = S.print, g = P.geometry;
   const groups = [['die', t('pr_die')], ['full', t('pr_full')], ['custom', t('pr_custom')]];
-  const presets = groups.map(([k, lab]) => {
-    const ps = allPresets().filter(p => (p.kind || 'custom') === k);
+  const presetBtn = (p, k) => '<button type="button" class="preset ' + (P.presetId === p.id ? 'on' : '') + '" data-a="preset" data-id="' + p.id + '">' + presetThumb(p) + '<span style="min-width:0;flex:1"><span class="pt">' + (p.recommended ? '<span class="pop rec">✓ ' + esc(t('pr_recommended')) + '</span> ' : p.popular ? '<span class="pop">★ ' + esc(t('pr_popular')) + '</span> ' : '') + esc(p.name) + '</span><br><span class="pd">' + fmtMM(p.w) + '×' + fmtMM(p.h) + ' mm • ' + p.cols + '×' + p.rows + ' = ' + (p.cols * p.rows) + (p.id === 'mrink143' ? ' → ' + esc(t('pr_8mod')) : '') + '</span></span>' + (k === 'custom' ? '<span class="icon-btn danger" data-a="del-preset" data-id="' + p.id + '" title="' + esc(t('g_del_preset')) + '">' + ic('trash') + '</span>' : '') + '</button>';
+  const isBasic = (p) => p.recommended || p.popular || p.id === P.presetId;
+  const basicPresets = allPresets().filter(isBasic).map(p => presetBtn(p, p.kind || 'custom')).join('');
+  const others = groups.map(([k, lab]) => {
+    const ps = allPresets().filter(p => (p.kind || 'custom') === k && !isBasic(p));
     if (!ps.length) return '';
     return '<div class="tiny muted" style="font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin:6px 0 2px">' + esc(lab) + '</div>' +
-      ps.map(p => '<button type="button" class="preset ' + (P.presetId === p.id ? 'on' : '') + '" data-a="preset" data-id="' + p.id + '">' + presetThumb(p) + '<span style="min-width:0;flex:1"><span class="pt">' + (p.popular ? '<span class="pop">★ ' + esc(t('pr_popular')) + '</span> ' : '') + esc(p.name) + '</span><br><span class="pd">' + fmtMM(p.w) + '×' + fmtMM(p.h) + ' mm • ' + p.cols + '×' + p.rows + ' = ' + (p.cols * p.rows) + '</span></span>' +
-        (k === 'custom' ? '<span class="icon-btn danger" data-a="del-preset" data-id="' + p.id + '" title="' + esc(t('g_del_preset')) + '">' + ic('trash') + '</span>' : '') + '</button>').join('');
+      ps.map(p => presetBtn(p, k)).join('');
+
   }).join('');
+  const nOthers = allPresets().filter(p => !isBasic(p)).length;
+  const presets = basicPresets + (nOthers ? '<details class="more"><summary>' + esc(t('pr_more', {n:nOthers})) + '</summary>' + others + '</details>' : '');
   const opt = (grp, val, title, desc, cur, full) => '<button type="button" class="opt ' + (cur === val ? 'on ' : '') + (full ? 'full' : '') + '" data-a="' + grp + '" data-v="' + val + '"><b>' + esc(title) + '</b><span>' + esc(desc) + '</span></button>';
   return '<div class="page-h"><div><h1>' + esc(t('pr_h')) + helpDot('print') + '</h1><p>' + esc(t('pr_p')) + '</p></div>' +
     '<div class="row"><button class="btn btn-lg" data-a="print-calib">' + ic('crosshair') + esc(t('pr_calib')) + '</button><button class="btn btn-lg btn-primary" data-a="print-labels" id="btn-print">' + ic('printer') + esc(t('pr_go')) + '</button></div></div>' +
     '<div class="studio"><div class="card">' +
       '<div class="panel-sec"><h3>' + esc(t('pr_queue')) + '</h3><div id="pr-summary"></div></div>' +
       '<div class="panel-sec"><h3>' + esc(t('pr_sheet')) + '</h3><div class="preset-list">' + presets + '</div></div>' +
+      '<div class="panel-sec"><h3>' + esc(t('pr_content')) + helpDot('split') + '</h3><div class="opt-grid">' +
+        opt('cmode', 'split', t('cm_split'), t('cm_split_d'), P.contentMode, true) + opt('cmode', 'pair', t('cm_pair'), t('cm_pair_d'), P.contentMode, true) + opt('cmode', 'a', t('cm_a'), t('cm_a_d'), P.contentMode) + opt('cmode', 'b', t('cm_b'), t('cm_b_d'), P.contentMode) + opt('cmode', 'u', t('cm_u'), t('cm_u_d'), P.contentMode, true) +
+        '</div><div class="geo-row" style="margin-top:10px"><span class="lbl">' + esc(t('copies')) + '</span><input class="inp" style="width:90px;min-height:38px" type="number" min="1" max="50" step="1" value="' + (P.copies || 1) + '" data-pp="copies"></div></div>' +
+      '<div class="panel-sec" id="pr-fields"><h3>' + esc(t('pr_fields')) + helpDot('fields') + '</h3><div class="fld-grid">' +
+        [['category','f_category'],['city','f_city'],['multi','f_multi'],['url','qr_url_s'],['title','f_title_s'],['year','f_year_ref'],['contents','f_contents_s'],['tags','f_tags'],['extra','f_extra'],['location','fl_location']].map(([k, lab]) => '<label class="chk small"><input type="checkbox" data-fld="' + k + '"' + (pf(k) ? ' checked' : '') + '>' + esc(t(lab)) + '</label>').join('') +
+        '</div><div class="geo-row" style="margin-top:10px"><span class="lbl">' + esc(t('f_date')) + '</span><select class="inp" style="width:auto;min-height:34px;padding:4px 8px" data-fld="date">' + [['created','fd_created'],['updated','fd_updated'],['none','fd_none']].map(([v, lab]) => '<option value="' + v + '"' + (pf('date') === v ? ' selected' : '') + '>' + esc(t(lab)) + '</option>').join('') + '</select></div>' +
+        '<div class="hint" style="margin-top:6px">' + esc(t('pr_fields_d')) + '</div></div>' +
+      (P.contentMode === 'pair' || P.contentMode === 'a' ? '<div class="panel-sec"><h3>' + esc(t('pr_tpl')) + helpDot('templates') + '</h3><div class="opt-grid">' +
+        opt('tpl', 'classic', t('tp_classic'), t('tp_classic_d'), P.template || 'classic') + opt('tpl', 'multi', t('tp_multi'), t('tp_multi_d'), P.template) + opt('tpl', 'bold', t('tp_bold'), t('tp_bold_d'), P.template) + opt('tpl', 'minimal', t('tp_min'), t('tp_min_d'), P.template) +
+        '</div><div class="hint" style="margin-top:6px">' + esc(t('tp_note')) + '</div><label class="chk small" style="margin-top:10px"><input type="checkbox" data-pp="showMulti"' + (P.showMulti !== false ? ' checked' : '') + '>' + esc(t('pr_show_multi')) + '</label></div>' : '') +
+      '<div class="panel-sec"><h3>' + esc(t('pr_qr')) + '</h3><div class="opt-grid">' +
+        opt('qmode', 'live', t('qm_live'), t('qm_live_d'), P.qrMode, true) + opt('qmode', 'placeholder', t('qm_ph'), t('qm_ph_d'), P.qrMode) + opt('qmode', 'none', t('qm_none'), t('qm_none_d'), P.qrMode) +
+        '</div><div class="row" style="margin-top:10px;justify-content:space-between"><label class="chk small"><input type="checkbox" data-pp="showQrUrl"' + (P.showQrUrl ? ' checked' : '') + '>' + esc(t('qr_url')) + '</label>' +
+        '<label class="small row" style="gap:6px">' + esc(t('qr_ecc')) + ' <select class="inp" style="width:auto;min-height:34px;padding:4px 8px" data-pp="qrEcc">' + ['L','M','Q','H'].map(e => '<option' + (S.settings.qrEcc === e ? ' selected' : '') + '>' + e + '</option>').join('') + '</select></label></div></div>' +
+      '<div class="panel-sec"><h3>' + esc(t('pr_quality')) + helpDot('design') + '</h3><div id="pr-quality"></div></div>' +
+      '<details class="adv" id="pr-adv"' + (P.advanced ? ' open' : '') + '><summary>' + ic('sliders') + esc(t('pr_adv')) + '<span class="tiny muted" style="margin-left:auto;font-weight:500">' + esc(t('pr_adv_d')) + '</span></summary>' +
       '<div class="panel-sec"><div class="row between"><h3 style="margin:0">' + esc(t('pr_geo')) + '</h3><span id="geo-mod">' + (P.geometryModified ? '<span class="badge b-out">' + esc(t('g_modified')) + '</span>' : '') + '</span></div>' +
         '<div style="margin-top:8px">' +
         geoInput('marginTop', t('g_mt'), 0, 80, 0.1, g.marginTop, 'geo') + geoInput('marginLeft', t('g_ml'), 0, 80, 0.1, g.marginLeft, 'geo') +
@@ -285,17 +326,10 @@ function viewPrint(){
         '<div class="row" style="margin-top:12px"><button class="btn btn-sm" data-a="geo-fill" title="' + esc(t('g_fill_d')) + '">' + ic('grid') + esc(t('g_fill')) + '</button><button class="btn btn-sm" data-a="geo-center">' + ic('crosshair') + esc(t('g_center')) + '</button></div>' +
         '<div class="row" style="margin-top:8px"><button class="btn btn-sm" data-a="geo-reset">' + ic('rotate') + esc(t('g_reset')) + '</button><button class="btn btn-sm" data-a="geo-save">' + ic('save') + esc(t('g_savepreset')) + '</button></div>' +
         '<div class="geo-warn err-t" id="geo-warn" style="margin-top:8px"></div></div>' +
-      '<div class="panel-sec"><h3>' + esc(t('pr_content')) + '</h3><div class="opt-grid">' +
-        opt('cmode', 'pair', t('cm_pair'), t('cm_pair_d'), P.contentMode, true) + opt('cmode', 'a', t('cm_a'), t('cm_a_d'), P.contentMode) + opt('cmode', 'b', t('cm_b'), t('cm_b_d'), P.contentMode) + opt('cmode', 'u', t('cm_u'), t('cm_u_d'), P.contentMode, true) +
-        '</div><div class="geo-row" style="margin-top:10px"><span class="lbl">' + esc(t('copies')) + '</span><input class="inp" style="width:90px;min-height:38px" type="number" min="1" max="50" step="1" value="' + (P.copies || 1) + '" data-pp="copies"></div></div>' +
-      '<div class="panel-sec"><h3>' + esc(t('pr_tpl')) + helpDot('templates') + '</h3><div class="opt-grid">' +
-        opt('tpl', 'classic', t('tp_classic'), t('tp_classic_d'), P.template || 'classic') + opt('tpl', 'multi', t('tp_multi'), t('tp_multi_d'), P.template) + opt('tpl', 'bold', t('tp_bold'), t('tp_bold_d'), P.template) + opt('tpl', 'minimal', t('tp_min'), t('tp_min_d'), P.template) +
-        '</div><div class="hint" style="margin-top:6px">' + esc(t('tp_note')) + '</div><label class="chk small" style="margin-top:10px"><input type="checkbox" data-pp="showMulti"' + (P.showMulti !== false ? ' checked' : '') + '>' + esc(t('pr_show_multi')) + '</label></div>' +
-      '<div class="panel-sec"><h3>' + esc(t('pr_qr')) + '</h3><div class="opt-grid">' +
-        opt('qmode', 'live', t('qm_live'), t('qm_live_d'), P.qrMode, true) + opt('qmode', 'placeholder', t('qm_ph'), t('qm_ph_d'), P.qrMode) + opt('qmode', 'none', t('qm_none'), t('qm_none_d'), P.qrMode) +
-        '</div><div class="row" style="margin-top:10px;justify-content:space-between"><label class="chk small"><input type="checkbox" data-pp="showQrUrl"' + (P.showQrUrl ? ' checked' : '') + '>' + esc(t('qr_url')) + '</label>' +
-        '<label class="small row" style="gap:6px">' + esc(t('qr_ecc')) + ' <select class="inp" style="width:auto;min-height:34px;padding:4px 8px" data-pp="qrEcc">' + ['L','M','Q','H'].map(e => '<option' + (S.settings.qrEcc === e ? ' selected' : '') + '>' + e + '</option>').join('') + '</select></label></div></div>' +
-      '<div class="panel-sec"><h3>' + esc(t('pr_quality')) + helpDot('design') + '</h3><div id="pr-quality"></div></div>' +
+        '<div class="adv-sub"><h3>' + esc(t('sp_h')) + helpDot('split') + '</h3>' +
+          geoInput('ratio', t('sp_ratio'), 30, 70, 1, Math.round(((P.split || {}).ratio || 0.5) * 100), 'sp') +
+          '<div class="geo-row"><span class="lbl">' + esc(t('sp_rot')) + '</span><select class="inp" style="width:auto;min-height:34px;padding:4px 8px" data-sp="rotate"><option value="-90"' + ((P.split || {}).rotate !== 90 ? ' selected' : '') + '>' + esc(t('sp_rot_l')) + '</option><option value="90"' + ((P.split || {}).rotate === 90 ? ' selected' : '') + '>' + esc(t('sp_rot_r')) + '</option></select></div>' +
+          '<label class="chk small"><input type="checkbox" data-sp="guides"' + ((P.split || {}).guides !== false ? ' checked' : '') + '>' + esc(t('sp_guides')) + '</label></div>' +
       '<div class="panel-sec"><h3>' + esc(t('pr_slots')) + helpDot('partial') + '</h3><div class="slotmap-wrap"><div class="slotmap" id="slotmap"></div><div class="stack">' +
         '<div class="hint">' + esc(t('sl_hint')) + '</div><div class="small" id="sl-count" style="font-weight:700"></div>' +
         '<button class="btn btn-sm" data-a="slots-free">' + ic('check') + esc(t('sl_all_free')) + '</button>' +
@@ -303,6 +337,7 @@ function viewPrint(){
         '<div class="tiny muted"><span class="slot" style="position:static;display:inline-block;width:14px;height:10px;vertical-align:middle"></span> ' + esc(t('sl_avail')) + ' &nbsp; <span class="slot used" style="position:static;display:inline-block;width:14px;height:10px;vertical-align:middle"></span> ' + esc(t('sl_used')) + ' &nbsp; <span class="slot q" style="position:static;display:inline-block;width:14px;height:10px;vertical-align:middle"></span> ' + esc(t('pv_labels')) + '</div>' +
       '</div></div></div>' +
       '<div class="panel-sec"><div class="info-box small">' + ic('crosshair') + '<div><b>' + esc(t('pr_calib')) + '</b>' + helpDot('calib') + '<br>' + esc(t('pr_calib_d')) + '</div></div></div>' +
+      '</details>' +
     '</div>' +
     '<div class="preview-pane card"><div class="toolbar" style="justify-content:space-between;border-bottom:1px solid var(--border)"><div class="seg"><button data-a="pv-mode" data-v="labels" class="' + (P.previewMode !== 'calib' ? 'on' : '') + '">' + ic('eye') + ' ' + esc(t('pv_labels')) + '</button><button data-a="pv-mode" data-v="calib" class="' + (P.previewMode === 'calib' ? 'on' : '') + '">' + ic('crosshair') + ' ' + esc(t('pv_calib')) + '</button></div><div class="sum-line" id="pv-sum"></div></div>' +
       '<div class="preview-scroll" id="pv-scroll"></div></div></div>';
@@ -322,14 +357,15 @@ function geoWarn(){
   if (right > 210.05) msg.push((S.lang === 'en' ? 'Layout exceeds page width: ' : 'Il layout supera la larghezza del foglio: ') + fmtMM(right) + ' > 210 mm');
   if (bottom > 297.05) msg.push((S.lang === 'en' ? 'Layout exceeds page height: ' : 'Il layout supera l\'altezza del foglio: ') + fmtMM(bottom) + ' > 297 mm');
   const SAFE = 4;
-  if (g.marginLeft < SAFE || g.marginTop < SAFE || 210 - right < SAFE || 297 - bottom < SAFE) msg.push(t('g_edge'));
+  const pad = +S.print.padding || 0;   // text stays inside the padding, so only content closer than 4 mm to the edge matters
+  if (g.marginLeft + pad < SAFE || g.marginTop + pad < SAFE || 210 - right + pad < SAFE || 297 - bottom + pad < SAFE) msg.push(t('g_edge'));
   el.textContent = msg.join(' • ');
 }
 function renderQuality(){
   const el = $('#pr-quality'); if (!el) return;
   const g = S.print.geometry, P = S.print, b = printQueueBinders()[0] || S.binders[0];
   if (!b){ el.innerHTML = ''; return; }
-  const kinds = P.contentMode === 'pair' ? ['A','B'] : P.contentMode === 'a' ? ['A'] : P.contentMode === 'b' ? ['B'] : ['U'];
+  const kinds = modeKinds(P.contentMode);
   kinds.forEach(k => renderLabel(k, b, g, P));
   const rows = [];
   const line = (ok, txt) => rows.push('<div class="q-row ' + (ok === true ? 'ok' : ok === 'warn' ? 'warn' : 'bad') + '">' + ic(ok === true ? 'check' : 'alert') + '<span>' + txt + '</span></div>');
@@ -429,8 +465,13 @@ function analyzeImport(text){
     delim = sep ? sep[1] : detectDelim(s);
     const rows = parseCSV(s, delim).filter(r => r.some(c => String(c).trim()));
     let head = rows.length ? rows[0].map(h => h.trim()) : [];
+    // Client register (anagrafica clienti, e.g. the studio's CLIENTI STORICI list) instead of binders
+    if (rows.length > 1 && isClientList(head)){
+      const recs = rows.slice(1).map(r => { const o = {}; head.forEach((h, i) => { o[h] = r[i] != null ? r[i] : ''; }); return o; });
+      UI.importParsed = {clients:analyzeClients(recs), format:'CSV anagrafica clienti', delim}; return;
+    }
     // No recognisable header (e.g. rows pasted without the first line): assume the standard AI/template column order.
-    if (rows.length && rows[0].length >= 2 && !head.some(h => ALIAS_LOOKUP[normHeader(h)])){ head = csvTemplateHeader().split(';').concat(['selected_for_print','id','updated_at']); if (rows[0].length !== 17 && rows[0].length < 20) head = head.filter(h => h !== 'multi_code'); // short rows and files made before the Codice Multi column: old order
+    if (rows.length && rows[0].length >= 2 && !head.some(h => ALIAS_LOOKUP[normHeader(h)])){ head = csvTemplateHeader().split(';').concat(['selected_for_print','id','updated_at']); if (rows[0].length < 20){ head = head.filter(h => !['company_city','ref_year','extra_codes'].includes(h)); if (rows[0].length !== 17) head = head.filter(h => h !== 'multi_code'); } // short rows: v5 order (17 fields) or the order before the Codice Multi column
       rows.unshift(head); headerless = true; }
     if (rows.length < 2){ UI.importParsed = {error:t('im_none')}; return; }
     records = rows.slice(1).map(r => { const o = {}; head.forEach((h, i) => { o[h] = r[i] != null ? r[i] : ''; }); return o; });
@@ -467,6 +508,7 @@ function importPreviewHTML(){
   const IP = UI.importParsed;
   if (!IP) return '';
   if (IP.error) return '<div class="danger-box">' + ic('alert') + '<div>' + esc(IP.error) + '</div></div>';
+  if (IP.clients) return clientsPreviewHTML(IP);
   const ok = IP.rows.filter(r => r.status !== 'err');
   const nNew = IP.rows.filter(r => r.status === 'new').length, nUpd = IP.rows.filter(r => r.status === 'upd').length, nErr = IP.rows.length - ok.length;
   const badge = (s) => s === 'new' ? '<span class="badge b-new">' + esc(t('im_new')) + '</span>' : s === 'upd' ? '<span class="badge b-upd">' + esc(t('im_upd')) + '</span>' : '<span class="badge b-err">' + esc(t('im_err')) + '</span>';
@@ -505,6 +547,7 @@ function applyImport(mode){
       if (W.print) S.print = Object.assign(defaultState().print, W.print, {geometry:Object.assign(geoFromPreset(BUILTIN_PRESETS[0]), (W.print || {}).geometry || {})});
       if (Array.isArray(W.customPresets)) S.customPresets = W.customPresets;
       if (W.usedSlots && typeof W.usedSlots === 'object') S.usedSlots = W.usedSlots;
+      if (Array.isArray(W.clients)) S.clients = W.clients.map(normalizeClient);
       if (W.lang === 'it' || W.lang === 'en') S.lang = W.lang;
       // workspace JSON keeps original timestamps
       rows.forEach((r, i) => { if (r.p.updated_at) S.binders[i].updated_at = r.p.updated_at; });
