@@ -72,7 +72,7 @@ Nome file: `docmap-sync-<slug del nome dispositivo>-<AAAAMMGG-hhmmss>.json`.
   "ack": {"dev-…": "2026-10-30T18:00:00.000Z"},
   "records": {"binders": [ /* faldoni completi, stessi campi del workspace JSON */ ], "clients": [ /* clienti + updated_at */ ]},
   "tombstones": [{"type": "binder", "id": "…", "code": "BL2", "deletedAt": "…", "who": "Davide"}],
-  "settingsSubset": {"studioName": "…", "destTemplate": "…", "catColors": {}},
+  "settingsSubset": {"studioName": "…", "destTemplate": "…", "catColors": {}, "colorMode": "company", "catFamilies": {}, "colorRules": {}, "colorUpdatedAt": "…"},
   "activity_log": [ /* voci del registro attività, stesso formato del workspace JSON */ ],
   "counts": {"binders": 0, "clients": 0, "tombstones": 0, "log": 0}
 }
@@ -81,7 +81,7 @@ Nome file: `docmap-sync-<slug del nome dispositivo>-<AAAAMMGG-hhmmss>.json`.
 - `since = null`: pacchetto **completo** (tutti i record, tutte le tombstone).
 - "**Solo modifiche dall'ultima sincronizzazione**": `since` = `ackedAt` del destinatario, altrimenti il nostro `lastExportAt` verso di lui, altrimenti il nostro ultimo export in assoluto; il pacchetto contiene i record con `updated_at > since` e le tombstone con `deletedAt > since`. Scelta prudente: se un pacchetto non è mai stato importato, il successivo rimanda anche quei record (sull'altro lato risultano "invariati").
 - `activity_log`: voci successive a `since` (o all'ultima conferma/export verso il destinatario; tutte se mai sincronizzato). All'import si uniscono per `id` (`logMerge`).
-- `settingsSubset` si applica solo se nella revisione spunti "Applica anche le impostazioni condivise" (predefinito: no).
+- `settingsSubset` si applica solo se nella revisione spunti "Applica anche le impostazioni condivise" (predefinito: no). Il blocco colori (`colorMode`, `catFamilies`, `colorRules`) si applica per intero solo se il suo `colorUpdatedAt` è più recente di quello locale (last-write-wins sul blocco; vedi MODELLO-DATI.md §12).
 - Chiavi sconosciute sono ignorate; record senza `id` scartati; chiavi `__proto__`/`constructor`/`prototype` rimosse.
 
 ### 4.1 Pacchetto cifrato `docmap-sync-enc`

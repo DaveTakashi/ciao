@@ -76,7 +76,8 @@ Usa questo MVP **come front-end** e costruisci dietro di lui la parte di gestion
    - Il QR punta a `https://qr7.it/{short_code}`, che rimanda alla destinazione finale (predefinita `https://studiodallasta.it/docmap/?code={speaking_code}&qr={short_code}`).
    - Pubblica `scan.html` a quell'indirizzo, collegata alla tua API.
    - Il manifest per qr7.it si esporta dall'app (`short_code;short_url;final_destination;tags`).
-7. **Analisi e funzioni avanzate:** analisi profonda, ricerca, AI con un'API indipendente dal fornitore, hub multi-utente. Segui HUB-E-API.md come progetto di partenza.
+7. **Colori come dati configurabili:** spettri delle categorie (`settings.catFamilies`, semi `colorSeeds`), regole colore per parola chiave (`settings.colorRules`, max 10 per categoria, la prima che corrisponde vince) e modalità (`settings.colorMode`) sono impostazioni dello studio, non codice: salvale e sincronizzale lato server con `colorUpdatedAt` (vince il blocco più recente). L'algoritmo (normalizzazione delle parole chiave, precedenza bloccato → regola → sfumatura per cliente, hash FNV-1a) è in MODELLO-DATI.md §12 ed è riproducibile in Python; le liste di sfumature `COLOR_FAMILIES` sono dati da tenere in tabella.
+8. **Analisi e funzioni avanzate:** analisi profonda, ricerca, AI con un'API indipendente dal fornitore, hub multi-utente. Segui HUB-E-API.md come progetto di partenza.
 
 ## 4. Cosa protegge oggi la versione web e cosa no (da sapere)
 

@@ -99,7 +99,10 @@ Regole di validazione dell'editor: codice parlante obbligatorio e unico; cliente
 | `importMappings` **(v8)** | `{"<intestazioni normalizzate unite da \|>": {target:'binders'\|'clients', fields:[campo o ''], at:ISO}}` | assente = `{}` | abbinamenti colonne ricordati dall'import Excel/CSV; tenuti gli ultimi 40 |
 | `edLocOpen` **(v8)** | booleano | assente = `false` | sezione "Dettagli posizione" dell'editor aperta |
 | `colorMode` **(v10)** | `company`/`category`/`manual` | `company` (assente in uno stato v9) | assegnazione automatica dei colori dei dorsi (§12) |
-| `catFamilies` **(v10)** | `{"<categoria>": "<id famiglia>"}` | assente = `{}` | famiglia di colori scelta per la categoria in Informazioni › Categorie (§12) |
+| `catFamilies` **(v10)** | `{"<categoria>": "<id famiglia>"}` | assente = `{}` | spettro/famiglia di colori scelta per la categoria in Informazioni › Categorie (§12) |
+| `colorRules` **(v10)** | `{"<categoria>": [{id, kw, hex, at}]}` | assente = `{}` | regole colore per parola chiave, max 10 per categoria (§12) |
+| `colorSeeds` **(v10)** | `{"<nome>": "<id famiglia>"}` | assente = semi predefiniti APS/ODV/ASD/ETS | spettro proposto alle categorie senza scelta (§12) |
+| `colorUpdatedAt` **(v10)** | ISO | assente | ultima modifica delle impostazioni colori (sync) |
 | `bulkCols` **(v10)** | array di chiavi colonna (`speaking_code`, `company_name`, `multi_code`, `category`, `binder_title`, `ref_year`, `tags`, `company_city`, `location_code`, `archive_state`, `color_hex`, `extra_codes`, `contacts`, `notes`) | assente = tutte tranne `extra_codes`, `contacts`, `notes` | colonne visibili nella Modifica massiva (preferenza, nessun dato) |
 | `operator` **(v9)** | stringa | `''` | nome di chi lavora su questo PC, scritto nel registro attività (`who`); vuoto = `"Questo PC"` (§7.2) |
 
@@ -420,13 +423,27 @@ Migrazione `migrate()` 26.9: se il preset è `mrink143` e la modalità era `spli
 
 ## 12. Colori dei dorsi (v10, `assets/js/02b-colors.js`)
 
-**Famiglie** (`COLOR_FAMILIES`, 10 famiglie × 10 sfumature): `warm` Caldi (rossi, arancio, ocra) · `red` Rossi · `orange` Arancio e ocra · `pink` Magenta · `violet` Viola · `blue` Blu · `cool` Freddi scuri (blu, verdi scuri) · `teal` Petrolio · `green` Verdi · `slate` Grigi. Ogni sfumatura ha contrasto ≥ 3:1 con il testo bianco (il dorso nella mappa scaffali scrive in bianco) e, dentro la famiglia, una distanza percettiva CIEDE2000 ≥ 7 (distinguibili anche stampate). Le sfumature sono state scelte in OKLCH (luminosità 0,38–0,66, croma ≤ 0,22, gamut sRGB) con una selezione greedy max-min ΔE2000; la prima sfumatura di blu/verdi/viola/arancio/rossi è esattamente il colore v9 della categoria.
+**Famiglie** (`COLOR_FAMILIES`, 11 famiglie × 10 sfumature). Gli 8 **spettri colore** proposti per le categorie (`COLOR_SPECTRA`, campo `spectrum:1`): `red` Rosso · `green` Verde · `blue` Azzurro / Blu · `yellow` Giallo · `orange` Arancione · `violet` Viola · `pink` Rosa · `slate` Nero / Grigi; famiglie miste ancora usabili: `warm` Caldi (rossi, arancio, ocra) · `cool` Freddi scuri (blu, verdi scuri) · `teal` Petrolio. Ogni sfumatura ha contrasto ≥ 3:1 con il testo bianco (il dorso nella mappa scaffali scrive in bianco; per questo il Giallo è un giallo ocra/senape) e, dentro la famiglia, una distanza percettiva CIEDE2000 ≥ 7 (distinguibili anche stampate). Le sfumature sono state scelte in OKLCH con una selezione greedy max-min ΔE2000; la prima sfumatura di blu/verde/viola/arancione/rosso è esattamente il colore v9 della categoria. Le liste sono **dati** (non logica): il lato Python può tenerle in tabella.
 
-**Famiglia di una categoria** (`colorFamilyId(cat)`, confronto senza maiuscole/spazi doppi):
-1. `settings.catFamilies[cat]` se scelta in Informazioni › Categorie;
+**Famiglia (spettro) di una categoria** (`colorFamilyId(cat)`, confronto senza maiuscole/spazi doppi):
+1. `settings.catFamilies[cat]` se scelta (Informazioni › Categorie, o nel modulo del faldone quando si scrive una categoria nuova);
 2. altrimenti, se esiste `settings.catColors[cat]` (colore della categoria, v8), la famiglia più vicina a quel colore;
-3. altrimenti la regola sul nome (`COLOR_CAT_RULES`): Ordinaria → blu, Semplificata → verdi, Societario → viola, Lavoro/Paghe → arancio, Dichiarativi/Redditi → rossi, Contenzioso → grigi, Privati/Persone fisiche → petrolio, APS/ETS/ENC/ODV/ASD/SSD/Onlus/associazioni/enti/fondazioni/circoli → caldi, Condominio → magenta, Società/S.r.l./S.p.A./aziende/imprese/ditte → freddi scuri;
-4. altrimenti una famiglia stabile scelta con l'hash FNV-1a del nome tra `blue, green, violet, orange, red, teal, pink, slate`.
+3. altrimenti il **seme** (`settings.colorSeeds`, predefinito `COLOR_SEEDS_DEFAULT = {APS:'red', ODV:'green', ASD:'blue', ETS:'yellow'}`), confrontato come parola intera del nome della categoria ("APS", "APS Cultura");
+4. altrimenti la regola sul nome (`COLOR_CAT_RULES`): Ordinaria → blu, Semplificata → verde, Societario → viola, Lavoro/Paghe → arancione, Dichiarativi/Redditi → rosso, Contenzioso → nero/grigi, Privati/Persone fisiche → petrolio, ENC/SSD/Onlus/associazioni/enti/fondazioni/circoli → caldi, Condominio → rosa, Società/S.r.l./S.p.A./aziende/imprese/ditte → freddi scuri;
+5. altrimenti una famiglia stabile scelta con l'hash FNV-1a del nome tra `blue, green, violet, orange, red, teal, pink, slate`.
+
+**Regole colore** (secondo livello, `settings.colorRules`):
+```json
+"colorRules": {"APS": [{"id": "cr-1a2b3c4d", "kw": "proloco", "hex": "#732D3D", "at": "2026-11-01T10:00:00.000Z"}]}
+```
+- Al massimo **10 regole per categoria** (`COLOR_RULES_MAX`), in ordine di priorità: vince la **prima** che corrisponde.
+- Testo controllato: `company_name + " " + binder_title`.
+- Confronto (`colorTextMatches`): parola chiave e testo minuscoli, senza accenti, ogni sequenza non alfanumerica = separatore di parole; la parola chiave senza spazi deve essere uguale a **una parola o a più parole consecutive unite**. Quindi `proloco` corrisponde a "Pro Loco", "PRO-LOCO", "Proloco di Busseto", ma non a "Prolocomotiva"; `aps` non corrisponde a "Capsule" (solo parole intere, per evitare falsi positivi).
+- Una regola nuova riceve in automatico una sfumatura libera della famiglia (diversa dal colore base e dalle altre regole); l'utente la cambia dalla striscia della famiglia. Se si cambia lo spettro, le regole passano a sfumature distinte del nuovo spettro.
+- La sfumatura di una regola è **condivisa** da tutti i faldoni che corrispondono ("proloco = questo rosso") ed è **riservata**: in modalità Per cliente non viene data ad altre aziende.
+- `settings.colorUpdatedAt` (ISO) è aggiornato a ogni modifica di modalità, spettri, colori di categoria o regole: nel pacchetto di sincronizzazione (`settingsSubset`: `colorMode`, `catFamilies`, `colorRules`, `colorUpdatedAt`, oltre a `catColors`) il blocco colori più recente vince per intero (solo se l'utente spunta "Applica anche le impostazioni condivise"); famiglie sconosciute e regole non valide vengono scartate.
+
+**Precedenza per un faldone non bloccato**: `color_locked` (mai toccato) → regola colore della categoria → sfumatura per cliente (modalità `company`) o colore della categoria (modalità `category`). In modalità `manual` nulla cambia in automatico.
 
 **Colore della categoria** (`colorCategoryHex(cat)`): `catColors[cat]` → prima sfumatura della famiglia scelta → predefinito v9 → prima sfumatura della famiglia. Le sfumature disponibili (`colorShades(cat)`) sono il colore della categoria seguito dalla famiglia (un quasi-doppione di un colore personalizzato viene tolto).
 

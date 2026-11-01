@@ -1432,7 +1432,7 @@ const sec = (n) => console.log('\n== ' + n);
   ok(Kv.anchors, 'the first shade of each default family is the v9 category colour', Kv);
   ok(Math.abs(Kv.bw - 100) < 0.5 && Kv.same === 0 && Math.abs(Kv.cw - 21) < 0.01 && Kv.h === 0xe40c292c, 'colour math: CIEDE2000, WCAG contrast and FNV-1a reference values', Kv);
   Kv = await p.evaluate(() => ['Ordinaria','Semplificata','Societario','Lavoro','Dichiarativi','APS','ETS Cultura','Associazione sportiva','ENC','Società di capitali','Aziende','Condominio','Contenzioso','Privati'].map(c => colorFamilyId(c)).join());
-  ok(Kv === 'blue,green,violet,orange,red,warm,warm,warm,warm,cool,cool,pink,slate,teal', 'family per category: warm for APS/ETS/ENC/associations, cool dark for companies', Kv);
+  ok(Kv === 'blue,green,violet,orange,red,red,yellow,warm,warm,cool,cool,pink,slate,teal', 'family per category: seeds APS red / ETS yellow, warm for other associations, cool dark for companies', Kv);
   Kv = await p.evaluate(() => { const a = colorFamilyId('Pratiche varie Kx'), b = colorFamilyId('pratiche  varie kx'); return {a, b, ok:COLOR_HASH_FAMILIES.includes(a)}; });
   ok(Kv.a === Kv.b && Kv.ok, 'unknown categories get a stable family (case/space insensitive)', Kv);
   // per-company shades inside a category
@@ -1571,9 +1571,117 @@ const sec = (n) => console.log('\n== ' + n);
   ok(Kv.mig && Kv.mig2, 'upgrade from v9: colours unchanged, hand-picked ones locked', Kv);
   // help topic
   ok(await p.evaluate(() => HELP_TOPICS.some(h => h.id === 'colors' && h.body.it && h.body.en)), 'help topic "colors" (IT + EN)');
+  // ---- v10 K2: colour spectra (seeds) + keyword colour rules ----
+  sec('v10 K2: colour spectra and keyword colour rules');
+  await p.evaluate(() => { let i = 0; while (topModal() && i++ < 5) closeModal(true); S.settings.colorMode = 'company'; S.settings.colorRules = {}; S.lang = 'it'; });
+  Kv = await p.evaluate(() => {
+    const r = {spectra:COLOR_SPECTRA.join(), names:COLOR_SPECTRA.map(id => COLOR_FAMILY[id].it).join('|'), seeds:['APS','ODV','ASD','ETS','APS Cultura','aps'].map(colorFamilyId).join()};
+    S.settings.catFamilies = {APS:'violet'}; r.explicit = colorFamilyId('APS');
+    S.settings.catFamilies = {}; S.settings.colorSeeds = {APS:'pink'}; r.seedData = colorFamilyId('APS'); delete S.settings.colorSeeds;
+    r.base = colorCategoryHex('ETS') === COLOR_FAMILY.yellow.shades[0];
+    return r;
+  });
+  ok(Kv.spectra === 'red,green,blue,yellow,orange,violet,pink,slate' && Kv.names === 'Rosso|Verde|Azzurro / Blu|Giallo|Arancione|Viola|Rosa|Nero / Grigi', '8 colour spectra (Rosso … Nero/Grigi)', Kv);
+  ok(Kv.seeds === 'red,green,blue,yellow,red,red' && Kv.explicit === 'violet' && Kv.seedData === 'pink' && Kv.base, 'seed families APS→Rosso, ODV→Verde, ASD→Blu, ETS→Giallo; a chosen family wins; seeds are data', Kv);
+  Kv = await p.evaluate(() => [['Pro Loco Busseto','proloco'], ['PRO-LOCO di Soragna','proloco'], ['Proloco','Pro Loco'], ['Associazione Pro·Loco','proloco'], ['Prolocomotiva srl','proloco'], ['Capsule srl','aps'], ['Società Àlfa','societa alfa'], ['Circolo  ARCI','arci']].map(x => colorTextMatches(x[0], x[1]) ? 1 : 0).join(''));
+  ok(Kv === '11110011', 'keyword normalisation: case, accents, spaces and dashes ignored; whole words only', Kv);
+  Kv = await p.evaluate(() => {
+    const r = {}, sh = colorShades('Ktest');
+    const a = colorRuleAdd('Ktest', 'proloco'), b = colorRuleAdd('Ktest', 'circolo');
+    r.a = a.rule && sh.slice(1).includes(a.rule.hex) && a.rule.hex !== sh[0]; r.b = b.rule && b.rule.hex !== a.rule.hex && b.rule.hex !== sh[0];
+    r.dup = colorRuleAdd('Ktest', 'PRO LOCO').error; r.empty = colorRuleAdd('Ktest', ' - ').error;
+    for (let i = 0; i < 8; i++) colorRuleAdd('Ktest', 'kword' + i);
+    r.n = colorRulesFor('Ktest').length; r.max = colorRuleAdd('Ktest', 'undicesima').error;
+    r.distinct = new Set(colorRulesFor('Ktest').slice(0, 9).map(x => x.hex)).size;
+    r.stamp = !!S.settings.colorUpdatedAt;
+    colorRulesSet('Ktest', colorRulesFor('Ktest').slice(0, 2));
+    return r;
+  });
+  ok(Kv.a && Kv.b && Kv.dup === 'dup' && Kv.empty === 'empty', 'add rule auto-picks a free shade of the family (not the base, not another rule\'s)', Kv);
+  ok(Kv.n === 10 && Kv.max === 'max' && Kv.distinct === 9 && Kv.stamp, 'at most 10 rules per category, distinct shades, colour settings stamped', Kv);
+  Kv = await p.evaluate(() => {
+    const rule = colorRulesFor('Ktest')[0], mk = (o) => normalizeBinder(Object.assign({category:'Ktest', short_code:newShortCode()}, o));
+    const m1 = mk({speaking_code:'KR1', company_name:'Pro-Loco Uno', color_hex:'#111111'}), m2 = mk({speaking_code:'KR2', company_name:'PRO LOCO Due', color_hex:'#222222'});
+    const m3 = mk({speaking_code:'KR3', company_name:'Proloco Tre', color_hex:'#333333', color_locked:true}), m4 = mk({speaking_code:'KR4', company_name:'Kappa Ditta 77', binder_title:'Fatture proloco', color_hex:'#444444'});
+    const m5 = mk({speaking_code:'KR5', company_name:'Zeta Nuova Ditta', color_hex:'#555555'});
+    S.binders.push(m1, m2, m3, m4, m5);
+    const r = {rule:rule.hex, a1:colorAssign(m1, S.binders), a4:colorAssign(m4, S.binders), lockedAuto:applyAutoColor(m3), other:colorAssign(m5, S.binders)};
+    S.settings.colorMode = 'category'; r.cat = colorAssign(m2, S.binders); S.settings.colorMode = 'company';
+    r.otherFree = !colorRulesFor('Ktest').some(x => x.hex === r.other);
+    return r;
+  });
+  ok(Kv.a1 === Kv.rule && Kv.a4 === Kv.rule && Kv.cat === Kv.rule, 'rule match (company name or title) gives the rule shade, in company and category mode', Kv);
+  ok(Kv.lockedAuto === false && Kv.otherFree, 'precedence: locked colour kept; other companies never get a rule\'s shade', Kv);
+  // Informazioni dialog: rules list, add via UI, apply to existing with undo
+  await p.evaluate(() => { S.view = 'info'; S.infoTab = 'category'; UI.infoq = ''; renderAll(); }); await p.waitForTimeout(150);
+  ok(await p.evaluate(() => !!document.querySelector('#co-rules-ov') && document.querySelectorAll('#co-rules-ov .co-ov-r').length === 2), 'Informazioni › Categorie: overview of all colour rules');
+  await p.click('[data-a="info-color"][data-k="ordinaria"]'); await p.waitForTimeout(150);
+  Kv = await p.evaluate(() => ({rows:document.querySelectorAll('#co-rules .co-rule').length, add:!!document.querySelector('#co-rules [data-a="co-rule-new"]'), chips:document.querySelectorAll('#info-fams .co-spec.big').length}));
+  ok(Kv.rows === 0 && Kv.add && Kv.chips === 8, 'category without rules: no rule rows, just "Aggiungi regola"; 8 spectrum chips', Kv);
+  await p.evaluate(() => closeModal(true));
+  await p.click('[data-a="info-color"][data-k="ktest"]'); await p.waitForTimeout(150);
+  ok(await p.evaluate(() => document.querySelectorAll('#co-rules .co-rule').length === 2 && document.querySelector('#co-rules .co-rule-n').textContent.includes('4')), 'category with rules: rows with shade and match count');
+  await p.click('#co-rules [data-a="co-rule-new"]'); await p.fill('#co-rule-kw', 'Zeta Nuova'); await p.press('#co-rule-kw', 'Enter'); await p.waitForTimeout(80);
+  Kv = await p.evaluate(() => ({rows:document.querySelectorAll('#co-rules .co-rule').length, checked:$('#info-col-all').checked, hex:UI.coCat.rules[2].hex, used:UI.coCat.rules.slice(0, 2).map(r => r.hex)}));
+  ok(Kv.rows === 3 && Kv.checked && !Kv.used.includes(Kv.hex), 'Aggiungi regola in the dialog: new row with a free shade, "apply to existing" offered', Kv);
+  await p.click('#co-rules .co-rule:nth-child(3) [data-a="co-rule-mv"][data-d="-1"]'); await p.waitForTimeout(50);
+  ok(await p.evaluate(() => UI.coCat.rules[1].kw === 'Zeta Nuova'), 'rules can be reordered');
+  await p.locator('.modal-f .btn-primary').last().click(); await p.waitForTimeout(200);
+  Kv = await p.evaluate(() => { const g = (c) => S.binders.find(x => x.speaking_code === c); const R = colorRulesFor('Ktest'); return {n:R.length, kw:R[1].kw, k1:g('KR1').color_hex === R[0].hex, k2:g('KR2').color_hex === R[0].hex, k3:g('KR3').color_hex, k4:g('KR4').color_hex === R[0].hex, k5:g('KR5').color_hex === R[1].hex, log:LOG.entries.slice(-3).map(e => e.action).join()}; });
+  ok(Kv.n === 3 && Kv.kw === 'Zeta Nuova' && Kv.k1 && Kv.k2 && Kv.k4 && Kv.k5 && Kv.k3 === '#333333', 'saving applies the rules to existing unlocked binders; locked ones untouched', Kv);
+  ok(/settings\.color_rules|binder\.recolor/.test(Kv.log), 'colour rules change is logged', Kv);
+  Kv = await p.evaluate(() => { const btn = [...document.querySelectorAll('.toast-act')].pop(); btn && btn.click(); return {n:colorRulesFor('Ktest').length, k1:S.binders.find(x => x.speaking_code === 'KR1').color_hex}; });
+  ok(Kv.n === 2 && Kv.k1 === '#111111', 'rules change + recolour can be undone', Kv);
+  await p.evaluate(() => { S.lang = 'en'; renderAll(); }); await p.waitForTimeout(100);
+  await p.click('[data-a="info-color"][data-k="ktest"]'); await p.waitForTimeout(150);
+  Kv = await p.evaluate(() => ({t:document.querySelector('.modal').innerText, w:document.documentElement.scrollWidth <= innerWidth + 1}));
+  ok(/colour rules/i.test(Kv.t) && /colour spectrum/i.test(Kv.t) && Kv.t.includes('Add rule') && Kv.w, 'colour rules dialog in English', {t:Kv.t.slice(-400), w:Kv.w});
+  await p.evaluate(() => { closeModal(true); S.lang = 'it'; renderAll(); });
+  // max 10 in the UI
+  Kv = await p.evaluate(() => { for (let i = 0; i < 8; i++) colorRuleAdd('Ktest', 'ui' + i); openCatColor('ktest'); const b = document.querySelector('#co-rules [data-a="co-rule-new"]'); const r = {n:document.querySelectorAll('#co-rules .co-rule').length, dis:b && b.disabled}; closeModal(true); colorRulesSet('Ktest', colorRulesFor('Ktest').slice(0, 2)); return r; });
+  ok(Kv.n === 10 && Kv.dis === true, 'dialog: "Aggiungi regola" disabled at 10 rules', Kv);
+  // editor: rule hint, spectrum for a new category
+  Kv = await p.evaluate(() => {
+    const r = {}; openEditor(null);
+    const co = $('#ed-company_name'); co.value = 'Pro Loco Quattro'; co.dispatchEvent(new Event('input', {bubbles:true}));
+    const cat = $('#ed-category'); cat.value = 'Ktest'; cat.dispatchEvent(new Event('input', {bubbles:true}));
+    r.rule = UI.ed.d.color_hex === colorRulesFor('Ktest')[0].hex; r.hint = !!document.querySelector('#ed-swatches .co-rule-hint');
+    cat.value = 'Knuova categoria'; cat.dispatchEvent(new Event('input', {bubbles:true}));
+    r.chips = document.querySelectorAll('#ed-swatches [data-a="ed-spectrum"]').length;
+    document.querySelector('#ed-swatches [data-a="ed-spectrum"][data-f="yellow"]').click();
+    r.fam = (S.settings.catFamilies || {})['Knuova categoria']; r.col = COLOR_FAMILY.yellow.shades.includes(UI.ed.d.color_hex);
+    closeModal(true); delete S.settings.catFamilies['Knuova categoria'];
+    return r;
+  });
+  ok(Kv.rule && Kv.hint, 'editor: the colour follows the keyword rule and says so', Kv);
+  ok(Kv.chips === 8 && Kv.fam === 'yellow' && Kv.col, 'editor: a new category can get its spectrum right away', Kv);
+  // bulk edit "Colore automatico" path uses the rules (colorAssign)
+  ok(await p.evaluate(() => { const b = S.binders.find(x => x.speaking_code === 'KR2'); const m = Object.assign({}, b, {color_locked:false}); return colorAssign(m, S.binders) === colorRulesFor('Ktest')[0].hex; }), 'automatic colour (bulk edit / Automatico) uses the rules');
+  // JSON round trip + sync package (newer colour block wins)
+  Kv = await p.evaluate(() => {
+    const r = {}, W = JSON.parse(workspaceJSON());
+    r.json = (W.settings.colorRules.Ktest || []).map(x => x.kw).join() === colorRulesFor('Ktest').map(x => x.kw).join() && !!W.settings.colorUpdatedAt;
+    const P = syncBuildPackage({}); const ss = P.settingsSubset;
+    r.pkg = ss.colorRules.Ktest.length === 2 && ss.colorMode === 'company' && ss.colorUpdatedAt === S.settings.colorUpdatedAt;
+    const old = JSON.parse(JSON.stringify(ss)); old.colorRules = {Ktest:[{id:'x', kw:'vecchia', hex:'#123456'}]}; old.colorUpdatedAt = '2000-01-01T00:00:00Z';
+    r.older = colorSyncApply(old) === false && colorRulesFor('Ktest').length === 2;
+    const nw = JSON.parse(JSON.stringify(ss)); nw.colorRules = {Ktest:[{id:'y', kw:'nuova', hex:'#654321'}], __proto__x:[]}; nw.catFamilies = {Ktest:'green', Bad:'nope'}; nw.colorUpdatedAt = new Date(Date.now() + 60000).toISOString();
+    r.newer = colorSyncApply(nw) === true && colorRulesFor('Ktest')[0].kw === 'nuova' && S.settings.catFamilies.Ktest === 'green' && !('Bad' in S.settings.catFamilies);
+    S.settings.colorRules = W.settings.colorRules; S.settings.catFamilies = W.settings.catFamilies || {}; S.settings.colorUpdatedAt = W.settings.colorUpdatedAt;
+    return r;
+  });
+  ok(Kv.json && Kv.pkg, 'colour rules in the JSON backup and in the sync package settings', Kv);
+  ok(Kv.older && Kv.newer, 'sync: the newer colour block wins, the older is ignored, invalid families dropped', Kv);
+  // Settings link + rename keeps rules
+  await p.evaluate(() => { S.view = 'settings'; renderAll(); }); await p.waitForTimeout(100);
+  await p.click('[data-a="co-rules-open"]'); await p.waitForTimeout(150);
+  ok(await p.evaluate(() => S.view === 'info' && S.infoTab === 'category' && document.querySelector('#co-rules-ov').open), 'Settings › Colori dei dorsi links to the colour rules');
+  Kv = await p.evaluate(() => { undoPoint(); infoRename('category', 'ktest', 'Ktest Due'); const n = colorRulesFor('Ktest Due').length; const old = colorRulesFor('Ktest').length; return {n, old}; });
+  ok(Kv.n === 2 && Kv.old === 0, 'renaming a category keeps its colour rules', Kv);
+  await p.evaluate(() => { infoRename('category', 'ktest due', 'Ktest'); UI.coRulesOpen = false; });
   // clean up
   await p.evaluate(() => { const K = JSON.parse(window.__Ksnap); delete window.__Ksnap; S.binders = K.binders.map(normalizeBinder); S.settings = K.settings; S.view = K.view; S.infoTab = K.infoTab; S.lang = K.lang; UI.importParsed = null; infoApplyCatColors(); commit(); renderAll(); });
-  ok(await p.evaluate(() => !S.binders.some(b => /^K(C|ED|X|OLD|M)/.test(b.speaking_code))), 'stream K test data removed');
+  ok(await p.evaluate(() => !S.binders.some(b => /^K(C|ED|X|OLD|M|R)\d/.test(b.speaking_code))), 'stream K test data removed');
 
   // @@STREAM-R@@
   // ===== v10 stream R (PDF maximum compatibility + page selection / order for print and PDF) =====
