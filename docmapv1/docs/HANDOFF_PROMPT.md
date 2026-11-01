@@ -1,7 +1,7 @@
 # Prompt di passaggio: DocMap 2026 → sistema Python
 
 > Copia tutto il testo sotto la linea e incollalo all'agente che ha già costruito il sistema Python di gestione dello
-> studio. Prima metti a sua disposizione la cartella dell'ultima versione (oggi **26.11.1, v11.1**: lo zip del rilascio
+> studio. Prima metti a sua disposizione la cartella dell'ultima versione (oggi **26.12.0, v12**: lo zip del rilascio
 > estratto, oppure il repository) e scrivi il percorso al posto di `<CARTELLA_DOCMAP>`. La cartella contiene
 > `docmapv1/` (app, server PHP, test, documentazione); `deploy/studio-de/` (la copia da caricare su
 > https://docmap.pr-it.it/studio-de/) si rigenera con `python3 docmapv1/tools/build_deploy.py`.
@@ -9,7 +9,7 @@
 ---
 
 Ciao. Ti passo **DocMap 2026 (DM26)**, l'archivio fisico-digitale dei faldoni dello studio Dall'Asta, versione
-**26.11.1 (v11.1)**. L'ha costruito un altro agente; io (Dave) l'ho provato e lo uso. Da qui lo sviluppo lo porti
+**26.12.0 (v12)**. L'ha costruito un altro agente; io (Dave) l'ho provato e lo uso. Da qui lo sviluppo lo porti
 avanti tu, unendolo al sistema Python che hai già creato. Questo testo basta per partire: tutto il resto è nei file
 indicati, che sono la fonte di verità (se un documento e il codice non coincidono, vince il codice e la suite di test).
 
