@@ -231,6 +231,53 @@ const sec = (n) => console.log('\n== ' + n);
   ok(await p.evaluate(() => !window.__x), 'HTML in names is escaped');
   await p.evaluate(() => { S.binders = S.binders.filter(b => b.speaking_code !== 'XS1'); commit(); });
 
+  sec('v4 hardening (bug hunt regressions)');
+  await p.evaluate(() => { S.view = 'archive'; renderAll(); });
+  let h = await p.evaluate(() => { analyzeImport('sep=;\nspeaking_code;company_name\nSP1;Sep Co'); return UI.importParsed; });
+  ok(!h.error && h.rows[0].status === 'new' && h.rows[0].p.speaking_code === 'SP1', 'Excel "sep=;" first line is understood', h);
+  h = await p.evaluate(() => { analyzeImport('HL1;Header Less;Lavoro\nHL2;Header Less;Lavoro'); return UI.importParsed; });
+  ok(!h.error && h.rows.length === 2 && h.rows.every(r => r.status === 'new') && h.rows[1].p.category === 'Lavoro', 'rows without header use the standard column order', h);
+  h = await p.evaluate(async () => {
+    const before = S.binders.length;
+    analyzeImport('speaking_code;company_name;id\nDI1;Dup Id;same-id\nDI2;Dup Id;same-id'); applyImport('merge');
+    await new Promise(r => setTimeout(r, 1200));
+    return {ids:new Set(S.binders.map(b => b.id)).size === S.binders.length, n:S.binders.length - before, db:dbScalar('SELECT COUNT(*) FROM binders') === S.binders.length};
+  });
+  ok(h.ids && h.n === 2 && h.db, 'duplicate ids in a file never break the SQLite mirror', h);
+  ok(await p.evaluate(() => { const f = S.binders.length; S.binders.push(normalizeBinder(clone(S.binders[0]))); const n = ensureIntegrity(); const okk = n >= 2 && new Set(S.binders.map(b => b.id)).size === f + 1 && new Set(S.binders.map(b => b.speaking_code)).size === f + 1 && new Set(S.binders.map(b => b.short_code)).size === f + 1; S.binders.pop(); return okk; }), 'integrity guard fixes duplicate id, speaking code and short code');
+  h = await p.evaluate(() => {
+    const n0 = dbScalar('SELECT COUNT(*) FROM audit_log');
+    dbRunConsole("WITH x AS (SELECT 1) INSERT INTO audit_log(action) SELECT 'x' FROM x -- limit");
+    const r1 = DB.consoleResult; dbRunConsole('SELECT speaking_code FROM binders -- note');
+    return {err:!!r1.error, same:dbScalar('SELECT COUNT(*) FROM audit_log') === n0, sel:(DB.consoleResult.values || []).length};
+  });
+  ok(h.err && h.same && h.sel > 0, 'SQL console is truly read-only (CTE write refused), trailing comments OK', h);
+  h = await p.evaluate(() => {
+    const b = S.binders[0], keep = [b.company_name, b.tags]; b.company_name = '=HYPERLINK("http://x")'; b.tags = '@sum,-1';
+    const csv = toCSV([CSV_COLUMNS].concat(sortedBinders().map(x => binderToCsvRow(x).map(safeCell))), ';');
+    analyzeImport(csv); const p0 = UI.importParsed.rows.find(r => r.p.speaking_code === b.speaking_code).p;
+    b.company_name = keep[0]; b.tags = keep[1]; UI.importParsed = null;
+    return {guarded:csv.includes("'=HYPERLINK") && !/[;\n"]=HYPERLINK/.test(csv), back:p0.company_name === '=HYPERLINK("http://x")' && p0.tags === '@sum,-1'};
+  });
+  ok(h.guarded && h.back, 'CSV backup blocks Excel formulas and the round trip stays lossless', h);
+  h = await p.evaluate(() => { const n = S.binders.length; undoPoint(); S.binders = []; commit(); undoToast('x'); const btn = [...document.querySelectorAll('.toast-act')].pop(); btn.click(); return S.binders.length === n; });
+  ok(h, 'undo restores the archive after a bulk change');
+  await p.evaluate(() => { S.view = 'archive'; renderAll(); openEditor(S.binders[0].id); });
+  await p.waitForTimeout(200);
+  await p.fill('#ed-binder_title', 'Titolo modificato non salvato');
+  await p.keyboard.press('Escape'); await p.waitForTimeout(150);
+  ok(await p.evaluate(() => modalStack.length === 2 && !!UI.ed), 'Esc on an edited binder asks before discarding');
+  await p.keyboard.press('Escape'); await p.waitForTimeout(100);
+  ok(await p.evaluate(() => modalStack.length === 1 && !!UI.ed), 'cancelling the question keeps the editor open');
+  await p.evaluate(() => closeModal(true));
+  await p.evaluate(() => openEditor(S.binders[0].id)); await p.waitForTimeout(150);
+  await p.keyboard.press('Escape'); await p.waitForTimeout(100);
+  ok(await p.evaluate(() => modalStack.length === 0), 'Esc on an untouched binder closes at once');
+  ok(await p.evaluate(() => { const id = S.print.presetId, keep = S.usedSlots[id]; S.usedSlots[id] = Array.from({length:slotCount()}, (_, i) => i); const L = layoutLabels(); S.usedSlots[id] = keep; return L.pages[0].length > 0 && L.pages[0][0].s === 0; }), 'a sheet marked fully used is treated as a fresh sheet');
+  h = await p.evaluate(() => { const e = new Event('drop', {bubbles:true, cancelable:true}); Object.defineProperty(e, 'dataTransfer', {value:{types:['Files'], files:[]}}); document.body.dispatchEvent(e); return e.defaultPrevented; });
+  ok(h, 'a file dropped anywhere never navigates away from the app');
+  ok(await p.evaluate(() => normalizeBinder({speaking_code:'x1', room_code:'b', cabinet_code:'2', shelf_code:'γ'}).location_code === 'B2-γ'), 'room code normalised to upper case');
+
   console.log('\nerrors:', errs.length ? errs.join('\n') : 'none');
   if (errs.length) fails += errs.length;
   console.log(`\nRESULT: ${passes} passed, ${fails} failed`);

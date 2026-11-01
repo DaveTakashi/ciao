@@ -24,12 +24,12 @@ const ACTIONS = {
   'del': (el) => {
     const b = byId(el.dataset.id); if (!b) return;
     confirmAction({ danger:true, okLabel:t('delete'), detail:t('c_del_one', {c:b.speaking_code + ' — ' + b.company_name}),
-      onOk: () => { S.binders = S.binders.filter(x => x.id !== b.id); commit(); toast(t('deleted') + ': ' + b.speaking_code); renderView(); } });
+      onOk: () => { undoPoint(); S.binders = S.binders.filter(x => x.id !== b.id); commit(); undoToast(t('deleted') + ': ' + b.speaking_code); renderView(); } });
   },
   'del-sel': () => {
     const sel = S.binders.filter(b => b.selected_for_print); if (!sel.length) return;
     confirmAction({ danger:true, okLabel:t('delete'), detail:t('c_del_many', {n:sel.length}) + ' ' + sel.map(b => b.speaking_code).join(', '),
-      onOk: () => { const ids = new Set(sel.map(b => b.id)); S.binders = S.binders.filter(b => !ids.has(b.id)); commit(); toast(t('deleted') + ': ' + sel.length); renderView(); } });
+      onOk: () => { undoPoint(); const ids = new Set(sel.map(b => b.id)); S.binders = S.binders.filter(b => !ids.has(b.id)); commit(); undoToast(t('deleted') + ': ' + sel.length); renderView(); } });
   },
   'toggle-print': (el) => { const b = byId(el.dataset.id); if (!b) return; b.selected_for_print = el.checked; savePrefs(); renderArchiveResults(); },
   'sel-all': () => { const ids = new Set(filteredBinders().map(b => b.id)); S.binders.forEach(b => { if (ids.has(b.id)) b.selected_for_print = true; }); savePrefs(); renderArchiveResults(); },
@@ -169,7 +169,7 @@ const ACTIONS = {
   },
   'db-restore': (el) => {
     const s = dbSessions().find(x => x.id === +el.dataset.id); if (!s) return;
-    confirmAction({ danger:true, okLabel:t('db_restore'), detail:t('db_restore_detail', {n:s.name, c:S.binders.length}), onOk: async () => { await dbRestoreSession(s.id); toast(t('db_restored') + ': ' + s.name); } });
+    confirmAction({ danger:true, okLabel:t('db_restore'), detail:t('db_restore_detail', {n:s.name, c:S.binders.length}), onOk: async () => { undoPoint(); await dbRestoreSession(s.id); undoToast(t('db_restored') + ': ' + s.name); } });
   },
   'db-session-del': (el) => {
     const s = dbSessions().find(x => x.id === +el.dataset.id); if (!s) return;
@@ -261,7 +261,7 @@ async function handleImportFile(file){
     analyzeImport(txt); $('#im-preview').innerHTML = importPreviewHTML();
   } catch(err){ toast(String(err), 'err'); }
 }
-$('#file-import').addEventListener('change', (e) => { handleImportFile(e.target.files[0]); e.target.value = ''; });
+$('#file-import').addEventListener('change', (e) => { handleDroppedFile(e.target.files[0]); e.target.value = ''; });
 $('#file-restore').addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; if (f){ UI.restoreAll = true; handleImportFile(f); } });
 $('#file-manifest').addEventListener('change', async (e) => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
@@ -278,17 +278,36 @@ $('#file-sqlite').addEventListener('change', async (e) => {
   if (!DB.ready){ toast(t('db_loading'), 'warn'); return; }
   dbOpenBytes(await f.arrayBuffer(), f.name);
 });
-document.addEventListener('dragover', (e) => { const dz = e.target.closest && e.target.closest('#dropzone'); if (dz){ e.preventDefault(); dz.classList.add('drag'); } });
-document.addEventListener('dragleave', (e) => { const dz = e.target.closest && e.target.closest('#dropzone'); if (dz) dz.classList.remove('drag'); });
-document.addEventListener('drop', (e) => { const dz = e.target.closest && e.target.closest('#dropzone'); if (dz){ e.preventDefault(); dz.classList.remove('drag'); handleImportFile(e.dataTransfer.files[0]); } });
+/* Drag & drop anywhere: a file dropped outside the drop zone must never make the browser navigate away (losing the page). */
+const isSqliteFile = async (f) => /\.(sqlite3?|db)$/i.test(f.name) || new TextDecoder().decode(new Uint8Array(await f.slice(0, 15).arrayBuffer())) === 'SQLite format 3';
+async function handleDroppedFile(f){
+  if (!f) return;
+  if (await isSqliteFile(f)){ if (!DB.ready){ toast(t('db_loading'), 'warn'); return; } dbOpenBytes(await f.arrayBuffer(), f.name); return; }
+  handleImportFile(f);
+}
+const hasFiles = (e) => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+document.addEventListener('dragover', (e) => {
+  if (!hasFiles(e)) return;
+  e.preventDefault(); e.dataTransfer.dropEffect = 'copy';
+  const dz = e.target.closest && e.target.closest('#dropzone'); if (dz) dz.classList.add('drag');
+  document.body.classList.add('dragging');
+});
+document.addEventListener('dragleave', (e) => {
+  const dz = e.target.closest && e.target.closest('#dropzone'); if (dz) dz.classList.remove('drag');
+  if (!e.relatedTarget) document.body.classList.remove('dragging');
+});
+document.addEventListener('drop', (e) => {
+  if (!hasFiles(e)) return;
+  e.preventDefault(); document.body.classList.remove('dragging');
+  const dz = $('#dropzone'); if (dz) dz.classList.remove('drag');
+  handleDroppedFile(e.dataTransfer.files[0]);
+});
 
 /* ---------------- Boot ---------------- */
 (function boot(){
   S = loadState(); window.S = S;
   // integrity: guarantee unique, valid short codes
-  const seen = new Set(); let fixed = false;
-  S.binders.forEach(b => { if (!SC_RE.test(b.short_code) || seen.has(b.short_code)){ b.short_code = newShortCode(Array.from(seen)); b.short_url = shortUrl(b.short_code); fixed = true; } seen.add(b.short_code); });
-  if (fixed) S.hasUnexportedChanges = true;
+  if (ensureIntegrity()) S.hasUnexportedChanges = true;
   persist();
   renderAll();
   maybeOnboard();

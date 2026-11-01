@@ -147,7 +147,7 @@ function queueItems(){
   return out;
 }
 function slotCount(){ const g = S.print.geometry; return Math.max(1, (g.cols | 0) * (g.rows | 0)); }
-function usedSet(){ const N = slotCount(); return new Set((S.usedSlots[S.print.presetId] || []).filter(i => i >= 0 && i < N)); }
+function usedSet(){ const N = slotCount(); const u = new Set((S.usedSlots[S.print.presetId] || []).filter(i => i >= 0 && i < N)); return u.size >= N ? new Set() : u; } // a fully used sheet is not a partial sheet
 function slotRect(i){
   const g = S.print.geometry, c = i % g.cols, r = Math.floor(i / g.cols);
   return { r, c, x: g.marginLeft + c * (g.w + g.gapX), y: g.marginTop + r * (g.h + g.gapY) };

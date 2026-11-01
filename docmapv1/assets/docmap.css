@@ -366,3 +366,7 @@ h1 .help-dot{width:26px;height:26px;font-size:14px;vertical-align:4px}
 .q-row svg.ic{width:16px;height:16px;margin-top:2px}
 .q-row.ok svg{color:var(--green)}.q-row.warn svg{color:var(--amber)}.q-row.bad svg{color:var(--red)}
 .q-row.bad{color:#991B1B;font-weight:600}
+
+/* whole-window drop hint */
+body.dragging::after{content:attr(data-drop);position:fixed;inset:12px;border:2px dashed var(--accent,#2563EB);border-radius:14px;background:rgba(255,255,255,.88);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;font:700 18px var(--font);color:var(--accent,#2563EB);z-index:300;pointer-events:none}
+.toast-act{margin-left:auto;background:transparent;border:1px solid rgba(255,255,255,.45);color:#fff;border-radius:8px;padding:3px 10px;font:600 13px var(--font);cursor:pointer;white-space:nowrap}.toast-act:hover{background:rgba(255,255,255,.12)}

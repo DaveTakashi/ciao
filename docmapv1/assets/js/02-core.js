@@ -2,7 +2,7 @@
    DocMap 2026 — core: i18n, state, persistence, data model helpers
    ===================================================================== */
 'use strict';
-const APP_VERSION = '26.1.0';
+const APP_VERSION = '26.4.0';
 const LS_KEY = 'docmap_v26_state';
 const LS_PREV = 'docmap_v26_state_prev';
 const SC_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
@@ -275,6 +275,20 @@ function newShortCode(extra){
   let c; do { c = 'dm26' + randChars(8); } while (taken.has(c));
   return c;
 }
+/* Integrity guard: every binder gets a unique id, a unique non-empty speaking code and a unique valid short code.
+   The SQLite mirror enforces the same constraints, so a duplicate here would block every sync. Returns the number of fixes. */
+function ensureIntegrity(){
+  const ids = new Set(), codes = new Set(), scs = new Set(); let fixed = 0;
+  S.binders.forEach(b => {
+    if (!b.id || ids.has(b.id)){ b.id = uuid(); fixed++; }
+    ids.add(b.id);
+    if (!b.speaking_code || codes.has(b.speaking_code)){ b.speaking_code = suggestSpeakingCode(b.company_name || b.speaking_code, Array.from(codes)); b.location_code = computeLocation(b); fixed++; }
+    codes.add(b.speaking_code);
+    if (!SC_RE.test(b.short_code) || scs.has(b.short_code)){ b.short_code = newShortCode(Array.from(scs)); fixed++; }
+    scs.add(b.short_code); b.short_url = shortUrl(b.short_code);
+  });
+  return fixed;
+}
 function shortUrl(code){ return 'https://qr7.it/' + code; }
 function destFor(b){
   if (b.final_destination && String(b.final_destination).trim()) return String(b.final_destination).trim();
@@ -294,6 +308,7 @@ function normalizeBinder(b){
   }, b || {});
   ['speaking_code','company_name','category','binder_title','room_code','cabinet_code','shelf_code','sector_code','tags','short_code','final_destination'].forEach(k => o[k] = String(o[k] == null ? '' : o[k]).trim());
   o.speaking_code = o.speaking_code.toUpperCase().replace(/\s+/g, '');
+  o.room_code = o.room_code.toUpperCase();
   o.contents_items = pipeToContents(o.contents_items);
   o.color_hex = normHex(o.color_hex) || CAT_COLOR[o.category] || '#2563EB';
   if (!STATES.includes(o.archive_state)) o.archive_state = 'CURRENT';

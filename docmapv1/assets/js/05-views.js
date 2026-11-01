@@ -32,7 +32,7 @@ function renderView(){
   if (v === 'print') mountPrint();
   if (v === 'archive') renderArchiveResults();
 }
-function renderAll(){ renderBanner(); renderTopbar(); renderView(); }
+function renderAll(){ document.body.dataset.drop = t('drop_here'); renderBanner(); renderTopbar(); renderView(); }
 
 /* ---------------- Archive ---------------- */
 function stateBadge(s){ const c = s === 'CURRENT' ? 'b-current' : s === 'HISTORICAL' ? 'b-historical' : 'b-out'; return '<span class="badge ' + c + '">' + esc(t('s_' + s)) + '</span>'; }
@@ -136,7 +136,7 @@ function openEditor(id, preset){
   const src = id ? S.binders.find(b => b.id === id) : null;
   const d = src ? clone(src) : normalizeBinder(Object.assign({ id:uuid(), short_code:newShortCode(), category:'Ordinaria', color_hex:'#2563EB', archive_state:'CURRENT', selected_for_print:true, contents_items:[{year:String(new Date().getFullYear()), description:''}] }, preset || {}));
   if (!src && !d.speaking_code && d.company_name) d.speaking_code = suggestSpeakingCode(d.company_name);
-  UI.ed = { isNew:!src, d, pipeMode:false };
+  UI.ed = { isNew:!src, d, pipeMode:false, base:JSON.stringify(d) };
   const companies = Array.from(new Set(S.binders.map(b => b.company_name))).sort(naturalCmp);
   const cats = Array.from(new Set(CATEGORIES.concat(S.binders.map(b => b.category).filter(Boolean))));
   const f = (key, label, extra, attrs) => '<div class="field"><label for="ed-' + key + '">' + esc(label) + '</label><input class="inp ' + (extra || '') + '" id="ed-' + key + '" data-ed="' + key + '" value="' + esc(d[key]) + '" ' + (attrs || '') + '></div>';
@@ -163,6 +163,11 @@ function openEditor(id, preset){
   openModal({ title: UI.ed.isNew ? t('ed_new') : t('ed_edit') + ' ' + d.speaking_code, size:'xl', body, autofocus:false,
     buttons:[{label:t('cancel'), cls:'btn', action:'modal-close'}, {label:t('save'), cls:'btn btn-primary btn-lg', icon:'save', fn:saveEditor}],
     onMount: () => { renderEdContents(); renderEdPreview(); setTimeout(() => { const el = UI.ed.isNew ? $('#ed-company_name') : $('#ed-binder_title'); el && el.focus(); }, 40); },
+    beforeClose: () => {
+      if (!UI.ed || JSON.stringify(UI.ed.d) === UI.ed.base) return true;
+      confirmAction({ plain:true, title:t('ed_discard_t'), detail:t('ed_discard_d'), okLabel:t('ed_discard_ok'), onOk: () => closeModal(true) });
+      return false;
+    },
     onClose: () => { UI.ed = null; } });
 }
 function swatchesHTML(cur){
@@ -226,7 +231,7 @@ function saveEditor(){
   const doSave = () => {
     const i = S.binders.findIndex(x => x.id === b.id);
     if (i >= 0) S.binders[i] = b; else S.binders.push(b);
-    commit(); closeModal(); toast(t('saved') + ': ' + b.speaking_code);
+    commit(); closeModal(true); toast(t('saved') + ': ' + b.speaking_code);
     renderView();
   };
   doSave();
@@ -401,7 +406,7 @@ function analyzeImport(text){
   if (!s){ UI.importParsed = null; return; }
   const fence = s.match(/```[a-zA-Z]*\s*\n([\s\S]*?)```/);
   if (fence) s = fence[1].trim();
-  let records = [], format = 'CSV', delim = '', workspace = null;
+  let records = [], format = 'CSV', delim = '', workspace = null, headerless = false;
   if (/^[\[{]/.test(s)){
     format = 'JSON';
     let obj; try { obj = JSON.parse(s); } catch(e){ UI.importParsed = {error:'JSON: ' + e.message}; return; }
@@ -411,14 +416,19 @@ function analyzeImport(text){
     else if (obj && Array.isArray(obj.data)) records = obj.data;
     else if (obj && typeof obj === 'object') records = [obj];
   } else {
-    delim = detectDelim(s);
+    // Excel "sep=;" hint line
+    const sep = s.match(/^sep=(.)\s*\r?\n/i);
+    if (sep) s = s.slice(sep[0].length);
+    delim = sep ? sep[1] : detectDelim(s);
     const rows = parseCSV(s, delim).filter(r => r.some(c => String(c).trim()));
+    let head = rows.length ? rows[0].map(h => h.trim()) : [];
+    // No recognisable header (e.g. rows pasted without the first line): assume the standard AI/template column order.
+    if (rows.length && rows[0].length >= 2 && !head.some(h => ALIAS_LOOKUP[normHeader(h)])){ head = csvTemplateHeader().split(';').concat(['selected_for_print','id','updated_at']); rows.unshift(head); headerless = true; }
     if (rows.length < 2){ UI.importParsed = {error:t('im_none')}; return; }
-    const head = rows[0].map(h => h.trim());
     records = rows.slice(1).map(r => { const o = {}; head.forEach((h, i) => { o[h] = r[i] != null ? r[i] : ''; }); return o; });
   }
   const plannedCodes = [], plannedSC = [], byCode = new Map(S.binders.map(b => [b.speaking_code.toUpperCase(), b]));
-  const seenInFile = new Set();
+  const seenInFile = new Set(), idsInFile = new Set();
   const rows = [];
   records.forEach((raw, idx) => {
     const p = mapRecord(raw), w = [];
@@ -439,10 +449,11 @@ function analyzeImport(text){
     plannedSC.push(p.short_code || p._keepSC);
     if (p.color_hex && !normHex(p.color_hex)){ delete p.color_hex; w.push(t('im_w_color')); }
     else if (!p.color_hex && !match){ p.color_hex = CAT_COLOR[p.category] || '#475569'; }
-    if (p.id && S.binders.some(b => b.id === p.id && (!match || b.id !== match.id))) delete p.id;
+    if (p.id && (idsInFile.has(p.id) || S.binders.some(b => b.id === p.id && (!match || b.id !== match.id)))) delete p.id;
+    if (p.id) idsInFile.add(p.id);
     rows.push({idx, status: match ? 'upd' : 'new', p, w, match: match ? match.id : null});
   });
-  UI.importParsed = { rows, format, delim, workspace };
+  UI.importParsed = { rows, format: headerless ? format + ' ' + t('im_nohdr') : format, delim, workspace };
 }
 function importPreviewHTML(){
   const IP = UI.importParsed;
@@ -464,6 +475,7 @@ function importPreviewHTML(){
 }
 function applyImport(mode){
   const IP = UI.importParsed; if (!IP || !IP.rows) return;
+  undoPoint();
   const rows = IP.rows.filter(r => r.status !== 'err');
   let added = 0, updated = 0;
   const now = nowISO();
@@ -507,9 +519,10 @@ function applyImport(mode){
   // A final_destination identical to the studio template is the default, not a custom override:
   // keep it empty so a future template change still applies (CSV backups export the resolved URL).
   S.binders.forEach(b => { if (b.final_destination && b.final_destination === renderDest(S.settings.destTemplate, b)) b.final_destination = ''; });
+  ensureIntegrity();
   UI.importParsed = null; UI.importText = '';
   commit();
-  toast(t('im_done', {a:added, u:updated}), 'ok', 5000);
+  undoToast(t('im_done', {a:added, u:updated}));
   S.view = 'archive'; UI.q = ''; savePrefs(); renderAll();
 }
 

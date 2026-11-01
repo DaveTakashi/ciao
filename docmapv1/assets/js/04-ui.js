@@ -38,14 +38,29 @@ const ICONS = {
 };
 const ic = (n, cls) => '<svg class="ic ' + (cls || '') + '" viewBox="0 0 24 24" aria-hidden="true">' + (ICONS[n] || '') + '</svg>';
 
-function toast(msg, kind, ms){
+function toast(msg, kind, ms, action){
   kind = kind || 'ok';
   const el = document.createElement('div');
   el.className = 'toast ' + kind;
   el.setAttribute('role', 'status');
   el.innerHTML = ic(kind === 'ok' ? 'check' : kind === 'err' ? 'alert' : kind === 'warn' ? 'alert' : 'info') + '<div>' + esc(msg) + '</div>';
+  if (action){
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'toast-act'; btn.textContent = action.label;
+    btn.addEventListener('click', () => { el.remove(); action.fn(); });
+    el.appendChild(btn);
+  }
   $('#toasts').appendChild(el);
   setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; setTimeout(() => el.remove(), 320); }, ms || 3200);
+}
+/* One-level undo for every bulk change (delete, import, session restore, .sqlite open). */
+let UNDO = null;
+function undoPoint(){ UNDO = clone({binders:S.binders, settings:S.settings, print:S.print, customPresets:S.customPresets, usedSlots:S.usedSlots, lang:S.lang}); }
+function undoToast(msg, kind){
+  toast(msg, kind || 'ok', 9000, {label:t('undo'), fn: () => {
+    if (!UNDO) return; const W = UNDO; UNDO = null;
+    applyWorkspaceObject(W); commit(); renderAll(); toast(t('undone'));
+  }});
 }
 
 /* Modal stack: each modal is its own overlay so a confirmation can sit above an editor. */
@@ -67,9 +82,12 @@ function openModal(o){
   if (first && o.autofocus !== false) setTimeout(() => first.focus(), 30);
   return ov;
 }
-function closeModal(){
+function closeModal(force){
+  const top = topModal();
+  if (!top) return;
+  // a modal may refuse to close (e.g. the binder editor with unsaved edits asks first)
+  if (force !== true && top._opts && top._opts.beforeClose && top._opts.beforeClose() === false) return;
   const ov = modalStack.pop();
-  if (!ov) return;
   if (ov._opts && ov._opts.onClose) ov._opts.onClose();
   ov.remove();
 }
@@ -77,8 +95,9 @@ function topModal(){ return modalStack[modalStack.length - 1]; }
 
 /** Every destructive action passes through here. */
 function confirmAction(o){
-  const body = '<div class="stack"><div class="' + (o.danger ? 'danger-box' : 'warn-box') + '">' + ic('alert', 'lg') + '<div><b>' + esc(t('c_text')) + '</b>' + (o.detail ? '<div style="margin-top:6px">' + esc(o.detail) + '</div>' : '') + '</div></div>' +
-    (S.hasUnexportedChanges ? '<div class="info-box">' + ic('info') + '<div class="small">' + esc(t('c_dirty')) + '<div style="margin-top:10px"><button class="btn btn-sm btn-amber" data-a="quick-backup">' + ic('save') + esc(t('quick_backup')) + '</button></div></div></div>' : '') + '</div>';
+  // o.plain: a simple question (no "data not exported" warning, no backup prompt)
+  const body = '<div class="stack"><div class="' + (o.danger ? 'danger-box' : 'warn-box') + '">' + ic('alert', 'lg') + '<div>' + (o.plain ? '' : '<b>' + esc(t('c_text')) + '</b>') + (o.detail ? '<div' + (o.plain ? '' : ' style="margin-top:6px"') + '>' + esc(o.detail) + '</div>' : '') + '</div></div>' +
+    (S.hasUnexportedChanges && !o.plain ? '<div class="info-box">' + ic('info') + '<div class="small">' + esc(t('c_dirty')) + '<div style="margin-top:10px"><button class="btn btn-sm btn-amber" data-a="quick-backup">' + ic('save') + esc(t('quick_backup')) + '</button></div></div></div>' : '') + '</div>';
   openModal({
     title: o.title || t('c_title'), body,
     buttons: [
@@ -159,6 +178,11 @@ function csvField(v, delim){
   const s = String(v == null ? '' : v);
   return (s.includes(delim) || s.includes('"') || s.includes('\n') || s.includes('\r')) ? '"' + s.replace(/"/g, '""') + '"' : s;
 }
+/* Spreadsheet formula injection guard (OWASP): a cell starting with = + - @ is run as a formula by Excel.
+   Used for the full backup that people open in Excel; import strips the guard again so the round trip is lossless. */
+const FORMULA_RE = /^[=+\-@\t\r]/;
+const safeCell = (v) => { const s = String(v == null ? '' : v); return FORMULA_RE.test(s) ? "'" + s : s; };
+const unsafeCell = (s) => (/^'[=+\-@\t\r]/.test(s) ? s.slice(1) : s);
 function toCSV(rows, delim){ return rows.map(r => r.map(v => csvField(v, delim)).join(delim)).join('\r\n') + '\r\n'; }
 
 const HEADER_ALIASES = {
@@ -203,12 +227,12 @@ function mapRecord(raw){
     const v = raw[k];
     if (v == null) return;
     if (key === 'contents_items'){
-      const arr = pipeToContents(v);
+      const arr = pipeToContents(typeof v === 'string' ? unsafeCell(v.trim()) : v);
       if (arr.length) o.contents_items = arr;
       return;
     }
     if (key === 'selected_for_print'){ if (String(v).trim() !== '' || typeof v === 'boolean') o.selected_for_print = typeof v === 'boolean' ? v : truthy(v); return; }
-    const s = String(v).trim();
+    const s = unsafeCell(String(v).trim());
     if (s !== '') o[key] = s;
   });
   if (o.archive_state) o.archive_state = normState(o.archive_state);
@@ -272,7 +296,7 @@ function mergeManifest(text, prune){
   return { text:(bom ? '﻿' : '') + out.join(eol) + eol, kept, updated, added:ours.size - updated, removed };
 }
 function exportFullCSV(){
-  const rows = [CSV_COLUMNS].concat(sortedBinders().map(binderToCsvRow));
+  const rows = [CSV_COLUMNS].concat(sortedBinders().map(b => binderToCsvRow(b).map(safeCell)));
   const name = 'docmap_full_backup.csv';
   download(name, '﻿' + toCSV(rows, ';'), 'text/csv');
   markExported(name); toast(t('ex_done', {f:name}));

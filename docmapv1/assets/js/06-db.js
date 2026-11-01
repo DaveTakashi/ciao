@@ -91,6 +91,7 @@ async function dbInit(){
 function dbSyncFromState(reason){
   if (!DB.ready) return;
   const db = DB.db;
+  ensureIntegrity();
   db.exec('BEGIN');
   try {
     db.exec('DELETE FROM contents_items; DELETE FROM binders; DELETE FROM settings; DELETE FROM label_presets;');
@@ -154,8 +155,7 @@ function dbReadWorkspace(db){
 /* Replace the whole working state with a workspace object (from a session or a .sqlite file). */
 function applyWorkspaceObject(W){
   S.binders = (W.binders || []).map(normalizeBinder);
-  const seen = new Set();
-  S.binders.forEach(b => { if (!SC_RE.test(b.short_code) || seen.has(b.short_code)){ b.short_code = newShortCode(Array.from(seen)); b.short_url = shortUrl(b.short_code); } seen.add(b.short_code); });
+  ensureIntegrity();
   if (W.settings) S.settings = Object.assign(defaultState().settings, W.settings);
   if (W.print) S.print = Object.assign(defaultState().print, W.print, {geometry:Object.assign(geoFromPreset(BUILTIN_PRESETS[0]), W.print.geometry || {})});
   if (Array.isArray(W.customPresets)) S.customPresets = W.customPresets;
@@ -210,12 +210,13 @@ async function dbOpenBytes(bytes, label){
   const W = dbReadWorkspace(db);
   const nSessions = dbScalar('SELECT COUNT(*) FROM sessions', null, db) || 0;
   confirmAction({ danger:true, okLabel:t('db_open_ok'), detail:t('db_open_detail', {f:label, n:W.binders.length, s:nSessions, c:S.binders.length}), onOk: async () => {
+    undoPoint();
     try { DB.db.close(); } catch(e){}
     DB.db = db; dbMigrate();
     applyWorkspaceObject(W);
     dbLog('open_file', label);
     commit(); renderAll();
-    toast(t('db_opened', {n:W.binders.length}), 'ok', 5000);
+    undoToast(t('db_opened', {n:W.binders.length}));
   }});
 }
 const fsaSupported = () => typeof window.showSaveFilePicker === 'function';
@@ -257,10 +258,13 @@ function dbRunConsole(sql){
   const q = String(sql || '').trim().replace(/;+\s*$/, '');
   DB.consoleSql = sql;
   if (!/^(select|with|pragma\s+table_info|explain)\b/i.test(q) || /;\s*\S/.test(q)){ DB.consoleResult = {error:t('db_ro')}; return; }
+  // Defence in depth: the regex above is not a parser (e.g. "WITH x AS (...) DELETE ..."), so SQLite itself refuses writes.
+  try { DB.db.exec('PRAGMA query_only = ON'); } catch(e){}
   try {
-    const res = DB.db.exec(q + ' LIMIT 500'.repeat(/\blimit\b/i.test(q) || /^pragma|^explain/i.test(q) ? 0 : 1));
+    const res = DB.db.exec(q + '\nLIMIT 500'.repeat(/\blimit\b/i.test(q) || /^pragma|^explain/i.test(q) ? 0 : 1));
     DB.consoleResult = res[0] ? {columns:res[0].columns, values:res[0].values} : {columns:[], values:[]};
-  } catch(e){ DB.consoleResult = {error:e.message}; }
+  } catch(e){ DB.consoleResult = {error:/readonly|read-only|query_only/i.test(e.message) ? t('db_ro') : e.message}; }
+  finally { try { DB.db.exec('PRAGMA query_only = OFF'); } catch(e){} }
 }
 
 /* ---------------- View ---------------- */
