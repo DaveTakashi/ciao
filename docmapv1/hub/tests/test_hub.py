@@ -235,8 +235,16 @@ class TestCli(TempDir):
         rc, o, _ = self.c("keys", "list")
         self.assertIn("retired", o)
 
+        bk = Path(d) / "bk.zip"
+        self.assertEqual(self.c("backup", "--out", str(bk))[0], 0)
+        import zipfile
+        names = zipfile.ZipFile(bk).namelist()
+        self.assertIn("registry.sqlite3", names)
+        self.assertTrue(any(n.endswith(".key.pem") for n in names))
+        self.assertIn("keys/keys.json", names)
+
         rc, o, _ = self.c("log")
-        for action in ("key.generate", "key.rotate", "licence.issue", "licence.renew", "customer.add"):
+        for action in ("hub.backup", "key.generate", "key.rotate", "licence.issue", "licence.renew", "customer.add"):
             self.assertIn(action, o)
 
         # wrong passphrase

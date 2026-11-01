@@ -159,5 +159,31 @@ class Hub:
             lic = self.build_licence(prev["instance_id"], new_plan, key_id, **kw)
         return self._sign_and_store(lic, priv, supersedes=prev["licence_id"])
 
+    def backup(self, out: Path | None = None) -> Path:
+        """Zip of keys (private keys stay encrypted), a consistent copy of the
+        registry (SQLite backup API), plans.json and issued licence files."""
+        import sqlite3
+        import tempfile
+        import zipfile
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+        out = Path(out) if out else self.dir / "backups" / f"docmap-hub-backup-{stamp}.zip"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory() as td:
+            snap = Path(td) / "registry.sqlite3"
+            dst = sqlite3.connect(str(snap))
+            with dst:
+                self.registry.conn.backup(dst)
+            dst.close()
+            with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+                z.write(snap, "registry.sqlite3")
+                for sub in ("keys", "issued"):
+                    for f in sorted((self.dir / sub).glob("*")):
+                        if f.is_file() and not f.name.endswith(".tmp"):
+                            z.write(f, f"{sub}/{f.name}")
+                if (self.dir / "plans.json").exists():
+                    z.write(self.dir / "plans.json", "plans.json")
+        self.registry.log("hub.backup", details={"file": str(out)})
+        return out
+
     def status_of(self, file_text: str, now: datetime | None = None) -> L.LicenceStatus:
         return L.verify(file_text, self.keys.public_keys(), now=now)

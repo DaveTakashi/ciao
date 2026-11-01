@@ -297,6 +297,14 @@ def cmd_log(hub: Hub, args) -> int:
     return 0
 
 
+def cmd_backup(hub: Hub, args) -> int:
+    path = hub.backup(args.out)
+    out(f"Backup creato: {path}")
+    out("Copialo su una chiavetta USB o un disco esterno e in un secondo luogo (es. cloud personale).")
+    out("Le chiavi private nel backup restano cifrate: senza passphrase non servono a nessuno.")
+    return 0
+
+
 def cmd_web(hub: Hub, args) -> int:
     from .web import serve
     p = get_passphrase(args)
@@ -398,6 +406,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     q = add("log", cmd_log, "registro delle operazioni dell'hub")
     q.add_argument("--limit", type=int, default=50)
+    q = add("backup", cmd_backup, "crea un archivio .zip con chiavi, registro e licenze emesse")
+    q.add_argument("--out", help="percorso del file .zip (predefinito: <cartella dati>/backups/)")
     q = add("web", cmd_web, "pagina di amministrazione locale (solo 127.0.0.1)")
     q.add_argument("--port", type=int, default=8765)
     q.add_argument("--no-browser", action="store_true")

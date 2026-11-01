@@ -4,3 +4,4 @@ __pycache__/
 *.docmap-licence
 *.key.pem
 .hubdata/
+.venv/
