@@ -2,7 +2,7 @@
    DocMap 2026 — core: i18n, state, persistence, data model helpers
    ===================================================================== */
 'use strict';
-const APP_VERSION = '26.6.0';
+const APP_VERSION = '26.7.0';
 const LS_KEY = 'docmap_v26_state';
 const LS_PREV = 'docmap_v26_state_prev';
 const SC_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
@@ -346,7 +346,7 @@ function normalizeBinder(b){
 /* Sheet presets, die-cut formats in order of popularity (Avery and compatible
    Herma/Tico/APLI codes share the same geometry). Values from manufacturer templates. */
 const BUILTIN_PRESETS = [
-  {id:'mrink143', kind:'die', recommended:1, name:'4 etichette 105×148 (A6) — 8 moduli da dividere · MRINK143', w:105, h:148, cols:2, rows:2, marginTop:0.5, marginLeft:0, gapX:0, gapY:0, radius:0, cut:false},
+  {id:'mrink143', kind:'die', recommended:1, name:'4 etichette 105×148 (A6) — 8 etichette da dividere · MRINK143', w:105, h:74, cols:2, rows:4, group:2, turn:true, marginTop:0.5, marginLeft:0, gapX:0, gapY:0, radius:0, cut:false},
   {id:'l7160', kind:'die', popular:1, name:'21 etichette 63,5×38,1 (Avery L7160 / J8160)', w:63.5, h:38.1, cols:3, rows:7, marginTop:15.15, marginLeft:7.2, gapX:2.55, gapY:0, radius:2, cut:false},
   {id:'l7163', kind:'die', popular:2, name:'14 etichette 99,1×38,1 (Avery L7163 / J8163)', w:99.1, h:38.1, cols:2, rows:7, marginTop:15.15, marginLeft:4.65, gapX:2.5, gapY:0, radius:2, cut:false},
   {id:'l7165', kind:'die', popular:3, name:'8 etichette 99,1×67,7 (Avery L7165 / J8165)', w:99.1, h:67.7, cols:2, rows:4, marginTop:13.1, marginLeft:4.65, gapX:2.5, gapY:0, radius:2, cut:false},
@@ -370,7 +370,9 @@ const OLD_DEFAULT_DESTS = ['https://archivio.studiodemo.it/view?code={speaking_c
 const GEO_KEYS = ['w','h','cols','rows','marginTop','marginLeft','gapX','gapY','radius'];
 function allPresets(){ return BUILTIN_PRESETS.concat(S.customPresets || []); }
 function findPreset(id){ return allPresets().find(p => p.id === id) || BUILTIN_PRESETS[0]; }
-function geoFromPreset(p){ const g = {}; GEO_KEYS.forEach(k => g[k] = p[k]); g.cut = !!p.cut; return g; }
+/* group: printed labels per physical label (cut apart by hand, stacked in rows); turn: labels are read with the sheet rotated. */
+function geoFromPreset(p){ const g = {}; GEO_KEYS.forEach(k => g[k] = p[k]); g.cut = !!p.cut; g.group = Math.max(1, p.group | 0) || 1; g.turn = !!p.turn; return g; }
+function presetGeo(id, customs){ return geoFromPreset(BUILTIN_PRESETS.concat(customs || []).find(p => p.id === id) || BUILTIN_PRESETS[0]); }
 
 /* ---------------- Demo dataset ---------------- */
 function demoBinders(){
@@ -395,7 +397,7 @@ function demoBinders(){
 /* ---------------- State ---------------- */
 function defaultState(){
   return {
-    schema:26.6, app:'DocMap26', lang:'it', view:'archive',
+    schema:26.7, app:'DocMap26', lang:'it', view:'archive',
     settings:{ studioName:'Studio Demo Commercialisti Associati', destTemplate:DEFAULT_DEST, qrEcc:'M' },
     binders:[],
     print:{ presetId:'mrink143', geometry:geoFromPreset(BUILTIN_PRESETS[0]), geometryModified:false, padding:4, offsetX:0, offsetY:0,
@@ -415,7 +417,7 @@ function migrate(st){
   o.settings = Object.assign(defaultState().settings, (st && st.settings) || {});
   if (OLD_DEFAULT_DESTS.includes(o.settings.destTemplate)) o.settings.destTemplate = DEFAULT_DEST;
   o.print = Object.assign(defaultState().print, (st && st.print) || {});
-  o.print.geometry = Object.assign(geoFromPreset(BUILTIN_PRESETS[0]), o.print.geometry || {});
+  o.print.geometry = Object.assign(presetGeo(o.print.presetId, o.customPresets), o.print.geometry || {});
   if (!(BUILTIN_PRESETS.concat(o.customPresets || [])).some(p => p.id === o.print.presetId)){ o.print.presetId = BUILTIN_PRESETS[0].id; o.print.geometry = geoFromPreset(BUILTIN_PRESETS[0]); o.print.geometryModified = false; }
   o.customPresets = Array.isArray(o.customPresets) ? o.customPresets : [];
   o.usedSlots = (o.usedSlots && typeof o.usedSlots === 'object') ? o.usedSlots : {};
@@ -423,7 +425,10 @@ function migrate(st){
   o.print.fields = Object.assign({}, o.print.fields || {}); o.print.split = Object.assign({ratio:0.5, rotate:-90, guides:true}, o.print.split || {});
   // v6: the MRINK143 split label becomes the default sheet once
   if (!(st && st.schema >= 26.6)){ o.print.presetId = 'mrink143'; o.print.geometry = geoFromPreset(BUILTIN_PRESETS[0]); o.print.geometryModified = false; o.print.contentMode = 'split'; o.print.padding = 4; }
-  o.schema = 26.6;
+  // v7: each physical MRINK143 label holds 2 complete labels (8 per sheet); old 105×148 geometry and slot maps are reset once
+  if (!(st && st.schema >= 26.7) && o.print.presetId === 'mrink143'){ o.print.geometry = presetGeo('mrink143'); o.print.geometryModified = false; o.usedSlots.mrink143 = []; }
+  o.print.pvLandscape = !!o.print.pvLandscape;
+  o.schema = 26.7;
   o.binders = Array.isArray(o.binders) ? o.binders.map(normalizeBinder) : [];
   if (!['it','en'].includes(o.lang)) o.lang = 'it';
   return o;

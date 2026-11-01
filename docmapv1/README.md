@@ -10,9 +10,9 @@ Archivio fisico-digitale: raccoglitori con codice parlante (BL1), posizione sull
 
 Al primo avvio parte un breve tour. Il pulsante **?** in alto (o F1) apre la guida con le azioni guidate.
 
-## Novità v6 in breve
+## Novità v6–v7 in breve
 
-- **Foglio predefinito MRINK143**: 4 etichette 105×148 per A4, ognuna divisa in 2 moduli da tagliare a mano (8 moduli per foglio).
+- **Foglio predefinito MRINK143**: 4 etichette fisiche 105×148 per A4, ognuna con 2 etichette complete da separare con la taglierina (8 per foglio). Anteprima verticale o orizzontale.
 - **Campi da stampare** accendibili uno per uno, stampa semplice con le cose difficili in **Opzioni avanzate**.
 - **Anagrafica clienti** importabile dal vostro CSV (es. `CLIENTI STORICI ELENCO TIPIZZATO.csv`): il faldone nuovo si compila da solo.
 - Posizione tutta facoltativa, **stanze con nome** ("Ufficio 1"), **tipo e colore del ripiano**.
@@ -36,27 +36,26 @@ Al primo avvio parte un breve tour. Il pulsante **?** in alto (o F1) apre la gui
 - **Annulla:** dopo un'eliminazione, un import, il ripristino di una sessione o l'apertura di un `.sqlite` compare "Annulla" per alcuni secondi.
 - **Scorciatoie:** `F1` guida, `Ctrl+S` salva il faldone aperto (o fa il backup rapido), `Esc` chiude guida, aiuto o finestra. Se il faldone ha modifiche non salvate, `Esc` chiede conferma.
 
-## Etichetta divisa MRINK143 (predefinita)
+## Foglio MRINK143: 8 etichette complete (predefinito)
 
-Il foglio **MRINK143** è un A4 con **4 etichette 105×148 mm** (formato A6, 2×2, senza spazi tra le etichette). DocMap legge ogni etichetta **in orizzontale** (148×105) e la divide in **due moduli** che tagli a mano lungo la linea centrale: da ogni foglio escono 4 etichette fisiche e **8 moduli**.
+Il foglio **MRINK143** è un A4 con **4 etichette fisiche 105×148 mm** (formato A6, 2×2, senza spazi). Ogni etichetta fisica contiene **2 etichette stampate complete**, una per faldone, che separi con la taglierina lungo la linea a metà: da ogni foglio escono **8 etichette da 105×74 mm**.
 
-| Modulo | Cosa contiene |
-|---|---|
-| **Principale** (sopra) | Codice parlante grande in alto a sinistra, categoria grande, ragione sociale, luogo della ditta, Codice Multi, posizione, QR in alto a destra con l'URL piccolo sotto, banda colorata del dorso. |
-| **Archivio** (sotto) | Descrizione/titolo, anno di riferimento, contenuti, tag, data (creazione o aggiornamento) e codici extra, più il codice parlante e lo short code per riconoscerlo. |
-
+- Ogni etichetta si legge con il foglio girato (74 di larghezza × 105 di altezza). In alto il **codice parlante** a sinistra e il **QR** a destra con l'URL piccolo sotto. Poi categoria, Codice Multi e posizione; ragione sociale e luogo; titolo con anno di riferimento; contenuti. In fondo tag, codici extra, data e short code.
+- **Ordine di stampa:** per etichetta fisica. La 1 e la 2 sono le due metà della prima etichetta fisica, la 3 e la 4 della seconda, e così via, nell'ordine in cui le leggi a foglio girato.
 - La **linea di taglio** è un tratteggio grigio chiarissimo (opacità bassa): si vede appena da vicino. Si toglie in Opzioni avanzate.
-- Il testo è ruotato di **−90°**: il foglio entra in verticale nella stampante e l'etichetta si legge in orizzontale. Se la tua stampante gira il foglio al contrario scegli **+90°** in Opzioni avanzate › Divisione dei moduli. Lì puoi anche cambiare l'altezza del modulo principale (30–70%).
-- Fogli parziali: in Opzioni avanzate › mappa del foglio clicca le etichette già usate, la stampa parte dalla prima libera.
-- Gli altri fogli (L7160, L7163…) restano disponibili sotto **"Altri fogli"**, con i contenuti "Coppia sdoppiata", "Solo A", "Solo B" e "Unificata".
+- **Anteprima:** di base è **verticale**, come il foglio entra in stampante. Il pulsante **Orizzontale** sopra l'anteprima gira solo la vista, per leggere le etichette dritte. La stampa non cambia.
+- Il testo è ruotato di **−90°**. Se la tua stampante gira il foglio al contrario scegli **+90°** in Opzioni avanzate › Verso di lettura e linea di taglio.
+- **Tutti i contenuti seguono lo stesso verso.** Con "Coppia Sdoppiata" il Modulo A va sopra e il Modulo B sotto nella stessa etichetta fisica; anche "Solo A", "Solo B" e "Unificata" usano il foglio girato.
+- **Fogli parziali:** la mappa del foglio ha 8 caselle raggruppate nelle 4 etichette fisiche. Puoi segnare come usata anche una sola metà: la stampa userà l'altra.
+- Gli altri fogli (L7160, L7163…) restano disponibili sotto **"Altri fogli"**.
 
 ### Campi da stampare (Stampa › Campi da stampare)
 
-Il **codice parlante** c'è sempre. Si possono accendere o spegnere: categoria, luogo ditta, Codice Multi, URL piccolo sotto il QR, descrizione/titolo, anno di riferimento, contenuti, tag, codici extra, posizione e la data (creazione, aggiornamento o nessuna). Un campo vuoto non lascia buchi. Il tag `demo` non viene mai stampato.
+Il **codice parlante** c'è sempre. Si possono accendere o spegnere: categoria, luogo ditta, Codice Multi, URL piccolo sotto il QR, descrizione/titolo, anno di riferimento, contenuti, tag, codici extra, posizione e la data (creazione, aggiornamento o nessuna). Un campo vuoto non lascia buchi e **non stampa mai "Voce:" seguita dal nulla**. Se invece vuoi lo spazio da compilare a mano, accendi **Stampa anche i campi vuoti**: comparirà "Voce: ____". Il tag `demo` non viene mai stampato.
 
 ### Stampa: base e Opzioni avanzate
 
-La colonna di sinistra mostra solo coda di stampa, foglio (con il consigliato in evidenza), contenuto, campi, QR e qualità. **Opzioni avanzate** (riquadro richiudibile, resta come l'hai lasciato) contiene geometria del foglio, offset e margine interno, divisione dei moduli, recupero dei fogli parziali e calibrazione. Le guide lo aprono da sole quando serve.
+La colonna di sinistra mostra solo coda di stampa, foglio (con il consigliato in evidenza), contenuto, campi, QR e qualità. **Opzioni avanzate** (riquadro richiudibile, resta come l'hai lasciato) contiene geometria del foglio, offset e margine interno, verso di lettura e linea di taglio, recupero dei fogli parziali e calibrazione. Le guide lo aprono da sole quando serve.
 
 ## Anagrafica clienti
 
@@ -120,7 +119,7 @@ Il template cambia l'etichetta frontale. L'etichetta dei contenuti e quella unif
 
 ## Formati etichette
 
-Predefinito: **MRINK143** (4 per foglio, 105×148, 8 moduli). Poi i più usati, in ordine: **L7160** (21 per foglio, 63,5×38,1), **L7163** (14, 99,1×38,1), **L7165** (8, 99,1×67,7), **L7173** (10, 99,1×57). Ci sono altri formati fustellati e i layout **A4 adesivo intero** (da tagliare), più la geometria personalizzata con "Riempi A4" e "Centra". Font: Inter per il testo e JetBrains Mono per i codici, inclusi nella cartella e quindi uguali su ogni PC.
+Predefinito: **MRINK143** (4 etichette fisiche 105×148 = 8 etichette 105×74). Poi i più usati, in ordine: **L7160** (21 per foglio, 63,5×38,1), **L7163** (14, 99,1×38,1), **L7165** (8, 99,1×67,7), **L7173** (10, 99,1×57). Ci sono altri formati fustellati e i layout **A4 adesivo intero** (da tagliare), più la geometria personalizzata con "Riempi A4" e "Centra". Font: Inter per il testo e JetBrains Mono per i codici, inclusi nella cartella e quindi uguali su ogni PC.
 
 ## Dati e backup
 
@@ -139,11 +138,12 @@ Predefinito: **MRINK143** (4 per foglio, 105×148, 8 moduli). Poi i più usati, 
 | Le etichette si rimpiccioliscono | Nella stampa scegli "Margini: nessuno" e disattiva "Adatta alla pagina". |
 | Accenti o lettere greche strane dopo l'import | Il file era ANSI: DocMap lo segnala. Da Excel salva come "CSV UTF-8". |
 | L'import dice "nessuna riga valida" | Serve almeno una colonna con il nome del cliente (`company_name` o `cliente`). |
+| Quale livello di correzione QR scelgo? | **M** (predefinito) va bene quasi sempre. **L** fa quadratini più grandi, utile se il QR è piccolo. **Q** o **H** reggono graffi e sporco ma fanno quadratini più piccoli: usali solo con QR di almeno 20 mm. |
 | Il QR non si legge | Nel riquadro "Qualità di stampa" il QR deve essere almeno 15 mm. Usa la modalità "solo QR" o un formato più grande. |
 | Ho cancellato per errore | Premi subito "Annulla". Più tardi: Database, poi ripristina una sessione, oppure reimporta l'ultimo backup JSON. |
 | Una foto non si carica | Le foto HEIC di iPhone non si aprono in Chrome su Windows. Imposta la fotocamera su "Più compatibile" (JPG) o usa una foto PNG/JPG. |
 | "Il motore SQLite non si è avviato" | Apri `index.html` dalla cartella estratta, non da dentro lo zip. |
-| Sull'etichetta divisa il testo è capovolto | In Opzioni avanzate › Divisione dei moduli scegli l'altra rotazione (+90° / −90°). |
+| Su MRINK143 il testo è capovolto | In Opzioni avanzate › Verso di lettura scegli l'altra rotazione (+90° / −90°). |
 | La linea di taglio non cade a metà | Controlla Scala 100% e Margini nessuno; se serve correggi gli offset con la calibrazione. |
 | L'elenco clienti viene letto come faldoni | Deve esserci la colonna `Ragione_soc` (o `ragione_sociale`) e nessuna colonna da faldone come `speaking_code`. |
 
@@ -177,4 +177,4 @@ Servono Node.js, `playwright`, `jsqr`, `pngjs` e Python con `pypdfium2`.
 cd tests && npm i playwright jsqr pngjs && pip install pypdfium2 && node suite.js
 ```
 
-La suite (452 controlli) apre l'app in Chromium. Controlla tutte le schermate e stampa ogni formato in PDF, leggendo ogni QR uno per uno. Verifica anche import ed export, SQLite, le guide, le prestazioni con 2000 faldoni e i casi limite trovati nella caccia ai bug. Dalla v6 controlla anche etichetta divisa, campi, anagrafica clienti, dati demo, ripiani e la guida libera.
+La suite (459 controlli) apre l'app in Chromium. Controlla tutte le schermate e stampa ogni formato in PDF, leggendo ogni QR uno per uno. Verifica anche import ed export, SQLite, le guide, le prestazioni con 2000 faldoni e i casi limite trovati nella caccia ai bug. Dalla v6–v7 controlla anche le 8 etichette di MRINK143, la vista orizzontale, i campi vuoti, campi, anagrafica clienti, dati demo, ripiani e la guida libera.

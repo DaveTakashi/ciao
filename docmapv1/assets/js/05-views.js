@@ -215,10 +215,10 @@ function renderEdPreview(){
   const w = Math.max(240, Math.min(440, box.clientWidth - 34 || 400));
   const kinds = Array.from(new Set(modeKinds(S.print.contentMode)));
   const g = S.print.geometry;
-  // the split label is shown the way it is read on the binder (landscape), not as it sits on the sheet
-  const gUp = Object.assign({}, g, {w:Math.max(g.w, g.h), h:Math.min(g.w, g.h)});
+  // labels are shown the way they are read on the binder, not as they sit on a turned sheet
+  const gUp = frameGeo(g);
   const name = {A:'Modulo A', B:'Modulo B', U:'Unificata', S:t('cm_split')};
-  box.innerHTML = kinds.map(k => '<div style="text-align:center"><div class="tiny muted mono" style="margin-bottom:4px">' + esc(name[k] || k) + '</div>' + labelPreviewHTML(k, b, w, k === 'S' ? gUp : null) + '</div>').join('');
+  box.innerHTML = kinds.map(k => '<div style="text-align:center"><div class="tiny muted mono" style="margin-bottom:4px">' + esc(name[k] || k) + '</div>' + labelPreviewHTML(k, b, w, gUp) + '</div>').join('');
 }
 function edRefreshDerived(){
   const d = UI.ed.d;
@@ -278,7 +278,7 @@ function presetThumb(p){
 function viewPrint(){
   const P = S.print, g = P.geometry;
   const groups = [['die', t('pr_die')], ['full', t('pr_full')], ['custom', t('pr_custom')]];
-  const presetBtn = (p, k) => '<button type="button" class="preset ' + (P.presetId === p.id ? 'on' : '') + '" data-a="preset" data-id="' + p.id + '">' + presetThumb(p) + '<span style="min-width:0;flex:1"><span class="pt">' + (p.recommended ? '<span class="pop rec">✓ ' + esc(t('pr_recommended')) + '</span> ' : p.popular ? '<span class="pop">★ ' + esc(t('pr_popular')) + '</span> ' : '') + esc(p.name) + '</span><br><span class="pd">' + fmtMM(p.w) + '×' + fmtMM(p.h) + ' mm • ' + p.cols + '×' + p.rows + ' = ' + (p.cols * p.rows) + (p.id === 'mrink143' ? ' → ' + esc(t('pr_8mod')) : '') + '</span></span>' + (k === 'custom' ? '<span class="icon-btn danger" data-a="del-preset" data-id="' + p.id + '" title="' + esc(t('g_del_preset')) + '">' + ic('trash') + '</span>' : '') + '</button>';
+  const presetBtn = (p, k) => '<button type="button" class="preset ' + (P.presetId === p.id ? 'on' : '') + '" data-a="preset" data-id="' + p.id + '">' + presetThumb(p) + '<span style="min-width:0;flex:1"><span class="pt">' + (p.recommended ? '<span class="pop rec">✓ ' + esc(t('pr_recommended')) + '</span> ' : p.popular ? '<span class="pop">★ ' + esc(t('pr_popular')) + '</span> ' : '') + esc(p.name) + '</span><br><span class="pd">' + ((p.group | 0) > 1 ? fmtMM(p.w) + '×' + fmtMM(p.h * p.group) + ' mm • ' + p.cols + '×' + (p.rows / p.group) + ' = ' + (p.cols * p.rows / p.group) + ' → ' + esc(t('pr_8mod', {n:p.cols * p.rows, s:fmtMM(p.w) + '×' + fmtMM(p.h)})) : fmtMM(p.w) + '×' + fmtMM(p.h) + ' mm • ' + p.cols + '×' + p.rows + ' = ' + (p.cols * p.rows)) + '</span></span>' + (k === 'custom' ? '<span class="icon-btn danger" data-a="del-preset" data-id="' + p.id + '" title="' + esc(t('g_del_preset')) + '">' + ic('trash') + '</span>' : '') + '</button>';
   const isBasic = (p) => p.recommended || p.popular || p.id === P.presetId;
   const basicPresets = allPresets().filter(isBasic).map(p => presetBtn(p, p.kind || 'custom')).join('');
   const others = groups.map(([k, lab]) => {
@@ -301,6 +301,7 @@ function viewPrint(){
         '</div><div class="geo-row" style="margin-top:10px"><span class="lbl">' + esc(t('copies')) + '</span><input class="inp" style="width:90px;min-height:38px" type="number" min="1" max="50" step="1" value="' + (P.copies || 1) + '" data-pp="copies"></div></div>' +
       '<div class="panel-sec" id="pr-fields"><h3>' + esc(t('pr_fields')) + helpDot('fields') + '</h3><div class="fld-grid">' +
         [['category','f_category'],['city','f_city'],['multi','f_multi'],['url','qr_url_s'],['title','f_title_s'],['year','f_year_ref'],['contents','f_contents_s'],['tags','f_tags'],['extra','f_extra'],['location','fl_location']].map(([k, lab]) => '<label class="chk small"><input type="checkbox" data-fld="' + k + '"' + (pf(k) ? ' checked' : '') + '>' + esc(t(lab)) + '</label>').join('') +
+        '<label class="chk small fld-empty"><input type="checkbox" data-fld="empty"' + (pf('empty') ? ' checked' : '') + '><span><b>' + esc(t('f_empty')) + '</b><br><span class="muted">' + esc(t('f_empty_d')) + '</span></span></label>' +
         '</div><div class="geo-row" style="margin-top:10px"><span class="lbl">' + esc(t('f_date')) + '</span><select class="inp" style="width:auto;min-height:34px;padding:4px 8px" data-fld="date">' + [['created','fd_created'],['updated','fd_updated'],['none','fd_none']].map(([v, lab]) => '<option value="' + v + '"' + (pf('date') === v ? ' selected' : '') + '>' + esc(t(lab)) + '</option>').join('') + '</select></div>' +
         '<div class="hint" style="margin-top:6px">' + esc(t('pr_fields_d')) + '</div></div>' +
       (P.contentMode === 'pair' || P.contentMode === 'a' ? '<div class="panel-sec"><h3>' + esc(t('pr_tpl')) + helpDot('templates') + '</h3><div class="opt-grid">' +
@@ -309,7 +310,7 @@ function viewPrint(){
       '<div class="panel-sec"><h3>' + esc(t('pr_qr')) + '</h3><div class="opt-grid">' +
         opt('qmode', 'live', t('qm_live'), t('qm_live_d'), P.qrMode, true) + opt('qmode', 'placeholder', t('qm_ph'), t('qm_ph_d'), P.qrMode) + opt('qmode', 'none', t('qm_none'), t('qm_none_d'), P.qrMode) +
         '</div><div class="row" style="margin-top:10px;justify-content:space-between"><label class="chk small"><input type="checkbox" data-pp="showQrUrl"' + (P.showQrUrl ? ' checked' : '') + '>' + esc(t('qr_url')) + '</label>' +
-        '<label class="small row" style="gap:6px">' + esc(t('qr_ecc')) + ' <select class="inp" style="width:auto;min-height:34px;padding:4px 8px" data-pp="qrEcc">' + ['L','M','Q','H'].map(e => '<option' + (S.settings.qrEcc === e ? ' selected' : '') + '>' + e + '</option>').join('') + '</select></label></div></div>' +
+        '<label class="small row" style="gap:6px">' + esc(t('qr_ecc')) + ' <select class="inp" style="width:auto;min-height:34px;padding:4px 8px" data-pp="qrEcc">' + ['L','M','Q','H'].map(e => '<option value="' + e + '"' + (S.settings.qrEcc === e ? ' selected' : '') + '>' + esc(t('ecc_' + e)) + '</option>').join('') + '</select></label></div><div class="hint" style="margin-top:6px">' + esc(t('qr_ecc_d')) + '</div></div>' +
       '<div class="panel-sec"><h3>' + esc(t('pr_quality')) + helpDot('design') + '</h3><div id="pr-quality"></div></div>' +
       '<details class="adv" id="pr-adv"' + (P.advanced ? ' open' : '') + '><summary>' + ic('sliders') + esc(t('pr_adv')) + '<span class="tiny muted" style="margin-left:auto;font-weight:500">' + esc(t('pr_adv_d')) + '</span></summary>' +
       '<div class="panel-sec"><div class="row between"><h3 style="margin:0">' + esc(t('pr_geo')) + '</h3><span id="geo-mod">' + (P.geometryModified ? '<span class="badge b-out">' + esc(t('g_modified')) + '</span>' : '') + '</span></div>' +
@@ -327,7 +328,6 @@ function viewPrint(){
         '<div class="row" style="margin-top:8px"><button class="btn btn-sm" data-a="geo-reset">' + ic('rotate') + esc(t('g_reset')) + '</button><button class="btn btn-sm" data-a="geo-save">' + ic('save') + esc(t('g_savepreset')) + '</button></div>' +
         '<div class="geo-warn err-t" id="geo-warn" style="margin-top:8px"></div></div>' +
         '<div class="adv-sub"><h3>' + esc(t('sp_h')) + helpDot('split') + '</h3>' +
-          geoInput('ratio', t('sp_ratio'), 30, 70, 1, Math.round(((P.split || {}).ratio || 0.5) * 100), 'sp') +
           '<div class="geo-row"><span class="lbl">' + esc(t('sp_rot')) + '</span><select class="inp" style="width:auto;min-height:34px;padding:4px 8px" data-sp="rotate"><option value="-90"' + ((P.split || {}).rotate !== 90 ? ' selected' : '') + '>' + esc(t('sp_rot_l')) + '</option><option value="90"' + ((P.split || {}).rotate === 90 ? ' selected' : '') + '>' + esc(t('sp_rot_r')) + '</option></select></div>' +
           '<label class="chk small"><input type="checkbox" data-sp="guides"' + ((P.split || {}).guides !== false ? ' checked' : '') + '>' + esc(t('sp_guides')) + '</label></div>' +
       '<div class="panel-sec"><h3>' + esc(t('pr_slots')) + helpDot('partial') + '</h3><div class="slotmap-wrap"><div class="slotmap" id="slotmap"></div><div class="stack">' +
@@ -339,7 +339,8 @@ function viewPrint(){
       '<div class="panel-sec"><div class="info-box small">' + ic('crosshair') + '<div><b>' + esc(t('pr_calib')) + '</b>' + helpDot('calib') + '<br>' + esc(t('pr_calib_d')) + '</div></div></div>' +
       '</details>' +
     '</div>' +
-    '<div class="preview-pane card"><div class="toolbar" style="justify-content:space-between;border-bottom:1px solid var(--border)"><div class="seg"><button data-a="pv-mode" data-v="labels" class="' + (P.previewMode !== 'calib' ? 'on' : '') + '">' + ic('eye') + ' ' + esc(t('pv_labels')) + '</button><button data-a="pv-mode" data-v="calib" class="' + (P.previewMode === 'calib' ? 'on' : '') + '">' + ic('crosshair') + ' ' + esc(t('pv_calib')) + '</button></div><div class="sum-line" id="pv-sum"></div></div>' +
+    '<div class="preview-pane card"><div class="toolbar" style="justify-content:space-between;border-bottom:1px solid var(--border)"><div class="seg"><button data-a="pv-mode" data-v="labels" class="' + (P.previewMode !== 'calib' ? 'on' : '') + '">' + ic('eye') + ' ' + esc(t('pv_labels')) + '</button><button data-a="pv-mode" data-v="calib" class="' + (P.previewMode === 'calib' ? 'on' : '') + '">' + ic('crosshair') + ' ' + esc(t('pv_calib')) + '</button></div>' +
+      '<div class="seg" title="' + esc(t('pv_rot_d')) + '"><button data-a="pv-rot" data-v="0" class="' + (!P.pvLandscape ? 'on' : '') + '">' + esc(t('pv_portrait')) + '</button><button data-a="pv-rot" data-v="1" class="' + (P.pvLandscape ? 'on' : '') + '">' + ic('rotate') + ' ' + esc(t('pv_landscape')) + '</button></div><div class="sum-line" id="pv-sum"></div></div>' +
       '<div class="preview-scroll" id="pv-scroll"></div></div></div>';
 }
 let pvObserver = null;
@@ -366,7 +367,7 @@ function renderQuality(){
   const g = S.print.geometry, P = S.print, b = printQueueBinders()[0] || S.binders[0];
   if (!b){ el.innerHTML = ''; return; }
   const kinds = modeKinds(P.contentMode);
-  kinds.forEach(k => renderLabel(k, b, g, P));
+  kinds.forEach(k => renderLabel(k, b, frameGeo(g), P));
   const rows = [];
   const line = (ok, txt) => rows.push('<div class="q-row ' + (ok === true ? 'ok' : ok === 'warn' ? 'warn' : 'bad') + '">' + ic(ok === true ? 'check' : 'alert') + '<span>' + txt + '</span></div>');
   const pt = (mm) => (mm * 72 / 25.4).toFixed(1);
@@ -400,7 +401,13 @@ function renderSlotMap(){
     const R = slotRect(s);
     const cls = used.has(s) ? 'used' : (firstIsPartial && first.has(s) ? 'q' : '');
     const fs = Math.max(7, Math.min(11, g.h / 297 * 200 * 0.35));
-    h += '<button type="button" class="slot ' + cls + '" data-a="slot" data-s="' + s + '" title="#' + (s + 1) + ' (R' + (R.r + 1) + '-C' + (R.c + 1) + ')" style="left:' + (R.x / 210 * 100) + '%;top:' + (R.y / 297 * 100) + '%;width:' + (g.w / 210 * 100) + '%;height:' + (g.h / 297 * 100) + '%;font-size:' + fs + 'px">' + (s + 1) + '</button>';
+    const no = slotNo(s);
+    h += '<button type="button" class="slot ' + cls + '" data-a="slot" data-s="' + s + '" title="#' + no + ' (R' + (R.r + 1) + '-C' + (R.c + 1) + ')" style="left:' + (R.x / 210 * 100) + '%;top:' + (R.y / 297 * 100) + '%;width:' + (g.w / 210 * 100) + '%;height:' + (g.h / 297 * 100) + '%;font-size:' + fs + 'px">' + no + '</button>';
+  }
+  const k = Math.max(1, g.group | 0);
+  if (k > 1 && g.rows % k === 0) for (let pr = 0; pr < g.rows / k; pr++) for (let c = 0; c < g.cols; c++){
+    const R = slotRect(pr * k * g.cols + c);
+    h += '<i class="slot-phys" style="left:' + (R.x / 210 * 100) + '%;top:' + (R.y / 297 * 100) + '%;width:' + (g.w / 210 * 100) + '%;height:' + ((g.h * k + g.gapY * (k - 1)) / 297 * 100) + '%"></i>';
   }
   box.innerHTML = h;
   const c = $('#sl-count'); if (c) c.textContent = t('sl_count', {a:N - used.size, n:N});
@@ -408,12 +415,16 @@ function renderSlotMap(){
 }
 function renderPrintPreview(){
   const sc = $('#pv-scroll'); if (!sc) return;
-  const avail = Math.max(260, sc.clientWidth - 40), scale = Math.min(1.25, avail / (210 * PX_PER_MM));
+  const land = !!S.print.pvLandscape;
+  const avail = Math.max(260, sc.clientWidth - 40), scale = Math.min(1.25, avail / ((land ? 297 : 210) * PX_PER_MM));
   const isCalib = S.print.previewMode === 'calib';
+  // landscape view: the sheet is turned so that labels read straight (opposite of the content rotation)
+  const W = 210 * PX_PER_MM * scale, H = 297 * PX_PER_MM * scale;
+  const tf = !land ? 'scale(' + scale + ')' : turnDir(S.print) === -90 ? 'translateX(' + H + 'px) rotate(90deg) scale(' + scale + ')' : 'translateY(' + W + 'px) rotate(-90deg) scale(' + scale + ')';
   let sheets = isCalib ? [buildCalibSheet()] : buildLabelSheets(true);
   const total = sheets.length, MAX = 8;
   if (sheets.length > MAX) sheets = sheets.slice(0, MAX);
-  sc.innerHTML = sheets.map((sh, i) => '<div class="sheet-cap">' + esc(isCalib ? t('pv_calib') : t('pv_sheet', {n:i + 1, t:total})) + '</div><div class="sheet-holder" style="width:' + (210 * PX_PER_MM * scale) + 'px;height:' + (297 * PX_PER_MM * scale) + 'px">' + sh.replace('class="sheet"', 'class="sheet" style="transform:scale(' + scale + ')"') + '</div>').join('') +
+  sc.innerHTML = sheets.map((sh, i) => '<div class="sheet-cap">' + esc(isCalib ? t('pv_calib') : t('pv_sheet', {n:i + 1, t:total})) + '</div><div class="sheet-holder" style="width:' + (land ? H : W) + 'px;height:' + (land ? W : H) + 'px">' + sh.replace('class="sheet"', 'class="sheet" style="transform:' + tf + '"') + '</div>').join('') +
     (total > MAX ? '<div class="small muted">' + esc(t('pv_more', {n:MAX})) + '</div>' : '');
 }
 function setGeo(key, val, isPP){
@@ -544,7 +555,7 @@ function applyImport(mode){
     if (IP.workspace && UI.restoreAll){
       const W = IP.workspace;
       if (W.settings) S.settings = Object.assign(defaultState().settings, W.settings);
-      if (W.print) S.print = Object.assign(defaultState().print, W.print, {geometry:Object.assign(geoFromPreset(BUILTIN_PRESETS[0]), (W.print || {}).geometry || {})});
+      if (W.print) S.print = Object.assign(defaultState().print, W.print, {geometry:Object.assign(presetGeo((W.print || {}).presetId, W.customPresets || S.customPresets), (W.print || {}).geometry || {})});
       if (Array.isArray(W.customPresets)) S.customPresets = W.customPresets;
       if (W.usedSlots && typeof W.usedSlots === 'object') S.usedSlots = W.usedSlots;
       if (Array.isArray(W.clients)) S.clients = W.clients.map(normalizeClient);

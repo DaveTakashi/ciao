@@ -181,7 +181,7 @@ function applyWorkspaceObject(W){
   ensureIntegrity();
   if (Array.isArray(W.clients)) S.clients = W.clients.map(normalizeClient);
   if (W.settings) S.settings = Object.assign(defaultState().settings, W.settings);
-  if (W.print) S.print = Object.assign(defaultState().print, W.print, {geometry:Object.assign(geoFromPreset(BUILTIN_PRESETS[0]), W.print.geometry || {})});
+  if (W.print) S.print = Object.assign(defaultState().print, W.print, {geometry:Object.assign(presetGeo(W.print.presetId, S.customPresets), W.print.geometry || {})});
   if (Array.isArray(W.customPresets)) S.customPresets = W.customPresets;
   if (W.usedSlots && typeof W.usedSlots === 'object') S.usedSlots = W.usedSlots;
   if (W.lang === 'it' || W.lang === 'en') S.lang = W.lang;

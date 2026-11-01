@@ -102,6 +102,7 @@ const ACTIONS = {
   'cmode': (el) => { S.print.contentMode = el.dataset.v; savePrefs(); const y = window.scrollY, pane = $('.studio > .card'), py = pane ? pane.scrollTop : 0; renderView(); window.scrollTo(0, y); const p2 = $('.studio > .card'); if (p2) p2.scrollTop = py; },
   'tpl': (el) => { S.print.template = el.dataset.v; savePrefs(); $$('[data-a="tpl"]').forEach(b => b.classList.toggle('on', b === el)); refreshPrint(); },
   'qmode': (el) => { S.print.qrMode = el.dataset.v; savePrefs(); $$('[data-a="qmode"]').forEach(b => b.classList.toggle('on', b === el)); refreshPrint(); },
+  'pv-rot': (el) => { S.print.pvLandscape = el.dataset.v === '1'; savePrefs(); $$('[data-a="pv-rot"]').forEach(b => b.classList.toggle('on', b === el)); renderPrintPreview(); },
   'pv-mode': (el) => { S.print.previewMode = el.dataset.v; savePrefs(); $$('[data-a="pv-mode"]').forEach(b => b.classList.toggle('on', b === el)); refreshPrint(); },
   'slot': (el) => {
     const s = +el.dataset.s, id = S.print.presetId, set = usedSet();
@@ -111,7 +112,7 @@ const ACTIONS = {
   'slots-free': () => { S.usedSlots[S.print.presetId] = []; savePrefs(); refreshPrint(); },
   'slots-start': () => {
     const N = slotCount(), n = clamp(parseInt($('#sl-start').value, 10) || 1, 1, N);
-    S.usedSlots[S.print.presetId] = Array.from({length:n - 1}, (_, i) => i); savePrefs(); refreshPrint();
+    S.usedSlots[S.print.presetId] = slotSeq().slice(0, n - 1).sort((a, b) => a - b); savePrefs(); refreshPrint();
   },
   'print-labels': () => printLabels(),
   'print-calib': () => printCalibration(),

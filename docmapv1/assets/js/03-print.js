@@ -56,91 +56,110 @@ function contentsBlock(items, x, y, w, hAvail, fMax, opts){
 }
 
 /* ---------------------------------------------------------------------
-   Split label (default MRINK143 sheet): one physical 105×148 label is
-   read in landscape (148×105) and holds two modules, cut apart by hand:
-   top = master (code, category, company, place, Multi, QR + URL),
-   bottom = archive (description, reference year, contents, tags, date, extra codes).
-   Content is rotated inside the portrait slot; the cut line is barely visible.
+   Complete label (default on the MRINK143 sheet). The physical 105×148
+   label is cut in half by hand: each half (105×74 on the sheet) is a
+   complete, independent label for one binder, read with the sheet turned
+   (74 wide × 105 tall): code + QR on top, category, company, place,
+   Multi, location, title, year, contents, tags, date, extra codes.
    --------------------------------------------------------------------- */
-const DEFAULT_FIELDS = { category:true, city:true, multi:true, url:true, title:true, year:true, contents:true, tags:true, extra:true, location:true, date:'created' };
+const DEFAULT_FIELDS = { category:true, city:true, multi:true, url:true, title:true, year:true, contents:true, tags:true, extra:true, location:true, date:'created', empty:false };
 function pf(k){ const f = Object.assign({}, DEFAULT_FIELDS, S.print.fields || {}); return f[k]; }
-function splitGeom(g, P){
-  const rotate = g.h > g.w * 1.05;            // portrait slot → rotate content to landscape
-  const W = rotate ? g.h : g.w, H = rotate ? g.w : g.h;
-  const ratio = clamp(+((P.split || {}).ratio) || 0.5, 0.3, 0.7);
-  return { rotate, W, H, Ht:H * ratio, Hb:H * (1 - ratio), dir:((P.split || {}).rotate === 90 ? 90 : -90) };
+/* Reading frame of a slot: on "turned" sheets (MRINK143) labels are read with the sheet rotated. */
+function frameGeo(g){ return g.turn ? Object.assign({}, g, {w:g.h, h:g.w, radius:0}) : g; }
+const turnDir = (P) => ((P.split || {}).rotate === 90 ? 90 : -90);
+/* Render a label inside its slot, rotated when the sheet is read turned. */
+function renderSlotLabel(kind, b, g, P){
+  if (!g.turn) return renderLabel(kind, b, g, P);
+  const f = frameGeo(g);
+  const tf = turnDir(P) === -90 ? 'translateY(' + MM(g.h) + ') rotate(-90deg)' : 'translateX(' + MM(g.w) + ') rotate(90deg)';
+  return '<div class="lab-turn" style="position:absolute;left:0;top:0;width:' + MM(f.w) + ';height:' + MM(f.h) + ';transform-origin:0 0;transform:' + tf + '">' + renderLabel(kind, b, f, P) + '</div>';
 }
-function splitTop(b, W, H, P){
-  const pad = clamp(+P.padding || 0, 0, H / 4), sp = clamp(H * 0.08, 2.5, 5);
+/* "Label: ____" placeholder used when empty fields are printed on purpose (Print › Fields). */
+function blankField(label, fs, wmm){
+  return '<span style="white-space:nowrap">' + esc(label) + ': <span style="display:inline-block;vertical-align:baseline;width:' + MM(wmm || fs * 6) + ';border-bottom:' + MM(Math.max(0.15, fs * 0.06)) + ' solid #000"></span></span>';
+}
+function renderFull(b, g, P){
+  const W = g.w, H = g.h;
+  if (W > H * 1.15) return renderLabel('U', b, g, P);        // landscape slot: the unified label fits better
+  const E = !!pf('empty');
+  const pad = clamp(+P.padding || 0, 0, W / 5), sp = clamp(W * 0.045, 2, 4);
   const x0 = sp + pad, y0 = pad, iw = W - x0 - pad, ih = H - 2 * pad;
   const live = P.qrMode === 'live';
-  let q = 0, urlFs = 0, html = '<div class="spine-bar" style="width:' + MM(sp) + ';background:' + esc(b.color_hex) + '"></div>';
+  let html = '<div class="lab"><div class="spine-bar" style="width:' + MM(sp) + ';background:' + esc(b.color_hex) + '"></div>';
+  // ---- header: speaking code (left) + QR (right)
+  let q = 0, urlFs = 0;
   if (P.qrMode !== 'none'){
-    if (live && pf('url')) urlFs = clamp(ih * 0.06, 1.6, 2.4);
-    q = Math.min(ih - (urlFs ? urlFs * 1.4 : 0), iw * 0.36);
-    const qx = x0 + iw - q, qy = y0 + (ih - q - (urlFs ? urlFs * 1.4 : 0)) / 2;
-    html += qrBox(b, qx, qy, q, P) + qrUrlText(b, qx, qy + q + urlFs * 0.15, q, urlFs);
+    q = Math.min(iw * 0.42, ih * 0.3);
+    if (live && pf('url')) urlFs = clamp(q * 0.075, 1.5, 2.2);
+    html += qrBox(b, x0 + iw - q, y0, q, P) + qrUrlText(b, x0 + iw - q, y0 + q + urlFs * 0.15, q, urlFs);
   }
-  const gap = Math.max(2.5, pad);
-  const tw = iw - (q ? q + gap : 0);
+  const hdrH = Math.max(q + (urlFs ? urlFs * 1.45 : 0), ih * 0.2);
+  const gap = Math.max(2, iw * 0.04), tw = iw - (q ? q + gap : 0);
   const codeLen = Math.max(3, (b.speaking_code || '').length);
-  const fc = Math.min(ih * 0.3, tw * 0.55 / (codeLen * 0.62), 16);
-  const fcat = Math.min(fc * 0.52, 6.5);
-  const fco = Math.min(ih * 0.14, 6.2), fci = fco * 0.8, fm = Math.min(fco * 0.82, 4.6);
-  const showCat = pf('category') && b.category, showCity = pf('city') && b.company_city;
-  const multi = pf('multi') && showMulti(b);
+  const fc = Math.min(tw / (codeLen * 0.64), hdrH * 0.42, 15);
+  const catLen = Math.max(6, (b.category || '').length);
+  const fcat = clamp(Math.min(tw / (catLen * 0.66), fc * 0.42), 2.4, 5);
+  const fm = clamp(Math.min(fc * 0.3, tw / 11), 2.2, 3.4);
   const chips = [];
-  if (multi) chips.push('<span style="white-space:nowrap"><span style="font-size:' + MM(fm * 0.62) + ';font-weight:800;letter-spacing:.08em;margin-right:' + MM(fm * 0.25) + '">MULTI</span><span class="lmono" style="font-weight:800">' + esc(b.multi_code) + '</span></span>');
-  if (pf('location') && b.location_code) chips.push('<span class="lmono" style="font-weight:800;border:' + MM(Math.max(0.2, fm * 0.07)) + ' solid #000;border-radius:' + MM(fm * 0.25) + ';padding:0 ' + MM(fm * 0.3) + ';white-space:nowrap">' + esc(b.location_code) + '</span>');
+  if (pf('multi')){
+    if (b.multi_code && S.print.showMulti !== false) chips.push('<span style="white-space:nowrap"><span style="font-size:' + MM(fm * 0.62) + ';font-weight:800;letter-spacing:.08em;margin-right:' + MM(fm * 0.25) + '">MULTI</span><span class="lmono" style="font-weight:800">' + esc(b.multi_code) + '</span></span>');
+    else if (E) chips.push(blankField('Multi', fm, tw * 0.45));
+  }
+  if (pf('location')){
+    if (b.location_code) chips.push('<span class="lmono" style="font-weight:800;border:' + MM(Math.max(0.2, fm * 0.07)) + ' solid #000;border-radius:' + MM(fm * 0.25) + ';padding:0 ' + MM(fm * 0.3) + ';white-space:nowrap">' + esc(b.location_code) + '</span>');
+    else if (E) chips.push(blankField(t('f_location'), fm, tw * 0.4));
+  }
   if (b.archive_state === 'HISTORICAL') chips.push('<b>' + esc(t('l_hist')) + '</b>');
-  LM.S = {q, code:fc, minText:Math.min(fm, fci, urlFs || 99, showCat ? fcat : 99)};
-  html += '<div style="position:absolute;left:' + MM(x0) + ';top:' + MM(y0) + ';width:' + MM(tw) + ';height:' + MM(ih) + ';display:flex;flex-direction:column;overflow:hidden;color:#000">' +
-    '<div style="display:flex;align-items:baseline;gap:' + MM(fc * 0.3) + ';min-width:0">' +
-      '<span class="code" style="font-size:' + MM(fc) + ';flex:none">' + esc(b.speaking_code || '—') + '</span>' +
-      (showCat ? '<span class="ln" style="font-size:' + MM(fcat) + ';font-weight:800;text-transform:uppercase;letter-spacing:.04em;min-width:0">' + esc(b.category) + '</span>' : '') + '</div>' +
-    '<div class="cl2" style="font-size:' + MM(fco) + ';font-weight:800;margin-top:' + MM(fc * 0.12) + '">' + esc(b.company_name) + '</div>' +
-    (showCity ? '<div class="ln" style="font-size:' + MM(fci) + ';font-weight:500;margin-top:' + MM(fci * 0.1) + '">' + esc(b.company_city) + '</div>' : '') +
-    (chips.length ? '<div style="margin-top:auto;display:flex;align-items:center;flex-wrap:wrap;gap:' + MM(fm * 0.6) + ';font-size:' + MM(fm) + ';line-height:1.3">' + chips.join('') + '</div>' : '') +
-  '</div>';
-  return html;
-}
-function splitBottom(b, W, H, P){
-  const pad = clamp(+P.padding || 0, 0, H / 4), sp = clamp(H * 0.08, 2.5, 5);
-  const x0 = sp + pad, y0 = pad, iw = W - x0 - pad, ih = H - 2 * pad;
-  const fh = Math.min(ih * 0.13, 5), ff = clamp(fh * 0.5, 1.8, 2.6);
-  let html = '<div class="spine-bar" style="width:' + MM(sp) + ';background:' + esc(b.color_hex) + '"></div>';
-  const title = pf('title') && b.binder_title ? b.binder_title : t('l_archive');
-  const year = pf('year') && b.ref_year ? b.ref_year : '';
-  html += '<div style="position:absolute;left:' + MM(x0) + ';top:' + MM(y0) + ';width:' + MM(iw) + ';height:' + MM(fh * 1.35) + ';display:flex;align-items:baseline;gap:' + MM(fh * 0.4) + ';border-bottom:' + MM(0.15) + ' solid #000;overflow:hidden;color:#000">' +
-    '<span class="ln" style="font-size:' + MM(fh) + ';font-weight:800;min-width:0">' + esc(title) + '</span>' +
-    (year ? '<span class="lmono" style="font-size:' + MM(fh * 0.72) + ';font-weight:800;border:' + MM(0.2) + ' solid #000;border-radius:' + MM(0.6) + ';padding:0 ' + MM(fh * 0.2) + ';flex:none">' + esc(year) + '</span>' : '') +
-    '<span class="code" style="font-size:' + MM(fh * 0.8) + ';margin-left:auto;flex:none">' + esc(b.speaking_code) + '</span></div>';
+  let cat = '';
+  if (pf('category')) cat = b.category ? '<div class="ln" style="font-size:' + MM(fcat) + ';font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-top:' + MM(fc * 0.12) + '">' + esc(b.category) + '</div>'
+    : (E ? '<div style="font-size:' + MM(fm) + ';margin-top:' + MM(fc * 0.12) + '">' + blankField(t('f_category'), fm, tw * 0.45) + '</div>' : '');
+  html += '<div style="position:absolute;left:' + MM(x0) + ';top:' + MM(y0) + ';width:' + MM(tw) + ';height:' + MM(hdrH) + ';display:flex;flex-direction:column;overflow:hidden;color:#000">' +
+    '<span class="code" style="font-size:' + MM(fc) + ';line-height:1">' + esc(b.speaking_code || '—') + '</span>' + cat +
+    (chips.length ? '<div style="margin-top:auto;display:flex;flex-wrap:wrap;align-items:center;column-gap:' + MM(fm * 0.6) + ';row-gap:' + MM(fm * 0.25) + ';font-size:' + MM(fm) + ';line-height:1.3">' + chips.join('') + '</div>' : '') + '</div>';
+  // ---- company block
+  let y = y0 + hdrH + Math.max(1.2, ih * 0.015);
+  const name = b.company_name || '';
+  const fco = clamp(Math.min(iw / Math.max(12, Math.min(name.length, 26) * 0.56), ih * 0.06), 2.8, 5.4);
+  const nameLines = Math.min(2, Math.max(1, Math.ceil(name.length * fco * 0.56 / iw)));
+  html += '<div class="cl2" style="position:absolute;left:' + MM(x0) + ';top:' + MM(y) + ';width:' + MM(iw) + ';font-size:' + MM(fco) + ';line-height:1.12;font-weight:800;color:#000">' + esc(name) + '</div>';
+  y += nameLines * fco * 1.12 + fco * 0.12;
+  const fci = clamp(fco * 0.78, 2.4, 4);
+  if (pf('city') && (b.company_city || E)){
+    html += '<div class="ln" style="position:absolute;left:' + MM(x0) + ';top:' + MM(y) + ';width:' + MM(iw) + ';font-size:' + MM(fci) + ';line-height:1.2;color:#000">' + (b.company_city ? esc(b.company_city) : blankField(t('f_city'), fci, iw * 0.5)) + '</div>';
+    y += fci * 1.25;
+  }
+  // ---- footer (bottom up): short code, date, tags, extra codes
+  const ff = clamp(iw * 0.033, 1.7, 2.4);
   const foot = [];
-  if (pf('tags') && b.tags) foot.push('<span class="ln" style="min-width:0">' + esc(String(b.tags).split(',').map(x => x.trim()).filter(x => x && x.toLowerCase() !== DEMO_TAG).map(x => '#' + x).join(' ')) + '</span>');
-  if (pf('extra') && b.extra_codes) foot.push('<span class="lmono" style="font-weight:700;white-space:nowrap">' + esc(b.extra_codes) + '</span>');
+  if (pf('tags')){ const tg = String(b.tags || '').split(',').map(x => x.trim()).filter(x => x && x.toLowerCase() !== DEMO_TAG); if (tg.length) foot.push('<span>' + esc(tg.map(x => '#' + x).join(' ')) + '</span>'); else if (E) foot.push(blankField(t('f_tags'), ff, iw * 0.35)); }
+  if (pf('extra')){ if (b.extra_codes) foot.push('<span class="lmono" style="font-weight:700">' + esc(b.extra_codes) + '</span>'); else if (E) foot.push(blankField(t('f_extra'), ff, iw * 0.35)); }
   const dk = pf('date');
   if (dk && dk !== 'none'){ const d = dk === 'updated' ? b.updated_at : (b.created_at || b.updated_at); if (d) foot.push('<span style="white-space:nowrap">' + esc(t(dk === 'updated' ? 'l_updated' : 'l_created')) + ' <b>' + esc(fmtDate(d)) + '</b></span>'); }
   foot.push('<span class="lmono" style="margin-left:auto;white-space:nowrap">' + esc(b.short_code) + '</span>');
-  const footH = ff * 1.4;
-  const listTop = y0 + fh * 1.35 + fh * 0.3, la = ih - fh * 1.35 - fh * 0.3 - footH - ff * 0.3;
-  if (pf('contents')) html += contentsBlock(b.contents_items, x0, listTop, iw, la, Math.min(fh * 0.8, 3.8));
-  html += '<div style="position:absolute;left:' + MM(x0) + ';width:' + MM(iw) + ';top:' + MM(y0 + ih - footH) + ';font-size:' + MM(ff) + ';line-height:1.35;color:#000;display:flex;gap:' + MM(ff) + ';align-items:baseline;overflow:hidden">' + foot.join('') + '</div>';
-  LM.S.minText = Math.min(LM.S.minText, ff, pf('contents') && b.contents_items.length ? (LM.listFs || 99) : 99);
-  return html;
-}
-function renderSplit(b, g, P){
-  const G2 = splitGeom(g, P);
-  const tf = !G2.rotate ? '' : G2.dir === -90 ? 'transform:translateY(' + MM(g.h) + ') rotate(-90deg);' : 'transform:translateX(' + MM(g.w) + ') rotate(90deg);';
-  const guide = (P.split || {}).guides === false ? '' : '<div class="cut-guide" style="top:' + MM(G2.Ht) + '"></div>';
-  return '<div class="lab"><div style="position:absolute;left:0;top:0;width:' + MM(G2.W) + ';height:' + MM(G2.H) + ';transform-origin:0 0;' + tf + '">' +
-    '<div style="position:absolute;left:0;top:0;width:' + MM(G2.W) + ';height:' + MM(G2.Ht) + ';overflow:hidden">' + splitTop(b, G2.W, G2.Ht, P) + '</div>' +
-    '<div style="position:absolute;left:0;top:' + MM(G2.Ht) + ';width:' + MM(G2.W) + ';height:' + MM(G2.Hb) + ';overflow:hidden">' + splitBottom(b, G2.W, G2.Hb, P) + '</div>' +
-    guide + '</div></div>';
+  const footLines = foot.length > 3 ? 2 : 1;
+  const footH = ff * 1.35 * footLines;
+  html += '<div style="position:absolute;left:' + MM(x0) + ';width:' + MM(iw) + ';top:' + MM(y0 + ih - footH) + ';height:' + MM(footH) + ';font-size:' + MM(ff) + ';line-height:1.35;color:#000;display:flex;flex-wrap:wrap;column-gap:' + MM(ff) + ';align-items:baseline;overflow:hidden;border-top:' + MM(0.15) + ' solid #000">' + foot.join('') + '</div>';
+  // ---- archive part: title + year, then contents
+  const yEnd = y0 + ih - footH - ff * 0.4;
+  y += Math.max(0.8, ih * 0.01);
+  const fh = clamp(Math.min(iw * 0.06, ih * 0.045), 2.6, 4.2);
+  const title = pf('title') ? (b.binder_title || '') : '';
+  const year = pf('year') ? (b.ref_year || '') : '';
+  if (title || year || (E && (pf('title') || pf('year')))){
+    html += '<div style="position:absolute;left:' + MM(x0) + ';top:' + MM(y) + ';width:' + MM(iw) + ';height:' + MM(fh * 1.3) + ';display:flex;align-items:baseline;gap:' + MM(fh * 0.4) + ';border-top:' + MM(0.2) + ' solid #000;padding-top:' + MM(fh * 0.12) + ';overflow:hidden;color:#000">' +
+      '<span class="ln" style="font-size:' + MM(fh) + ';font-weight:800;min-width:0;flex:1">' + (title ? esc(title) : (E && pf('title') ? blankField(t('f_title_s'), fh * 0.7, iw * 0.4) : '')) + '</span>' +
+      (year ? '<span class="lmono" style="font-size:' + MM(fh * 0.78) + ';font-weight:800;border:' + MM(0.2) + ' solid #000;border-radius:' + MM(0.6) + ';padding:0 ' + MM(fh * 0.2) + ';flex:none">' + esc(year) + '</span>' : (E && pf('year') ? '<span style="font-size:' + MM(fh * 0.7) + '">' + blankField(t('f_year'), fh * 0.7, iw * 0.12) + '</span>' : '')) + '</div>';
+    y += fh * 1.3 + fh * 0.35;
+  }
+  const items = (b.contents_items || []).filter(i => i.year || i.description);
+  if (pf('contents') && (items.length || E) && yEnd - y > 3) html += contentsBlock(items, x0, y, iw, yEnd - y, Math.min(fh * 0.82, 3.6));
+  LM.S = {q, code:fc, minText:Math.min(fm, fci, ff, urlFs || 99, pf('category') && b.category ? fcat : 99)};
+  return html + '</div>';
 }
 
-/** Render one label (kind A, B or U) as HTML positioned inside a w×h slot. */
+
 function renderLabel(kind, b, g, P){
-  if (kind === 'S') return renderSplit(b, g, P);
+  if (kind === 'S') return renderFull(b, g, P);
   const w = g.w, h = g.h, pad = clamp(+P.padding || 0, 0, Math.min(w, h) / 4);
   const spine = clamp(Math.min(w, h) * 0.07, 1.6, 5);
   const x0 = spine + pad, y0 = pad, iw = Math.max(5, w - x0 - pad), ih = Math.max(5, h - 2 * pad);
@@ -283,12 +302,31 @@ function slotRect(i){
   const g = S.print.geometry, c = i % g.cols, r = Math.floor(i / g.cols);
   return { r, c, x: g.marginLeft + c * (g.w + g.gapX), y: g.marginTop + r * (g.h + g.gapY) };
 }
+/* Fill order of the slots. On sheets whose physical labels are cut into `group` printed labels
+   (MRINK143: 2 per 105×148 label) the order goes physical label by physical label, both halves first. */
+function slotSeq(){
+  const g = S.print.geometry, N = slotCount(), k = Math.max(1, g.group | 0);
+  if (k < 2 || g.rows % k) return Array.from({length:N}, (_, i) => i);
+  const out = [];
+  if (g.turn){
+    // turned sheet: follow the reading order of the turned sheet (left to right, top to bottom),
+    // so label 1 and 2 are the left and right half of the first physical label as you read them
+    const cols = Array.from({length:g.cols}, (_, i) => i), rows = Array.from({length:g.rows}, (_, i) => i);
+    if (turnDir(S.print) === -90) cols.forEach(c => rows.slice().reverse().forEach(r => out.push(r * g.cols + c)));
+    else cols.reverse().forEach(c => rows.forEach(r => out.push(r * g.cols + c)));
+    return out;
+  }
+  for (let pr = 0; pr < g.rows / k; pr++) for (let c = 0; c < g.cols; c++) for (let j = 0; j < k; j++) out.push((pr * k + j) * g.cols + c);
+  return out;
+}
+const slotNo = (s) => slotSeq().indexOf(s) + 1;
 function layoutLabels(){
-  const items = queueItems(), N = slotCount(), used = usedSet(), pages = [];
+  const items = queueItems(), N = slotCount(), used = usedSet(), pages = [], seq = slotSeq();
   let idx = 0, p = 0;
   while (idx < items.length && p < 500){
     const slots = [];
-    for (let s = 0; s < N && idx < items.length; s++){
+    for (let n = 0; n < N && idx < items.length; n++){
+      const s = seq[n];
       if (p === 0 && used.has(s)) continue;
       slots.push({s, item:items[idx++]});
     }
@@ -309,16 +347,27 @@ function buildLabelSheets(screen){
   return pages.map((slots, pi) => {
     let inner = '';
     const filled = new Map(slots.map(x => [x.s, x.item]));
+    const k = Math.max(1, g.group | 0), grouped = k > 1 && g.rows % k === 0;
     for (let s = 0; s < N; s++){
       const R = slotRect(s), item = filled.get(s);
       const isUsed = pi === 0 && L.used.has(s);
       const cls = ['slotbox'];
       if (g.cut) cls.push('cut');
-      if (screen && !g.cut) cls.push('diecut-scr');
+      if (screen && !g.cut && !grouped) cls.push('diecut-scr');
       if (screen && isUsed) cls.push('used-scr');
       if (!item && !screen && !g.cut) continue;
-      inner += '<div class="' + cls.join(' ') + '" data-used="#' + (s + 1) + '" style="left:' + MM(R.x) + ';top:' + MM(R.y) + ';width:' + MM(g.w) + ';height:' + MM(g.h) + ';' + (g.radius ? 'border-radius:' + MM(g.radius) + ';' : '') + '">' +
-        (item ? renderLabel(item.kind, item.b, g, P) : '') + '</div>';
+      inner += '<div class="' + cls.join(' ') + '" data-used="#' + slotNo(s) + '" style="left:' + MM(R.x) + ';top:' + MM(R.y) + ';width:' + MM(g.w) + ';height:' + MM(g.h) + ';' + (g.radius ? 'border-radius:' + MM(g.radius) + ';' : '') + '">' +
+        (item ? renderSlotLabel(item.kind, item.b, g, P) : '') + '</div>';
+    }
+    if (grouped){
+      // physical labels (outline on screen only) and the barely visible cut line between their printed halves
+      const guides = (P.split || {}).guides !== false;
+      for (let pr = 0; pr < g.rows / k; pr++) for (let c = 0; c < g.cols; c++){
+        const top = slotRect(pr * k * g.cols + c), ids = Array.from({length:k}, (_, j) => (pr * k + j) * g.cols + c);
+        if (screen) inner += '<div class="phys-scr" style="left:' + MM(top.x) + ';top:' + MM(top.y) + ';width:' + MM(g.w) + ';height:' + MM(g.h * k + g.gapY * (k - 1)) + '"></div>';
+        if (!guides || !(screen || ids.some(i => filled.has(i)))) continue;
+        for (let j = 1; j < k; j++) inner += '<div class="cut-line" style="left:' + MM(top.x) + ';top:' + MM(top.y + j * (g.h + g.gapY) - g.gapY / 2) + ';width:' + MM(g.w) + '"></div>';
+      }
     }
     return sheetWrap(inner);
   });
@@ -341,7 +390,7 @@ function buildCalibSheet(){
   inner += '<div class="calib-t" style="left:' + MM(bx + 52) + ';top:' + MM(by - 1.6) + ';font-size:1.6mm">50 mm — ' + (S.lang === 'en' ? 'check scale 100%' : 'verifica scala 100%') + '</div>';
   for (let s = 0; s < N; s++){
     const R = slotRect(s), w = g.w, h = g.h;
-    const txt = 'Slot #' + (s + 1) + ' (R' + (R.r + 1) + '-C' + (R.c + 1) + ') • ↑ ALTO / TOP ↑ • [X: ' + fmtMM(R.x + ox) + 'mm, Y: ' + fmtMM(R.y + oy) + 'mm]' + (used.has(s) ? ' • ' + t('sl_used') : '');
+    const txt = 'Slot #' + slotNo(s) + ' (R' + (R.r + 1) + '-C' + (R.c + 1) + ') • ↑ ALTO / TOP ↑ • [X: ' + fmtMM(R.x + ox) + 'mm, Y: ' + fmtMM(R.y + oy) + 'mm]' + (used.has(s) ? ' • ' + t('sl_used') : '');
     const fs = clamp((w - 4) / (txt.length * 0.6), 1.1, 1.9);
     let si = '<div style="position:absolute;inset:0;border:' + MM(LW) + ' solid ' + HL + ';' + (g.radius ? 'border-radius:' + MM(g.radius) + ';' : '') + '"></div>';
     const k = Math.min(3, Math.min(w, h) * 0.12), m = 1.5;
