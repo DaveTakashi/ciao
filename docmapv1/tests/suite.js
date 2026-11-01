@@ -1255,6 +1255,163 @@ const sec = (n) => console.log('\n== ' + n);
   // ----------------------------------------------------------------------
 
   // @@STREAM-E@@
+  sec('v10 E: Modifica massiva (bulk edit)');
+  let Ev;
+  const Estart = await p.evaluate(() => {
+    while (topModal()) closeModal(true);
+    S.lang = 'it'; S.view = 'archive'; S.archiveView = 'table'; UI.q = ''; UI.fState = UI.fRoom = UI.fCat = ''; UI.fInfo = null;
+    const taken = S.binders.map(b => b.short_code);
+    ['Uno', 'Due', 'Tre', 'Quattro'].forEach((n, i) => { const sc = newShortCode(taken); taken.push(sc); S.binders.push(normalizeBinder({speaking_code:'EBK' + (i + 1), company_name:'Bulk Test ' + n + ' Srl', category:'Ordinaria', binder_title:'Titolo ' + n, tags:'ebk,massiva', room_code:'E', cabinet_code:'1', shelf_code:'α', short_code:sc})); });
+    commit(); renderAll(); return nowISO();
+  });
+  const Ecell = (code, k) => p.evaluate(([code, k]) => { const r = BK.rows.findIndex(x => x.b && x.b.speaking_code === code), c = bkCols().findIndex(x => x.k === k); bkMove(r, c); bkFocusGrid(); return [r, c]; }, [code, k]);
+  const Ed = (code) => p.evaluate((code) => { const b = S.binders.find(x => x.speaking_code === code); return Object.assign({}, BK.draft.get(b.id) || {}); }, code);
+  Ev = await p.evaluate(() => ({btn:!!document.querySelector('.toolbar #btn-bulk[data-a="bulk-open"]'), on:BK.on}));
+  ok(Ev.btn && !Ev.on, 'bulk: "Modifica massiva" button in the archive toolbar, mode off by default', Ev);
+  await p.click('#btn-bulk'); await p.waitForTimeout(150);
+  Ev = await p.evaluate(() => ({on:BK.on, grid:!!document.querySelector('#bk-grid .bk-tbl'), focus:document.activeElement.id, n:BK.list.length, all:filteredBinders().length, tr:document.querySelectorAll('#bk-body tr.bk-row').length, th:[...document.querySelectorAll('.bk-tbl th[data-k]')].map(x => x.dataset.k).join()}));
+  ok(Ev.on && Ev.grid && Ev.focus === 'bk-grid' && Ev.n === Ev.all && Ev.tr === Ev.all && /speaking_code,company_name,multi_code,category/.test(Ev.th) && !/notes/.test(Ev.th), 'bulk: opens a focused grid with every archive binder and the default columns', Ev);
+  // filters respected: search box + state filter
+  await p.fill('[data-bk-q]', 'Bulk Test'); await p.waitForTimeout(300);
+  Ev = await p.evaluate(() => ({n:BK.list.length, codes:BK.list.map(b => b.speaking_code).sort().join(), q:UI.q}));
+  ok(Ev.n === 4 && Ev.codes === 'EBK1,EBK2,EBK3,EBK4' && Ev.q === 'Bulk Test', 'bulk: search filter respected (shared with the archive)', Ev);
+  await p.selectOption('[data-bk-f="fState"]', 'CHECKED_OUT'); await p.waitForTimeout(100);
+  Ev = await p.evaluate(() => BK.list.length);
+  ok(Ev === 0 && await p.isVisible('#bk-grid .empty'), 'bulk: state filter respected', Ev);
+  await p.selectOption('[data-bk-f="fState"]', ''); await p.waitForTimeout(100);
+  // keyboard editing: type → staged, Enter moves down, Esc cancels, arrows move
+  await Ecell('EBK1', 'binder_title');
+  await p.keyboard.type('Titolo massivo'); await p.keyboard.press('Enter'); await p.waitForTimeout(80);
+  Ev = await p.evaluate(() => ({cur:BK.cur, row:BK.rows[BK.cur.r].b.speaking_code, saved:S.binders.find(b => b.speaking_code === 'EBK1').binder_title, focus:document.activeElement.id, dirty:document.querySelectorAll('#bk-body td.bk-cell.dirty').length, bar:(document.querySelector('#bk-savebar') || {}).textContent}));
+  const Ed1 = await Ed('EBK1');
+  ok(Ed1.binder_title === 'Titolo massivo' && Ev.saved === 'Titolo Uno' && Ev.row === 'EBK2' && Ev.focus === 'bk-grid' && Ev.dirty === 1 && /Salva modifiche \(1\)/.test(Ev.bar), 'bulk: typing edits the cell, Enter stages it and moves down, saved data untouched', [Ed1, Ev]);
+  await p.keyboard.press('ArrowRight'); await p.keyboard.press('ArrowLeft'); await p.keyboard.press('ArrowRight');
+  Ev = await p.evaluate(() => bkCols()[BK.cur.c].k);
+  await p.keyboard.type('XYZ'); await p.keyboard.press('Escape'); if (await p.evaluate(() => !!BK.edit)) await p.keyboard.press('Escape'); await p.waitForTimeout(50);
+  const Ed2 = await Ed('EBK2');
+  ok(Ev === 'ref_year' && !('ref_year' in Ed2) && await p.evaluate(() => !BK.edit && document.activeElement.id === 'bk-grid'), 'bulk: arrows move the cursor, Esc cancels the cell edit', [Ev, Ed2]);
+  await p.keyboard.press('F2'); await p.keyboard.press('Control+a'); await p.keyboard.type('2031'); await p.keyboard.press('Tab'); await p.waitForTimeout(50);
+  Ev = await p.evaluate(() => bkCols()[BK.cur.c].k);
+  ok((await Ed('EBK2')).ref_year === '2031' && Ev === 'tags', 'bulk: F2 edits the current value, Tab commits and moves right', Ev);
+  // typeahead in a cell: existing client spelling
+  await Ecell('EBK2', 'company_name');
+  await p.keyboard.type('barbie'); await p.waitForTimeout(120);
+  Ev = await p.evaluate(() => ({vis:!document.querySelector('#ta-pop').hidden, opts:[...document.querySelectorAll('#ta-pop .ta-opt .ta-v')].map(x => x.textContent)}));
+  await p.keyboard.press('Enter'); await p.waitForTimeout(80);
+  Ev.d = (await Ed('EBK2')).company_name; Ev.edit = await p.evaluate(() => !!BK.edit);
+  ok(Ev.vis && Ev.opts[0] === 'Barbieri Luigi S.r.l.' && Ev.d === 'Barbieri Luigi S.r.l.' && !Ev.edit, 'bulk: typeahead in a cell suggests the existing client, Enter picks and commits', Ev);
+  await Ecell('EBK3', 'company_name');
+  await p.keyboard.type('BARBIERI LUIGI SRL'); await p.keyboard.press('Escape'); await p.waitForTimeout(30);
+  Ev = await p.evaluate(() => !!BK.edit);   // first Esc only closes the list
+  await p.keyboard.press('Tab'); await p.waitForTimeout(50);
+  ok(Ev && (await Ed('EBK3')).company_name === 'Barbieri Luigi S.r.l.', 'bulk: a different spelling of a known client is stored with the existing spelling (no duplicate client)', await Ed('EBK3'));
+  await p.keyboard.press('Control+z'); await p.waitForTimeout(50);
+  ok(!('company_name' in await Ed('EBK3')), 'bulk: Ctrl+Z undoes the last staged change');
+  // selection + apply to selected
+  await Ecell('EBK1', 'speaking_code');
+  await p.keyboard.press('Space'); await p.keyboard.press('Shift+ArrowDown'); await p.keyboard.press('Shift+ArrowDown'); await p.keyboard.press('Shift+ArrowDown');
+  Ev = await p.evaluate(() => ({n:BK.sel.size, bar:document.querySelector('#bk-selbar').textContent, chk:document.querySelectorAll('#bk-body input[data-bk-sel]:checked').length}));
+  ok(Ev.n === 4 && Ev.chk === 4 && /4 selezionati/.test(Ev.bar), 'bulk: Space and Shift+arrows select rows', Ev);
+  const Eop = async (op, val) => { await p.selectOption('#bk-op', op); await p.waitForTimeout(40); if (val !== undefined){ const tag = await p.evaluate(() => document.querySelector('#bk-op-v').tagName); if (tag === 'SELECT') await p.selectOption('#bk-op-v', val); else await p.fill('#bk-op-v', val); } await p.evaluate(() => taClose()); await p.click('#bk-apply'); await p.waitForTimeout(60); };
+  await Eop('category', 'Bulk Cat');
+  await Eop('tag_add', 'ebknew');
+  await Eop('tag_rm', 'massiva');
+  await Eop('state', 'CHECKED_OUT');
+  await Eop('loc', 'Z9');
+  Ev = await p.evaluate(() => S.binders.filter(b => /^EBK/.test(b.speaking_code)).map(b => ({c:bkVal(b, 'category'), t:bkVal(b, 'tags'), s:bkVal(b, 'archive_state'), l:bkVal(b, 'location_code'), saved:b.category})));
+  ok(Ev.every(x => x.c === 'Bulk Cat' && x.t === 'ebk,ebknew' && x.s === 'CHECKED_OUT' && x.l === 'Z9-α' && x.saved === 'Ordinaria'), 'bulk: apply to selected — category, add tag, remove tag, state, position prefix (staged)', Ev);
+  Ev = await p.evaluate(() => { const r = {ops:[...document.querySelectorAll('#bk-op option')].map(o => o.value), auto:bkHasAuto()}; return r; });
+  ok(Ev.ops.includes('color') && Ev.ops.includes('tag_rm') && Ev.ops.includes('color_auto') === Ev.auto, 'bulk: colour operations ("Colore automatico" only when the colour module provides it)', Ev);
+  // fill down (Ctrl+D) from the active cell into the selected rows
+  await Ecell('EBK1', 'company_city');
+  await p.keyboard.type('Bulkville'); await p.keyboard.press('Enter'); await p.waitForTimeout(40);
+  await Ecell('EBK1', 'company_city'); await p.keyboard.press('Control+d'); await p.waitForTimeout(40);
+  Ev = await p.evaluate(() => S.binders.filter(b => /^EBK/.test(b.speaking_code)).map(b => bkVal(b, 'company_city')));
+  ok(Ev.every(x => x === 'Bulkville'), 'bulk: Ctrl+D copies the active cell into the selected rows', Ev);
+  // duplicate speaking code blocked
+  await Ecell('EBK4', 'speaking_code');
+  await p.keyboard.type('ebk1'); await p.keyboard.press('Enter'); await p.waitForTimeout(60);
+  Ev = await p.evaluate(() => ({errs:BK.errs.size, dis:document.querySelector('#bk-save').disabled, msg:document.querySelector('#bk-savebar').textContent, cell:document.querySelectorAll('#bk-body td.bk-cell.err').length, saved:bkSave(), still:S.binders.filter(b => b.speaking_code === 'EBK1').length, cat:S.binders.find(b => b.speaking_code === 'EBK2').category}));
+  ok(Ev.errs === 1 && Ev.dis && /EBK4/.test(Ev.msg) && Ev.cell === 1 && Ev.saved === 0 && Ev.still === 1 && Ev.cat === 'Ordinaria', 'bulk: duplicate speaking code is flagged and blocks the save', Ev);
+  await p.evaluate(() => bkFocusGrid()); await p.keyboard.press('Control+z'); await p.waitForTimeout(40);
+  ok(await p.evaluate(() => BK.errs.size === 0 && !document.querySelector('#bk-save').disabled), 'bulk: undoing the duplicate code clears the error');
+  // save: one commit, one log entry, one undo restores
+  const Elog0 = await p.evaluate(() => LOG.entries.length);
+  await p.click('#bk-save'); await p.waitForTimeout(120);
+  Ev = await p.evaluate(() => { const L = S.binders.filter(b => /^EBK/.test(b.speaking_code)); const e = LOG.entries[LOG.entries.length - 1]; return {draft:BK.draft.size, cats:L.map(b => b.category).join(), st:L.map(b => b.archive_state).join(), loc:L.map(b => b.location_code).join(), title:L[0].binder_title, year:L[1].ref_year, tags:L[2].tags, act:e.action, cnt:e.details.count, ch:e.details.binders.find(x => x.code === 'EBK1').changed, sum:e.summary, dirty:S.hasUnexportedChanges, bar:document.querySelector('#bk-savebar').classList.contains('on')}; });
+  const Elog1 = await p.evaluate(() => LOG.entries.length);
+  ok(Ev.draft === 0 && Ev.cats === 'Bulk Cat,Bulk Cat,Bulk Cat,Bulk Cat' && /^(CHECKED_OUT,?){4}$/.test(Ev.st) && Ev.loc === 'Z9-α,Z9-α,Z9-α,Z9-α' && Ev.title === 'Titolo massivo' && Ev.year === '2031' && Ev.tags === 'ebk,ebknew' && !Ev.bar && Ev.dirty, 'bulk: Save commits every staged change', Ev);
+  ok(Elog1 === Elog0 + 1 && Ev.act === 'binder.bulk_edit' && Ev.cnt === 4 && Ev.ch.category[0] === 'Ordinaria' && Ev.ch.category[1] === 'Bulk Cat' && Ev.ch.binder_title[1] === 'Titolo massivo' && /Modifica massiva: 4 faldoni/.test(Ev.sum), 'bulk: one activity-log entry with per-binder changed fields', Ev);
+  await p.evaluate(() => bkFocusGrid()); await p.keyboard.press('Control+z'); await p.waitForTimeout(150);
+  Ev = await p.evaluate(() => { const L = S.binders.filter(b => /^EBK/.test(b.speaking_code)); return {cats:L.map(b => b.category).join(), title:L[0].binder_title, tags:L[2].tags, st:L[3].archive_state, loc:L[0].location_code, on:BK.on, last:LOG.entries[LOG.entries.length - 1].action}; });
+  ok(Ev.cats === 'Ordinaria,Ordinaria,Ordinaria,Ordinaria' && Ev.title === 'Titolo Uno' && Ev.tags === 'ebk,massiva' && Ev.st === 'CURRENT' && Ev.loc === 'E1-α' && Ev.on && Ev.last === 'undo', 'bulk: a single undo restores every binder of the bulk save', Ev);
+  // sort + group
+  await p.click('.bk-tbl th[data-k="binder_title"]'); await p.waitForTimeout(60);
+  Ev = await p.evaluate(() => BK.list.map(b => b.binder_title).join('|'));
+  await p.click('.bk-tbl th[data-k="binder_title"]'); await p.waitForTimeout(60);
+  Ev = [Ev, await p.evaluate(() => BK.list.map(b => b.binder_title).join('|') + '#' + document.querySelector('.bk-tbl th[data-k="binder_title"]').getAttribute('aria-sort'))];
+  ok(Ev[0] === 'Titolo Due|Titolo Quattro|Titolo Tre|Titolo Uno' && Ev[1] === 'Titolo Uno|Titolo Tre|Titolo Quattro|Titolo Due#descending', 'bulk: click a header to sort ascending / descending', Ev);
+  await p.fill('[data-bk-q]', ''); await p.waitForTimeout(250);
+  await p.selectOption('[data-bk-group]', 'category'); await p.waitForTimeout(60);
+  Ev = await p.evaluate(() => { const g = BK.rows.filter(r => r.g !== undefined); const ord = g.find(r => r.g === 'Ordinaria'); return {groups:g.length, cats:new Set(BK.list.map(b => b.category)).size, ordN:ord ? ord.ids.length : 0, dom:document.querySelectorAll('#bk-body tr.bk-grp').length}; });
+  await p.evaluate(() => { BK.sel.clear(); const r = BK.rows.findIndex(x => x.g === 'Ordinaria'); bkMove(r + 1, 0); bkSelChanged(); document.querySelector('[data-a="bk-grp-sel"][data-r="' + r + '"]').click(); });
+  Ev.sel = await p.evaluate(() => BK.sel.size);
+  ok(Ev.groups === Ev.cats && Ev.dom >= 1 && Ev.ordN > 4 && Ev.sel === Ev.ordN, 'bulk: group by category with one-click group selection', Ev);
+  await p.selectOption('[data-bk-group]', ''); await p.evaluate(() => { BK.sel.clear(); BK.sort = {k:'', dir:1}; bkRefresh(); });
+  // column chooser
+  await p.click('#bk-cols > summary'); await p.check('[data-bk-col="notes"]'); await p.uncheck('[data-bk-col="multi_code"]'); await p.waitForTimeout(60);
+  Ev = await p.evaluate(() => ({th:[...document.querySelectorAll('.bk-tbl th[data-k]')].map(x => x.dataset.k), set:S.settings.bulkCols}));
+  ok(Ev.th.includes('notes') && !Ev.th.includes('multi_code') && Ev.set.includes('notes'), 'bulk: column chooser (remembered in S.settings.bulkCols)', Ev);
+  await p.evaluate(() => { delete S.settings.bulkCols; savePrefs(); document.querySelector('#bk-cols').open = false; bkRenderTable(); });
+  // discard all
+  await Ecell('EBK1', 'category'); await p.keyboard.type('Da scartare'); await p.keyboard.press('Enter'); await p.waitForTimeout(40);
+  await p.click('[data-a="bk-discard"]'); await p.waitForTimeout(80);
+  await p.click('.modal-f .btn-primary'); await p.waitForTimeout(80);
+  ok(await p.evaluate(() => BK.draft.size === 0 && S.binders.find(b => b.speaking_code === 'EBK1').category === 'Ordinaria'), 'bulk: "Annulla tutto" discards the pending changes after confirmation');
+  // 2000 binders: windowed render
+  Ev = await p.evaluate(() => {
+    const keep = S.binders, extra = [], taken = keep.map(b => b.short_code);
+    for (let i = 0; i < 2000; i++){ const sc = newShortCode(taken); taken.push(sc); extra.push(normalizeBinder({speaking_code:'EPF' + i, company_name:'Perf Bulk ' + (i % 250), category:['Ordinaria', 'Lavoro', 'Societario'][i % 3], binder_title:'Titolo ' + i, tags:'perf,t' + (i % 7), room_code:'P', cabinet_code:String(i % 9), shelf_code:'α', short_code:sc})); }
+    S.binders = keep.concat(extra);
+    const T = (f) => { const t0 = performance.now(); f(); return Math.round(performance.now() - t0); };
+    const r = {};
+    r.open = T(() => renderView());
+    r.rows = document.querySelectorAll('#bk-body tr.bk-row').length; r.n = BK.list.length;
+    const g = document.querySelector('#bk-grid');
+    r.scroll = T(() => { g.scrollTop = g.scrollHeight; bkRenderBody(false); });
+    r.last = !!document.querySelector('#bk-body tr[data-r="' + (BK.rows.length - 1) + '"]');
+    r.sort = T(() => { BK.sort = {k:'company_name', dir:1}; bkRefresh(); });
+    r.group = T(() => { BK.group = 'category'; bkRefresh(); });
+    r.apply = T(() => { BK.list.forEach(b => BK.sel.add(b.id)); bkApply(BK.list.map(b => ({id:b.id, patch:{category:'X'}}))); bkAfterChange(); });
+    r.drafted = BK.draft.size;
+    BK.draft.clear(); BK.hist = []; BK.sel.clear(); BK.sort = {k:'', dir:1}; BK.group = ''; bkValidate();
+    S.binders = keep; renderView();
+    return r;
+  });
+  console.log('  bulk grid perf', JSON.stringify(Ev));
+  ok(Ev.n >= 2004 && Ev.rows < 120 && Ev.last && Ev.open < 1500 && Ev.scroll < 300 && Ev.sort < 1500 && Ev.group < 1500 && Ev.apply < 2500 && Ev.drafted === Ev.n, 'bulk: 2000+ binders — windowed grid (open ' + Ev.open + ' ms, scroll ' + Ev.scroll + ' ms, sort ' + Ev.sort + ' ms, apply-to-all ' + Ev.apply + ' ms)', Ev);
+  // English UI + help topic
+  await p.evaluate(() => { S.lang = 'en'; renderAll(); });
+  Ev = await p.evaluate(() => ({h:document.querySelector('.page-h h1').textContent, th:document.querySelector('.bk-tbl thead').textContent, bar:document.querySelector('#bk-selbar').textContent, help:!!helpTopic('bulk'), btn:document.querySelector('#bk-close').textContent}));
+  ok(/Bulk edit/.test(Ev.h) && /Client/.test(Ev.th) && /Category/.test(Ev.th) && /Select all/.test(Ev.bar) && /Back to the archive/.test(Ev.btn) && Ev.help, 'bulk: English UI + help topic "bulk"', Ev);
+  await p.evaluate(() => { S.lang = 'it'; renderAll(); });
+  // phone width: the grid scrolls, not the page
+  await p.setViewportSize({width:390, height:800}); await p.waitForTimeout(150);
+  Ev = await p.evaluate(() => { const g = document.querySelector('#bk-grid'); return {w:[document.documentElement.scrollWidth, innerWidth], gs:g.scrollWidth > g.clientWidth, gw:g.getBoundingClientRect().right <= innerWidth + 1}; });
+  ok(Ev.w[0] <= Ev.w[1] + 1 && Ev.gs && Ev.gw, 'bulk: no page horizontal scroll at 390 px (the grid scrolls inside)', Ev);
+  await p.setViewportSize({width:1366, height:768}); await p.waitForTimeout(100);
+  // back to the archive
+  await p.click('#bk-close'); await p.waitForTimeout(100);
+  ok(await p.evaluate(() => !BK.on && !!document.querySelector('#arch-results .tbl') && !!document.querySelector('#btn-bulk')), 'bulk: "Torna all\'archivio" closes the mode');
+  // clean up: test binders, log entries written by this block, view state
+  await p.evaluate(async (start) => {
+    while (topModal()) closeModal(true);
+    BK.on = false; BK.draft.clear(); BK.hist = []; BK.sel.clear(); BK.sort = {k:'', dir:1}; BK.group = ''; BK.savedUndo = null; BK.clip = null;
+    UI.q = ''; UI.fState = UI.fRoom = UI.fCat = ''; UI.fInfo = null; delete S.settings.bulkCols; S.lang = 'it';
+    S.binders = S.binders.filter(b => !/^EBK\d$/.test(b.speaking_code));
+    DB.db.run('DELETE FROM activity_log WHERE at >= ?', [start]); LOG.entries = LOG.entries.filter(e => e.at < start); LOG.pending = []; logSavePending();
+    commit(); S.view = 'archive'; renderAll(); dbSyncFromState('t'); await dbPersist();
+  }, Estart);
 
   // @@STREAM-K@@
   sec('v10 K: smart spine colours (families, per-client shades, locks)');

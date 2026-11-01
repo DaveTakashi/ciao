@@ -314,7 +314,7 @@ document.addEventListener('drop', (e) => {
 });
 
 document.addEventListener('toggle', (e) => { if (e.target && e.target.id === 'pr-adv'){ S.print.advanced = e.target.open; savePrefs(); } }, true);
-Object.assign(ACTIONS, PHOTO_ACTIONS, CLIENT_ACTIONS, IMPORT_MAP_ACTIONS, EDITOR_ACTIONS, INFO_ACTIONS, PDF_ACTIONS, TEMPLATE_ACTIONS, PAGE_ACTIONS);
+Object.assign(ACTIONS, PHOTO_ACTIONS, CLIENT_ACTIONS, IMPORT_MAP_ACTIONS, EDITOR_ACTIONS, INFO_ACTIONS, PDF_ACTIONS, TEMPLATE_ACTIONS, PAGE_ACTIONS, BULK_ACTIONS);
 
 /* ---------------- Boot ---------------- */
 /* v10: in web mode (docmap.config.js) DocMapVault.gateBoot shows the login / lock screen first and runs boot()

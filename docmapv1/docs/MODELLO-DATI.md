@@ -100,6 +100,7 @@ Regole di validazione dell'editor: codice parlante obbligatorio e unico; cliente
 | `edLocOpen` **(v8)** | booleano | assente = `false` | sezione "Dettagli posizione" dell'editor aperta |
 | `colorMode` **(v10)** | `company`/`category`/`manual` | `company` (assente in uno stato v9) | assegnazione automatica dei colori dei dorsi (§12) |
 | `catFamilies` **(v10)** | `{"<categoria>": "<id famiglia>"}` | assente = `{}` | famiglia di colori scelta per la categoria in Informazioni › Categorie (§12) |
+| `bulkCols` **(v10)** | array di chiavi colonna (`speaking_code`, `company_name`, `multi_code`, `category`, `binder_title`, `ref_year`, `tags`, `company_city`, `location_code`, `archive_state`, `color_hex`, `extra_codes`, `contacts`, `notes`) | assente = tutte tranne `extra_codes`, `contacts`, `notes` | colonne visibili nella Modifica massiva (preferenza, nessun dato) |
 | `operator` **(v9)** | stringa | `''` | nome di chi lavora su questo PC, scritto nel registro attività (`who`); vuoto = `"Questo PC"` (§7.2) |
 
 Le chiavi di `settings` viaggiano nel workspace JSON e nella tabella SQLite `settings` (riga `settings`).
@@ -335,7 +336,7 @@ Una riga per ogni operazione importante fatta dall'utente (modulo `06e-log.js`, 
 | `details_json` | `details` | JSON piccolo: `{"changed":{"campo":["vecchio","nuovo"]}}` per le modifiche (testi tagliati a 300 caratteri), conteggi (`count`, `added`, `updated`, `errors`), `codes`, `file`, `preset`, `mode`, `labels`, `sheets` |
 | `source` | `source` | `ui` · `import` · `ai` (righe AI senza intestazione) · `restore` (backup, snapshot, sessione, `.sqlite` aperto) |
 
-Azioni: `binder.create`, `binder.edit`, `binder.duplicate`, `binder.delete`, `binder.delete_bulk`, `binder.wipe`, `undo`, `demo.delete`, `demo.load`, `import.merge`, `import.replace`, `backup.restore`, `backup.snapshot`, `client.import`, `client.create`, `client.edit`, `client.delete`, `info.rename`, `info.merge`, `info.delete`, `export.manifest`, `export.csv`, `export.json`, `export.backup`, `export.sqlite`, `export.clients`, `export.log`, `export.file`, `print.labels`, `print.pdf`, `print.register`, `print.calibration`, `db.session_save`, `db.session_restore`, `db.session_delete`, `db.open`, `settings.operator`. Nuove azioni si aggiungono senza cambiare lo schema.
+Azioni: `binder.create`, `binder.edit`, `binder.duplicate`, `binder.delete`, `binder.delete_bulk`, `binder.wipe`, `undo`, `demo.delete`, `demo.load`, `import.merge`, `import.replace`, `backup.restore`, `backup.snapshot`, `client.import`, `client.create`, `client.edit`, `client.delete`, `info.rename`, `info.merge`, `info.delete`, `export.manifest`, `export.csv`, `export.json`, `export.backup`, `export.sqlite`, `export.clients`, `export.log`, `export.file`, `print.labels`, `print.pdf`, `print.register`, `print.calibration`, `db.session_save`, `db.session_restore`, `db.session_delete`, `db.open`, `settings.operator`, `binder.bulk_edit` (v10, Modifica massiva: `target` = il faldone se è uno solo, altrimenti `null`; `details = {count, fields:[campi], binders:[{id, code, changed:{campo:[vecchio, nuovo]}}]}`). Nuove azioni si aggiungono senza cambiare lo schema.
 
 Regole:
 

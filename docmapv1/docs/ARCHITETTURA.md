@@ -261,3 +261,12 @@ Ogni riga passa da `mapRecord()` (alias intestazioni → campi), riceve codice p
 - **Pagine** (03-print.js + 05c-pdf.js): `labelPageOrder(L)` calcola l'ordine di uscita (ordine personalizzato → filtro della selezione → inverso) come indici dei fogli originali; `buildLabelSheets()` restituisce i fogli già in quest'ordine, quindi stampa, PDF e anteprima coincidono senza altro codice. L'indice originale resta quello usato per saltare le caselle del foglio parziale. Il pannello "Pagine" (miniature dei fogli con i colori dei faldoni, ↑ ↓ Prima, spunte, intervallo, inverso) è in 05c-pdf.js.
 - **PDF**: PDF 1.4 classico (xref tradizionale con offset esatti, `/ID`, `/Info` + XMP), font TrueType incorporati come sottoinsiemi CIDFontType2 con `/CIDSet`, nessuna trasparenza (alpha e opacità CSS appiattite sul bianco), tutti i box della pagina = A4, `/Rotate 0`, nessuna annotazione, `/PrintScaling /None`, linee ≥ 0,1 pt, moduli QR fusi in rettangoli e riempiti con un'unica operazione. Opzione `S.print.pdfCmyk`: colori DeviceCMYK con nero e grigi solo K.
 
+## 12. v10: Modifica massiva (`05d-bulk.js`)
+
+- Sotto-vista dell'Archivio (pulsante **Modifica massiva**), attiva finché `BK.on` è vero (stato effimero, non salvato). `renderView()` mostra `viewBulk()` al posto di `viewArchive()`.
+- Righe = `filteredBinders()` (stessi filtri dell'archivio), ordinate e raggruppate a richiesta; colonne da `BULK_COLS`, visibili secondo `S.settings.bulkCols`.
+- Le modifiche sono **in sospeso** in `BK.draft` (id → campi); ogni operazione è un passo annullabile (`BK.hist`). La validazione (`bkValidate`) usa le stesse regole dell'editor: codice parlante obbligatorio e unico su tutto l'archivio, cliente obbligatorio.
+- Salvataggio: `undoPoint()` → `normalizeBinder()` per ogni faldone cambiato → una sola voce `binder.bulk_edit` nel registro con i campi cambiati per faldone → `commit()` → `undoToast()` (un solo Annulla ripristina tutto).
+- Rendering a finestra: in DOM solo le righe visibili (altezza fissa 34 px) più un margine, così 2000+ faldoni scorrono fluidi.
+- Le celle usano il typeahead dell'editor (`taAttach` + `ED_SOURCES`) per non creare doppioni (grafia del cliente, categorie, tag, posizioni).
+

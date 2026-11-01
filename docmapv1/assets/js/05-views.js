@@ -19,6 +19,7 @@ function renderView(){
   document.documentElement.lang = S.lang;
   const v = S.view;
   if (v === 'clients'){ S.view = 'info'; S.infoTab = 'clients'; return renderView(); }
+  if (v === 'archive' && typeof bulkOn === 'function' && bulkOn()){ $('#view').innerHTML = viewBulk(); mountBulk(); return; }   // "Modifica massiva" sub-view (05d-bulk.js)
   const fn = {archive:viewArchive, print:viewPrint, import:viewImport, export:viewExport, ai:viewAI, database:viewDatabase, settings:viewSettings, info:viewInfo, log:viewLog}[v] || viewArchive;
   $('#view').innerHTML = fn();
   if (v === 'print') mountPrint();
@@ -56,6 +57,7 @@ function viewArchive(){
       sel('fRoom', t('all_rooms'), rooms.map(r => [r, r]), UI.fRoom) +
       sel('fCat', t('all_cats'), cats.map(c => [c, c]), UI.fCat) +
       '<div class="seg"><button data-a="arch-view" data-v="table" class="' + (S.archiveView !== 'map' ? 'on' : '') + '">' + esc(t('view_table')) + '</button><button data-a="arch-view" data-v="map" class="' + (S.archiveView === 'map' ? 'on' : '') + '">' + esc(t('view_map')) + '</button></div>' +
+      '<button class="btn btn-sm bk-open" data-a="bulk-open" id="btn-bulk" title="' + esc(t('bk_open_d')) + '">' + ic('table') + esc(t('bk_open')) + '</button>' +
     '</div>' +
     '<div class="toolbar" style="padding-top:0;gap:8px" id="bulkbar"></div>' +
     '<div id="arch-results"></div></div>';
