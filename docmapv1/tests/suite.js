@@ -3458,6 +3458,50 @@ const sec = (n) => console.log('\n== ' + n);
       ok(Jcc === Jdd && Jv2.a === 'C' && Jv2.kinds === 'package:import,package:export,package:export,package:import', 'J local⇄local: C\'s manual choice travels back (stamped later) and both PCs converge; D\'s journal lists import, export, export, import', Jv2);
     } finally { await JC.c.close(); await JD.c.close(); }
   }
+  // @@STREAM-D@@
+  sec('D: documentation consistent with the code (v11.1)');
+  {
+    const Dpath = require('path'), Droot = Dpath.resolve(__dirname, '..');
+    const Dread = (rel) => fs.readFileSync(Dpath.join(Droot, rel), 'utf8');
+    // every relative Markdown link in README, AGENTS and docs/ points to an existing file
+    const Dmd = ['README.md', 'AGENTS.md'].concat(fs.readdirSync(Dpath.join(Droot, 'docs')).filter(f => f.endsWith('.md')).map(f => 'docs/' + f), fs.readdirSync(Dpath.join(Droot, 'docs', 'python')).filter(f => f.endsWith('.md')).map(f => 'docs/python/' + f));
+    const Dbroken = [];
+    let Dlinks = 0;
+    for (const f of Dmd){
+      const txt = Dread(f).replace(/```[\s\S]*?```/g, '');
+      for (const m of txt.matchAll(/\]\(([^)\s]+)\)/g)){
+        const t = m[1].split('#')[0];
+        if (!t || /^[a-z]+:/i.test(t)) continue;
+        Dlinks++;
+        if (!fs.existsSync(Dpath.resolve(Droot, Dpath.dirname(f), t))) Dbroken.push(f + ' → ' + m[1]);
+      }
+    }
+    ok(Dlinks > 50 && !Dbroken.length, 'D: every relative Markdown link in README.md, AGENTS.md, docs/ and docs/python/ resolves', {links:Dlinks, broken:Dbroken});
+    ['docs/INDICE.md', 'docs/MANUALE-UTENTE.md', 'docs/GLOSSARIO.md', 'docs/CHECKLIST-COLLAUDO.md', 'docs/python/PORTING.md', 'docs/python/SCHEMI.md', 'docs/python/openapi.yaml', 'docs/python/tools/validate_schemas.py']
+      .forEach(f => ok(fs.existsSync(Dpath.join(Droot, f)), 'D: ' + f + ' exists'));
+    const Dapp = await p.evaluate(() => ({v:APP_VERSION, csv:CSV_COLUMNS.join(';'), b:Object.keys(normalizeBinder({})), c:Object.keys(normalizeClient({})), l:Object.keys(normalizeLocation({})), w:Object.keys(JSON.parse(workspaceJSON(true)))}));
+    const Dreadme = Dread('README.md');
+    ok(Dreadme.includes(Dapp.v) && Dread('docs/INDICE.md').includes(Dapp.v) && Dread('docs/HANDOFF_PROMPT.md').includes(Dapp.v), 'D: README, INDICE and HANDOFF_PROMPT name the current APP_VERSION', Dapp.v);
+    ok(/docs\/INDICE\.md/.test(Dreadme) && /docs\/MANUALE-UTENTE\.md/.test(Dreadme), 'D: README links to INDICE and MANUALE-UTENTE');
+    ok(Dread('docs/MODELLO-DATI.md').includes(Dapp.csv), 'D: MODELLO-DATI §6.1 lists exactly CSV_COLUMNS, in order');
+    const Dschema = (n) => JSON.parse(Dread('docs/python/schema/' + n + '.schema.json'));
+    for (const [n, keys] of [['binder', Dapp.b], ['client', Dapp.c], ['location', Dapp.l], ['workspace_backup', Dapp.w]]){
+      const S_ = Dschema(n), props = Object.keys(S_.properties || {});
+      const extra = keys.filter(k => !props.includes(k)), missing = (S_.required || []).filter(k => !keys.includes(k));
+      ok(!extra.length && !missing.length, 'D: ' + n + '.schema.json describes every key the app writes, and requires only keys it always writes', {extra, missing});
+    }
+    // openapi.yaml routes = api.php routes, with the same role and method
+    const Dapi = Dread('server-php/api.php'), Dyaml = Dread('docs/python/openapi.yaml');
+    const Dmap = (name) => { const m = Dapi.match(new RegExp('\\$' + name + " = \\[([^\\]]*)\\]")); const o = {}; for (const x of (m ? m[1] : '').matchAll(/'(\w+)' => '(\w+)'/g)) o[x[1]] = x[2]; return o; };
+    const Dreads = Dmap('reads'), Dwrites = Dmap('writes');
+    const Dphp = Object.assign({ping:'none'}, Dreads, Dwrites);
+    const Doa = {};
+    Dyaml.split(/\n(?=  \/\w)/).slice(1).forEach(blk => { const r = blk.match(/^  \/(\w+):/); if (!r || !/^\s+x-docmap-route:/m.test(blk)) return; const role = blk.match(/x-docmap-role: (\w+)/); Doa[r[1]] = {role:role ? role[1] : 'none', post:/^    post:/m.test(blk), get:/^    get:/m.test(blk)}; });
+    const Ddiff = Object.keys(Object.assign({}, Dphp, Doa)).filter(k => !Doa[k] || !Dphp[k] || Doa[k].role !== Dphp[k] || (k in Dwrites ? Doa[k].get || !Doa[k].post : !Doa[k].get));
+    ok(Object.keys(Dphp).length === 13 && !Ddiff.length, 'D: openapi.yaml has exactly the routes of api.php, with the same role (writes POST only, reads GET)', {php:Object.keys(Dphp), diff:Ddiff});
+    const Dping = (Dapi.match(/'features' => \[([^\]]*)\]/) || [, ''])[1].replace(/'/g, '"').replace(/\s/g, '');
+    ok(Dping && Dread('docs/API-CONTRACT.md').includes('"features":[' + Dping + ']') && Dread('docs/HANDOFF_PROMPT.md').includes('"features":[' + Dping + ']'), 'D: API-CONTRACT and HANDOFF_PROMPT show the ping features of api.php', Dping);
+  }
   console.log('\nerrors:', errs.length ? errs.join('\n') : 'none');
   if (errs.length) fails += errs.length;
   console.log(`\nRESULT: ${passes} passed, ${fails} failed`);

@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DocMap binder (faldone)",
+  "description": "A binder as written by DocMap v11.1 (normalizeBinder in assets/js/02-core.js): in the state S.binders, the workspace JSON backup, sync packages and the data of server records of type 'binder'. Writers emit every property listed in 'required'. Readers must also accept older files: a field missing in an older version takes the default shown in 'default' (v8 added contacts/notes/status, v10 color_locked, v11 location_id). Unknown extra properties must be kept, not dropped. Contract: docs/MODELLO-DATI.md §1-§2, §14.2.",
+  "type": "object",
+  "required": ["id", "speaking_code", "multi_code", "company_name", "company_city", "ref_year", "extra_codes", "shelf_color", "category", "color_hex", "binder_title", "room_code", "cabinet_code", "shelf_code", "sector_code", "location_code", "archive_state", "contents_items", "tags", "short_code", "short_url", "final_destination", "contacts", "notes", "selected_for_print", "color_locked", "location_id", "created_at", "updated_at"],
+  "properties": {
+    "id": {"type": "string", "minLength": 1, "description": "Stable technical id (UUID v4), never changed or reused."},
+    "speaking_code": {"type": "string", "pattern": "^[^\\sa-z]*$", "description": "Codice parlante (e.g. BL1): uppercase, no spaces, unique in the archive (case-insensitive). Empty only in a record that is being repaired: ensureIntegrity() always assigns one."},
+    "multi_code": {"type": "string", "description": "Codice Multi: the studio's internal client/file id. Free text, never invented, not unique.", "default": ""},
+    "company_name": {"type": "string", "description": "Client / company name (required by the editor; may be empty in imported records)."},
+    "company_city": {"type": "string", "description": "Company place, usually 'City (PR)'.", "default": ""},
+    "ref_year": {"type": "string", "description": "Reference year of the CONTENTS (not the creation date); also a range such as 2020-2024.", "default": ""},
+    "extra_codes": {"type": "string", "description": "Other ids (protocols, file numbers), comma separated.", "default": ""},
+    "shelf_color": {"type": "string", "pattern": "^(#[0-9A-F]{6})?$", "description": "Shelf colour #RRGGBB (uppercase) or ''.", "default": ""},
+    "category": {"type": "string", "description": "Category (free text; suggested Ordinaria, Semplificata, Societario, Lavoro, Dichiarativi, Contenzioso, Privati, APS, ...).", "default": ""},
+    "color_hex": {"type": "string", "pattern": "^#[0-9A-F]{6}$", "description": "Spine colour #RRGGBB, uppercase (docs/MODELLO-DATI.md §12)."},
+    "binder_title": {"type": "string", "default": ""},
+    "room_code": {"type": "string", "description": "Room: 1-2 letters (normalised to uppercase) or a name such as 'Ufficio 1'.", "default": ""},
+    "cabinet_code": {"type": "string", "default": ""},
+    "shelf_code": {"type": "string", "description": "Shelf: number, letter, Greek letter (α = top), emoji, symbol or name.", "default": ""},
+    "sector_code": {"type": "string", "description": "SX / CX / DX or free text.", "default": ""},
+    "location_code": {"type": "string", "description": "DERIVED, never edit: the path code of the location (location_id) when known, else room+cabinet-shelf-sector (computeLocation). Not sync content."},
+    "archive_state": {"enum": ["CURRENT", "HISTORICAL", "CHECKED_OUT"], "default": "CURRENT"},
+    "contents_items": {
+      "type": "array",
+      "description": "Documents in the binder, in order. Identify an item by (binder id, position): items have no id.",
+      "items": {
+        "type": "object",
+        "required": ["year", "description", "status"],
+        "properties": {
+          "year": {"type": "string", "description": "Optional year or range (2025, 2024/25, 2020-2024)."},
+          "description": {"type": "string"},
+          "status": {"enum": ["archive", "in_use", "client"], "default": "archive", "description": "archive = in the binder; in_use = taken out; client = given to the client. Independent of archive_state."}
+        },
+        "additionalProperties": true
+      }
+    },
+    "tags": {"type": "string", "description": "Comma separated lowercase tags. The tag 'demo' marks sample data and is never printed.", "default": ""},
+    "short_code": {"type": "string", "pattern": "^dm26[A-Za-z0-9]{8}$", "description": "Static QR code: 'dm26' + 8 characters (generator alphabet without I O l o 0 1). Unique, never reused, printed on the label. 12 characters: location codes are 13 ('dm26L' + 8)."},
+    "short_url": {"type": "string", "pattern": "^(https://qr7\\.it/dm26[A-Za-z0-9]{8})?$", "description": "DERIVED: https://qr7.it/<short_code>."},
+    "final_destination": {"type": "string", "description": "CUSTOM destination URL; '' = the studio template settings.destTemplate (the CSV exports the RESOLVED URL instead).", "default": ""},
+    "contacts": {"type": "string", "description": "v8: people involved, comma separated, never invented. Not printed by default.", "default": ""},
+    "notes": {"type": "string", "description": "v8: short free note. Not printed by default.", "default": ""},
+    "selected_for_print": {"type": "boolean", "description": "In the print queue (local preference: kept from the local copy when a sync updates the binder).", "default": false},
+    "color_locked": {"type": "boolean", "description": "v10: true = colour picked by hand, never changed automatically.", "default": false},
+    "location_id": {"type": "string", "description": "v11: id of the location (box) the binder is in, '' = none.", "default": ""},
+    "created_at": {"type": "string", "format": "date-time", "description": "ISO 8601 UTC with milliseconds (Date.toISOString)."},
+    "updated_at": {"type": "string", "format": "date-time", "description": "ISO 8601 UTC; drives record-level last-write-wins. Never moved backwards."}
+  },
+  "additionalProperties": true
+}

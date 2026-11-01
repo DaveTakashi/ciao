@@ -3,14 +3,15 @@
 Operating manual for coding agents (and humans) working on `docmapv1/`.
 User-facing docs are Italian (`README.md`, `docs/*.md`); code, identifiers and this file are English.
 
+- **Map of every document, who reads what (IT): `docs/INDICE.md`** · user manual (IT): `docs/MANUALE-UTENTE.md` · glossary IT/EN/code: `docs/GLOSSARIO.md` · manual acceptance checks: `docs/CHECKLIST-COLLAUDO.md` · full feature reference (the old README): `docs/RIFERIMENTO-FUNZIONI.md`
 - Architecture (IT): `docs/ARCHITETTURA.md`
 - Data model / file formats — the contract with the Python system (IT): `docs/MODELLO-DATI.md`
+- Python team: `docs/HANDOFF_PROMPT.md` (the prompt), `docs/python/PORTING.md` (api.php → FastAPI 1:1), `docs/python/openapi.yaml`, `docs/python/SCHEMI.md` + `docs/python/schema/*.schema.json` (checked by `docs/python/tools/validate_schemas.py`), `docs/ALLINEAMENTO-PYTHON.md`
 - Future online hub & API blueprint, not implemented (IT): `docs/HUB-E-API.md`
-- Guide for the Python team (IT): `docs/ALLINEAMENTO-PYTHON.md`
-- v10 REST contract for auth + mobile page + blobs (IT): `docs/API-CONTRACT.md` · security model (IT): `docs/SICUREZZA.md` · static web deploy (IT): `docs/DEPLOY-WEB.md`
-- Manual sync local ⇄ web app, package format and merge rules (IT): `docs/SYNC.md`
+- REST contract of the shared online database `server-php/api.php` (IT): `docs/API-CONTRACT.md` · security model (IT): `docs/SICUREZZA.md` · web deploy + SiteGround (IT): `docs/DEPLOY-WEB.md`
+- Sync (packages, server peer, LWW, tombstones, sync journal) (IT): `docs/SYNC.md` · upgrades without data loss: `docs/AGGIORNAMENTI.md`
 
-Baseline described here: **v10** (`APP_VERSION = '26.10.0'`, state `schema: 26.9`, `DB_SCHEMA_VERSION = 5`). v9 adds the label template registry `LABEL_TEMPLATES` (03-print.js; default `info`), `S.print.info`, `S.print.edge`, the PDF exporter (05c-pdf.js) and the activity log (06e-log.js, `logAct()`). To add a label template: add an entry to `LABEL_TEMPLATES` (kinds per binder, paired or not, recommended presets, options HTML), a renderer for any new kind in `renderLabel`, i18n keys, and tests; the PDF exporter needs no change because it reads the rendered DOM.
+Baseline described here: **v11.1** (`APP_VERSION = '26.11.1'`, state `schema: 26.9`, `DB_SCHEMA_VERSION = 7`, server `DM_SCHEMA = 2`). The sections below were written version by version: §10 onwards say which version added what. v9 adds the label template registry `LABEL_TEMPLATES` (03-print.js; default `info`), `S.print.info`, `S.print.edge`, the PDF exporter (05c-pdf.js) and the activity log (06e-log.js, `logAct()`). To add a label template: add an entry to `LABEL_TEMPLATES` (kinds per binder, paired or not, recommended presets, options HTML), a renderer for any new kind in `renderLabel`, i18n keys, and tests; the PDF exporter needs no change because it reads the rendered DOM.
 What changed from v7 is summarised in §10.
 
 ---
@@ -55,11 +56,9 @@ What changed from v7 is summarised in §10.
 | 6g | `assets/js/06g-server.js` | **v10.1** sync with the shared online database (`server-php/api.php`): the server is the 06f peer `server:<url>`; `srvSync({interactive})` (pull → `syncAnalyze`/`syncApply` → push, seed confirmation on an empty server, review modal on conflicts), automatic mode in web+apiBase (`srvBoot`, debounced push from a `persist` wrapper, 60 s pull, backoff), top-bar status `#srv-status`, "Server online" card appended to `viewSync`, admin token management, `SRV_ACTIONS` — §14 |
 | 6h | `assets/js/06h-locations.js` | **v11** Informazioni › Ubicazioni (tree editor, bulk create, levels, move, delete+undo), assignment (`locAssign`) from archive/editor, archive filter `UI.fLoc`, "Dov'è?" path, label template `loc` (kind `L`), manifest rows, desktop association mode (`LUI.assoc`, keyboard scanner `#la-scan`, webcam), `LOC_ACTIONS`, help topic `locations` + guide |
 | 6i | `assets/js/06i-journal.js` | **v11** push / sync journal "Registro sincronizzazioni" (docs/SYNC.md §9): `S.syncJournal` (`jrAdd`, `jrPrune`, `jrMerge`), canonical hash `jrCanon`/`jrRecHash` (= server `canon()`), client identity `jrClientInfo()` (sent by `DMServer.call`), observation wrappers (`jrWrapSync`, `jrWrapProviders`), card appended to `viewSync` (filters, detail + diff, restore, CSV/JSON), phone list in `scan.html`, `JR_ACTIONS`, help topic `journal`; CSS `assets/css-journal.css` — §15. Also loaded by `scan.html` after `10-auth.js` |
-| 7 | `assets/js/07-help.js` | extra i18n keys, `HELP_TAGS`, `HELP_TOPICS`, help drawer, `helpDot(id)`, onboarding |
-| 8 | `assets/js/08-guide.js` | guided-action engine, `GUIDES` |
-| 8b | `assets/js/10-auth.js` | v10 provider seams (`dmProviders()`, `DataProvider`/`AuthProvider`/`CryptoProvider`/`BlobStore`, local + remote stubs), `DocMapVault` (web-mode encrypted storage, boot gate), Impostazioni › Utenti e accesso, "Anteprima mobile", live merge of mobile edits, help topic `mobile` — §12 |
 | 7 | `assets/js/07-help.js` | extra i18n keys, `HELP_TAGS`, `HELP_ACTS`, `HELP_TOPICS`, `HELP_META`, help drawer (popularity, favourites, filters, search `helpQueryTerms`/`helpMatch`), `helpStore()`, `helpDot(id)`, onboarding |
-| 8 | `assets/js/08-guide.js` | guided-action engine, `GUIDES` (14 tours), exit question, keyboard, resume (`guideResume`) |
+| 8 | `assets/js/08-guide.js` | guided-action engine, `GUIDES` (15 tours: 14 here + `locations` added by 06h at load time), exit question, keyboard, resume (`guideResume`) |
+| 8b | `assets/js/10-auth.js` | v10 provider seams (`dmProviders()`, `DataProvider`/`AuthProvider`/`CryptoProvider`/`BlobStore`, local + remote stubs), `DocMapVault` (web-mode encrypted storage, boot gate), Impostazioni › Utenti e accesso, "Anteprima mobile", live merge of mobile edits, help topic `mobile` — §12 |
 | 8c | `assets/js/11b-assoc.js` | **v11** `DMCamScanner` (BarcodeDetector or lazy `vendor/jsqr.js`), `dmDecodeQRCanvas`, `dmScanFeedback`; on scan.html (when `SC` exists) location page + phone association mode (`SA`, `docmap_v26_assoc`) |
 | 9 | `assets/js/09-actions.js` | `ACTIONS` map, global event delegation (click/input/change/keydown/drag-drop), file inputs, **boot** (`loadState` → `ensureIntegrity` → `persist` → `renderAll` → `maybeOnboard` → `dbInit`), `window.DocMap` test hook |
 
@@ -104,8 +103,8 @@ Example: new field `foo`. Touch every item; the suite will catch most misses.
    Also consider: a typeahead source in `ED_SOURCES` (04b) and, if the value is a reusable list, an `INFO_LISTS` entry (06d).
 8. **Search** — add to the haystack in `filteredBinders()` (05-views).
 9. **Register / manifest / destination** — `buildRegisterHTML()`; `renderDest()` placeholder only if useful.
-10. **Help** — mention in the relevant `HELP_TOPICS` entry (07-help) and in `README.md` (Italian); update a guide step in `GUIDES` if the editor flow changes.
-11. **Docs** — `docs/MODELLO-DATI.md` (field table, CSV order, DDL).
+10. **Help** — mention in the relevant `HELP_TOPICS` entry (07-help), in `docs/RIFERIMENTO-FUNZIONI.md` and, if it changes how a task is done, in `docs/MANUALE-UTENTE.md` (Italian); update a guide step in `GUIDES` if the editor flow changes.
+11. **Docs** — `docs/MODELLO-DATI.md` (field table, CSV order, DDL), `docs/python/schema/binder.schema.json` (+ run `docs/python/tools/validate_schemas.py`), `docs/GLOSSARIO.md` if it is a new concept.
 12. **Migration** — if old states need a value, add a guarded step in `migrate()` and bump `schema`.
 13. **Tests** — round trip CSV → import → equal, JSON, `.sqlite` download/open, AI headerless import, label render without `NaN`.
 
@@ -126,7 +125,7 @@ Example: new field `foo`. Touch every item; the suite will catch most misses.
 
 ## 6. Running the tests
 
-Requirements: Node.js, `playwright` (Chromium), `jsqr`, `pngjs`; Python 3 with `pypdfium2` (used to rasterise printed PDFs at 300 dpi for QR decoding).
+Requirements: Node.js, `playwright` (Chromium), `jsqr`, `pngjs`; Python 3 with `pypdfium2` (used to rasterise printed PDFs at 300 dpi for QR decoding); PHP 8 CLI with `pdo_sqlite` + `openssl` for the server sections W, X, J (skipped with a message when missing); `git` history for the v10.1 `api.php` (commit `68ae170`) used by X and J.
 
 ```bash
 cd docmapv1/tests
@@ -135,7 +134,8 @@ pip install pypdfium2
 node suite.js            # exit code 0 = all passed; screenshots in tests/shots/
 ```
 
-The suite opens `index.html` via `file://` in Chromium and checks every view (no horizontal scroll at 1366×768, IT/EN), every preset × content mode × QR mode, QR decode on every printed slot, import/export round trips, SQLite, guides, 2000-binder performance and past bug cases. It prints `RESULT: N passed, M failed`. Page errors and console errors count as failures. v8 streams add tests under the `// @@STREAM-A@@`, `@@STREAM-B@@`, `@@STREAM-C@@` anchors.
+The suite opens `index.html` via `file://` in Chromium and checks every view (no horizontal scroll at 1366×768, IT/EN), every preset × content mode × QR mode, QR decode on every printed slot, import/export round trips, SQLite, guides, 2000-binder performance and past bug cases. It prints `RESULT: N passed, M failed` (26.11.1: 1056 checks, about 6 minutes) and then `errors:` (must be `none`). Page errors and console errors count as failures. Each stream adds its tests under its own anchor comment `// @@STREAM-<letter>@@`, placed in order right before `console.log('\nerrors:'`: A, B, C (v8), T, P, L (v9), E, K, R, S, G, M (v10), W (v10.1), X, J (v11), then the v11.1 streams. The server sections start `php -S` themselves (W port 18300 + pid % 500, X 18900 + pid % 500, J 18850 + pid % 300; see `docs/python/PORTING.md` §9 for running them against another server).
+Contract checks outside the suite: `NODE_PATH=tests/node_modules python3 docs/python/tools/validate_schemas.py` (JSON Schemas + OpenAPI against real app output and the real `api.php`).
 
 ## 7. Coding conventions
 
@@ -151,19 +151,20 @@ The suite opens `index.html` via `file://` in Chromium and checks every view (no
 
 | What | Where | Bump when |
 |------|-------|-----------|
-| `APP_VERSION` (`'26.10.1'`) | 02-core | every release; written into workspace JSON `version` |
-| State schema (`26.9`) | `defaultState().schema` and the final `o.schema = …` in `migrate()` | state shape or defaults change; add a guarded step `if (!(st && st.schema >= 26.x)) {…}` |
-| `DB_SCHEMA_VERSION` (`5`) | 06-db | SQLite DDL changes; add an additive migration in `dbMigrate()` (never drop columns), note the change in the comment |
-| `LS_KEY` (`docmap_v26_state`) | 02-core | never (would orphan users' data) |
+| `APP_VERSION` (`'26.11.1'`) | 02-core | every release; written into workspace JSON `version` |
+| State schema (`26.9`) | `defaultState().schema` and the final `o.schema = …` in `migrate()` | state shape or defaults change; add a guarded step `if (!(st && st.schema >= 26.x)) {…}` (v10–v11.1 added keys lazily without a bump) |
+| `DB_SCHEMA_VERSION` (`7`) | 06-db | SQLite DDL changes; add an additive migration in `dbMigrate()` (never drop columns), note the change in the comment |
+| `DM_SCHEMA` (`2`), `DM_API_VERSION` (`1`) | server-php/api.php | server DB tables (additive step in `db_migrate()`) / incompatible API change (never without a client update) |
+| `LS_KEY` (`docmap_v26_state`) and the other storage keys (`docmap_v26_srv`, `docmap_v26_device`, `docmap_v26_vault*`, `docmap_v26_assoc`, IndexedDB `docmap_v26_sqlite`) | 02-core and owners | never (would orphan users' data) |
 
 Migrations must be **idempotent and additive**: old JSON, CSV (17/16-column) and `.sqlite` files must keep importing.
 
 ## 9. Commits
 
-- The integrator commits; feature agents work in their own worktrees and do not push unless asked. Test anchors `// @@STREAM-A@@`, `@@STREAM-B@@`, `@@STREAM-C@@` in `tests/suite.js` mark where each v8 stream's tests live.
+- The integrator commits; feature agents work in their own worktrees and do not push unless asked. Test anchors `// @@STREAM-<letter>@@` in `tests/suite.js` mark where each stream's tests live (§6).
 - Subject: `DocMap vN: short summary` (or `DocMap vN scaffolding: …`). Body: `- ` bullets of user-visible changes, then tests count (e.g. "suite at 459 checks").
 - End with the attribution trailers given in the session (e.g. `Co-Authored-By: …`, `Claude-Session: …`).
-- Update `README.md` (Italian, user-facing) and the relevant `docs/` file in the same commit as the behaviour change.
+- Update the user docs (Italian: `docs/MANUALE-UTENTE.md` for tasks, `docs/RIFERIMENTO-FUNZIONI.md` for features; `README.md` stays a short entry point) and the relevant technical `docs/` file in the same commit as the behaviour change. A new document goes into `docs/INDICE.md`.
 
 ## 10. What v8 added (v7 → v8)
 
@@ -332,4 +333,25 @@ Field-level details and file formats: `docs/MODELLO-DATI.md`.
 - **Tests**: `// @@STREAM-X@@` (desktop tree, labels + PDF decode, manifest, keyboard association, v10.1 local data,
   then a php -S server started with the v10.1 `api.php` from git `68ae170` and switched to the current one; phone
   association on scan.html; two desktop pages syncing locations).
+
+## 17. v11.1: documentation layout (stream D, docs only)
+
+- `README.md` is a short entry point (version, start, links). The full feature description moved to
+  `docs/RIFERIMENTO-FUNZIONI.md` (history sections "Storia: novità vX" at the end); task-oriented steps are in
+  `docs/MANUALE-UTENTE.md` (button names exactly as the IT i18n strings); `docs/GLOSSARIO.md` maps IT term ↔ EN term ↔
+  code name; `docs/CHECKLIST-COLLAUDO.md` lists the manual acceptance checks the suite cannot do; `docs/INDICE.md`
+  maps every document to its readers.
+- `docs/python/`: `PORTING.md`, `openapi.yaml` (OpenAPI 3.1 of `api.php`, routes as `/<route>` + `x-docmap-route`,
+  minimum role in `x-docmap-role`), `SCHEMI.md` + `schema/*.schema.json` (JSON Schema 2020-12, relative `$ref`s, no
+  `$id`), `tools/export_samples.js` (Playwright: real backup / package from the app) and `tools/validate_schemas.py`
+  (validates them, cross-checks the `api.php` routes and runs every route of a temporary `php -S` against the
+  OpenAPI, then recomputes blobs / HMAC / hashes in Python). When a field, a route or a response changes, update the
+  schema or `openapi.yaml` in the same commit and run the validator.
+- `// @@STREAM-D@@` tests (no browser work beyond one `evaluate`) check that the docs stay consistent with the code:
+  every relative Markdown link resolves; README, INDICE and HANDOFF_PROMPT name `APP_VERSION`; MODELLO-DATI §6.1
+  lists `CSV_COLUMNS`; the keys of `normalizeBinder/Client/Location({})` and of `workspaceJSON(true)` are all in the
+  schema `properties` (and every `required` key is always written); the OpenAPI routes, roles and methods = `$reads`
+  / `$writes` of `api.php`; the ping `features` in API-CONTRACT/HANDOFF = `api.php`. Bumping `APP_VERSION`, adding a
+  CSV column, a field, a route or a ping feature therefore needs the matching doc/schema update.
+- No code, data-model, storage-key, DB-schema or API change in this stream.
 

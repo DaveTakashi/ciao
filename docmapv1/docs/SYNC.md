@@ -1,6 +1,11 @@
 # DocMap 2026 — Sincronizzazione: pacchetti manuali (v10), database online condiviso (v10.1), registro (v11)
 
-Codice: `assets/js/06f-sync.js` · Test: blocco `// @@STREAM-S@@` in `tests/suite.js` · Aiuto in app: argomento `sync`.
+Codice: `assets/js/06f-sync.js` (pacchetti), `06g-server.js` (server), `06i-journal.js` (registro) · Test: blocchi
+`// @@STREAM-S@@`, `// @@STREAM-W@@`, `// @@STREAM-J@@` in `tests/suite.js` · Aiuto in app: argomento `sync` · JSON Schema del
+pacchetto: [`python/schema/sync_package.schema.json`](python/schema/sync_package.schema.json). Versione dell'app: 26.11.1.
+
+> Le sezioni 1–6 descrivono i **pacchetti a file** (nati con la v10, ancora validi come piano B offline). Dalla v10.1
+> c'è anche il database online condiviso (§7), dalla v11 le ubicazioni (§7b) e il registro (§9–10).
 
 DocMap gira in due posti:
 
@@ -64,17 +69,17 @@ Nome file: `docmap-sync-<slug del nome dispositivo>-<AAAAMMGG-hhmmss>.json`.
 
 ```json
 {
-  "format": "docmap-sync", "version": 1, "app": "DocMap26", "appVersion": "26.9.0",
+  "format": "docmap-sync", "version": 1, "app": "DocMap26", "appVersion": "26.11.1",
   "exportedAt": "2026-11-01T10:00:00.000Z",
   "source": {"deviceId": "dev-…", "deviceLabel": "PC studio", "mode": "local", "operator": "Davide"},
   "since": null,
   "target": "dev-…",
   "ack": {"dev-…": "2026-10-30T18:00:00.000Z"},
-  "records": {"binders": [ /* faldoni completi, stessi campi del workspace JSON */ ], "clients": [ /* clienti + updated_at */ ]},
+  "records": {"binders": [ /* faldoni completi, stessi campi del workspace JSON */ ], "clients": [ /* clienti + updated_at */ ], "locations": [ /* v11: ubicazioni */ ]},
   "tombstones": [{"type": "binder", "id": "…", "code": "BL2", "deletedAt": "…", "who": "Davide"}],
-  "settingsSubset": {"studioName": "…", "destTemplate": "…", "catColors": {}, "colorMode": "company", "catFamilies": {}, "colorRules": {}, "colorUpdatedAt": "…"},
+  "settingsSubset": {"studioName": "…", "destTemplate": "…", "catColors": {}, "colorMode": "company", "catFamilies": {}, "colorRules": {}, "colorUpdatedAt": "…", "locLevels": [ /* v11 */ ], "locLevelsAt": "…"},
   "activity_log": [ /* voci del registro attività, stesso formato del workspace JSON */ ],
-  "counts": {"binders": 0, "clients": 0, "tombstones": 0, "log": 0}
+  "counts": {"binders": 0, "clients": 0, "locations": 0, "tombstones": 0, "log": 0}
 }
 ```
 

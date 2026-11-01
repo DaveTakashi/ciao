@@ -1,4 +1,7 @@
-# DocMap — pubblicazione web (v10.1: con database online condiviso)
+# DocMap — pubblicazione web (con database online condiviso)
+
+> Valido per la 26.11.1 (v11.1). Il database online c'è dalla v10.1; la v11 ha aggiunto le ubicazioni (`/q/dm26L…`)
+> e il registro sincronizzazioni. Prove manuali dopo il caricamento: `CHECKLIST-COLLAUDO.md` §3.
 
 Dominio pilota: **`https://docmap.pr-it.it/studio-de/`** su hosting condiviso **SiteGround** (PHP 8 + PDO SQLite, niente
 Node né Python). Dalla v10.1 il deploy contiene anche `server-php/`: un'API PHP in un solo file che salva i dati in un

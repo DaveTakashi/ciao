@@ -1,7 +1,9 @@
 # DocMap 2026 — Architettura
 
-Documento tecnico sulla versione **v8** (`APP_VERSION 26.8.0`, schema stato `26.8`, `DB_SCHEMA_VERSION 4`). Le differenze rispetto alla v7 sono riassunte nel §10.
-Per le regole operative degli agenti vedi `../AGENTS.md`; per i formati dati `MODELLO-DATI.md`.
+Documento tecnico su DocMap **26.11.1** (v11.1: schema stato `26.9`, `DB_SCHEMA_VERSION 7`, server `DM_SCHEMA 2`).
+I §1–§9 descrivono il nucleo (scritto per la v8 e aggiornato); i §10–§15 sono le aggiunte di ogni versione (v8 →
+v11), da leggere anche come storia. Mappa completa dei moduli e ordine di caricamento: `../AGENTS.md` §2. Formati dei
+dati: `MODELLO-DATI.md`; server: `API-CONTRACT.md` e `python/PORTING.md`; indice di tutti i documenti: `INDICE.md`.
 
 ## 1. In una frase
 
@@ -60,7 +62,14 @@ flowchart TB
   HELP --> GUIDE --> ACT
 ```
 
-L'ordine di caricamento in `index.html` è quello della numerazione (0 vendor → 09 actions). Gli script **non** sono moduli ES: ogni `const`/`function` di primo livello è globale. I file successivi estendono i precedenti (`Object.assign(I18N.it, …)`, `Object.assign(ACTIONS, PHOTO_ACTIONS, CLIENT_ACTIONS, IMPORT_MAP_ACTIONS, EDITOR_ACTIONS, INFO_ACTIONS)`). Alcune funzioni sono usate in avanti, solo al momento della chiamata: `renderTopbar()` (05) chiama `topbarHTML()` e `infoApplyCatColors()` (06d), `renderLabel()` (03) delega l'etichetta `Q` a `renderQrLabel()` (06d), l'archivio filtra con `infoMatch()` (06d). Gli argomenti di aiuto di 05b e 06d vengono aggiunti a `HELP_TOPICS` su `DOMContentLoaded`. Il boot è in fondo a `09-actions.js`.
+Il diagramma mostra il nucleo della v8. Dalla v9 si aggiungono, nello stesso schema: `02c-locations.js` (modello
+delle ubicazioni) e `02b-colors.js` (colori) dopo `02-core.js`; `05c-pdf.js` (PDF) e `05d-bulk.js` (modifica massiva)
+dopo `05b`; `06e-log.js` (registro attività), `06f-sync.js` (pacchetti), `06g-server.js` (server), `06h-locations.js`
+(Ubicazioni), `06i-journal.js` (registro sincronizzazioni) dopo `06d`; `10-auth.js` (provider, cassaforte) e
+`11b-assoc.js` (scanner fotocamera, associazione) dopo `08-guide.js`; `scan.html` carica `02-core`, `02c-locations`,
+`10-auth`, `06i-journal`, `11-scan`, `11b-assoc`.
+
+L'ordine di caricamento in `index.html` segue la numerazione (0 vendor → 09 actions, con `02c` prima di `02b` e `10-auth`/`11b-assoc` prima di `09-actions`). Gli script **non** sono moduli ES: ogni `const`/`function` di primo livello è globale. I file successivi estendono i precedenti (`Object.assign(I18N.it, …)`, `Object.assign(ACTIONS, PHOTO_ACTIONS, CLIENT_ACTIONS, IMPORT_MAP_ACTIONS, EDITOR_ACTIONS, INFO_ACTIONS)`). Alcune funzioni sono usate in avanti, solo al momento della chiamata: `renderTopbar()` (05) chiama `topbarHTML()` e `infoApplyCatColors()` (06d), `renderLabel()` (03) delega l'etichetta `Q` a `renderQrLabel()` (06d), l'archivio filtra con `infoMatch()` (06d). Gli argomenti di aiuto di 05b e 06d vengono aggiunti a `HELP_TOPICS` su `DOMContentLoaded`. Il boot è in fondo a `09-actions.js`.
 
 ### Avvio
 
@@ -112,7 +121,7 @@ Principi:
 | File `.sqlite` collegato | disco (Chrome/Edge, File System Access API) | stesso database, salvato a ogni sync | serve il permesso di scrittura; dopo un riavvio si riconferma |
 | `docmap_AAAAMMGG_HHMM.sqlite` | download | database completo con foto e sessioni | il formato più completo |
 | `docmap_workspace.json` / `docmap_workspace_AAAAMMGG_HHMM.json` | download | workspace completo **senza foto** (senza `infoTab` e `printPrev`, che restano solo in localStorage) | backup rapido; reimportabile con "ripristina tutto" |
-| `docmap_full_backup.csv` | download | faldoni, 27 colonne, `;`, BOM UTF-8 | apribile in Excel, reimportabile |
+| `docmap_full_backup.csv` | download | faldoni, 29 colonne (`CSV_COLUMNS`: v10 + `color_locked`, v11 + `location_id`), `;`, BOM UTF-8 | apribile in Excel, reimportabile |
 | `manifest_qr7_dm26.csv` / `manifest.csv` | download | `short_code;short_url;final_destination;tags;` (ogni riga termina con `;`, v11) | per il server di redirect qr7.it |
 | `docmap_clienti.csv` | download | anagrafica clienti | |
 
@@ -137,16 +146,18 @@ Ordine: MRINK143 (predefinito), L7160, L7163, L7165, L7173 (più usati), poi alt
 
 ### Modalità di contenuto
 
-`S.print.contentMode` → tipi di etichetta (`modeKinds`):
+`S.print.contentMode` → tipi di etichetta, letti dal registro `LABEL_TEMPLATES` (03-print.js, §11):
 
 | contentMode | Tipi | Renderer |
 |---|---|---|
-| `split` (predefinito) | `S` — etichetta completa | `renderFull()` (se lo slot è orizzontale ricade su `U`) |
+| `info` (**predefinito dalla v9**) | `I` — etichetta informazioni; `I` + `C` (contenuto) in coppia se `S.print.info.pair` | §11 |
+| `split` | `S` — etichetta completa (classica; era il predefinito fino alla v8) | `renderFull()` (se lo slot è orizzontale ricade su `U`) |
 | `pair` | `A` + `B` consecutive | `renderLabel('A'|'B')` |
 | `a` | `A` frontale (cliente, codice, posizione, QR) | template `classic` / `multi` / `bold` / `minimal` |
 | `b` | `B` contenuti + data aggiornamento | |
 | `u` | `U` unificata | |
 | `qr` | `Q` — solo QR + codice parlante + codice breve (+ cliente se c'è spazio) | `renderQrLabel()` (06d-info.js); si adatta a qualsiasi casella, usata dalla "Ristampa solo QR" |
+| `loc` (v11) | `L` — etichetta ubicazione (codice grande, percorso, QR `dm26L…`) | aggiunto da 06h-locations.js a `LABEL_TEMPLATES`; coda `S.print.locIds` (§15) |
 
 Campi stampabili dell'etichetta completa: `DEFAULT_FIELDS = {category, city, multi, url, title, year, contents, tags, extra, location, contacts:false, notes:false, date:'created'|'updated'|'none', empty:false}` (tutti `true` salvo dove indicato), sovrascrivibili in `S.print.fields`. Contatti e note sono spenti per default e compaiono solo nell'etichetta completa `S`. Le voci di contenuto con stato `in_use` / `client` ricevono un piccolo segno "↗ in uso" / "↗ cliente" nell'elenco contenuti; il Registro Generale non mostra lo stato. Con `empty:true` i campi vuoti diventano "Campo: ____" da compilare a mano; altrimenti non lasciano spazio. Il tag `demo` non viene mai stampato.
 
@@ -209,7 +220,8 @@ Ogni riga passa da `mapRecord()` (alias intestazioni → campi), riceve codice p
 
 - `07-help.js`: cassetto "?" (F1) con argomenti `HELP_TOPICS` filtrabili per tag (`HELP_TAGS`), mini-wiki bilingue, argomenti correlati, pulsanti `helpDot(id)` accanto ai titoli, onboarding al primo avvio.
 - Argomenti v8: `nav` (dove sono le funzioni avanzate), `info`, `qr-reprint` (06d-info.js), `excel` (05b-import-map.js).
-- `08-guide.js`: **azioni guidate** (`GUIDES`: create, print, calib, partial, manifest, ai, session, backup, import, register). Se un passo punta a una voce del menu ⚙ chiuso, la guida lo apre; `navStepText()` aggiunge al testo dove si trova il menu. Non è un tour passivo: evidenzia l'elemento reale, blocca i clic altrove con un promemoria, avanza da solo quando l'azione è fatta (`done`), avverte una volta per i valori consigliati (`require`), segue l'elemento tra viste e modali, apre i `<details>` chiusi; Avanti/Indietro funzionano sempre e chiudere la guida non chiude il modulo.
+- Dalla v10 il cassetto ha popolarità, preferiti, due file di filtri e ricerca tollerante (`../AGENTS.md` §10b); gli argomenti delle versioni successive (`colors`, `pdf`, `bulk`, `sync`, `mobile`, `log`, `locations`, `journal`…) li aggiungono i moduli che li possiedono.
+- `08-guide.js`: **azioni guidate** (`GUIDES`, 15 in tutto: create, print, pdf, client, find, edit, calib, partial, manifest, ai, session, backup, import, register, più `locations` aggiunta da 06h-locations.js). Se un passo punta a una voce del menu ⚙ chiuso, la guida lo apre; `navStepText()` aggiunge al testo dove si trova il menu. Non è un tour passivo: evidenzia l'elemento reale, blocca i clic altrove con un promemoria, avanza da solo quando l'azione è fatta (`done`), avverte una volta per i valori consigliati (`require`), segue l'elemento tra viste e modali, apre i `<details>` chiusi; Avanti/Indietro funzionano sempre e chiudere la guida non chiude il modulo.
 
 ## 9. Database SQLite (`06-db.js`)
 
