@@ -273,7 +273,7 @@ function viewPrint(){
   const presets = basicPresets + (nOthers ? '<details class="more"><summary>' + esc(t('pr_more', {n:nOthers})) + '</summary>' + others + '</details>' : '');
   const opt = (grp, val, title, desc, cur, full) => '<button type="button" class="opt ' + (cur === val ? 'on ' : '') + (full ? 'full' : '') + '" data-a="' + grp + '" data-v="' + val + '"><b>' + esc(title) + '</b><span>' + esc(desc) + '</span></button>';
   return '<div class="page-h"><div><h1>' + esc(t('pr_h')) + helpDot('print') + '</h1><p>' + esc(t('pr_p')) + '</p></div>' +
-    '<div class="row"><button class="btn btn-lg" data-a="print-calib">' + ic('crosshair') + esc(t('pr_calib')) + '</button><button class="btn btn-lg btn-primary" data-a="print-labels" id="btn-print">' + ic('printer') + esc(t('pr_go')) + '</button></div></div>' + qrRestoreBarHTML() +
+    '<div class="row"><button class="btn btn-lg" data-a="print-calib">' + ic('crosshair') + esc(t('pr_calib')) + '</button><button class="btn btn-lg" data-a="pdf-download" id="btn-pdf" title="' + esc(t('pr_pdf_d')) + '">' + ic('download') + esc(t('pr_pdf')) + '</button><button class="btn btn-lg btn-primary" data-a="print-labels" id="btn-print">' + ic('printer') + esc(t('pr_go')) + '</button></div></div>' + qrRestoreBarHTML() +
     '<div class="studio"><div class="card">' +
       '<div class="panel-sec"><h3>' + esc(t('pr_queue')) + '</h3><div id="pr-summary"></div></div>' +
       '<div class="panel-sec"><h3>' + esc(t('pr_sheet')) + '</h3><div class="preset-list">' + presets + '</div></div>' +
