@@ -440,3 +440,12 @@ Migrazione `migrate()` 26.9: se il preset è `mrink143` e la modalità era `spli
 
 **Migrazione**: nessun faldone viene ricolorato all'aggiornamento. Uno stato, un workspace JSON o un `.sqlite` senza `settings.colorMode` è "pre-v10": `colorLockLegacy()` blocca i faldoni il cui colore non è automatico (non è una sfumatura della famiglia, né il colore della categoria, né i vecchi predefiniti `#2563EB`/`#475569`). Per ricolorare c'è il pulsante **Impostazioni › Colori dei dorsi › Ricolora tutti i faldoni (non bloccati)** (o, per una categoria, la casella nel dialogo di Informazioni › Categorie).
 
+### v10 — Pagine e PDF (stream R)
+
+| Dove | Campo | Significato |
+|---|---|---|
+| `S.print.pages` | `{sel:'all', reverse:false, order:null, sig:''}` | Quali fogli escono e in che ordine, per Stampa, Scarica PDF e anteprima. `sel`: `'all'` oppure numeri / intervalli dei fogli originali (`'2'`, `'1-3,5'`, `'4-'`; `'none'` = nessuno); è un insieme, l'ordine lo decidono `order` e `reverse`. `order`: permutazione dei fogli 1..n oppure `null` (naturale). `reverse`: dall'ultimo al primo. `sig`: impronta dei fogli quando la scelta è stata fatta; se la coda cambia i fogli, `sel` e `order` vengono ignorati e azzerati con un avviso (`reverse` resta). Creato quando serve, nessuna migrazione. |
+| `S.print.pdfCmyk` | booleano, default `false` | "PDF per tipografia": Scarica PDF scrive colori DeviceCMYK, nero e grigi solo K (0/0/0/100). |
+
+Foglio parziale: le caselle già usate (`S.usedSlots`) si saltano sempre sul **foglio originale 1**, anche se l'ordine lo sposta; il pannello indica in che posizione esce. Se l'ultimo foglio non è stampato, DocMap non propone di aggiornare la mappa del foglio parziale.
+

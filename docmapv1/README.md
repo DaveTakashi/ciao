@@ -160,6 +160,10 @@ Il **Codice Multi** è l'identificativo interno che lo studio ha già assegnato 
 
 Il template cambia l'etichetta frontale. L'etichetta dei contenuti e quella unificata mostrano comunque il Multi nel piè di pagina.
 
+## Pagine e Scarica PDF (v10)
+
+Nel riquadro **Pagine** di *Stampa etichette* vedi quanti fogli produce la stampa e scegli quali stampare (**Tutte**, oppure ad esempio `2` o `1-3,5`), l'**ordine inverso** per le stampanti che fanno uscire i fogli a faccia in su, e l'ordine dei fogli con le miniature (↑ ↓ e **Prima**). La scelta vale sia per **Stampa** sia per **Scarica PDF** e l'anteprima la mostra subito. Se hai un foglio già usato in parte, è sempre il *foglio 1* a saltare le caselle usate: se lo sposti, DocMap ti dice in che posizione esce, così metti il foglio già usato in quel punto del cassetto. Se cambi la coda di stampa, la scelta si azzera con un avviso. Il **PDF** è ora a massima compatibilità (PDF 1.4 classico, caratteri incorporati, nessuna trasparenza, A4 esatto, Acrobat propone già la scala 100%); con la casella **PDF per tipografia** i colori sono in CMYK e il nero di testi e QR usa solo l'inchiostro nero.
+
 ## Foto e "Dov'è?"
 
 - Nell'archivio, l'icona **segnaposto** di un faldone apre **"Dov'è?"**. Lo stesso succede cliccando un dorso nella Mappa Scaffali.

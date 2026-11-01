@@ -368,11 +368,17 @@ function sheetWrap(inner){
   const P = S.print;
   return '<div class="sheet"><div style="position:absolute;left:' + MM(+P.offsetX || 0) + ';top:' + MM(+P.offsetY || 0) + ';width:210mm;height:297mm">' + inner + '</div></div>';
 }
+/* Returns one HTML string per output sheet, in OUTPUT order: page selection / order / reverse
+   (S.print.pages, see labelPageOrder below) apply to the print, the PDF and the screen preview alike.
+   `pi` stays the ORIGINAL page index, so the partial-sheet skip (used slots) always stays on
+   original sheet 1 — the one that needs the partially used paper — wherever it ends up in the job. */
 function buildLabelSheets(screen){
   const g = S.print.geometry, P = S.print, L = layoutLabels(), N = slotCount();
   const EI = edgeOn(P) ? edgeInsetSheet(g, P) : null;   // safe area outline, on screen only
   const pages = L.pages.length ? L.pages : (screen ? [[]] : []);
-  return pages.map((slots, pi) => {
+  const ord = L.pages.length ? labelPageOrder(L) : pages.map((_, i) => i);
+  return ord.map(pi => {
+    const slots = pages[pi];
     let inner = '';
     const filled = new Map(slots.map(x => [x.s, x.item]));
     const k = Math.max(1, g.group | 0), grouped = k > 1 && g.rows % k === 0;
@@ -399,6 +405,50 @@ function buildLabelSheets(screen){
     }
     return sheetWrap(inner);
   });
+}
+/* ---------------- v10 — page selection & order (print + PDF) ----------------
+   S.print.pages = {sel:'all'|'1-3,5', reverse:false, order:null|[3,1,2,…], sig:''}
+   - sel: which ORIGINAL sheets (1-based) are output; a set, its own order is ignored.
+   - order: custom order of all original sheets (a permutation of 1..n), or null = natural.
+   - reverse: output the final list last-to-first (printers that deliver face up).
+   - sig: pageSig() of the layout when sel/order were chosen. If the queue changes the pages
+     (other binders on a sheet, more/fewer sheets) sel and order are stale: labelPageOrder()
+     ignores them, and pagesCheck() (05c-pdf.js) resets them with a notice. reverse is a
+     printer preference and is kept.
+   The UI, actions and help live in 05c-pdf.js. */
+const PAGES_DEFAULTS = {sel:'all', reverse:false, order:null, sig:''};
+function pagesCfg(P){ const c = Object.assign({}, PAGES_DEFAULTS, (P || S.print).pages || {}); c.sel = String(c.sel == null ? 'all' : c.sel).trim() || 'all'; c.reverse = !!c.reverse; return c; }
+function pageSig(L){
+  let h = 5381; const s = L.pages.map(pg => pg.map(x => x.item.b.id + x.item.kind).join(',')).join('|');
+  for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+  return L.pages.length + '-' + h.toString(36);
+}
+/* "1-3,5" → Set of 0-based indices (null = all). Accepts ; or , or spaces, "4-" (to the end), "-2". Invalid tokens → bad:true. */
+function pageSelParse(sel, n){
+  const v = String(sel == null ? 'all' : sel).trim().toLowerCase();
+  if (!v || v === 'all' || v === 'tutte' || v === '*') return {set:null, bad:false};
+  if (v === 'none' || v === 'nessuna') return {set:new Set(), bad:false};   // every page unticked
+  const set = new Set(); let bad = false;
+  v.split(/[\s,;]+/).filter(Boolean).forEach(tk => {
+    const m = /^(\d*)\s*-\s*(\d*)$/.exec(tk), one = /^\d+$/.test(tk);
+    if (!m && !one){ bad = true; return; }
+    let a = one ? +tk : (m[1] ? +m[1] : 1), b = one ? +tk : (m[2] ? +m[2] : n);
+    if (a > b) [a, b] = [b, a];
+    if (a < 1 || b > n) bad = true;
+    for (let i = Math.max(1, a); i <= Math.min(n, b); i++) set.add(i - 1);
+  });
+  return {set, bad};
+}
+function pageOrderValid(o, n){ return Array.isArray(o) && o.length === n && new Set(o).size === n && o.every(x => x >= 1 && x <= n && Number.isInteger(x)); }
+/* The output order: array of ORIGINAL 0-based page indices. */
+function labelPageOrder(L){
+  L = L || layoutLabels();
+  const n = L.pages.length, c = pagesCfg(), fresh = !c.sig || c.sig === pageSig(L);
+  let ord = fresh && pageOrderValid(c.order, n) ? c.order.map(x => x - 1) : Array.from({length:n}, (_, i) => i);
+  const sel = fresh ? pageSelParse(c.sel, n).set : null;
+  if (sel) ord = ord.filter(i => sel.has(i));
+  if (c.reverse) ord.reverse();
+  return ord;
 }
 function buildCalibSheet(){
   const g = S.print.geometry, P = S.print, N = slotCount(), used = usedSet();
@@ -468,10 +518,15 @@ function doPrint(kind, html){
   return new Promise(res => setTimeout(() => { try { window.print(); } finally { setTimeout(() => { cleanup(); res(); }, 300); } }, 60));
 }
 async function printLabels(){
+  if (typeof pagesCheck === 'function') pagesCheck(true);   // stale page selection → reset + notice (05c-pdf.js)
   const L = layoutLabels();
   if (!L.items){ toast(t('pr_none'), 'warn'); return; }
+  const ord = labelPageOrder(L);
+  if (!ord.length){ toast(t('pg_none'), 'warn'); return; }
   await doPrint('labels', buildLabelSheets(false).join(''));
-  // Offer to update the partial-sheet map with the consumed slots of the last sheet
+  // Offer to update the partial-sheet map with the consumed slots of the last sheet —
+  // only when the last sheet of the job was actually printed (page selection may leave it out).
+  if (!ord.includes(L.pages.length - 1)) return;
   const N = slotCount();
   const last = L.pages[L.pages.length - 1] || [];
   const base = L.pages.length === 1 ? new Set(L.used) : new Set();
