@@ -9,7 +9,7 @@
        target:  {type:'binder'|'client'|'info'|'session'|'file', id, code} or null,
        summary: short human text, always Italian (the stored record; the UI translates the action label),
        details: small JSON (e.g. {changed:{field:[old, new]}}, counts, file names),
-       source:  'ui' | 'import' | 'ai' | 'restore' }
+       source:  'ui' | 'import' | 'ai' | 'restore' | 'sync' (v10, 06f-sync.js) }
    Storage:
      - SQLite table activity_log (06-db.js DDL, DB_SCHEMA_VERSION 5): written immediately when the
        database is ready, persisted with the next dbPersist() (debounced).
@@ -93,7 +93,7 @@ function logValid(e){ return e && typeof e === 'object' && typeof e.id === 'stri
 function logNorm(e){
   const tg = e.target && typeof e.target === 'object' ? {type:String(e.target.type || ''), id:String(e.target.id || ''), code:String(e.target.code || '')} : null;
   return {id:e.id, at:e.at, who:String(e.who || LOG_DEVICE), action:e.action, target:tg && tg.type ? tg : null, summary:String(e.summary || ''),
-    details:e.details && typeof e.details === 'object' ? e.details : {}, source:['ui','import','ai','restore'].includes(e.source) ? e.source : 'ui'};
+    details:e.details && typeof e.details === 'object' ? e.details : {}, source:['ui','import','ai','restore','sync'].includes(e.source) ? e.source : 'ui'};
 }
 /** The one logging helper. Never throws. */
 function logAct(action, target, summary, details, source){

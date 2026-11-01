@@ -143,6 +143,8 @@ Le chiavi di `settings` viaggiano nel workspace JSON e nella tabella SQLite `set
 
 Questi due campi **non** sono nel workspace JSON né nel `.sqlite` (che salvano `settings`, `print`, `usedSlots`, `lang`).
 
+v10 (sincronizzazione, `docs/SYNC.md`): `tombstones` (eliminazioni da propagare `{type, id, code, deletedAt, who}`) e `sync` (`peers`, `lastExportAt`, `lastImportAt`, `lastPeer`, `history`), più `settings.deviceId` / `settings.deviceLabel`. Anche i clienti hanno `updated_at` (solo in localStorage e nei pacchetti di sincronizzazione, non nel `.sqlite`).
+
 ## 5. Identificatori e regole
 
 ### 5.1 `id`

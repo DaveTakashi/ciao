@@ -7,6 +7,7 @@ User-facing docs are Italian (`README.md`, `docs/*.md`); code, identifiers and t
 - Data model / file formats — the contract with the Python system (IT): `docs/MODELLO-DATI.md`
 - Future online hub & API blueprint, not implemented (IT): `docs/HUB-E-API.md`
 - Guide for the Python team (IT): `docs/ALLINEAMENTO-PYTHON.md`
+- Manual sync local ⇄ web app, package format and merge rules (IT): `docs/SYNC.md`
 
 Baseline described here: **v9** (`APP_VERSION = '26.9.0'`, state `schema: 26.9`, `DB_SCHEMA_VERSION = 5`). v9 adds the label template registry `LABEL_TEMPLATES` (03-print.js; default `info`), `S.print.info`, `S.print.edge`, the PDF exporter (05c-pdf.js) and the activity log (06e-log.js, `logAct()`). To add a label template: add an entry to `LABEL_TEMPLATES` (kinds per binder, paired or not, recommended presets, options HTML), a renderer for any new kind in `renderLabel`, i18n keys, and tests; the PDF exporter needs no change because it reads the rendered DOM.
 What changed from v7 is summarised in §10.
@@ -46,6 +47,7 @@ What changed from v7 is summarised in §10.
 | 6c | `assets/js/06c-clients.js` | client register (`CLIENT_ALIASES`, `isClientList`, `mapClient`, import, editor, CSV export, `clientsPanelHTML`/`renderClientResults` shown in Informazioni › Clienti), demo bar, `CLIENT_ACTIONS` |
 | 6d | `assets/js/06d-info.js` | top bar (`topbarHTML`, `NAV_MAIN`, `NAV_MORE`, `<details id="nav-more">` "Funzioni avanzate" menu), view `info` (`viewInfo`, `INFO_TABS`, `INFO_LISTS`, `infoRename`/`infoDelete`/merge), category colours (`infoApplyCatColors`), QR overview + "Ristampa solo QR" (`qrReprint`, `qrRestorePrint`, `S.printPrev`), label kind `Q` (`renderQrLabel`), `INFO_ACTIONS`, help topics `nav`, `info`, `qr-reprint` |
 | 6e | `assets/js/06e-log.js` | activity log (v9): `logAct(action, target, summary, details, source)`, `LOG` (memory mirror) + SQLite `activity_log`, wrappers around exports/print/sessions/Informazioni/undo, view `log` (`viewLog`, filters `LOGV`, CSV), `S.settings.operator`, help topic `log` |
+| 6f | `assets/js/06f-sync.js` | v10 manual sync local ⇄ web app (docs/SYNC.md): change tracking inside `persist()` (`syncTrack`: bumps `updated_at` when content changed without a bump, writes tombstones `S.tombstones` for vanished ids), stable `S.settings.deviceId` (+ localStorage `docmap_v26_device`), package `docmap-sync` v1 (`syncBuildPackage`, `syncExport`), optional AES-256-GCM/PBKDF2 wrapper `docmap-sync-enc` (`syncEncrypt`/`syncDecrypt`), `syncParse` → `syncAnalyze` (review plan: new/updated/unchanged/older/delete/conflict/propagate) → `syncApply` (one undo step, `logAct` source `'sync'`), peer bookkeeping `S.sync`, view `sync` (⚙ menu › Dati, pushed onto `NAV_MORE`), `SYNC_ACTIONS`, help topic `sync`. Wraps `persist`, `undoPoint`, `applyWorkspaceObject`, `analyzeImport`, `renderView`, `handleDroppedFile` |
 | 7 | `assets/js/07-help.js` | extra i18n keys, `HELP_TAGS`, `HELP_TOPICS`, help drawer, `helpDot(id)`, onboarding |
 | 8 | `assets/js/08-guide.js` | guided-action engine, `GUIDES` |
 | 9 | `assets/js/09-actions.js` | `ACTIONS` map, global event delegation (click/input/change/keydown/drag-drop), file inputs, **boot** (`loadState` → `ensureIntegrity` → `persist` → `renderAll` → `maybeOnboard` → `dbInit`), `window.DocMap` test hook |
@@ -74,6 +76,8 @@ exports (CSV / JSON / manifest / .sqlite download) → markExported(file) clears
 - Loading a `.sqlite` or a session: `dbReadWorkspace(db)` → `applyWorkspaceObject(W)` → `commit()` → `renderAll()`.
 - Rendering is string-based (`innerHTML`); always escape user data with `esc()`.
 - Events: elements declare `data-a="action-name"`; one delegated click handler calls `ACTIONS[name](el, e)`. Inputs use `data-bind` (UI state), `data-ed` (editor field → `UI.ed.d[key]`), `data-ci` (content item), `data-geo`/`data-pp`/`data-fld`/`data-sp` (print), `data-set` (settings).
+
+- **Sync (v10, 06f-sync.js)**: never set `updated_at` backwards and never remove a binder/client without going through `S.binders`/`S.clients` + `persist()`: `syncTrack()` (inside `persist`) bumps `updated_at` for records whose content changed and writes a tombstone for every vanished id. Set `SYNC.quiet = true` before a persist that must not bump or tombstone (bulk restore that carries its own timestamps). State: `S.tombstones`, `S.sync`, `S.settings.deviceId`, `S.settings.deviceLabel`. Contract: `docs/SYNC.md`.
 
 ## 4. Recipe: add a binder field end-to-end
 
