@@ -89,7 +89,7 @@ Regole di validazione dell'editor: codice parlante obbligatorio e unico; cliente
 | Chiave | Tipo | Default | Note |
 |---|---|---|---|
 | `studioName` | stringa | `Studio Demo Commercialisti Associati` | intestazione registro |
-| `destTemplate` | stringa | `https://studiodallasta.it/docmap/?code={speaking_code}&qr={short_code}` | §5.5 |
+| `destTemplate` | stringa | `https://docmap.pr-it.it/studio-de/q/{short_code}` | §5.5 |
 | `qrEcc` | `L`/`M`/`Q`/`H` | `M` | correzione errore QR |
 | `hideDemo` | booleano | assente = `false` | nasconde i faldoni `demo` da elenco, mappa, stampa |
 | `shelfType` | `number`/`letter`/`greek`/`emoji`/`symbol`/`text` | assente = `greek` | stile dei pulsanti rapidi del ripiano |
@@ -206,7 +206,7 @@ Generato da `csvTemplateHeader()` e incluso nel prompt di `buildAIPrompt()`, che
 
 ```
 short_code;short_url;final_destination;tags
-dm26K8m2P9xL;https://qr7.it/dm26K8m2P9xL;https://studiodallasta.it/docmap/?code=BL1&qr=dm26K8m2P9xL;docmap26,BL1,multi-m-10234,barbieri-luigi
+dm26K8m2P9xL;https://qr7.it/dm26K8m2P9xL;https://docmap.pr-it.it/studio-de/q/dm26K8m2P9xL;docmap26,BL1,multi-m-10234,barbieri-luigi
 ```
 
 `tags` = `docmap26`, codice parlante, `multi-<slug multi_code>` (se presente), slug del cliente. L'unione con un `manifest.csv` esistente conserva tutte le righe non `dm26`, il delimitatore, il BOM e il fine riga originali.
@@ -346,7 +346,7 @@ Regole:
   "format": "docmap_workspace",
   "version": "26.9.0",
   "exported_at": "2026-11-01T10:00:00.000Z",
-  "settings": {"studioName": "…", "destTemplate": "https://studiodallasta.it/docmap/?code={speaking_code}&qr={short_code}", "qrEcc": "M", "catColors": {}, "qrPreset": "l7159"},
+  "settings": {"studioName": "…", "destTemplate": "https://docmap.pr-it.it/studio-de/q/{short_code}", "qrEcc": "M", "catColors": {}, "qrPreset": "l7159"},
   "lang": "it",
   "print": {"presetId": "mrink143", "geometry": {"w":105,"h":74,"cols":2,"rows":4,"marginTop":0.5,"marginLeft":0,"gapX":0,"gapY":0,"radius":0,"cut":false,"group":2,"turn":true}, "contentMode": "info", "info": {"items": 2, "pair": false}, "edge": {"outer": 4, "cut": 1, "byPreset": {}}, "…": "…"},
   "customPresets": [],

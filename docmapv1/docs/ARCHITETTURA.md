@@ -190,7 +190,7 @@ preset mrink143: w 105, h 74, cols 2, rows 4, group 2, turn true,
 
 - Ogni faldone ha uno **short code statico** `dm26` + 8 caratteri (alfabeto senza caratteri ambigui, vedi `MODELLO-DATI.md`) e un URL `https://qr7.it/{short_code}` (`shortUrl()`).
 - Il QR stampato contiene **solo questo URL**: la destinazione finale può cambiare senza ristampare. Encoder interno `DMQR.svg(testo, {ecl, quiet, fg})`, correzione errore `S.settings.qrEcc` (predefinita `M`).
-- La destinazione finale (`destFor(b)`) è `b.final_destination` se compilata, altrimenti il modello `S.settings.destTemplate` (predefinito `https://studiodallasta.it/docmap/?code={speaking_code}&qr={short_code}`; segnaposto `{speaking_code} {multi_code} {short_code} {company} {location} {id}`, valori URL-encoded, `{company}` come slug).
+- La destinazione finale (`destFor(b)`) è `b.final_destination` se compilata, altrimenti il modello `S.settings.destTemplate` (predefinito v10 `https://docmap.pr-it.it/studio-de/q/{short_code}`, prima `https://studiodallasta.it/docmap/?code={speaking_code}&qr={short_code}`; segnaposto `{speaking_code} {multi_code} {short_code} {company} {location} {id}`, valori URL-encoded, `{company}` come slug).
 - Il **manifest** (`exportManifest`) è il contratto con il server qr7.it: CSV `;` con intestazione esatta `short_code;short_url;final_destination;tags`. "Unisci al manifest.csv esistente" (`mergeManifest`) conserva le righe non `dm26` (es. `1TSE0G`, `Oliva01`), aggiorna o aggiunge le `dm26` e, se richiesto, rimuove le `dm26` non più presenti.
 - Oggi qr7.it è esterno all'MVP: il redirect dinamico è descritto in `HUB-E-API.md` (`GET /q/{short_code}`).
 
