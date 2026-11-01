@@ -408,3 +408,13 @@ Per i campi futuri: aggiungerli **in coda** a `CSV_COLUMNS` (dopo `updated_at`),
 | SQLite `activity_log` | vedi §7.2 | Registro attività, ultime 20 000 voci, anche nel backup JSON (`activity_log`). |
 
 Migrazione `migrate()` 26.9: se il preset è `mrink143` e la modalità era `split`, passa una volta a `info`. Lo Scarica PDF (05c-pdf.js, font in `vendor/pdf-fonts.js`) non aggiunge campi: costruisce il PDF dall'HTML di `buildLabelSheets(false)`.
+
+### v10 — Pagine e PDF (stream R)
+
+| Dove | Campo | Significato |
+|---|---|---|
+| `S.print.pages` | `{sel:'all', reverse:false, order:null, sig:''}` | Quali fogli escono e in che ordine, per Stampa, Scarica PDF e anteprima. `sel`: `'all'` oppure numeri / intervalli dei fogli originali (`'2'`, `'1-3,5'`, `'4-'`; `'none'` = nessuno); è un insieme, l'ordine lo decidono `order` e `reverse`. `order`: permutazione dei fogli 1..n oppure `null` (naturale). `reverse`: dall'ultimo al primo. `sig`: impronta dei fogli quando la scelta è stata fatta; se la coda cambia i fogli, `sel` e `order` vengono ignorati e azzerati con un avviso (`reverse` resta). Creato quando serve, nessuna migrazione. |
+| `S.print.pdfCmyk` | booleano, default `false` | "PDF per tipografia": Scarica PDF scrive colori DeviceCMYK, nero e grigi solo K (0/0/0/100). |
+
+Foglio parziale: le caselle già usate (`S.usedSlots`) si saltano sempre sul **foglio originale 1**, anche se l'ordine lo sposta; il pannello indica in che posizione esce. Se l'ultimo foglio non è stampato, DocMap non propone di aggiornare la mappa del foglio parziale.
+

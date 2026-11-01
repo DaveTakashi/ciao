@@ -1068,7 +1068,7 @@ const sec = (n) => console.log('\n== ' + n);
       const after = await p.evaluate(() => ({modal:!!(topModal() && topModal().textContent.includes(t('pdf_after_t'))), toast:[...document.querySelectorAll('.toast')].some(x => x.textContent.includes('100%')), last:PDF.last}));
       ok(after.modal && after.toast, `PDF ${pr}: toast "stampa al 100%" + question about used slots`, after);
       await p.evaluate(() => closeModal(true));
-      ok(fs.readFileSync('shots/p_' + pr + '.pdf').subarray(0, 8).toString() === '%PDF-1.7', `PDF ${pr}: PDF header`);
+      ok(fs.readFileSync('shots/p_' + pr + '.pdf').subarray(0, 8).toString() === '%PDF-1.4', `PDF ${pr}: PDF header (1.4, maximum compatibility)`);
       const inf = pdfInfo('shots/p_' + pr + '.pdf', 'shots/p_' + pr, 300);
       ok(inf.pages === lay.pages.length && inf.sizes.every(s => Math.abs(s[0] - 595.276) < 0.01 && Math.abs(s[1] - 841.89) < 0.01), `PDF ${pr}: ${inf.pages} page(s), exact A4 in points`, inf.sizes);
       await pBrowserPrint('shots/p_' + pr + '_print.pdf');
@@ -1259,6 +1259,231 @@ const sec = (n) => console.log('\n== ' + n);
   // @@STREAM-K@@
 
   // @@STREAM-R@@
+  // ===== v10 stream R (PDF maximum compatibility + page selection / order for print and PDF) =====
+  sec('v10 R: PDF compatibility + Pagine');
+  {
+    const cp = require('child_process'), zlib = require('zlib');
+    const RK = 300 / 25.4;
+    fs.writeFileSync('shots/r_pdf.py', [
+      'import sys, json, pypdfium2 as pd',
+      'src, pre, dpi = sys.argv[1], sys.argv[2], int(sys.argv[3])',
+      'd = pd.PdfDocument(src); out = {"pages": len(d), "text": []}',
+      'for i in range(len(d)):',
+      '    pg = d[i]; out["text"].append(pg.get_textpage().get_text_range())',
+      '    if dpi: pg.render(scale=dpi / 72).to_pil().convert("RGBA").save("%s_%d.png" % (pre, i))',
+      'try:',
+      '    import pikepdf',
+      '    q = pikepdf.open(src); out["pikepdf"] = [str(x) for x in q.check_pdf_syntax()] if hasattr(q, "check_pdf_syntax") else [str(x) for x in q.check()]',
+      'except ImportError: out["pikepdf"] = None',
+      'print(json.dumps(out))'].join('\n'));
+    fs.writeFileSync('shots/r_cmp.py', [
+      'import sys, json, numpy as np, pypdfium2 as pd',
+      'from numpy.lib.stride_tricks import sliding_window_view',
+      'def ren(f): return np.asarray(pd.PdfDocument(f)[0].render(scale=300 / 72).to_pil().convert("L"), dtype=np.int16)',
+      'a, b = ren(sys.argv[1]), ren(sys.argv[2]); h, w = min(a.shape[0], b.shape[0]), min(a.shape[1], b.shape[1]); a = a[:h, :w]; b = b[:h, :w]',
+      'ink = ((a < 200) | (b < 200)).sum(); big = np.abs(a - b) > 96',
+      'near = np.min(np.abs(sliding_window_view(np.pad(b, 1, mode="edge"), (3, 3)) - a[:, :, None, None]), axis=(2, 3)) > 96',
+      'print(json.dumps({"page": float(big.mean()), "ink": float(big.sum() / max(1, ink)), "ink1px": float(near.sum() / max(1, ink))}))'].join('\n'));
+    const rInfo = (file, pre, dpi) => JSON.parse(cp.execSync('python3 shots/r_pdf.py ' + file + ' ' + pre + ' ' + (dpi || 0), {maxBuffer:1 << 26}).toString());
+    const rDecode = (png, slots, w, h) => slots.map(s => {
+      const x0 = Math.floor(s.x * RK), y0 = Math.floor(s.y * RK), W = Math.min(Math.floor(w * RK), png.width - x0), H = Math.min(Math.floor(h * RK), png.height - y0);
+      const d = new Uint8ClampedArray(W * H * 4);
+      for (let j = 0; j < H; j++){ const st = ((y0 + j) * png.width + x0) * 4; d.set(png.data.subarray(st, st + W * 4), j * W * 4); }
+      for (const f of [1, 2, 4]){
+        let e = d, w2 = W, h2 = H;
+        if (f > 1){ w2 = Math.floor(W / f); h2 = Math.floor(H / f); e = new Uint8ClampedArray(w2 * h2 * 4);
+          for (let j = 0; j < h2; j++) for (let i = 0; i < w2; i++){ const a = ((j * f) * W + i * f) * 4, b = (j * w2 + i) * 4; e[b] = d[a]; e[b+1] = d[a+1]; e[b+2] = d[a+2]; e[b+3] = 255; } }
+        const r = jsQR(e, w2, h2);
+        if (r && r.data){ const L = r.location, c = [L.topLeftCorner, L.topRightCorner, L.bottomLeftCorner, L.bottomRightCorner];
+          return {data:r.data, cx:s.x + c.reduce((a, q) => a + q.x, 0) / 4 * f / RK, cy:s.y + c.reduce((a, q) => a + q.y, 0) / 4 * f / RK}; }
+      }
+      return {data:null};
+    });
+    const rDownload = async (file) => {
+      const [dl] = await Promise.all([p.waitForEvent('download', {timeout:60000}), p.click('#btn-pdf')]);
+      await dl.saveAs(file); await p.waitForTimeout(150);
+      return p.evaluate(() => { const m = !!(topModal() && topModal().textContent.includes(t('pdf_after_t'))); while (topModal()) closeModal(true); return {modal:m, last:PDF.last}; });
+    };
+    const rBrowserPrint = async (file) => {
+      await p.evaluate(() => { document.getElementById('page-style').textContent = '@page{size:210mm 297mm;margin:0mm}'; document.getElementById('print-root').innerHTML = buildLabelSheets(false).join(''); });
+      await p.emulateMedia({media:'print'}); fs.writeFileSync(file, await p.pdf({width:'210mm', height:'297mm', printBackground:true, preferCSSPageSize:true})); await p.emulateMedia({media:'screen'});
+      await p.evaluate(() => { document.getElementById('print-root').innerHTML = ''; });
+    };
+    // slots (with calibration offsets) of every ORIGINAL page
+    const rLayout = () => p.evaluate(() => { const g = S.print.geometry, ox = +S.print.offsetX || 0, oy = +S.print.offsetY || 0;
+      return {w:g.w, h:g.h, pages:layoutLabels().pages.map(pg => pg.map(x => ({s:x.s, url:x.item.b.short_url, code:x.item.b.speaking_code, x:slotRect(x.s).x + ox, y:slotRect(x.s).y + oy})))}; });
+    const rSetup = (pr, m, extra) => p.evaluate(([pr, m, extra]) => {
+      while (topModal()) closeModal(true); const P = findPreset(pr); S.print.presetId = pr; S.print.geometry = geoFromPreset(P); S.print.geometryModified = false; S.print.contentMode = m; S.print.qrMode = 'live';
+      S.print.offsetX = 0; S.print.offsetY = 0; S.print.pages = {sel:'all', reverse:false, order:null, sig:''}; S.print.pdfCmyk = false; S.usedSlots = {};
+      Object.assign(S.print, extra || {}); S.view = 'print'; renderAll();
+    }, [pr, m, extra]);
+    const rPrev = await p.evaluate(() => ({print:JSON.parse(JSON.stringify(S.print)), used:JSON.parse(JSON.stringify(S.usedSlots)), sel:S.binders.filter(b => b.selected_for_print).map(b => b.id), n:S.binders.length, lang:S.lang}));
+    await p.evaluate(() => { S.binders.forEach(b => { b.selected_for_print = !isDemo(b) || !S.settings.hideDemo; }); });
+
+    // ---- 1. structure of the PDF (raw file) + QR vs browser print, 3 presets ----
+    const rCases = [['mrink143', 'info', {}], ['l7160', 'info', {}], ['l7163', 'u', {}]];
+    for (const [pr, m, extra] of rCases){
+      await rSetup(pr, m, extra);
+      const lay = await rLayout(), file = 'shots/r_' + pr + '.pdf';
+      const dl = await rDownload(file);
+      const raw = fs.readFileSync(file), s = raw.toString('latin1');
+      if (pr === 'mrink143'){
+        ok(s.startsWith('%PDF-1.4\n%') && raw.subarray(10, 14).every(c => c >= 128), 'PDF: header %PDF-1.4 + binary comment line');
+        const sx = +/startxref\s+(\d+)\s+%%EOF\s*$/.exec(s)[1], xm = /^xref\n0 (\d+)\n/.exec(s.slice(sx));
+        let badOff = xm ? 0 : 99; const n = xm ? +xm[1] : 0, body = s.slice(sx + (xm ? xm[0].length : 0));
+        for (let i = 1; i < n; i++){ const e = body.slice(i * 20, i * 20 + 20); if (!/^\d{10} 00000 n \n$/.test(e) || !s.startsWith(i + ' 0 obj', +e.slice(0, 10))) badOff++; }
+        ok(xm && badOff === 0 && n > 10 && body.startsWith('0000000000 65535 f \n'), 'PDF: classic xref table, every byte offset exact (' + n + ' objects)', badOff);
+        ok(!/\/ObjStm|\/Type\s*\/XRef/.test(s), 'PDF: no object streams / xref streams');
+        ok(/trailer\n<< \/Size \d+ \/Root \d+ 0 R \/Info \d+ 0 R \/ID \[<[0-9a-f]{32}> <[0-9a-f]{32}>\] >>/.test(s), 'PDF: trailer with /ID and /Info');
+        ok(/\/ViewerPreferences << \/PrintScaling \/None/.test(s), 'PDF: /PrintScaling /None (Acrobat defaults to 100%)');
+        ok(/\/Type \/Metadata \/Subtype \/XML/.test(s) && s.includes('<x:xmpmeta') && s.includes('<pdf:Producer>DocMap 2026</pdf:Producer>') && /\/ModDate \(D:\d{14}/.test(s), 'PDF: XMP metadata + /Info dates');
+        ok(!/\/SMask|\/Group|\/BM\s|\/Annots|\/AcroForm|\/JavaScript|\/ExtGState/.test(s) && !/\/(ca|CA)\s+0?\.\d/.test(s), 'PDF: no transparency (SMask/Group/ca/CA), no annotations, forms or scripts');
+        const nT0 = (s.match(/\/Subtype \/Type0/g) || []).length, nFF = (s.match(/\/FontFile2 \d+ 0 R/g) || []).length, nCid = (s.match(/\/CIDToGIDMap \/Identity/g) || []).length, nTU = (s.match(/\/ToUnicode \d+ 0 R/g) || []).length, nSet = (s.match(/\/CIDSet \d+ 0 R/g) || []).length;
+        ok(nT0 > 0 && nT0 === nFF && nT0 === nCid && nT0 === nTU && nT0 === nSet && /\/W \[/.test(s) && /\/BaseFont \/[A-Z]{6}\+Inter-/.test(s) && !/\/Type3/.test(s), `PDF: all ${nT0} fonts embedded (FontFile2 + CIDToGIDMap + W + CIDSet + ToUnicode, subset tags)`, [nT0, nFF, nCid, nTU, nSet]);
+        const box = /\/MediaBox \[0 0 595\.276 841\.89\] \/CropBox \[0 0 595\.276 841\.89\] \/BleedBox \[0 0 595\.276 841\.89\] \/TrimBox \[0 0 595\.276 841\.89\] \/Rotate 0/;
+        ok(box.test(s) && (s.match(/\/Type \/Page /g) || []).length === (s.match(/\/TrimBox \[0 0 595\.276 841\.89\]/g) || []).length, 'PDF: MediaBox = CropBox = BleedBox = TrimBox = A4, Rotate 0 on every page');
+        // content streams: no hairlines, line widths >= 0.1 pt (sheet px * 0.75)
+        const streams = []; const re = /<< ([^>]*?)\/Length (\d+) >>\nstream\n/g; let mm;
+        while ((mm = re.exec(s))){ const st = mm.index + mm[0].length, b = raw.subarray(st, st + +mm[2]); if (/Length1|Subtype|CIDSet/.test(mm[1])) continue; try { streams.push(/FlateDecode/.test(mm[1]) ? zlib.inflateSync(b).toString('latin1') : b.toString('latin1')); } catch(e){} }
+        const cont = streams.filter(x => /\bcm\n/.test(x) || / Tm \[/.test(x)).join('\n'), lws = (cont.match(/(?:^|\s)([\d.]+) w(?=\s)/g) || []).map(x => parseFloat(x));
+        ok(cont.length > 1000 && lws.length > 0 && Math.min(...lws) * 0.75 >= 0.0999, 'PDF: every stroke at least 0.1 pt (min ' + (Math.min(...lws) * 0.75).toFixed(3) + ' pt)', lws.slice(0, 5));
+        ok(/re \d+ \d+ \d+ (?:[2-9]|\d\d+) re/.test(cont) && !/re f\n0 0 0 rg [^\n]*re f\n0 0 0 rg/.test(cont), 'PDF: QR modules merged into multi-row rectangles in one fill');
+        ok(/0\.8\d+ 0\.8\d+ 0\.8\d+ RG/.test(cont), 'PDF: faint MRINK143 cut line flattened to a solid light grey (no alpha)');
+      }
+      const inf = rInfo(file, 'shots/r_' + pr, 300);
+      ok(inf.pikepdf === null || inf.pikepdf.length === 0, `PDF ${pr}: qpdf/pikepdf syntax check clean`, inf.pikepdf);
+      if (inf.pikepdf === null) console.log('  (pikepdf not installed: qpdf check skipped)');
+      await rBrowserPrint('shots/r_' + pr + '_print.pdf'); rInfo('shots/r_' + pr + '_print.pdf', 'shots/r_' + pr + '_print', 300);
+      const mine = rDecode(PNG.sync.read(fs.readFileSync('shots/r_' + pr + '_0.png')), lay.pages[0], lay.w, lay.h);
+      const ref = rDecode(PNG.sync.read(fs.readFileSync('shots/r_' + pr + '_print_0.png')), lay.pages[0], lay.w, lay.h);
+      const good = mine.filter((q, i) => q.data === lay.pages[0][i].url).length;
+      const dmax = Math.max(...mine.map((q, i) => q.data && ref[i].data ? Math.hypot(q.cx - ref[i].cx, q.cy - ref[i].cy) : 99));
+      const cmp = JSON.parse(cp.execSync('python3 shots/r_cmp.py shots/r_' + pr + '_print.pdf shots/r_' + pr + '.pdf').toString());
+      console.log(`  PDF ${pr}/${m}: ${dl.last.bytes} bytes, QR centre max delta vs browser print ${dmax.toFixed(3)} mm, pixel diff ${(cmp.page * 100).toFixed(2)}% of page / ${(cmp.ink * 100).toFixed(1)}% of ink (${(cmp.ink1px * 100).toFixed(2)}% of ink with 1 px tolerance)`);
+      ok(good === lay.pages[0].length && good > 0, `PDF ${pr}/${m}: every QR decodes ${good}/${lay.pages[0].length}`, mine.map(q => q.data));
+      ok(dmax < 0.3, `PDF ${pr}/${m}: QR centres within 0.3 mm of the browser print (${dmax.toFixed(3)} mm)`);
+      ok(cmp.ink1px < 0.06 && cmp.page < 0.04, `PDF ${pr}/${m}: renders like the browser print (pixel diff ${(cmp.ink1px * 100).toFixed(2)}% of ink at 1 px tolerance)`, cmp);
+    }
+
+    // ---- 2. K-only black option ----
+    await rSetup('mrink143', 'info', {pdfCmyk:false});
+    ok(await p.isVisible('#pr-pages [data-a="pdf-cmyk"]'), 'Pagine panel: "PDF per tipografia" checkbox');
+    await p.click('#pr-pages [data-a="pdf-cmyk"]');
+    ok(await p.evaluate(() => S.print.pdfCmyk === true), 'CMYK option stored in S.print.pdfCmyk');
+    const rLayK = await rLayout();
+    const rk = await rDownload('shots/r_cmyk.pdf');
+    {
+      const raw = fs.readFileSync('shots/r_cmyk.pdf'), s = raw.toString('latin1'), streams = [];
+      const re = /<< ([^>]*?)\/Length (\d+) >>\nstream\n/g; let mm;
+      while ((mm = re.exec(s))){ const st = mm.index + mm[0].length, b = raw.subarray(st, st + +mm[2]); if (/Length1|CIDSet/.test(mm[1])) continue; try { streams.push(/FlateDecode/.test(mm[1]) ? zlib.inflateSync(b).toString('latin1') : b.toString('latin1')); } catch(e){} }
+      const cont = streams.filter(x => / Tm \[/.test(x)).join('\n');
+      const texts = cont.match(/BT \/F\d+ 1 Tf [^\n]*? Tm/g) || [];
+      ok(rk.last.pages >= 1 && cont.length > 1000 && !/\s(rg|RG)\s/.test(cont), 'CMYK PDF: no DeviceRGB operators left', (cont.match(/[^\n]{0,30} rg\s/) || [''])[0]);
+      ok(texts.length > 10 && texts.filter(x => / 0 0 0 1 k /.test(x)).length >= texts.length * 0.6 && /0 0 0 1 k \d+ \d+ \d+ \d+ re/.test(cont), 'CMYK PDF: black text and QR modules are K-only 0/0/0/100', texts.slice(0, 3));
+      ok(/<pdf:Keywords>DocMap, DM26, CMYK<\/pdf:Keywords>/.test(s), 'CMYK PDF: tagged CMYK in the metadata');
+      rInfo('shots/r_cmyk.pdf', 'shots/r_cmyk', 300);
+      const q = rDecode(PNG.sync.read(fs.readFileSync('shots/r_cmyk_0.png')), rLayK.pages[0], rLayK.w, rLayK.h);
+      ok(q.every((x, i) => x.data === rLayK.pages[0][i].url), 'CMYK PDF: every QR decodes', q.map(x => x.data));
+    }
+    await p.evaluate(() => { S.print.pdfCmyk = false; savePrefs(); });
+
+    // ---- 3. page selection / order: print DOM + PDF ----
+    // 20 test binders only → MRINK143 info (8 per sheet) = 3 sheets (8, 8, 4)
+    await p.evaluate(() => { S.binders.forEach(b => b.selected_for_print = false); const base = S.binders[0];
+      for (let i = 0; i < 20; i++){ const x = normalizeBinder(clone(base)); x.id = uuid(); x.speaking_code = 'RP' + String(i).padStart(2, '0'); x.short_code = newShortCode(); x.short_url = shortUrl(x.short_code); x.tags = 'rtest'; x.selected_for_print = true; S.binders.push(x); }
+      ensureIntegrity(); commit(); });
+    await rSetup('mrink143', 'info');
+    let rL = await rLayout();
+    // multi-sheet job: the browser print must not lose the bottom row of turned labels (Chrome fragmented them before v10) and the PDF must match it
+    await rBrowserPrint('shots/r_multi_print.pdf'); await rDownload('shots/r_multi.pdf');
+    {
+      const a = rInfo('shots/r_multi_print.pdf', 'x', 0), b = rInfo('shots/r_multi.pdf', 'x', 0), cnt = (txt) => (txt.match(/Creata/g) || []).length;
+      ok(a.pages === 3 && b.pages === 3 && rL.pages.every((pg, i) => cnt(a.text[i]) === pg.length && cnt(b.text[i]) === pg.length), 'multi-sheet MRINK143 job: every label complete on every sheet, in the browser print and in the PDF', [a.text.map(cnt), b.text.map(cnt)]);
+    }
+    ok(rL.pages.length === 3 && await p.evaluate(() => (document.getElementById('pg-count') || {}).textContent || '') === '3 fogli in questa stampa', 'Pagine panel shows the number of sheets (3)');
+    // which original pages, in which order, are in an output (via the QR aria-labels in the sheets)
+    const rOut = (sheets) => sheets.map(h => { const urls = (h.match(/aria-label="QR ([^"]+)"/g) || []).map(x => x.slice(15, -1)); const key = urls.slice().sort().join(); return rL.pages.findIndex(pg => pg.map(x => x.url).sort().join() === key) + 1; });   // sheets list slots in physical order
+    const rPrintDom = () => p.evaluate(async () => { let got = null; const o = window.print; window.print = () => { got = [...document.querySelectorAll('#print-root .sheet')].map(x => x.outerHTML); }; await printLabels(); window.print = o; const modal = !!topModal(); while (topModal()) closeModal(true); return {got, modal}; });
+    const rType = async (v) => { await p.fill('#pg-sel', v); await p.dispatchEvent('#pg-sel', 'change'); await p.waitForTimeout(60); };
+    await rType('2');
+    let rv = await p.evaluate(() => ({cfg:S.print.pages, n:buildLabelSheets(false).length}));
+    ok(rv.cfg.sel === '2' && rv.cfg.sig && rv.n === 1, 'page selection "2": one sheet', rv);
+    let rp = await rPrintDom();
+    ok(rp.got && rOut(rp.got).join() === '2' && !rp.modal, 'print "2": only sheet 2 goes to the printer, no partial-sheet question (last sheet not printed)', rp.got && rOut(rp.got));
+    ok((await p.innerText('#pv-scroll')).includes('Foglio 2'), 'preview shows the selected sheet with its original number');
+    await rType('3,1'); rp = await rPrintDom();
+    ok(rOut(rp.got).join() === '1,3' && rp.modal, 'range "3,1" = sheets 1 and 3 in sheet order; last sheet printed → partial-sheet question', rOut(rp.got));
+    await rType('2-'); rp = await rPrintDom();
+    ok(rOut(rp.got).join() === '2,3', 'range "2-" = sheets 2 to the end', rOut(rp.got));
+    await rType('1-9');
+    ok(await p.evaluate(() => !!document.querySelector('#pr-pages .err-t')) && rOut(await p.evaluate(() => buildLabelSheets(false))).join() === '1,2,3', 'range beyond the last sheet: warning, existing sheets kept');
+    await rType('7');
+    rv = await p.evaluate(async () => { const o = window.print; let called = false; window.print = () => { called = true; }; await printLabels(); window.print = o; return {called, empty:!!document.getElementById('pg-empty'), toast:[...document.querySelectorAll('.toast')].some(x => x.textContent.includes(t('pg_none')))}; });
+    ok(!rv.called && rv.empty && rv.toast, 'no existing page selected: print refused with a message', rv);
+    await p.click('#pr-pages [data-a="pg-all"]');
+    await p.click('#pr-pages [data-a="pg-rev"]'); rp = await rPrintDom();
+    ok(rOut(rp.got).join() === '3,2,1' && await p.evaluate(() => S.print.pages.reverse === true && !S.print.pages.sig), 'reverse order: 3,2,1', rOut(rp.got));
+    await p.click('#pr-pages [data-a="pg-rev"]');
+    // custom order with the page list: sheet 3 first, then sheet 1 down → 3,2,1 ... then 1 first → 1,3,2
+    await p.evaluate(() => { const d = document.getElementById('pg-det'); if (d) d.open = true; });
+    ok(await p.evaluate(() => document.querySelectorAll('#pr-pages .pg-row').length === 3 && document.querySelectorAll('#pr-pages .pg-row .pg-th i.f').length === 20), 'page list: 3 rows with mini thumbnails (20 filled slots)');
+    ok((await p.innerText('#pr-pages .pg-row[data-p="2"]')).includes('RP16'), 'page list shows which binders are on each sheet');
+    await p.click('#pr-pages .pg-row[data-p="2"] [data-a="pg-first"]');
+    ok(await p.evaluate(() => S.print.pages.order.join()) === '3,1,2', 'pg-first: sheet 3 moved first');
+    await p.click('#pr-pages .pg-row[data-p="0"] [data-a="pg-down"]');
+    ok(await p.evaluate(() => S.print.pages.order.join()) === '3,2,1', 'pg-down: sheet 1 moved down');
+    await p.click('#pr-pages .pg-row[data-p="1"] [data-a="pg-up"]');
+    rp = await rPrintDom();
+    ok(rOut(rp.got).join() === '2,3,1', 'custom order 2,3,1 reaches the printer', rOut(rp.got));
+    await p.click('#pr-pages .pg-row[data-p="2"] [data-a="pg-tick"]');   // untick sheet 3
+    rp = await rPrintDom();
+    ok(rOut(rp.got).join() === '2,1' && await p.evaluate(() => S.print.pages.sel) === '1-2', 'unticking sheet 3 in the list: selection "1-2" keeps the custom order', rOut(rp.got));
+    // the PDF follows the same selection and order, combined with reverse: 1,2 reversed from 2,1
+    await p.click('#pr-pages [data-a="pg-rev"]');
+    const rpd = await rDownload('shots/r_pages.pdf');
+    const rpi = rInfo('shots/r_pages.pdf', 'shots/r_pages', 300);
+    const rq = [0, 1].map(i => rDecode(PNG.sync.read(fs.readFileSync('shots/r_pages_' + i + '.png')), rL.pages[i], rL.w, rL.h));
+    ok(rpi.pages === 2 && rpd.last.pages === 2 && rq[0].every((x, j) => x.data === rL.pages[0][j].url) && rq[1].every((x, j) => x.data === rL.pages[1][j].url), 'PDF with selection 1-2 + custom order + reverse: pages = sheet 1, sheet 2 with their QR codes', [rpi.pages, rq.map(q => q.map(x => x.data && x.data.slice(-6)))]);
+    ok(rpi.text[0].includes('RP00') && rpi.text[1].includes('RP08') && !rpi.text.join().includes('RP16'), 'PDF text per page matches the chosen sheets');
+    ok(!rpd.modal, 'PDF without the last sheet: no partial-sheet question');
+    await p.click('#pr-pages [data-a="pg-reset"]');
+    ok(await p.evaluate(() => JSON.stringify(pagesCfg()) === JSON.stringify({sel:'all', reverse:false, order:null, sig:''}) && buildLabelSheets(false).length === 3), 'reset: all pages, natural order');
+
+    // ---- 4. partial sheet + reordering ----
+    await p.evaluate(() => { S.usedSlots = {mrink143:[0, 1]}; refreshPrint(); });
+    const rLP = await rLayout(); rL = rLP;   // rOut() now matches against the partial-sheet layout
+    ok(rLP.pages.length === 3 && rLP.pages[0].length === 6 && !rLP.pages[0].some(x => x.s === 0 || x.s === 1), 'partial sheet: sheet 1 skips the 2 used slots');
+    await p.evaluate(() => { const d = document.getElementById('pg-det'); if (d) d.open = true; });
+    await p.click('#pr-pages .pg-row[data-p="1"] [data-a="pg-first"]');   // order 2,1,3: the partial sheet now prints second
+    rv = await p.evaluate(() => { const sh = buildLabelSheets(false), lab = (h) => { const d = document.createElement('div'); d.innerHTML = h; return [...d.querySelectorAll('.slotbox')].filter(x => x.children.length).length; };
+      return {n:sh.map(lab), warn:(document.getElementById('pg-partial-warn') || {}).textContent || '', badge:!!document.querySelector('.pg-row[data-p="0"] .badge')}; });
+    ok(rv.n.join() === '8,6,6' && /2°/.test(rv.warn) && rv.badge, 'reordered: the partial sheet keeps its skipped slots (8,6,6 labels) and the panel says it comes out 2nd', rv);
+    rp = await rPrintDom();
+    ok(rOut(rp.got).join() === '2,1,3' && rp.modal, 'print with the partial sheet moved: all sheets printed, last sheet included → partial-sheet question');
+    await p.evaluate(() => { S.print.pages = {sel:'2-3', reverse:false, order:null, sig:pageSig(layoutLabels())}; refreshPrint(); });
+    ok(await p.evaluate(() => ((document.querySelector('#pr-pages .info-box') || {}).textContent || '').includes(t('pg_partial_x'))), 'partial sheet not selected: notice that the partial map stays');
+    await p.evaluate(() => { S.usedSlots = {}; S.print.pages = {sel:'all', reverse:false, order:null, sig:''}; savePrefs(); refreshPrint(); });
+
+    // ---- 5. queue changes invalidate the selection (with a notice); reverse survives ----
+    await rType('2'); await p.click('#pr-pages [data-a="pg-rev"]');
+    await p.evaluate(() => { S.binders.filter(b => b.tags === 'rtest').slice(0, 9).forEach(b => b.selected_for_print = false); commit(); S.view = 'print'; renderAll(); });
+    rv = await p.evaluate(() => ({cfg:pagesCfg(), notice:!!document.getElementById('pg-notice'), n:buildLabelSheets(false).length, pages:layoutLabels().pages.length}));
+    ok(rv.cfg.sel === 'all' && !rv.cfg.order && rv.cfg.reverse === true && rv.notice && rv.n === rv.pages && rv.pages === 2, 'queue changed: selection reset with a notice, reverse kept', rv);
+    rv = await p.evaluate(() => { S.print.pages = {sel:'1', reverse:false, order:[2, 1], sig:'stale'}; return labelPageOrder().join(); });
+    ok(rv === '0,1', 'a stale selection / order is never applied (natural order until reset)', rv);
+    await p.evaluate(() => { S.print.pages = {sel:'all', reverse:false, order:null, sig:''}; savePrefs(); });
+
+    // ---- 6. English UI, help, layout ----
+    await p.evaluate(() => { S.lang = 'en'; renderAll(); });
+    rv = await p.evaluate(() => ({h:document.getElementById('pr-pages-sec').innerText, w:[document.documentElement.scrollWidth, innerWidth]}));
+    ok(/pages/i.test(rv.h) && /Reverse order/.test(rv.h) && /Only pages/.test(rv.h) && /PDF for print shops/.test(rv.h) && /2 sheets in this print/.test(rv.h), 'Pagine panel in English', rv.h.slice(0, 200));
+    ok(rv.w[0] <= rv.w[1] + 1, 'print view with the Pages panel: no horizontal scroll', rv.w);
+    ok(await p.evaluate(() => { const a = helpTopic('pages'), b = helpTopic('pdf'); return !!(a && b && a.body.it.includes('Foglio parziale') && a.body.en.includes('Reverse order') && b.body.it.includes('CMYK') && b.body.en.includes('PDF 1.4') && helpTopic('print').related.includes('pages')); }), 'help topics "pages" (new) and "pdf" (updated), IT + EN');
+    // clean up
+    await p.evaluate((prev) => { while (topModal()) closeModal(true); S.lang = prev.lang; S.binders = S.binders.filter(b => b.tags !== 'rtest'); S.binders.forEach(b => { b.selected_for_print = prev.sel.includes(b.id); });
+      S.print = prev.print; S.usedSlots = prev.used; PDF.pgNotice = false; PDF.pgOpen = false; savePrefs(); commit(); S.view = 'archive'; renderAll(); }, rPrev);
+    ok(await p.evaluate((n) => S.binders.length === n && !S.binders.some(b => b.tags === 'rtest'), rPrev.n), 'stream R tests leave the archive and print settings as they were');
+  }
 
   // @@STREAM-M@@
 

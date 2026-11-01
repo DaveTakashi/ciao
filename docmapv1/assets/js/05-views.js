@@ -277,6 +277,7 @@ function viewPrint(){
     '<div class="row"><button class="btn btn-lg" data-a="print-calib">' + ic('crosshair') + esc(t('pr_calib')) + '</button><button class="btn btn-lg" data-a="pdf-download" id="btn-pdf" title="' + esc(t('pr_pdf_d')) + '">' + ic('download') + esc(t('pr_pdf')) + '</button><button class="btn btn-lg btn-primary" data-a="print-labels" id="btn-print">' + ic('printer') + esc(t('pr_go')) + '</button></div></div>' + qrRestoreBarHTML() +
     '<div class="studio"><div class="card">' +
       '<div class="panel-sec"><h3>' + esc(t('pr_queue')) + '</h3><div id="pr-summary"></div></div>' +
+      '<div class="panel-sec" id="pr-pages-sec"><h3>' + esc(t('pg_h')) + helpDot('pages') + '</h3><div id="pr-pages"></div></div>' +   // v10 page selection / order + PDF option (05c-pdf.js)
       '<div class="panel-sec"><h3>' + esc(t('pr_sheet')) + '</h3><div class="preset-list">' + presets + '</div></div>' +
       '<div class="panel-sec"><h3>' + esc(t('pr_content')) + helpDot('split') + '</h3><div class="opt-grid">' +
         LABEL_TEMPLATES.map(T => opt('cmode', T.id, t(T.name), t(T.desc), P.contentMode, T.full).replace('<b>', tplRecommended(T, P.presetId) ? '<b><span class="pop rec tpl-rec">✓ ' + esc(t('tpl_rec')) + '</span> ' : '<b>')).join('') +
@@ -333,7 +334,7 @@ function mountPrint(){
   const sc = $('#pv-scroll');
   if (sc && window.ResizeObserver){ let lastW = 0; pvObserver = new ResizeObserver(() => { if (Math.abs(sc.clientWidth - lastW) > 4){ lastW = sc.clientWidth; renderPrintPreview(); } }); pvObserver.observe(sc); }
 }
-function refreshPrint(){ renderPrintSummary(); renderSlotMap(); renderPrintPreview(); geoWarn(); renderQuality(); }
+function refreshPrint(){ renderPrintSummary(); renderPagesPanel(); renderSlotMap(); renderPrintPreview(); geoWarn(); renderQuality(); }
 function geoWarn(){
   const g = S.print.geometry, el = $('#geo-warn'); if (!el) return;
   const right = g.marginLeft + g.cols * g.w + (g.cols - 1) * g.gapX, bottom = g.marginTop + g.rows * g.h + (g.rows - 1) * g.gapY;
@@ -404,10 +405,12 @@ function renderPrintPreview(){
   // landscape view: the sheet is turned so that labels read straight (opposite of the content rotation)
   const W = 210 * PX_PER_MM * scale, H = 297 * PX_PER_MM * scale;
   const tf = !land ? 'scale(' + scale + ')' : turnDir(S.print) === -90 ? 'translateX(' + H + 'px) rotate(90deg) scale(' + scale + ')' : 'translateY(' + W + 'px) rotate(-90deg) scale(' + scale + ')';
-  let sheets = isCalib ? [buildCalibSheet()] : buildLabelSheets(true);
+  let sheets = isCalib ? [buildCalibSheet()] : buildLabelSheets(true);   // in output order (S.print.pages)
+  const L = layoutLabels(), ord = L.pages.length ? labelPageOrder(L) : [0], all = L.pages.length || 1, custom = ord.length !== all || ord.some((v, i) => v !== i);
   const total = sheets.length, MAX = 8;
   if (sheets.length > MAX) sheets = sheets.slice(0, MAX);
-  sc.innerHTML = sheets.map((sh, i) => '<div class="sheet-cap">' + esc(isCalib ? t('pv_calib') : t('pv_sheet', {n:i + 1, t:total})) + '</div><div class="sheet-holder" style="width:' + (land ? H : W) + 'px;height:' + (land ? W : H) + 'px">' + sh.replace('class="sheet"', 'class="sheet" style="transform:' + tf + '"') + '</div>').join('') +
+  // captions keep the original sheet number when the page selection / order changes what is printed
+  sc.innerHTML = (!isCalib && !total ? '<div class="warn-box small">' + ic('alert') + '<div>' + esc(t('pg_none')) + '</div></div>' : '') + sheets.map((sh, i) => '<div class="sheet-cap">' + esc(isCalib ? t('pv_calib') : custom ? t('pg_sheet', {n:ord[i] + 1}) + ' — ' + t('pg_pos', {n:i + 1}) + ' / ' + total : t('pv_sheet', {n:i + 1, t:total})) + '</div><div class="sheet-holder" style="width:' + (land ? H : W) + 'px;height:' + (land ? W : H) + 'px">' + sh.replace('class="sheet"', 'class="sheet" style="transform:' + tf + '"') + '</div>').join('') +
     (total > MAX ? '<div class="small muted">' + esc(t('pv_more', {n:MAX})) + '</div>' : '');
 }
 function setGeo(key, val, isPP){

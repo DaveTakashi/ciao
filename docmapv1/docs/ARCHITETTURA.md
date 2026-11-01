@@ -255,3 +255,9 @@ Ogni riga passa da `mapRecord()` (alias intestazioni → campi), riceve codice p
 - **Bordi uguali** (`S.print.edge`): `renderSlotLabel` disegna ogni etichetta nella stessa area sicura centrata; il contorno tratteggiato è solo a schermo.
 - **Scarica PDF** (05c-pdf.js): impagina fuori schermo l'HTML di `buildLabelSheets(false)`, misura ogni etichetta non ruotata e la riposiziona con una matrice; rettangoli e QR vettoriali, testo vero con sottoinsiemi di Inter / JetBrains Mono incorporati (CIDFontType2, Identity-H, ToUnicode), stream compressi con `CompressionStream`. Ciò che `@media print` nasconde non entra nel PDF.
 - **Registro attività** (06e-log.js): `logAct(action, target, summary, details, source)`; tabella SQLite `activity_log`, specchio in memoria, voci in attesa in `localStorage docmap_v26_log_pending`. Gli hook sono wrapper installati al caricamento, quindi 03-print.js non dipende dal registro.
+
+### v10 — PDF a massima compatibilità e scelta delle pagine (stream R)
+
+- **Pagine** (03-print.js + 05c-pdf.js): `labelPageOrder(L)` calcola l'ordine di uscita (ordine personalizzato → filtro della selezione → inverso) come indici dei fogli originali; `buildLabelSheets()` restituisce i fogli già in quest'ordine, quindi stampa, PDF e anteprima coincidono senza altro codice. L'indice originale resta quello usato per saltare le caselle del foglio parziale. Il pannello "Pagine" (miniature dei fogli con i colori dei faldoni, ↑ ↓ Prima, spunte, intervallo, inverso) è in 05c-pdf.js.
+- **PDF**: PDF 1.4 classico (xref tradizionale con offset esatti, `/ID`, `/Info` + XMP), font TrueType incorporati come sottoinsiemi CIDFontType2 con `/CIDSet`, nessuna trasparenza (alpha e opacità CSS appiattite sul bianco), tutti i box della pagina = A4, `/Rotate 0`, nessuna annotazione, `/PrintScaling /None`, linee ≥ 0,1 pt, moduli QR fusi in rettangoli e riempiti con un'unica operazione. Opzione `S.print.pdfCmyk`: colori DeviceCMYK con nero e grigi solo K.
+
