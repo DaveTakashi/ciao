@@ -1,4 +1,7 @@
-# DocMap — contratto API del database online condiviso (v10.1; v11: ubicazioni e registro sincronizzazioni)
+# DocMap — contratto API del database online condiviso
+
+> Versione dell'app 26.11.1 (v11.1). Contratto invariato dalla v11: `api` = `docmap-php`, `version` 1, `schema` 2.
+> Nato con la v10.1; la v11 ha aggiunto ubicazioni e registro sincronizzazioni (campi in più, ignorati dai client vecchi).
 
 > Stato: **contratto in produzione**. Implementazione di riferimento: `server-php/api.php` (un solo file, PHP 8.0+,
 > PDO SQLite + OpenSSL, nessuna dipendenza) pensato per l'hosting condiviso SiteGround (PHP sì, Node/Python no).
@@ -7,6 +10,8 @@
 > `MODELLO-DATI.md` e non vanno cambiati. Il client è in `assets/js/10-auth.js` (`DMServer`, `RemoteDataProvider`,
 > `srvSetupDevice`) e `assets/js/06g-server.js` (sincronizzazione). Test eseguibili: blocco `// @@STREAM-W@@` di
 > `tests/suite.js` (avvia `php -S` e prova ogni rotta).
+> Versione formale: [`python/openapi.yaml`](python/openapi.yaml) (OpenAPI 3.1), regole interne per il porting in
+> [`python/PORTING.md`](python/PORTING.md), JSON Schema dei record in [`python/SCHEMI.md`](python/SCHEMI.md).
 
 ## 1. Regole comuni
 
@@ -16,8 +21,8 @@
 | Trasporto | **HTTPS** obbligatorio in produzione. JSON UTF-8. Letture con `GET` (accettano anche `POST`), scritture solo `POST`. |
 | Token | Header **`X-DocMap-Token: <token>`** (principale). Alternative: `Authorization: Bearer <token>`; campo `"_token"` nel corpo JSON (richieste `text/plain` dal programma sul PC aperto da `file://`, per evitare il preflight CORS). **Perché non `Authorization`**: la protezione con password di SiteGround (HTTP Basic) occupa già quell'header e il browser lo invia da solo. |
 | Ruoli | `viewer` (legge) < `editor` (scrive: push, patch) < `admin` (anche gestione token). |
-| Errori | Sempre `{"error":{"code":"…","message":"…", …}}`; per 409 anche `current` e `current_etag` al primo livello. Nessun percorso del server né messaggio PHP nei testi. |
-| Codici HTTP | 400 richiesta malformata · 401 `token_missing` / `token_invalid` · 403 `forbidden` (ruolo) / `origin` (CORS) · 404 `not_found` / `no_route` · 405 metodo · 409 `conflict` · 413 troppo grande · 422 `invalid` / `field_not_allowed` · 429 `locked` + `Retry-After` · 500 `config` (configurazione mancante, messaggio chiaro) / `server_error` |
+| Errori | Sempre `{"error":{"code":"…","message":"…", …}}`; per 409 `current` e `current_etag` sia dentro `error` sia al primo livello. Nessun percorso del server né messaggio PHP nei testi. |
+| Codici HTTP | 400 `bad_json` (corpo non è un oggetto JSON) / `invalid` · 401 `token_missing` / `token_invalid` · 403 `forbidden` (ruolo) / `origin` (CORS) · 404 `not_found` / `no_route` · 405 `method` (scrittura non in POST, metodo diverso da GET/POST) · 409 `conflict` · 413 `too_large` · 422 `invalid` / `field_not_allowed` / `invalid_location` · 429 `locked` + `Retry-After` · 500 `config` (configurazione mancante, messaggio chiaro) / `crypto` (cifratura fallita o chiave che non apre i blob) / `server_error` |
 | Mappatura nel client | `DMError.code`: 401→`unauthorized`, 403→`forbidden`, 404→`not_found`, 409/412→`conflict`, 400/413/422→`invalid`, 429→`locked`, rete assente→`offline`, altro→`server` |
 | Date | ISO 8601 UTC con millisecondi (`2026-11-01T10:12:44.120Z`). Confronto **come istante** (non come stringa). |
 | Id | `id` creati dai client (UUID), mai riscritti. Tipi di record: `binder`, `client`, `location` (v11). |
@@ -28,7 +33,7 @@
 
 | Rotta | Metodo | Ruolo | Richiesta | Risposta 200 |
 |---|---|---|---|---|
-| `ping` | GET | nessuno | – | `{"ok":true,"api":"docmap-php","version":1,"server_time":"…","php":"8.3"}` (funziona anche senza `config.php`; serve all'avviso di orologio sfasato) |
+| `ping` | GET | nessuno | – | `{"ok":true,"api":"docmap-php","version":1,"schema":2,"features":["journal","device_info","locations"],"server_time":"…","php":"8.3"}` (funziona anche senza `config.php`; serve all'avviso di orologio sfasato) |
 | `me` | GET | viewer | – | `{"user":"mario","role":"editor","token_id":"cfg:1","studio_name":"…","server_time":"…"}` |
 | `pull` | GET | viewer | `since=<seq>` (0 = tutto) · `log_since=<seq>` | vedi §3 |
 | `push` | POST | editor | vedi §4 | `{"applied":n,"same":n,"rejected":[…],"settings_applied":bool,"logged":n,"seq":n,"server_time":"…"}` |
@@ -42,7 +47,7 @@
 | `journal` (v11) | GET | editor (solo le proprie voci) · admin (tutte) | filtri, vedi §10 | `{"items":[Entry],"more":bool,"next_before":jid|null,"server_time":"…"}` · viewer → 403 |
 | `journal_restore` (v11) | POST | admin | `{"jid":n,"n":n,"version":"prev"|"new"}` | `{"ok":true,"type","id","updated_at","deleted":bool,"journal_id":n,"seq":n}` |
 
-Campi aggiunti in v11 (un client v10.1 li ignora): `ping` → `"schema":2,"features":["journal","device_info"]`;
+Campi aggiunti in v11 (un client v10.1 li ignora): `ping` → `"schema":2,"features":["journal","device_info","locations"]`;
 `push` e `pull` → `"journal_id":n|null` (voce del registro scritta da quella chiamata); `patch` → `"journal_id"` e
 `"hash"` (SHA-256 canonico della versione salvata).
 
@@ -65,7 +70,7 @@ lo stesso in una chiamata sola per altri client (es. Python).
 {"seq": 42, "more": false,
  "records": [{"type":"binder","id":"…","updated_at":"…","who":"mario","data":{ /* Binder completo */ }}],
  "tombstones": [{"type":"binder","id":"…","code":"BL2","deletedAt":"…","who":"Davide"}],
- "settings": {"updated_at":"…","data":{"studioName":"…","destTemplate":"…","catColors":{},"colorMode":"…","catFamilies":{},"colorRules":{},"colorUpdatedAt":"…"}} | null,
+ "settings": {"updated_at":"…","data":{"studioName":"…","destTemplate":"…","catColors":{},"colorMode":"…","catFamilies":{},"colorRules":{},"colorUpdatedAt":"…","locLevels":[…],"locLevelsAt":"…"}} | null,
  "activity_log": [ /* voci del registro (MODELLO-DATI.md §7.2) */ ], "log_seq": 17,
  "counts": {"records":120,"tombstones":3} /* solo con since=0 */, "server_time": "…"}
 ```
@@ -121,7 +126,7 @@ così il client la applica subito senza un altro pull. `reason:"invalid"` (id/ti
   Il telefono usa `force:true`: la patch tocca solo i campi di ubicazione e il server li unisce al record corrente.
 - Un telefono v10.1 (senza questi campi) continua a funzionare uguale.
 - `base_updated_at` (o header `If-Match`) diverso dall'`updated_at` del server e `force` falso → **409**
-  `{"error":{"code":"conflict",…},"current":Binder,"current_etag":"…"}`. La pagina mobile mostra "Modificato nel
+  `{"error":{"code":"conflict","message":…,"current":Binder,"current_etag":"…"},"current":Binder,"current_etag":"…"}`. La pagina mobile mostra "Modificato nel
   frattempo" → **Ricarica** oppure **Salva comunque** (`force:true`: si scrivono solo i campi del telefono, unione per campo).
 - Il server scrive solo i campi presenti (unione per campo), mette `updated_at` = ora del server (sempre strettamente
   crescente) e salva la voce di registro con `at`, `details.base_updated_at`, `details.new_updated_at`,
@@ -153,8 +158,9 @@ sync_journal_items(jid INTEGER, n INTEGER, type TEXT, id TEXT, k_code TEXT, acti
   IV casuale di 12 byte a ogni scrittura, tag di 16 byte; blob = `0x01 | iv | tag | testo cifrato`; AAD =
   `records/<type>/<id>`, `settings/subset`, `activity/<id>` (un blob non si sposta su un altro record).
   Senza chiave valida l'API **non parte** (500 `config`). `meta.key_check` rileva una chiave sbagliata.
-- **Ricerche senza testo in chiaro**: `k_short = HMAC-SHA256(key, 'docmap-idx/'+short_code)`, `k_code` sul codice
-  parlante maiuscolo, `k_cab` su stanza+armadio (per i `siblings`). In chiaro restano solo id, tempi, `who`, `deleted`.
+- **Ricerche senza testo in chiaro**: `k_short = HMAC-SHA256(key, 'docmap-idx/'+short_code)` in esadecimale, **primi 40
+  caratteri**; `k_code` sul codice parlante maiuscolo e senza spazi ai bordi (per le ubicazioni il codice percorso),
+  `k_cab` su `room_code + "\x1f" + cabinet_code` (per i `siblings`). Dettagli e codice Python in `python/PORTING.md` §3. In chiaro restano solo id, tempi, `who`, `deleted`.
 - Un servizio Python può tenere lo schema che preferisce (PostgreSQL, cifratura del disco, KMS): conta il JSON delle
   rotte. Per migrare i dati: `pull?since=0` dal PHP → import nel nuovo database (o lettura diretta del file SQLite
   con la stessa chiave: formato del blob qui sopra).

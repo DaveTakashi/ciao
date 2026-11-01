@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DocMap workspace JSON (backup)",
+  "description": "The file written by 'Salva backup' (docmap_workspace_AAAAMMGG_HHMM.json) and by Esporta e Salva › Sessione completa JSON (docmap_workspace.json): workspaceJSON(true) in assets/js/04-ui.js, plus the key sync_journal added by 06i-journal.js when the local journal is not empty. Sessions stored in SQLite (sessions.workspace_json) use the same format without activity_log and sync_journal. No photos: they live only in the .sqlite. Contract: docs/MODELLO-DATI.md §8.",
+  "type": "object",
+  "required": ["app", "format", "version", "exported_at", "settings", "lang", "print", "customPresets", "usedSlots", "binders", "clients", "locations"],
+  "properties": {
+    "app": {"const": "DocMap26"},
+    "format": {"const": "docmap_workspace"},
+    "version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$", "description": "APP_VERSION of the writer (26.11.1 for v11.1)."},
+    "exported_at": {"type": "string", "format": "date-time"},
+    "settings": {"$ref": "#/$defs/settings"},
+    "lang": {"enum": ["it", "en"]},
+    "print": {"type": "object", "description": "Print preferences S.print (presetId, geometry, contentMode, fields, split, info, edge, pages, ...): docs/MODELLO-DATI.md §4. Device preference, not archive data.",
+      "properties": {
+        "presetId": {"type": "string"},
+        "geometry": {"type": "object"},
+        "contentMode": {"type": "string", "description": "info · split · pair · a · b · u · qr · loc"}
+      },
+      "additionalProperties": true},
+    "customPresets": {"type": "array", "items": {"type": "object", "required": ["id"], "properties": {"id": {"type": "string"}, "kind": {"type": "string"}}}},
+    "usedSlots": {"type": "object", "description": "{presetId: [0-based slot indices already used on the partial sheet]}", "additionalProperties": {"type": "array", "items": {"type": "integer", "minimum": 0}}},
+    "binders": {"type": "array", "items": {"$ref": "binder.schema.json"}},
+    "clients": {"type": "array", "items": {"$ref": "client.schema.json"}},
+    "locations": {"type": "array", "items": {"$ref": "location.schema.json"}, "description": "v11 (absent in older files = no change to the tree)."},
+    "activity_log": {"type": "array", "items": {"$ref": "activity_log_entry.schema.json"}, "description": "v9, backups only: merged by id on restore, never replaced."},
+    "sync_journal": {"type": "array", "items": {"$ref": "sync_journal_entry.schema.json"}, "description": "v11, backups only, present when the local journal is not empty: merged by id on 'ripristina tutto' + Sostituisci."}
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "settings": {
+      "type": "object",
+      "description": "S.settings (docs/MODELLO-DATI.md §4). Archive-wide values (studioName, destTemplate, colours, location levels) travel in sync packages as settingsSubset; the others are preferences of this device.",
+      "required": ["studioName", "destTemplate", "qrEcc"],
+      "properties": {
+        "studioName": {"type": "string"},
+        "destTemplate": {"type": "string", "description": "Destination template with {speaking_code} {multi_code} {short_code} {company} {location} {id}; default https://docmap.pr-it.it/studio-de/q/{short_code}."},
+        "qrEcc": {"enum": ["L", "M", "Q", "H"]},
+        "operator": {"type": "string"},
+        "colorMode": {"enum": ["company", "category", "manual"]},
+        "catColors": {"type": "object", "additionalProperties": {"type": "string"}},
+        "catFamilies": {"type": "object", "additionalProperties": {"type": "string"}},
+        "colorRules": {"type": "object", "additionalProperties": {"type": "array", "maxItems": 10, "items": {"type": "object", "required": ["kw", "hex"], "properties": {"id": {"type": "string"}, "kw": {"type": "string"}, "hex": {"type": "string"}, "at": {"type": "string"}}}}},
+        "colorSeeds": {"type": "object"},
+        "colorUpdatedAt": {"type": "string"},
+        "hideDemo": {"type": "boolean"},
+        "deviceId": {"type": "string", "description": "v10 sync: 'dev-' + uuid of this installation (localStorage docmap_v26_device wins over a restored copy)."},
+        "deviceLabel": {"type": "string"},
+        "locLevels": {"type": "array", "maxItems": 8, "items": {"type": "object", "properties": {"name": {"type": "string"}, "prefix": {"type": "string"}}}},
+        "locLevelsAt": {"type": "string"}
+      },
+      "additionalProperties": true
+    }
+  }
+}

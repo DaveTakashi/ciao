@@ -2,8 +2,11 @@
 
 **Questo documento è il contratto tra l'MVP e il sistema Python dello studio.** In caso di dubbio vincono il modello dati e la UX dell'MVP: il sistema Python si allinea a questi nomi, tipi e regole.
 
-Baseline: **v9** — `APP_VERSION '26.9.0'`, schema stato `26.9`, `DB_SCHEMA_VERSION 5` (v9 aggiunge i modelli di etichetta, `print.info`, `print.edge`, il registro attività e lo Scarica PDF; vedi §11).
-I campi nuovi della v8 sono segnati **(v8)**; il riepilogo delle differenze dalla v7 è nel §10.
+Versione attuale: **26.11.1** (v11.1) — schema stato `26.9` (invariato dalla v9), `DB_SCHEMA_VERSION 7`, server
+`DM_SCHEMA 2`. La v11.1 non cambia nessun formato. I §1–§9 descrivono i formati di oggi; i campi aggiunti dopo la v7
+sono segnati con la versione (**(v8)**, **(v10)**, **(v11)**); i §10–§14 raccontano versione per versione cosa è
+cambiato (v8 §10, v9 §11, v10 §12–§13, v10.1 e v11 §13, ubicazioni v11 §14).
+**Schemi macchina** (JSON Schema 2020-12, controllati sui file veri): `python/SCHEMI.md` e `python/schema/`.
 
 Fonti nel codice: `assets/js/02-core.js` (`normalizeBinder`, `normalizeClient`, `CSV_COLUMNS`, `CI_STATUSES`, `normCiStatus`, `pipeToContents`, `defaultState`, `migrate`), `04-ui.js` (`HEADER_ALIASES`, `binderToCsvRow`, `workspaceJSON`, `csvTemplateHeader`), `06-db.js` (`DB_DDL`, `dbMigrate`, `dbReadWorkspace`), `06b-photos.js`, `06c-clients.js`, `06d-info.js` (`catColors`, `qrPreset`, `printPrev`), `05b-import-map.js` (`importMappings`).
 
@@ -43,6 +46,7 @@ Un record per ogni faldone / raccoglitore fisico. Tutti i campi testuali sono st
 | `updated_at` | ISO 8601 UTC | sì (auto) | ultima modifica (aggiornato a ogni salvataggio/import) | idem | `updated_at` | `updated_at` |
 | `contacts` | stringa, virgole | no | **(v8)** persone coinvolte (referente del cliente, collega incaricato…), testo libero separato da virgole; mai inventate. Non stampato di default | `Mario Rossi, Anna (paghe)` | `contacts` | `contacts` TEXT |
 | `notes` | stringa | no | **(v8)** nota libera breve sul faldone. Non stampata di default | `Documento uscito il 12/03 per verifica` | `notes` | `notes` TEXT |
+| `location_id` **(v11)** | id di un'ubicazione o `''` | no (`''`) | la scatola / il nodo dell'albero delle ubicazioni in cui sta il faldone (§14); con un valore, `location_code` diventa il percorso dell'ubicazione | `''` | `location_id` (ultima colonna) | `location_id TEXT` |
 
 Regole di validazione dell'editor: codice parlante obbligatorio e unico; cliente obbligatorio; short code nel formato `dm26` + 8 alfanumerici e unico. In import una riga senza cliente viene saltata (salvo che aggiorni un faldone esistente per codice parlante).
 
@@ -76,6 +80,12 @@ Regole di validazione dell'editor: codice parlante obbligatorio e unico; cliente
 | `type` | tipologia (es. `ENC`) | `TIPO` | `tipo` | `type` |
 | `category` | categoria (es. `APS`) | `ETS_ENC` | `categoria` | `category` |
 | `notes` | note; il codice comune diventa `Cod. comune E547` | `Codice_com` | `note` | `notes` |
+| `color_hex` **(v10, facoltativo)** | colore per i faldoni creati dall'import di questo cliente (diventano `color_locked`) | `Colore` (alias `color`, `colore_dorso`…) | — | — (non salvato) |
+| `tags` **(v10, facoltativo)** | tag copiati nei faldoni creati dall'import | `Tag` / `Tags` / `Etichette` | — | — (non salvato) |
+| `updated_at` **(v10)** | ultima modifica, per la sincronizzazione | — | — | — (non salvato) |
+
+I tre campi facoltativi stanno nello stato, nel workspace JSON e nei pacchetti di sincronizzazione, **non** nella
+tabella SQLite `clients`: aprendo un `.sqlite` (o ripristinando una sessione) i clienti tornano senza.
 
 - File di riferimento: `CLIENTI STORICI ELENCO TIPIZZATO.csv` con intestazione `TIPO;Ditta;Ragione_soc;Indirizzo;Codice_com;Cap;Localita;Provincia;ETS_ENC` (esempio inventato in `tests/fixtures/clienti_esempio.csv`). Alias completi in `CLIENT_ALIASES` (06c-clients.js).
 - Riconoscimento: un CSV con colonna ragione sociale (`ragione_soc`, `ragione_sociale`, `ragionesociale`, `denominazione`) e senza colonne da faldone è un'anagrafica.
@@ -143,7 +153,7 @@ Le chiavi di `settings` viaggiano nel workspace JSON e nella tabella SQLite `set
 
 ### Campi di servizio (solo localStorage)
 
-`schema` (26.8), `app` (`DocMap26`), `lang` (`it`/`en`), `view` (`archive`, `print`, `info`, `import`, `export`, `database`, `ai`, `settings`; il vecchio `clients` diventa `info`), `archiveView` (`table`/`map`), `hasUnexportedChanges`, `onboarded`, `lastExportAt`, `lastExportFile`, `lastSavedAt`, e in v8:
+`schema` (26.9 dalla v9; 26.8 nella v8), `app` (`DocMap26`), `lang` (`it`/`en`), `view` (`archive`, `print`, `info`, `import`, `export`, `database`, `ai`, `settings`; il vecchio `clients` diventa `info`), `archiveView` (`table`/`map`), `hasUnexportedChanges`, `onboarded`, `lastExportAt`, `lastExportFile`, `lastSavedAt`, e in v8:
 
 - `infoTab`: sotto-scheda di Informazioni, `clients` (predefinita) · `tags` · `category` · `year` · `place` · `multi` · `extra` · `qr`.
 - `printPrev`: presente solo durante una "Ristampa solo QR": `{presetId, geometry, geometryModified, contentMode, sel:[id dei faldoni in coda], at:ISO}`, le impostazioni di stampa da ripristinare.
@@ -249,8 +259,10 @@ File: download `docmap_AAAAMMGG_HHMM.sqlite`, file collegato, oppure copia in In
 | 3 | `binders.company_city, ref_year, extra_codes, shelf_color`, tabella `clients` |
 | 4 | `binders.contacts`, `binders.notes`, `contents_items.status TEXT DEFAULT 'archive'` (v8) |
 | 5 | tabella `activity_log` + indice `ix_activity_at` (v9, registro attività, §7.2) |
+| 6 | `binders.color_locked INTEGER DEFAULT 0` (v10, colori, §12) |
+| 7 | tabella `locations` + indice `ix_locations_parent`, `binders.location_id` + indice `ix_binders_location` (v11, ubicazioni, §14.4) |
 
-DDL corrente (copiata da `06-db.js`, `DB_DDL`):
+DDL corrente (da `06-db.js`, `DB_DDL`; la tabella `locations` è riportata al §14.4):
 
 ```sql
 PRAGMA foreign_keys = ON;
@@ -268,7 +280,8 @@ CREATE TABLE IF NOT EXISTS binders(
   final_destination TEXT, final_destination_custom TEXT,
   selected_for_print INTEGER DEFAULT 0,
   created_at TEXT, updated_at TEXT,
-  color_locked INTEGER DEFAULT 0);   -- v6 (DB_SCHEMA_VERSION 6): 1 = colore scelto a mano
+  color_locked INTEGER DEFAULT 0,    -- v6 (DB_SCHEMA_VERSION 6): 1 = colore scelto a mano
+  location_id TEXT);                 -- v7 (v11): locations.id, NULL = nessuna ubicazione
 CREATE TABLE IF NOT EXISTS contents_items(
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   binder_id TEXT NOT NULL REFERENCES binders(id) ON DELETE CASCADE,
@@ -360,7 +373,7 @@ Regole:
 {
   "app": "DocMap26",
   "format": "docmap_workspace",
-  "version": "26.9.0",
+  "version": "26.11.1",
   "exported_at": "2026-11-01T10:00:00.000Z",
   "settings": {"studioName": "…", "destTemplate": "https://docmap.pr-it.it/studio-de/q/{short_code}", "qrEcc": "M", "catColors": {}, "qrPreset": "l7159"},
   "lang": "it",
@@ -377,12 +390,21 @@ Regole:
                        {"year": "2025", "description": "F24 Versamenti", "status": "in_use"}],
     "tags": "iva,fatture,2025", "short_code": "dm26K8m2P9xL", "short_url": "https://qr7.it/dm26K8m2P9xL",
     "final_destination": "", "contacts": "Mario Rossi", "notes": "", "selected_for_print": true,
+    "color_locked": false, "location_id": "",
     "created_at": "2026-10-31T09:12:44.120Z", "updated_at": "2026-10-31T09:12:44.120Z"
   }],
   "clients": [{"id": "…", "multi_code": "8", "name": "APS IL ROSMARINO TEST", "address": "VIA ARGINI 5", "cap": "43037",
-               "city": "LESIGNANO DE' BAGNI", "province": "PR", "type": "ENC", "category": "APS", "notes": "Cod. comune E547"}]
+               "city": "LESIGNANO DE' BAGNI", "province": "PR", "type": "ENC", "category": "APS", "notes": "Cod. comune E547"}],
+  "locations": [],
+  "activity_log": [],
+  "sync_journal": []
 }
 ```
+
+Chiavi in quest'ordine (`workspaceJSON(withLog)` in 04-ui.js): `app, format, version, exported_at, settings, lang,
+print, customPresets, usedSlots, binders, clients, locations` (v11), `activity_log` (v9, solo nei backup) e
+`sync_journal` (v11, aggiunta da 06i-journal.js solo se il registro locale non è vuoto). Schema completo:
+`python/schema/workspace_backup.schema.json`.
 
 - `binders[].final_destination` è la destinazione **personalizzata** (vuoto = modello), a differenza del CSV.
 - L'import JSON accetta anche un array di faldoni, `{rows:[…]}`, `{data:[…]}` o un singolo oggetto; con il workspace completo può ripristinare anche impostazioni, stampa, preset, fogli e clienti.
@@ -463,6 +485,8 @@ Migrazione `migrate()` 26.9: se il preset è `mrink143` e la modalità era `spli
 **Funzioni pubbliche**: `colorAssign(b, binders, opts)` → `#RRGGBB`; `applyAutoColor(b, binders)` → `true` se cambiato (rispetta blocco e modalità manuale, non salva); `recolorAll({onlyUnlocked:true, category, mode, silent})` → numero di faldoni ricolorati, con `undoPoint()` + voce `binder.recolor` nel registro attività + `undoToast`; `colorPlan(binders, opts)` → `Map(id → hex)` (parte pura, deterministica: clienti in ordine di chiave). Utili anche lato Python: l'algoritmo usa solo FNV-1a, liste fisse e confronti di stringhe, quindi è riproducibile.
 
 **Migrazione**: nessun faldone viene ricolorato all'aggiornamento. Uno stato, un workspace JSON o un `.sqlite` senza `settings.colorMode` è "pre-v10": `colorLockLegacy()` blocca i faldoni il cui colore non è automatico (non è una sfumatura della famiglia, né il colore della categoria, né i vecchi predefiniti `#2563EB`/`#475569`). Per ricolorare c'è il pulsante **Impostazioni › Colori dei dorsi › Ricolora tutti i faldoni (non bloccati)** (o, per una categoria, la casella nel dialogo di Informazioni › Categorie).
+
+## 13. Novità v10, v10.1 e v11 (pagine e PDF, database online, registro sincronizzazioni)
 
 ### v10.1 — database online (nessuna modifica di schema)
 

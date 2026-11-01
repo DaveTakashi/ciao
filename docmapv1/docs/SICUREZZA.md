@@ -1,4 +1,7 @@
-# DocMap — sicurezza: cosa protegge l'MVP e cosa no (v10.1)
+# DocMap — sicurezza: cosa protegge l'MVP e cosa no
+
+> Valido per la 26.11.1 (v11.1): §1–§5 descrivono il client (dalla v10), §5b il database online (v10.1), §5c il
+> registro sincronizzazioni (v11). La v11.1 non cambia nulla di quanto descritto qui.
 
 > Sintesi onesta. L'MVP crea **le basi** (interfacce, formati, cifratura nel browser); il **sistema di sicurezza vero**
 > (login centralizzato, revoca, sincronizzazione, cifratura lato server, audit centrale) lo costruisce il back-end Python

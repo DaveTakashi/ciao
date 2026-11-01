@@ -1,6 +1,9 @@
 # DocMap Hub e API — progetto per il futuro
 
-> **NON IMPLEMENTATO NELL'MVP.** Questo è un progetto di riferimento per la fase online. L'MVP (v7/v8) resta un'app offline in `file://` senza server. Nulla di quanto segue esiste ancora nel codice; i nomi dei campi però sono già quelli di `MODELLO-DATI.md` e non vanno cambiati.
+> **HUB NON IMPLEMENTATO.** Questo è un progetto di riferimento, scritto ai tempi della v7/v8. Stato alla v11.1 (26.11.1): esiste
+> il **database online di un solo studio** (`server-php/api.php`, contratto in `API-CONTRACT.md`, porting in
+> `python/PORTING.md`), che copre la sincronizzazione e la modifica da telefono; l'hub multi-studio (licenze, feature
+> flag, gateway AI, login centrale) descritto qui **non esiste ancora** nel codice; i nomi dei campi però sono già quelli di `MODELLO-DATI.md` e non vanno cambiati.
 
 ## 1. Obiettivi
 

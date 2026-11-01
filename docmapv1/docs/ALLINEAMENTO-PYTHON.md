@@ -1,6 +1,6 @@
 # Allineamento del sistema Python a DocMap
 
-Guida breve per il team Python dello studio, aggiornata alla **v8** (`APP_VERSION 26.8.0`, `DB_SCHEMA_VERSION 4`). **Regola generale: il modello dati e la UX dell'MVP DocMap sono il riferimento.** Il sistema Python legge e scrive gli stessi campi, con gli stessi nomi e le stesse regole (`MODELLO-DATI.md`). Quando servirà un collegamento in tempo reale si userà l'hub descritto in `HUB-E-API.md` (non ancora implementato).
+Guida breve per il team Python dello studio, aggiornata alla **v11.1** (`APP_VERSION 26.11.1`, `DB_SCHEMA_VERSION 7`, stato 26.9). Nata con la v8: le note "(v8)" indicano da quando esiste una regola. I JSON Schema dei record sono in [`python/SCHEMI.md`](python/SCHEMI.md); per il server vedi [`python/PORTING.md`](python/PORTING.md). **Regola generale: il modello dati e la UX dell'MVP DocMap sono il riferimento.** Il sistema Python legge e scrive gli stessi campi, con gli stessi nomi e le stesse regole (`MODELLO-DATI.md`). Quando servirà un collegamento in tempo reale si userà l'hub descritto in `HUB-E-API.md` (non ancora implementato).
 
 ## 1. Cosa esporta l'MVP
 
@@ -8,11 +8,11 @@ Guida breve per il team Python dello studio, aggiornata alla **v8** (`APP_VERSIO
 |---|---|---|---|
 | `docmap_AAAAMMGG_HHMM.sqlite` | ⚙ Funzioni avanzate › Database → Scarica | tutto: faldoni, contenuti, clienti, impostazioni, preset, **foto**, sessioni, audit | **sincronizzazione completa** (il più fedele) |
 | `docmap_workspace.json` | ⚙ Funzioni avanzate › Esporta e Salva → Sessione completa JSON (o Backup rapido) | faldoni, clienti, impostazioni, stampa, preset, fogli parziali (no foto) | scambio programmatico semplice |
-| `docmap_full_backup.csv` | ⚙ Funzioni avanzate › Esporta e Salva → Database completo CSV | faldoni, 27 colonne `;`, BOM UTF-8 | Excel, controlli manuali |
+| `docmap_full_backup.csv` | ⚙ Funzioni avanzate › Esporta e Salva → Database completo CSV | faldoni, 29 colonne `;`, BOM UTF-8 | Excel, controlli manuali |
 | `docmap_clienti.csv` | Informazioni › Clienti → Esporta | anagrafica | confronto con il gestionale |
 | `manifest_qr7_dm26.csv` | ⚙ Funzioni avanzate › Esporta e Salva → Manifest | `short_code;short_url;final_destination;tags;` (ogni riga termina con `;`, v11) | server di redirect qr7.it |
 
-In ingresso DocMap accetta gli stessi formati: CSV (27, 25, 22 o 20 colonne, intestazioni anche in italiano; colonne con altri nomi si abbinano a mano), Excel `.xlsx`, workspace JSON, `.sqlite` (anche v1–v3), e l'anagrafica clienti con intestazione `TIPO;Ditta;Ragione_soc;Indirizzo;Codice_com;Cap;Localita;Provincia;ETS_ENC`.
+In ingresso DocMap accetta gli stessi formati: CSV (29 colonne dalla v11, 28 v10, 27 v8–v9, 25 v7, oppure 22/20 del modello AI; letto per intestazione, anche in italiano; colonne con altri nomi si abbinano a mano), Excel `.xlsx`, workspace JSON, `.sqlite` (anche v1–v3), e l'anagrafica clienti con intestazione `TIPO;Ditta;Ragione_soc;Indirizzo;Codice_com;Cap;Localita;Provincia;ETS_ENC`.
 
 ## 2. Leggere gli export in Python
 
@@ -116,7 +116,7 @@ import csv
 COLUMNS = ["speaking_code","multi_code","company_name","company_city","category","binder_title","ref_year",
            "room_code","cabinet_code","shelf_code","sector_code","location_code","archive_state","contents","tags",
            "color_hex","short_code","short_url","final_destination","extra_codes","shelf_color","contacts","notes",
-           "selected_for_print","id","created_at","updated_at"]
+           "selected_for_print","id","created_at","updated_at","color_locked","location_id"]   # v10: color_locked · v11: location_id
 
 SUFFIX = {"in_use": " [in uso]", "client": " [cliente]"}
 def item_text(i):
@@ -131,7 +131,8 @@ with open("da_python.csv", "w", encoding="utf-8-sig", newline="") as f:
     w.writerow(COLUMNS)
     for b in binders:
         row = dict(b, contents="|".join(item_text(i) for i in b["contents_items"]),
-                   selected_for_print="1" if b["selected_for_print"] else "0")
+                   selected_for_print="1" if b["selected_for_print"] else "0",
+                   color_locked="1" if b.get("color_locked") else "0")
         w.writerow([guard(row.get(c, "")) for c in COLUMNS])
 ```
 
@@ -185,7 +186,7 @@ Compilate la colonna "Sistema Python" con i nomi della vostra base dati. Le prim
 4. **`multi_code` mai inventato**: solo dal gestionale o dall'utente.
 5. **`updated_at`** va aggiornato a ogni modifica (ISO UTC, es. `datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")`). Servirà alla sincronizzazione per campo.
 6. **Campi derivati** (`location_code`, `short_url`, destinazione risolta) si ricalcolano, non si modificano a mano.
-7. **Non togliere colonne** né cambiare l'ordine del CSV a 27 colonne; leggere e scrivere **per intestazione** (in v8 `contacts`, `notes` sono state inserite dopo `shelf_color`, quindi le colonne successive sono scalate rispetto al CSV v7 a 25 colonne). DocMap ignora le colonne che non conosce.
+7. **Non togliere colonne** né cambiare l'ordine del CSV a 29 colonne; leggere e scrivere **per intestazione** (in v8 `contacts`, `notes` sono state inserite dopo `shelf_color`, quindi le colonne successive sono scalate rispetto al CSV v7 a 25 colonne). DocMap ignora le colonne che non conosce.
 8. Dati di esempio: i faldoni con tag `demo` non sono dati reali, escluderli.
 9. **Stato delle voci** (v8): scrivere il suffisso `[in uso]` / `[cliente]` solo per le voci fuori dal faldone; DocMap legge anche `[al cliente]`, `[client]`, `[in use]`, `[prelevato]`, `[archivio]`. Nel `.sqlite` usare la colonna `status`, non il suffisso.
 
@@ -193,4 +194,4 @@ Compilate la colonna "Sistema Python" con i nomi della vostra base dati. Le prim
 
 1. Aprite una richiesta (issue o messaggio a Dave) con: campo, tipo, obbligatorietà, esempio, perché serve, chi lo compila (utente / Python / AI), se va stampato in etichetta.
 2. La modifica entra **prima nell'MVP** (checklist in `../AGENTS.md` §4: modello, CSV, alias, SQLite con migrazione, prompt AI, editor, stampa, ricerca, aiuto, test) e in `MODELLO-DATI.md`.
-3. Solo dopo il rilascio il sistema Python si allinea. Le modifiche sono sempre **additive**: nuove colonne (in coda, dopo `updated_at`), nessuna rinomina, i vecchi file continuano a importare.
+3. Solo dopo il rilascio il sistema Python si allinea. Le modifiche sono sempre **additive**: nuove colonne (in coda, dopo l'ultima esistente: oggi `location_id`), nessuna rinomina, i vecchi file continuano a importare.
