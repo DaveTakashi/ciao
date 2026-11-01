@@ -6,7 +6,7 @@
    - Download / open .sqlite files; on Chrome/Edge, link a file on disk
      and save to it automatically (File System Access API)
    ===================================================================== */
-const DB_SCHEMA_VERSION = 6;   // 2: binders.multi_code + photos table · 3: place/year/extra codes/shelf colour + clients table · 4: binders.contacts/notes + contents_items.status · 5: activity_log table (06e-log.js) · 6: binders.color_locked (02b-colors.js)
+const DB_SCHEMA_VERSION = 7;   // 2: binders.multi_code + photos table · 3: place/year/extra codes/shelf colour + clients table · 4: binders.contacts/notes + contents_items.status · 5: activity_log table (06e-log.js) · 6: binders.color_locked (02b-colors.js) · 7: locations table + binders.location_id (v11, 02c-locations.js)
 const DB = { SQL:null, db:null, ready:false, error:null, version:'', handle:null, handleName:'', handlePerm:'prompt', lastSync:null, lastFileSave:null, timer:null, busy:false, consoleSql:'', consoleResult:null };
 const IDB_NAME = 'docmap_v26_sqlite', IDB_STORE = 'kv';
 
@@ -39,7 +39,8 @@ CREATE TABLE IF NOT EXISTS binders(
   final_destination TEXT, final_destination_custom TEXT,
   selected_for_print INTEGER DEFAULT 0,
   created_at TEXT, updated_at TEXT,
-  color_locked INTEGER DEFAULT 0);   -- v6: 1 = spine colour picked by hand, never recoloured automatically
+  color_locked INTEGER DEFAULT 0,   -- v6: 1 = spine colour picked by hand, never recoloured automatically
+  location_id TEXT);                -- v7: box / node of the location tree (locations.id), NULL = none
 CREATE TABLE IF NOT EXISTS contents_items(
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   binder_id TEXT NOT NULL REFERENCES binders(id) ON DELETE CASCADE,
@@ -68,6 +69,10 @@ CREATE TABLE IF NOT EXISTS activity_log(
   target_type TEXT, target_id TEXT, target_code TEXT,
   summary TEXT, details_json TEXT, source TEXT DEFAULT 'ui');   -- not mirrored from S: lives here (+ workspace JSON backups), newest 20000 kept
 CREATE INDEX IF NOT EXISTS ix_activity_at ON activity_log(at);
+CREATE TABLE IF NOT EXISTS locations(   -- v7 (v11): location tree Magazzino › Armadio › Scansia › Scaffale › Scatola
+  id TEXT PRIMARY KEY, parent_id TEXT, level INTEGER DEFAULT 0, kind TEXT, name TEXT, seg TEXT, code TEXT,
+  short_code TEXT UNIQUE, short_url TEXT, notes TEXT, sort INTEGER DEFAULT 0, created_at TEXT, updated_at TEXT);
+CREATE INDEX IF NOT EXISTS ix_locations_parent ON locations(parent_id);
 DROP VIEW IF EXISTS v_manifest_qr7;
 CREATE VIEW v_manifest_qr7 AS
   SELECT short_code, short_url, final_destination, 'docmap26,' || speaking_code AS tags FROM binders ORDER BY speaking_code;
@@ -87,6 +92,8 @@ function dbMigrate(db){
   const cols = dbQuery('PRAGMA table_info(binders)', null, db).map(r => r.name);
   ['multi_code','company_city','ref_year','extra_codes','shelf_color','contacts','notes'].forEach(c => { if (!cols.includes(c)) db.exec('ALTER TABLE binders ADD COLUMN ' + c + ' TEXT'); });
   if (!cols.includes('color_locked')) db.exec('ALTER TABLE binders ADD COLUMN color_locked INTEGER DEFAULT 0');   // v6
+  if (!cols.includes('location_id')) db.exec('ALTER TABLE binders ADD COLUMN location_id TEXT');   // v7 (v11)
+  db.exec('CREATE INDEX IF NOT EXISTS ix_binders_location ON binders(location_id)');
   if (!dbQuery('PRAGMA table_info(contents_items)', null, db).some(r => r.name === 'status')) db.exec("ALTER TABLE contents_items ADD COLUMN status TEXT DEFAULT 'archive'");
   db.exec('CREATE INDEX IF NOT EXISTS ix_binders_multi ON binders(multi_code)');
   db.run("INSERT OR REPLACE INTO meta(key,value) VALUES ('app','DocMap26'),('schema_version',?)", [String(DB_SCHEMA_VERSION)]);
@@ -120,11 +127,11 @@ function dbSyncFromState(reason){
   ensureIntegrity();
   db.exec('BEGIN');
   try {
-    db.exec('DELETE FROM contents_items; DELETE FROM binders; DELETE FROM settings; DELETE FROM label_presets; DELETE FROM clients;');
-    const ins = db.prepare('INSERT INTO binders(id,speaking_code,multi_code,company_name,category,color_hex,binder_title,room_code,cabinet_code,shelf_code,sector_code,location_code,archive_state,tags,short_code,short_url,final_destination,final_destination_custom,selected_for_print,created_at,updated_at,company_city,ref_year,extra_codes,shelf_color,contacts,notes,color_locked) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+    db.exec('DELETE FROM contents_items; DELETE FROM binders; DELETE FROM settings; DELETE FROM label_presets; DELETE FROM clients; DELETE FROM locations;');
+    const ins = db.prepare('INSERT INTO binders(id,speaking_code,multi_code,company_name,category,color_hex,binder_title,room_code,cabinet_code,shelf_code,sector_code,location_code,archive_state,tags,short_code,short_url,final_destination,final_destination_custom,selected_for_print,created_at,updated_at,company_city,ref_year,extra_codes,shelf_color,contacts,notes,color_locked,location_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
     const ci = db.prepare('INSERT INTO contents_items(binder_id,position,year,description,status) VALUES (?,?,?,?,?)');
     S.binders.forEach(b => {
-      ins.run([b.id, b.speaking_code, b.multi_code || null, b.company_name, b.category, b.color_hex, b.binder_title, b.room_code, b.cabinet_code, b.shelf_code, b.sector_code, b.location_code, b.archive_state, b.tags, b.short_code || null, b.short_url, destFor(b), b.final_destination || '', b.selected_for_print ? 1 : 0, b.created_at || '', b.updated_at || '', b.company_city || '', b.ref_year || '', b.extra_codes || '', b.shelf_color || '', b.contacts || '', b.notes || '', b.color_locked ? 1 : 0]);
+      ins.run([b.id, b.speaking_code, b.multi_code || null, b.company_name, b.category, b.color_hex, b.binder_title, b.room_code, b.cabinet_code, b.shelf_code, b.sector_code, b.location_code, b.archive_state, b.tags, b.short_code || null, b.short_url, destFor(b), b.final_destination || '', b.selected_for_print ? 1 : 0, b.created_at || '', b.updated_at || '', b.company_city || '', b.ref_year || '', b.extra_codes || '', b.shelf_color || '', b.contacts || '', b.notes || '', b.color_locked ? 1 : 0, b.location_id || null]);
       b.contents_items.forEach((it, i) => ci.run([b.id, i, it.year, it.description, normCiStatus(it.status)]));
     });
     ins.free(); ci.free();
@@ -137,6 +144,9 @@ function dbSyncFromState(reason){
     const cl = db.prepare('INSERT OR REPLACE INTO clients(id,multi_code,name,address,cap,city,province,type,category,notes) VALUES (?,?,?,?,?,?,?,?,?,?)');
     (S.clients || []).forEach(c => cl.run([c.id, c.multi_code, c.name, c.address, c.cap, c.city, c.province, c.type, c.category, c.notes]));
     cl.free();
+    const lo = db.prepare('INSERT OR REPLACE INTO locations(id,parent_id,level,kind,name,seg,code,short_code,short_url,notes,sort,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)');
+    (S.locations || []).forEach(l => lo.run([l.id, l.parent_id || null, l.level | 0, l.kind || '', l.name || '', l.seg || '', l.code || '', l.short_code || null, l.short_url || '', l.notes || '', l.sort | 0, l.created_at || '', l.updated_at || '']));
+    lo.free();
     db.run("INSERT OR REPLACE INTO meta(key,value) VALUES ('synced_at',?),('studio',?)", [nowISO(), S.settings.studioName || '']);
     db.exec('COMMIT');
     DB.lastSync = nowISO();
@@ -174,18 +184,21 @@ function dbReadWorkspace(db){
   dbQuery('SELECT key, value FROM settings', null, db).forEach(r => { try { settings[r.key] = JSON.parse(r.value); } catch(e){} });
   let clients = [];
   try { clients = dbQuery('SELECT * FROM clients ORDER BY name', null, db); } catch(e){}
+  let locations = null;   // v7: absent in older files → null (the current tree is kept)
+  try { if (dbQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='locations'", null, db).length) locations = dbQuery('SELECT * FROM locations ORDER BY code', null, db).map(l => ({id:l.id, parent_id:l.parent_id || '', level:l.level | 0, kind:l.kind || '', name:l.name || '', seg:l.seg || '', code:l.code || '', short_code:l.short_code || '', notes:l.notes || '', sort:l.sort | 0, created_at:l.created_at || '', updated_at:l.updated_at || ''})); } catch(e){ locations = null; }
   const presets = dbQuery('SELECT geometry_json FROM label_presets', null, db).map(r => { try { return JSON.parse(r.geometry_json); } catch(e){ return null; } }).filter(Boolean);
   return {
     clients: clients.map(c => ({id:c.id, multi_code:c.multi_code || '', name:c.name || '', address:c.address || '', cap:c.cap || '', city:c.city || '', province:c.province || '', type:c.type || '', category:c.category || '', notes:c.notes || ''})),
-    settings: settings.settings, print: settings.print, usedSlots: settings.usedSlots, lang: settings.lang, customPresets: presets,
+    settings: settings.settings, print: settings.print, usedSlots: settings.usedSlots, lang: settings.lang, customPresets: presets, locations: locations || undefined,
     binders: binders.map(b => ({ id:b.id, speaking_code:b.speaking_code, multi_code:b.multi_code || '', company_name:b.company_name, company_city:b.company_city || '', ref_year:b.ref_year || '', extra_codes:b.extra_codes || '', shelf_color:b.shelf_color || '', contacts:b.contacts || '', notes:b.notes || '', category:b.category, color_hex:b.color_hex, binder_title:b.binder_title,
       room_code:b.room_code, cabinet_code:b.cabinet_code, shelf_code:b.shelf_code, sector_code:b.sector_code, archive_state:b.archive_state, tags:b.tags,
-      short_code:b.short_code, final_destination:b.final_destination_custom || '', selected_for_print: !!b.selected_for_print, color_locked: !!b.color_locked, created_at:b.created_at, updated_at:b.updated_at,
+      short_code:b.short_code, final_destination:b.final_destination_custom || '', selected_for_print: !!b.selected_for_print, color_locked: !!b.color_locked, location_id:b.location_id || '', created_at:b.created_at, updated_at:b.updated_at,
       contents_items: byB[b.id] || [] }))
   };
 }
 /* Replace the whole working state with a workspace object (from a session or a .sqlite file). */
 function applyWorkspaceObject(W){
+  if (Array.isArray(W.locations)){ S.locations = W.locations.map(normalizeLocation); locIntegrity(); }   // v11: before the binders (their location_code follows the tree); absent = keep the current tree
   S.binders = (W.binders || []).map(normalizeBinder);
   ensureIntegrity();
   if (Array.isArray(W.clients)) S.clients = W.clients.map(normalizeClient);

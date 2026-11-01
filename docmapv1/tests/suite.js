@@ -880,7 +880,7 @@ const sec = (n) => console.log('\n== ' + n);
   ok(v.m1 === 'info' && v.m2 === 'split' && v.m3 === 'split' && v.m4 === 'pair', 'migration < 26.9 switches MRINK143 + classic to the info label once; later choices and other sheets kept', v);
   // registry
   v = await p.evaluate(() => ({ids:LABEL_TEMPLATES.map(x => x.id).join(), k:['info','split','pair','a','b','u','qr','zz'].map(m => modeKinds(m).join('')).join(','), kp:modeKinds('info', Object.assign({}, S.print, {info:{pair:true}})).join(''), rec:tplRecommended(labelTemplate('info'), 'mrink143') && !tplRecommended(labelTemplate('split'), 'mrink143')}));
-  ok(v.ids === 'info,split,pair,a,b,u,qr' && v.k === 'I,S,AB,A,B,U,Q,U' && v.kp === 'IC' && v.rec, 'template registry drives modeKinds (all old modes kept, unknown → U, pair flag → I+C)', v);
+  ok(v.ids.replace(/,loc$/, '') === 'info,split,pair,a,b,u,qr' && v.k === 'I,S,AB,A,B,U,Q,U' && v.kp === 'IC' && v.rec, 'template registry drives modeKinds (all old modes kept, unknown → U, pair flag → I+C)', v);
   // classic label unchanged when edge compensation is off
   v = await p.evaluate(() => { const b = S.binders.find(x => x.speaking_code === 'TBL1'), g = S.print.geometry;
     S.print.edge = {outer:4, cut:1, byPreset:{mrink143:false}}; const off = renderSlotLabel('S', b, g, S.print), ref = renderLabel('S', b, frameGeo(g), S.print);
@@ -982,7 +982,7 @@ const sec = (n) => console.log('\n== ' + n);
   // UI: registry-driven choices, options, edge panel, help
   await p.evaluate(() => { S.print.presetId = 'mrink143'; S.print.geometry = geoFromPreset(findPreset('mrink143')); S.print.info = {items:2, pair:false}; S.view = 'print'; S.print.advanced = true; renderAll(); }); await p.waitForTimeout(300);
   v = await p.evaluate(() => ({opts:[...document.querySelectorAll('[data-a="cmode"]')].map(x => x.dataset.v).join(), on:(document.querySelector('.opt.on[data-a="cmode"]') || {}).dataset.v, rec:!!document.querySelector('[data-a="cmode"][data-v="info"] .tpl-rec'), items:document.querySelectorAll('[data-a="tpl-info-items"]').length, edge:!!document.querySelector('#pr-adv #edge-box [data-a="edge-on"]:checked'), pv:document.querySelectorAll('#pv-scroll .edge-safe-scr').length, help:!!helpTopic('edge') && !!helpTopic('infolabel'), w:document.documentElement.scrollWidth <= innerWidth + 1}));
-  ok(v.opts === 'info,split,pair,a,b,u,qr' && v.on === 'info' && v.rec && v.items === 3 && v.edge && v.pv === 8 && v.help && v.w, 'print panel: templates from the registry, info recommended on MRINK143, its options, edge option in Advanced, outline in preview, help topics', v);
+  ok(v.opts.replace(/,loc$/, '') === 'info,split,pair,a,b,u,qr' && v.on === 'info' && v.rec && v.items === 3 && v.edge && v.pv === 8 && v.help && v.w, 'print panel: templates from the registry, info recommended on MRINK143, its options, edge option in Advanced, outline in preview, help topics', v);
   await p.screenshot({path:'shots/t_print_panel.png'});
   await p.click('[data-a="tpl-info-items"][data-v="1"]'); await p.waitForTimeout(100);
   await p.click('[data-a="tpl-info-pair"]'); await p.waitForTimeout(250);
@@ -1545,7 +1545,7 @@ const sec = (n) => console.log('\n== ' + n);
   Kv = await p.evaluate(async () => {
     const r = {};
     const L = S.binders.find(x => x.speaking_code === 'KC1');
-    r.cols = CSV_COLUMNS[CSV_COLUMNS.length - 1] === 'color_locked' && binderToCsvRow(L).length === CSV_COLUMNS.length;
+    r.cols = CSV_COLUMNS.indexOf('color_locked') === 27 && binderToCsvRow(L).length === CSV_COLUMNS.length;   // v11: location_id appended after color_locked
     const W = JSON.parse(workspaceJSON()); r.json = W.binders.find(x => x.speaking_code === 'KC1').color_locked === true && W.binders.find(x => x.speaking_code === 'KC2').color_locked === false;
     const csv = toCSV([CSV_COLUMNS].concat(['KC1','KC2'].map(c => binderToCsvRow(S.binders.find(x => x.speaking_code === c)).map(safeCell))), ';');
     analyzeImport(csv); const rows = UI.importParsed.rows; r.csv = rows[0].p.color_locked === true && rows[1].p.color_locked === false && rows[0].p.color_hex === '#123456';
@@ -2818,6 +2818,360 @@ const sec = (n) => console.log('\n== ' + n);
     }
   }
   // @@STREAM-X@@
+  sec('v11 X: location tree (Ubicazioni), location QR labels, association mode');
+  {
+    const Xpath = require('path'), Xcp = require('child_process');
+    let Xv, Xv2;
+    const Xsel = await p.evaluate(() => S.binders.filter(b => b.selected_for_print).map(b => b.id));
+    await p.evaluate(() => { while (topModal()) closeModal(true); S.lang = 'it'; S.view = 'info'; S.infoTab = 'loc'; renderAll(); });
+    Xv = await p.evaluate(() => ({n:(S.locations || []).length, empty:!!document.getElementById('lo-empty-bulk'), tab:!!document.querySelector('.info-tabs [data-v="loc"]'), csv:CSV_COLUMNS[CSV_COLUMNS.length - 1], db:DB_SCHEMA_VERSION,
+      w:document.documentElement.scrollWidth <= innerWidth + 1}));
+    ok(Xv.n === 0 && Xv.empty && Xv.tab && Xv.csv === 'location_id' && Xv.db === 7 && Xv.w, 'X: Informazioni › Ubicazioni starts empty (no invented locations); CSV ends with location_id; local DB schema 7', Xv);
+
+    // ---- bulk create: 1 warehouse › 2 cabinets › 1 shelving unit › 1 shelf › 4 boxes ----
+    await p.click('#lo-empty-bulk'); await p.waitForTimeout(150);
+    for (const [i, n] of [[0, 1], [1, 2], [2, 1], [3, 1], [4, 4]]) await p.fill('[data-lo-bk="n"][data-i="' + i + '"]', String(n));
+    Xv = await p.evaluate(() => document.getElementById('lo-bulk-prev').innerText);
+    await p.screenshot({path:'shots/x_bulk.png'});
+    await p.click('.modal-f .btn-primary'); await p.waitForTimeout(200);
+    Xv2 = await p.evaluate(() => { const L = S.locations, leaves = L.filter(l => !locChildren(l.id).length);
+      return {n:L.length, leaves:leaves.length, codes:leaves.map(l => l.code).sort(naturalCmp), uniq:new Set(L.map(l => l.code)).size, sc:L.every(l => LOC_SC_RE.test(l.short_code) && l.short_url === 'https://qr7.it/' + l.short_code) && new Set(L.map(l => l.short_code)).size === L.length,
+        notBinder:L.every(l => !SC_RE.test(l.short_code)) && S.binders.every(b => !LOC_SC_RE.test(b.short_code)), lv:leaves.every(l => l.level === 4), kind:locKind(leaves[0]), path:locPathText(leaves[0].id),
+        log:LOG.entries.some(e => e.action === 'location.bulk_create' && e.details.count === 15), checked:LUI.checked.size, tree:document.querySelectorAll('#lo-tree .lt-row').length}; });
+    ok(/15/.test(Xv) && Xv2.n === 15 && Xv2.leaves === 8 && Xv2.codes[0] === 'MAG1-A1-S1-R1-B01' && Xv2.codes[7] === 'MAG1-A2-S1-R1-B04' && Xv2.uniq === 15 && Xv2.lv && Xv2.kind === 'Scatola' && Xv2.path === 'Magazzino MAG1 › Armadio A1 › Scansia S1 › Scaffale R1 › Scatola B01' && Xv2.log && Xv2.checked === 8 && Xv2.tree > 3,
+      'X: "Crea in serie" builds the hierarchy (15 places, boxes B01..B04, path codes MAG1-A1-S1-R1-B01, logged, boxes ticked for printing)', {prev:Xv, r:Xv2});
+    ok(Xv2.sc && Xv2.notBinder, 'X: location short codes are unique dm26L + 8 (qr7.it URL) and never match the binder format dm26 + 8', Xv2);
+
+    // ---- tree CRUD: add, rename, duplicate segment, move, delete + undo ----
+    await p.evaluate(() => { LUI.sel = S.locations.find(l => l.code === 'MAG1-A1-S1-R1').id; locRender(); });
+    await p.click('#lo-add-child'); await p.waitForTimeout(100);
+    Xv = await p.evaluate(() => { const l = locById(LUI.sel); return {code:l.code, lv:l.level, log:LOG.entries[LOG.entries.length - 1].action}; });
+    await p.fill('#lo-f-name', 'Scatola bilanci'); await p.press('#lo-f-name', 'Enter'); await p.waitForTimeout(80);
+    await p.fill('#lo-f-seg', 'b01'); await p.press('#lo-f-seg', 'Enter'); await p.waitForTimeout(80);
+    Xv2 = await p.evaluate(() => { const l = locById(LUI.sel), sib = locChildren(l.parent_id).map(x => x.seg); return {name:l.name, seg:l.seg, uniq:new Set(sib).size === sib.length, tree:document.getElementById('lo-tree').innerText.includes('Scatola bilanci')}; });
+    ok(Xv.code === 'MAG1-A1-S1-R1-B05' && Xv.lv === 4 && Xv.log === 'location.create' && Xv2.name === 'Scatola bilanci' && Xv2.seg !== 'B01' && /^B01/.test(Xv2.seg) && Xv2.uniq && Xv2.tree,
+      'X: add a box (next free code B05), rename it, a segment already used among siblings stays unique', {Xv, Xv2});
+    await p.fill('#lo-f-seg', 'B09'); await p.press('#lo-f-seg', 'Enter'); await p.waitForTimeout(80);
+    // test binders (not demo) placed with the old room fields
+    const XB = await p.evaluate(() => {
+      for (let i = 1; i <= 6; i++) S.binders.push(normalizeBinder({speaking_code:'XL' + i, company_name:'Ubicazioni Prova ' + i + ' Srl', category:'IVA', room_code:'A', cabinet_code:'1', shelf_code:'β', short_code:newShortCode(), created_at:nowISO(), updated_at:nowISO()}));
+      ensureIntegrity(); commit();
+      const o = {}; S.binders.filter(b => /^XL\d$/.test(b.speaking_code)).forEach(b => { o[b.speaking_code] = {id:b.id, sc:b.short_code}; }); return o; });
+    const XL = await p.evaluate(() => { const o = {}; S.locations.forEach(l => { o[l.code] = {id:l.id, sc:l.short_code}; }); return o; });
+    // archive: ticked binders → "Ubicazione…" with the location typed
+    await p.evaluate(() => { S.binders.forEach(b => { b.selected_for_print = /^XL[123]$/.test(b.speaking_code); }); S.view = 'archive'; UI.q = ''; renderAll(); });
+    await p.click('#lo-assign-btn'); await p.waitForTimeout(120);
+    await p.fill('#lo-as-q', 'MAG1-A1-S1-R1-B01'); await p.waitForTimeout(60);
+    await p.click('.modal-f .btn-primary'); await p.waitForTimeout(150);
+    Xv = await p.evaluate((L) => { const bs = S.binders.filter(b => /^XL[123]$/.test(b.speaking_code)); return {ids:bs.every(b => b.location_id === L['MAG1-A1-S1-R1-B01'].id), codes:bs.map(b => b.location_code).join(','), room:bs.every(b => b.room_code === 'A' && b.cabinet_code === '1' && b.shelf_code === 'β'),
+      log:LOG.entries.some(e => e.action === 'binder.locate_bulk' && e.details.to && e.details.to.code === 'MAG1-A1-S1-R1-B01' && e.details.via === 'bulk'), row:(document.querySelector('#archive-results') || document.getElementById('view')).innerText.includes('MAG1-A1-S1-R1-B01')}; }, XL);
+    ok(Xv.ids && Xv.codes === 'MAG1-A1-S1-R1-B01,MAG1-A1-S1-R1-B01,MAG1-A1-S1-R1-B01' && Xv.room && Xv.log && Xv.row, 'X: archive selection → "Ubicazione…" puts the binders in a box (location_id + location_code, room fields untouched, logged)', Xv);
+    // binder editor: typeahead of locations
+    await p.evaluate((id) => openEditor(id), XB.XL4.id); await p.waitForTimeout(250);
+    await p.click('#ed-locpick'); await p.fill('#ed-locpick', 'A2-S1-R1-B03'); await p.waitForTimeout(150);
+    Xv = await p.evaluate(() => [...document.querySelectorAll('.ta-opt')].map(x => x.innerText.split('\n')[0]));
+    await p.click('.ta-opt'); await p.waitForTimeout(80);
+    Xv2 = await p.evaluate(() => ({path:document.getElementById('lo-ed-path').textContent, d:UI.ed.d.location_id}));
+    await p.evaluate(() => saveEditor()); await p.waitForTimeout(150);
+    const XedB = await p.evaluate((id) => { const b = S.binders.find(x => x.id === id); return {id:b.location_id, code:b.location_code, log:LOG.entries.some(e => e.action === 'binder.locate' && e.target && e.target.id === id && e.details.via === 'editor' && e.details.to.code === 'MAG1-A2-S1-R1-B03')}; }, XB.XL4.id);
+    ok(Xv[0] === 'MAG1-A2-S1-R1-B03' && /Armadio A2/.test(Xv2.path) && XedB.id === XL['MAG1-A2-S1-R1-B03'].id && XedB.code === 'MAG1-A2-S1-R1-B03' && XedB.log, 'X: binder editor: location typeahead → saved location_id + code, logged as binder.locate (editor)', {Xv, Xv2, XedB});
+    // archive filter + search, "Dov'è?"
+    Xv = await p.evaluate((L) => {
+      UI.fLoc = L['MAG1-A1-S1-R1-B01'].id; const a = filteredBinders().map(b => b.speaking_code).sort().join(',');
+      UI.fLoc = L['MAG1-A1'].id; const sub = filteredBinders().length;
+      UI.fLoc = '__none'; const none = filteredBinders().some(b => /^XL[1-4]$/.test(b.speaking_code));
+      UI.fLoc = ''; UI.q = 'MAG1-A2-S1-R1-B03'; const q = filteredBinders().map(b => b.speaking_code).join(','); UI.q = '';
+      S.view = 'archive'; renderAll(); const sel = !!document.querySelector('select[data-lo-filter]');
+      return {a, sub, none, q, sel}; }, XL);
+    ok(Xv.a === 'XL1,XL2,XL3' && Xv.sub === 3 && !Xv.none && Xv.q === 'XL4' && Xv.sel, 'X: archive filter by location (box, subtree, "senza ubicazione") and search by location code', Xv);
+    await p.evaluate((id) => openLocate(id), XB.XL1.id); await p.waitForTimeout(200);
+    Xv = await p.evaluate(() => ({where:(document.getElementById('lo-where') || {}).innerText || ''}));
+    await p.evaluate(() => { while (topModal()) closeModal(true); });
+    ok(/Magazzino/i.test(Xv.where) && /MAG1/.test(Xv.where) && /B01/.test(Xv.where) && /Scatola/i.test(Xv.where), '"Dov\'è?" shows the location path (warehouse › … › box)', Xv);
+    // move a shelf to the other cabinet: codes of the subtree and of the binders inside follow
+    await p.evaluate((L) => { undoPoint(); locMove(L['MAG1-A1-S1-R1'].id, L['MAG1-A2-S1'].id); commit(); }, XL);
+    Xv = await p.evaluate((L) => ({code:locById(L['MAG1-A1-S1-R1-B01'].id).code, b:S.binders.find(b => b.speaking_code === 'XL1').location_code, uniq:new Set(S.locations.map(l => l.code)).size === S.locations.length, log:LOG.entries.some(e => e.action === 'location.move')}), XL);
+    ok(/^MAG1-A2-S1-R\d+-B01$/.test(Xv.code) && Xv.b === Xv.code && Xv.uniq && Xv.log, 'X: moving a shelf to another cabinet renames the subtree codes and the binders inside follow (codes stay unique)', Xv);
+    await p.evaluate(() => { const W = UNDO; if (W){ UNDO = null; applyWorkspaceObject(W); commit(); renderAll(); } });
+    // delete a box with binders: confirm, binders lose the location, undo brings everything back
+    await p.evaluate((L) => { S.view = 'info'; S.infoTab = 'loc'; LUI.sel = L['MAG1-A1-S1-R1-B01'].id; renderAll(); }, XL);
+    await p.click('#lo-del'); await p.waitForTimeout(120);
+    Xv = await p.evaluate(() => topModal() ? topModal().innerText : '');
+    await p.click('.modal-f .btn-danger-solid'); await p.waitForTimeout(150);
+    Xv2 = await p.evaluate((L) => ({gone:!locById(L['MAG1-A1-S1-R1-B01'].id), n:S.locations.length, b:S.binders.filter(b => /^XL[123]$/.test(b.speaking_code)).map(b => b.location_id + '|' + b.location_code).join(','), log:LOG.entries[LOG.entries.length - 1].action}), XL);
+    await p.locator('.toast-act').last().click(); await p.waitForTimeout(150);
+    const Xund = await p.evaluate((L) => ({back:!!locById(L['MAG1-A1-S1-R1-B01'].id), code:(locById(L['MAG1-A1-S1-R1-B01'].id) || {}).code, b:S.binders.filter(b => /^XL[123]$/.test(b.speaking_code)).every(b => b.location_id === L['MAG1-A1-S1-R1-B01'].id && b.location_code === 'MAG1-A1-S1-R1-B01')}), XL);
+    ok(/MAG1-A1-S1-R1-B01/.test(Xv) && /3/.test(Xv) && Xv2.gone && Xv2.n === 15 && Xv2.b === '|A1-β,|A1-β,|A1-β' && Xv2.log === 'location.delete', 'X: delete asks for confirmation, removes the box and frees its binders (old position text comes back)', {Xv, Xv2});
+    ok(Xund.back && Xund.code === 'MAG1-A1-S1-R1-B01' && Xund.b, 'X: "Annulla" restores the deleted box and its binders', Xund);
+
+    // ---- CSV / JSON / SQLite round trip ----
+    Xv = await p.evaluate(() => {
+      const csv = toCSV([CSV_COLUMNS].concat(sortedBinders().filter(b => /^XL\d$/.test(b.speaking_code)).map(b => binderToCsvRow(b).map(safeCell))), ';');
+      const keep = S.binders.filter(b => /^XL\d$/.test(b.speaking_code)).map(b => b.location_id + '|' + b.location_code).join(',');
+      S.binders.forEach(b => { if (/^XL\d$/.test(b.speaking_code)) { b.location_id = ''; b.location_code = computeLocation(b); } });
+      analyzeImport(csv); applyImport('merge');
+      const after = S.binders.filter(b => /^XL\d$/.test(b.speaking_code)).map(b => b.location_id + '|' + b.location_code).join(',');
+      const room = S.binders.filter(b => /^XL\d$/.test(b.speaking_code)).every(b => b.room_code === 'A' && b.cabinet_code === '1' && b.shelf_code === 'β' && b.sector_code === '');
+      const hdr = csv.split(/\r?\n/)[0].split(';'), idx = hdr.indexOf('location_id');
+      return {keep, after, room, idx, last:hdr[hdr.length - 1], alias:mapRecord({'ID ubicazione':'abc'}).location_id};
+    });
+    ok(Xv.keep === Xv.after && /\|MAG1-A1-S1-R1-B01/.test(Xv.after) && Xv.room && Xv.last === 'location_id' && Xv.alias === 'abc', 'X: CSV round trip keeps location_id (last column) and does not turn the location path into room/cabinet/shelf', Xv);
+    Xv = await p.evaluate(() => {
+      const js = workspaceJSON(true), W = JSON.parse(js);
+      const keepL = JSON.stringify(S.locations.map(l => [l.id, l.code, l.short_code, l.parent_id]).sort()), keepB = S.binders.filter(b => /^XL\d$/.test(b.speaking_code)).map(b => b.location_id).join(',');
+      S.locations = []; S.binders.forEach(b => { if (/^XL\d$/.test(b.speaking_code)) b.location_id = ''; });
+      analyzeImport(js); UI.restoreAll = true; applyImport('merge');
+      return {inJson:Array.isArray(W.locations) && W.locations.length === 16, same:JSON.stringify(S.locations.map(l => [l.id, l.code, l.short_code, l.parent_id]).sort()) === keepL, b:S.binders.filter(b => /^XL\d$/.test(b.speaking_code)).map(b => b.location_id).join(',') === keepB};
+    });
+    ok(Xv.inJson && Xv.same && Xv.b, 'X: JSON workspace round trip (locations array + binder location_id)', Xv);
+    Xv = await p.evaluate(async () => {
+      dbSyncFromState('t'); await dbPersist();
+      const d2 = new DB.SQL.Database(DB.db.export()), W = dbReadWorkspace(d2);
+      const cols = dbQuery('PRAGMA table_info(locations)', null, d2).map(r => r.name), bcols = dbQuery('PRAGMA table_info(binders)', null, d2).map(r => r.name);
+      const ver = dbScalar("SELECT value FROM meta WHERE key = 'schema_version'", null, d2), nullRoot = dbScalar('SELECT COUNT(*) FROM locations WHERE parent_id IS NULL', null, d2);
+      const sL = JSON.stringify(S.locations.map(l => [l.id, l.parent_id, l.code, l.short_code, l.seg, l.level]).sort()), wL = JSON.stringify((W.locations || []).map(l => [l.id, l.parent_id, l.code, l.short_code, l.seg, l.level]).sort());
+      const xb = W.binders.filter(b => /^XL\d$/.test(b.speaking_code)).map(b => b.location_id).sort().join(','), sb = S.binders.filter(b => /^XL\d$/.test(b.speaking_code)).map(b => b.location_id).sort().join(',');
+      d2.close();
+      return {cols:['id', 'parent_id', 'level', 'kind', 'name', 'seg', 'code', 'short_code', 'short_url', 'notes', 'sort', 'created_at', 'updated_at'].every(c => cols.includes(c)), bcol:bcols.includes('location_id'), ver, nullRoot, same:sL === wL, b:xb === sb && /-/.test(xb)};
+    });
+    ok(Xv.cols && Xv.bcol && Xv.ver === '7' && Xv.nullRoot === 1 && Xv.same && Xv.b, 'X: SQLite round trip (table locations, binders.location_id, schema_version 7, top level parent NULL)', Xv);
+
+    // ---- location QR labels: print engine + Scarica PDF (MRINK143) ----
+    const Xleaves = await p.evaluate(() => S.locations.filter(l => !locChildren(l.id).length).map(l => ({id:l.id, code:l.code, url:l.short_url})).sort((a, b) => naturalCmp(a.code, b.code)));
+    await p.evaluate(() => { S.view = 'info'; S.infoTab = 'loc'; LUI.checked = new Set(); renderAll(); });
+    await p.click('[data-a="lo-sel-leaves"]'); await p.click('#lo-print-sel'); await p.waitForTimeout(400);
+    Xv = await p.evaluate(() => { const L = layoutLabels(), html = buildLabelSheets(false).join('');
+      return {view:S.view, mode:S.print.contentMode, preset:S.print.presetId, items:L.items, pages:L.pages.length, kinds:[...new Set(queueItems().map(x => x.kind))].join(), loc:(html.match(/class="[^"]*lab-loc/g) || []).length,
+        code:html.includes('MAG1-A1-S1-R1-B01'), path:html.includes('Scansia S1'), demo:/\bdemo\b/i.test(html.replace(/<[^>]+>/g, ' ')), sum:(document.getElementById('pr-summary') || {}).innerText || ''}; });
+    await p.screenshot({path:'shots/x_print.png'});
+    ok(Xv.view === 'print' && Xv.mode === 'loc' && Xv.preset === 'mrink143' && Xv.items === 9 && Xv.pages === 2 && Xv.kinds === 'L' && Xv.loc === 9 && Xv.code && Xv.path && !Xv.demo && /9/.test(Xv.sum),
+      'X: "Stampa etichette" of the boxes → print studio with "Etichette ubicazione" (code, path, QR), default sheet MRINK143, never "demo"', Xv);
+    {
+      const [dl] = await Promise.all([p.waitForEvent('download', {timeout:60000}), p.click('#btn-pdf')]);
+      await dl.saveAs('shots/x_loc.pdf'); await p.waitForTimeout(200); await p.evaluate(() => { while (topModal()) closeModal(true); });
+      const lay = await p.evaluate(() => { const g = S.print.geometry; return {w:g.w, h:g.h, slots:layoutLabels().pages[0].map(x => Object.assign(slotRect(x.s), {url:x.item.b.short_url}))}; });
+      Xcp.execSync('python3 -c "import pypdfium2 as p;d=p.PdfDocument(\'shots/x_loc.pdf\');print(len(d));d[0].render(scale=300/72).to_pil().convert(\'RGBA\').save(\'shots/x_loc.png\')"');
+      const png = PNG.sync.read(fs.readFileSync('shots/x_loc.png')), K = 300 / 25.4;
+      const got = lay.slots.map(s => {
+        const x0 = Math.floor(s.x * K), y0 = Math.floor(s.y * K), W = Math.min(Math.floor(lay.w * K), png.width - x0), H = Math.min(Math.floor(lay.h * K), png.height - y0), d = new Uint8ClampedArray(W * H * 4);
+        for (let j = 0; j < H; j++){ const st = ((y0 + j) * png.width + x0) * 4; d.set(png.data.subarray(st, st + W * 4), j * W * 4); }
+        for (const f of [2, 1, 4]){ let e = d, w2 = W, h2 = H;
+          if (f > 1){ w2 = Math.floor(W / f); h2 = Math.floor(H / f); e = new Uint8ClampedArray(w2 * h2 * 4); for (let j = 0; j < h2; j++) for (let i = 0; i < w2; i++){ const a = ((j * f) * W + i * f) * 4, bb = (j * w2 + i) * 4; e[bb] = d[a]; e[bb + 1] = d[a + 1]; e[bb + 2] = d[a + 2]; e[bb + 3] = 255; } }
+          const r = jsQR(e, w2, h2); if (r && r.data) return r.data; }
+        return null; });
+      ok(fs.readFileSync('shots/x_loc.pdf').subarray(0, 5).toString() === '%PDF-' && got.length === 8 && got.every((g, i) => g === lay.slots[i].url) && got.every(g => /^https:\/\/qr7\.it\/dm26L[A-Za-z0-9]{8}$/.test(g)),
+        'X: Scarica PDF of location labels: every QR on the MRINK143 sheet decodes to its location qr7 URL', {got, want:lay.slots.map(s => s.url)});
+    }
+    await p.click('#lo-pr-back'); await p.waitForTimeout(150);
+    ok(await p.evaluate(() => S.print.contentMode !== 'loc' && queueItems().every(x => x.kind !== 'L')), 'X: "Torna alle etichette dei faldoni" leaves the location queue');
+
+    // ---- qr7 manifest: location rows, trailing ';' ----
+    Xv = await p.evaluate(() => {
+      const rows = [MANIFEST_HEADER].concat(sortedBinders().filter(b => b.short_code).map(manifestRow), locManifestRows()), txt = manifestText(rows);
+      const lines = txt.trimEnd().split('\n'), locLines = lines.filter(l => /^dm26L/.test(l));
+      const l0 = S.locations.find(l => l.code === 'MAG1-A1-S1-R1-B01');
+      const m = mergeManifest('short_code;short_url;final_destination;tags;\nOTHER1;https://qr7.it/OTHER1;https://x.example/;foo;\n' + l0.short_code + ';https://qr7.it/' + l0.short_code + ';https://old.example/;old;\ndm26LZzZzZzZz;https://qr7.it/dm26LZzZzZzZz;https://old.example/;gone;\n', true);
+      return {n:locLines.length, all:lines.every(l => l.endsWith(';')), row:locLines.find(l => l.startsWith(l0.short_code + ';')), want:l0.short_code + ';https://qr7.it/' + l0.short_code + ';https://docmap.pr-it.it/studio-de/q/' + l0.short_code + ';docmap26,location,MAG1-A1-S1-R1-B01;',
+        dest:locDest(l0), merged:m.text, mAll:m.text.trimEnd().split(/\r?\n/).every(l => l.endsWith(';')), mOld:m.text.includes('old.example'), mOther:m.text.includes('OTHER1'), removed:m.removed};
+    });
+    ok(Xv.n === 16 && Xv.all && Xv.row === Xv.want && Xv.mAll && !Xv.mOld && Xv.mOther && Xv.removed === 1, 'X: qr7 manifest has one row per location (…/q/<short_code>, tags docmap26,location,<code>) and every line ends with ";" (also after a merge)', Xv);
+
+    // ---- desktop association mode with a keyboard-wedge scanner ----
+    await p.evaluate((L) => { S.view = 'info'; S.infoTab = 'loc'; LUI.sel = L['MAG1-A2-S1-R1-B02'].id; renderAll(); }, XL);
+    await p.click('#lo-assoc-here'); await p.waitForTimeout(120);
+    const Xscan = async (txt) => { await p.fill('#la-scan', txt); await p.press('#la-scan', 'Enter'); await p.waitForTimeout(60); return p.evaluate(() => ({msg:(document.getElementById('la-msg') || {}).innerText || '', box:LUI.assoc.loc, focus:document.activeElement && document.activeElement.id})); };
+    const Xa = [];
+    Xa.push(await Xscan('https://qr7.it/' + XB.XL5.sc));
+    Xa.push(await Xscan(XB.XL6.sc));                                          // bare code
+    Xa.push(await Xscan('https://qr7.it/' + XB.XL6.sc));                    // same binder again
+    Xa.push(await Xscan('https://qr7.it/' + XL['MAG1-A2-S1-R1-B04'].sc));    // next box QR switches
+    Xa.push(await Xscan('https://docmap.pr-it.it/studio-de/q/' + XB.XL1.sc)); // final destination URL works too
+    Xa.push(await Xscan('nonesiste'));
+    Xv = await p.evaluate((B) => { const g = (k) => S.binders.find(b => b.id === B[k].id);
+      return {x5:g('XL5').location_code, x6:g('XL6').location_code, x1:g('XL1').location_code, rows:document.querySelectorAll('.la-row').length,
+        log:LOG.entries.filter(e => e.action === 'binder.locate' && e.details.via === 'scanner').length, from:(LOG.entries.find(e => e.action === 'binder.locate' && e.target.id === B.XL1.id) || {details:{}}).details,
+        dev:(LOG.entries.find(e => e.action === 'binder.locate' && e.details.via === 'scanner') || {details:{}}).details.device}; }, XB);
+    await p.screenshot({path:'shots/x_assoc.png'});
+    ok(Xa[0].msg.includes('XL5') && Xa[2].msg.includes('già') && Xa[3].box === XL['MAG1-A2-S1-R1-B04'].id && /MAG1-A2-S1-R1-B04/.test(Xa[3].msg) && /non riconosciuto|sconosciut/i.test(Xa[5].msg) && Xa.every(a => a.focus === 'la-scan'),
+      'X: desktop association mode (keyboard scanner + Enter): box QR → active box, binder QR → assigned, same binder → "già", next box QR switches, unknown → message, field keeps the focus', Xa);
+    ok(Xv.x5 === 'MAG1-A2-S1-R1-B02' && Xv.x6 === 'MAG1-A2-S1-R1-B02' && Xv.x1 === 'MAG1-A2-S1-R1-B04' && Xv.rows === 3 && Xv.log === 3 && Xv.from.from.code === 'MAG1-A1-S1-R1-B01' && Xv.from.to.code === 'MAG1-A2-S1-R1-B04' && Xv.dev && Xv.from.user,
+      'X: each scan is in the activity log (binder.locate, from → to, via scanner, device, user)', Xv);
+    await p.click('[data-a="la-undo"][data-i="0"]'); await p.waitForTimeout(80);
+    Xv = await p.evaluate((B) => ({x1:S.binders.find(b => b.id === B.XL1.id).location_code, undo:LOG.entries[LOG.entries.length - 1].action === 'binder.locate' && LOG.entries[LOG.entries.length - 1].details.via === 'undo', row:!!document.querySelector('.la-row.undone')}), XB);
+    ok(Xv.x1 === 'MAG1-A1-S1-R1-B01' && Xv.undo && Xv.row, 'X: undo of a scan puts the binder back in its previous box (logged)', Xv);
+    await p.click('#la-stop'); await p.waitForTimeout(60);
+    ok(await p.evaluate(() => !LUI.assoc.on && !document.getElementById('la-card')), 'X: Stop ends association mode');
+    // offline decoder (vendored jsQR) reads our own QR from file://
+    Xv = await p.evaluate(async () => { const url = S.locations[0].short_url, q = DMQR.encode(url, 'M'), k = 8, n = (q.size + 8) * k, cv = document.createElement('canvas');
+      cv.width = n; cv.height = n; const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, n, n); g.fillStyle = '#000';
+      for (let y = 0; y < q.size; y++) for (let x = 0; x < q.size; x++) if (q.modules[y][x]) g.fillRect((x + 4) * k, (y + 4) * k, k, k);
+      return {got:await dmDecodeQRCanvas(cv), want:url, cam:typeof DMCamScanner === 'function', parsed:assocParseCode(url).type}; });
+    ok(Xv.got === Xv.want && Xv.cam && Xv.parsed === 'location', 'X: vendored offline QR decoder (vendor/jsqr.js) decodes a location QR from file://', Xv);
+
+    // ---- v10.1 local data (no location fields, DB schema 6) opens unchanged ----
+    {
+      const Xctx = await b.newContext({viewport:{width:1366, height:768}}), Xp = await Xctx.newPage();
+      Xp.on('pageerror', e => errs.push('X PAGEERR ' + e.message)); Xp.on('dialog', d => d.accept());
+      const Xst = {schema:26.9, lang:'it', view:'archive', onboarded:true, settings:{studioName:'Studio v10.1', operator:'Dave', deviceId:'dev-x-v101'},
+        binders:[1, 2, 3].map(i => ({id:'x-v101-b' + i, speaking_code:'XV' + i, company_name:'Vecchio ' + i + ' Srl', category:'IVA', short_code:'dm26XvOld' + 'abc'.charAt(i - 1) + 'Q' + i, room_code:'A', cabinet_code:String(i), shelf_code:'β', location_code:'A' + i + '-β', created_at:'2026-10-01T08:00:00.000Z', updated_at:'2026-10-02T09:00:00.000Z'})),
+        clients:[], tombstones:[], sync:{peers:{}, history:[]}};
+      await Xp.goto(URL_); await Xp.evaluate((st) => { localStorage.clear(); localStorage.setItem('docmap_v26_state', JSON.stringify(st)); }, Xst);
+      await Xp.reload(); await Xp.waitForTimeout(1500);
+      // turn the local SQLite into the v10.1 shape (no locations table, no binders.location_id, schema 6) and reopen
+      await Xp.evaluate(async () => { while (topModal()) closeModal(true); const cols = dbQuery('PRAGMA table_info(binders)').map(r => r.name).filter(c => c !== 'location_id');
+        DB.db.exec("DROP TABLE IF EXISTS locations; DROP INDEX IF EXISTS ix_binders_location; ALTER TABLE binders RENAME TO x_old_binders; CREATE TABLE binders AS SELECT " + cols.join(', ') + " FROM x_old_binders; DROP TABLE x_old_binders; UPDATE meta SET value = '6' WHERE key = 'schema_version'"); await dbPersist(); });
+      Xv2 = await Xp.evaluate(() => ({cols:dbQuery('PRAGMA table_info(binders)').map(r => r.name).includes('location_id'), t:dbScalar("SELECT COUNT(*) FROM sqlite_master WHERE name = 'locations'")}));
+      await Xp.reload(); await Xp.waitForTimeout(1500);
+      Xv = await Xp.evaluate(() => { while (topModal()) closeModal(true);
+        return {n:S.binders.length, codes:S.binders.map(b => b.location_code).join(','), ups:S.binders.map(b => b.updated_at).join(','), loc:Array.isArray(S.locations) && S.locations.length === 0, lid:S.binders.every(b => b.location_id === ''),
+          cols:dbQuery('PRAGMA table_info(binders)').map(r => r.name).includes('location_id'), t:dbScalar("SELECT COUNT(*) FROM sqlite_master WHERE name = 'locations'"), ver:dbScalar("SELECT value FROM meta WHERE key = 'schema_version'"), nb:dbScalar('SELECT COUNT(*) FROM binders'), key:!!localStorage.getItem('docmap_v26_state')}; });
+      await Xp.evaluate(() => { S.view = 'info'; S.infoTab = 'loc'; renderAll(); });
+      ok(!Xv2.cols && Xv2.t === 0 && Xv.n === 3 && Xv.codes === 'A1-β,A2-β,A3-β' && Xv.ups === '2026-10-02T09:00:00.000Z,2026-10-02T09:00:00.000Z,2026-10-02T09:00:00.000Z' && Xv.loc && Xv.lid && Xv.cols && Xv.t === 1 && Xv.ver === '7' && Xv.nb === 3 && Xv.key && await Xp.isVisible('#lo-empty-bulk'),
+        'X: v10.1 data (state without location fields, SQLite schema 6) opens unchanged: positions and timestamps kept, DB migrated additively to 7', {before:Xv2, Xv});
+      await Xctx.close();
+    }
+    await p.evaluate((ids) => { S.binders.forEach(b => { b.selected_for_print = ids.includes(b.id); }); S.view = 'archive'; renderAll(); }, Xsel);
+
+    // ---- server: v10.1 api.php data dir → v11 api.php; phone association; sync of locations between two app pages ----
+    let Xphp = ''; try { Xphp = Xcp.execFileSync('php', ['-r', 'echo extension_loaded("pdo_sqlite") && extension_loaded("openssl") ? "ok" : "no";']).toString(); } catch(e){}
+    let Xold = ''; try { Xold = Xcp.execFileSync('git', ['show', '68ae170:docmapv1/server-php/api.php'], {cwd:__dirname, stdio:['ignore', 'pipe', 'ignore']}).toString(); } catch(e){}
+    if (Xphp !== 'ok' || !Xold) console.log('  (stream X server tests skipped: php CLI with pdo_sqlite + openssl or git history not available)');
+    else {
+      const XR = Xpath.resolve(__dirname, 'shots', 'srvx'), XDp = Xpath.join(XR, 'studio-de'), XSP = Xpath.join(XDp, 'server-php');
+      Xcp.execFileSync('python3', [Xpath.resolve(__dirname, '..', 'tools', 'build_deploy.py'), XDp, '--studio-name', 'Studio Ubicazioni']);
+      ['config.php', 'setup.php.disabled'].forEach(f => { const x = Xpath.join(XSP, f); if (fs.existsSync(x)) fs.renameSync(x, x + '.prev-run'); });
+      const Xnew = fs.readFileSync(Xpath.join(XSP, 'api.php'));
+      fs.writeFileSync(Xpath.join(XSP, 'api.php'), Xold);   // start with the v10.1 server
+      const XDATA = Xpath.resolve(__dirname, 'shots', 'srvx-data', String(Date.now()));
+      const XPORT = 18900 + (process.pid % 500), XO = 'http://127.0.0.1:' + XPORT, XAPI = XO + '/studio-de/server-php/api.php';
+      const Xsrv = Xcp.spawn('php', ['-S', '127.0.0.1:' + XPORT, '-t', XR, Xpath.resolve(__dirname, 'php-router.php')], {stdio:'ignore'});
+      const Xsleep = (ms) => new Promise(r => setTimeout(r, ms));
+      const Xq = async (route, o) => {
+        o = o || {}; const h = {};
+        if (o.token) h['X-DocMap-Token'] = o.token;
+        if (o.body !== undefined) h['Content-Type'] = 'application/json';
+        const r = await fetch(XAPI + '?r=' + route + (o.q ? '&' + new URLSearchParams(o.q).toString() : ''), {method:o.body !== undefined ? 'POST' : 'GET', headers:h, body:o.body === undefined ? undefined : JSON.stringify(o.body)});
+        let j = null; try { j = await r.json(); } catch(e){}
+        return {s:r.status, j};
+      };
+      let Xup = false; for (let i = 0; i < 50 && !Xup; i++){ try { Xup = (await Xq('ping')).s === 200; } catch(e){ await Xsleep(100); } }
+      try {
+        fs.mkdirSync(XDATA, {recursive:true});
+        const r = await fetch(XO + '/studio-de/server-php/setup.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+          body:new URLSearchParams({data_dir:XDATA, users:'dave,admin\nmario,editor\nlucia,viewer', allow_file:'1', studio_name:'Studio Ubicazioni'}).toString()});
+        const XT = {}; for (const m of (await r.text()).matchAll(/data-user="([^"]+)" data-role="([^"]+)"><td>[^<]*<\/td><td>[^<]*<\/td><td class="tok">([^<]+)</g)) XT[m[1]] = m[3];
+        // v10.1 server: binders pushed by a v10.1 client
+        const Xb = (id, code, sc, extra) => ({type:'binder', id, updated_at:'2026-10-20T10:00:00.000Z', data:Object.assign({id, speaking_code:code, company_name:'Server ' + code + ' Srl', category:'IVA', short_code:sc, short_url:'https://qr7.it/' + sc, room_code:'B', cabinet_code:'2', shelf_code:'γ', location_code:'B2-γ', contents_items:[], created_at:'2026-10-01T08:00:00.000Z', updated_at:'2026-10-20T10:00:00.000Z'}, extra || {})});
+        const XS = [1, 2, 3, 4].map(i => ({id:'x-srv-b' + i, code:'XS' + i, sc:'dm26XsrvBnd' + i}));
+        Xv = await Xq('push', {token:XT.mario, body:{records:XS.map(x => Xb(x.id, x.code, x.sc)), tombstones:[], deviceId:'dev-v101', operator:'v10.1'}});
+        Xv2 = await Xq('pull', {token:XT.lucia, q:{since:0}});
+        const Xbefore = JSON.stringify((Xv2.j.records || []).map(x => [x.id, x.updated_at, x.data.location_code]).sort());
+        ok(Xup && XT.dave && XT.mario && Xv.s === 200 && (Xv2.j.records || []).length === 4, 'X: v10.1 api.php (git 68ae170) running with 4 binders from a v10.1 client', {s:Xv.s, n:(Xv2.j.records || []).length});
+        fs.writeFileSync(Xpath.join(XSP, 'api.php'), Xnew);   // upgrade: same data dir, same config.php
+        Xv = await Xq('pull', {token:XT.lucia, q:{since:0}});
+        Xv2 = await Xq('patch', {token:XT.mario, body:{id:'x-srv-b1', patch:{archive_state:'CHECKED_OUT'}, base_updated_at:'2026-10-20T10:00:00.000Z', log:{id:'x-log-v101', who:'Tel v10.1', action:'binder.edit', source:'mobile', summary:'v10.1 phone'}}});
+        ok(Xv.s === 200 && JSON.stringify((Xv.j.records || []).map(x => [x.id, x.updated_at, x.data.location_code]).sort()) === Xbefore && Xv2.s === 200 && Xv2.j.binder.archive_state === 'CHECKED_OUT',
+          'X: after switching to the v11 api.php the same data dir serves the v10.1 records unchanged and a v10.1 phone patch still works', {s:Xv.s, p:Xv2.s});
+        // desktop A: build a small tree and sync it to the server
+        const XA = await b.newContext({viewport:{width:1366, height:768}}), XAp = await XA.newPage();
+        XAp.on('pageerror', e => errs.push('XA PAGEERR ' + e.message)); XAp.on('dialog', d => d.accept());
+        await XAp.goto(URL_); await XAp.evaluate(([url, tok]) => { localStorage.clear(); localStorage.setItem('docmap_v26_srv', JSON.stringify({url, token:tok, basic:''})); }, [XAPI, XT.dave]);
+        await XAp.reload(); await XAp.waitForTimeout(1500);
+        const XBox = await XAp.evaluate(() => { S.onboarded = true; while (topModal()) closeModal(true); S.settings.operator = 'Dave PC';
+          locBulkCreate('', [{n:1, prefix:'MAG'}, {n:1, prefix:'A'}, {n:1, prefix:'S'}, {n:1, prefix:'R'}, {n:3, prefix:'B', pad:2}]); commit();
+          return S.locations.filter(l => !locChildren(l.id).length).sort((a, b) => naturalCmp(a.code, b.code)).map(l => ({id:l.id, code:l.code, sc:l.short_code})); });
+        Xv = await XAp.evaluate(async () => { const r = await srvSync({}); return {r, n:S.binders.length, xs:S.binders.filter(b => /^XS/.test(b.speaking_code)).length}; });
+        Xv2 = await Xq('pull', {token:XT.lucia, q:{since:0}});
+        const XlocRecs = (Xv2.j.records || []).filter(x => x.type === 'location');
+        ok(Xv.xs === 4 && XlocRecs.length === 7 && XlocRecs.some(x => x.data.code === 'MAG1-A1-S1-R1-B01' && x.data.short_code === XBox[0].sc), 'X: desktop "Sincronizza con il server" pushes the locations (record type location) and pulls the server binders', {r:Xv, n:XlocRecs.length});
+        Xv = [await Xq('resolve', {token:XT.lucia, q:{qr:XBox[0].sc}}), await Xq('resolve', {token:XT.lucia, q:{qr:XS[0].sc}}), await Xq('location', {token:XT.lucia, q:{qr:XBox[0].sc}}), await Xq('location', {token:XT.lucia, q:{qr:'dm26LNoNoNoNo'}})];
+        ok(Xv[0].j.type === 'location' && Xv[0].j.location.code === 'MAG1-A1-S1-R1-B01' && Xv[0].j.path.length === 4 && Xv[1].j.type === 'binder' && Xv[1].j.binder.speaking_code === 'XS1' && Xv[2].s === 200 && Xv[2].j.count === 0 && Xv[3].s === 404,
+          'X: API routes resolve (location vs binder by short-code format) and location (path, children, binders, count)', Xv.map(x => x.s));
+        Xv = [await Xq('patch', {token:XT.mario, body:{id:'x-srv-b2', patch:{location_code:'FINTO'}, base_updated_at:'', force:true}}), await Xq('patch', {token:XT.mario, body:{id:'x-srv-b2', patch:{location_id:'non-esiste'}, base_updated_at:'', force:true}})];
+        ok(Xv[0].s === 422 && Xv[1].s === 422, 'X: patch refuses location_code without location_id and an unknown location_id (422)', Xv.map(x => x.s + ' ' + (x.j && x.j.error && x.j.error.code)));
+
+        // phone (editor): open the box QR, start association, open 3 binder QRs, switch box, open a 4th
+        const XP = await b.newContext({viewport:{width:390, height:844}, isMobile:true}), XPp = await XP.newPage();
+        XPp.on('pageerror', e => errs.push('XP PAGEERR ' + e.message));
+        XPp.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errs.push('XP CONSOLE ' + m.text()); });
+        const Xgo = async (sc) => { await XPp.goto(XO + '/studio-de/scan.html?lang=it&q=' + sc); await XPp.waitForTimeout(900); };
+        await Xgo(XBox[0].sc);
+        await XPp.fill('#sc-user', 'mario.tel'); await XPp.fill('#sc-pin', '1357'); await XPp.fill('#sc-pin2', '1357'); await XPp.fill('#sc-token', XT.mario); await XPp.click('#sc-enter'); await XPp.waitForTimeout(2500);
+        Xv = await XPp.evaluate(() => ({view:SC.view, code:(document.getElementById('sa-code') || {}).textContent, start:!!document.getElementById('sa-start'), path:(document.getElementById('sa-path') || {}).innerText || '', w:document.documentElement.scrollWidth <= innerWidth + 1}));
+        await XPp.screenshot({path:'shots/x_phone_loc.png'});
+        ok(Xv.view === 'location' && Xv.code === 'MAG1-A1-S1-R1-B01' && Xv.start && /MAG1/.test(Xv.path) && Xv.w, 'X: phone: a location QR shows the box (code, path) with "Avvia associazione qui" for an editor', Xv);
+        await XPp.click('#sa-start'); await XPp.waitForTimeout(150);
+        Xv = await XPp.evaluate(() => ({banner:!!document.getElementById('sa-banner'), st:JSON.parse(localStorage.getItem('docmap_v26_assoc') || 'null')}));
+        ok(Xv.banner && Xv.st && Xv.st.box.code === 'MAG1-A1-S1-R1-B01' && Xv.st.user === 'mario.tel', 'X: phone: association mode on (banner, state stored on this device)', Xv);
+        const Xph = [];
+        for (const x of XS.slice(0, 3)){ await Xgo(x.sc); Xph.push(await XPp.evaluate(() => ({view:SC.view, lid:SC.rec && SC.rec.binder.location_id, msg:(document.getElementById('sa-msg') || {}).innerText || '', loc:(document.getElementById('sc-loc') || {}).textContent, banner:!!document.getElementById('sa-banner')}))); }
+        await XPp.screenshot({path:'shots/x_phone_card.png'});
+        ok(Xph.every((x, i) => x.view === 'card' && x.lid === XBox[0].id && x.msg.includes('XS' + (i + 1)) && x.loc === 'MAG1-A1-S1-R1-B01' && x.banner), 'X: phone: each binder QR opened while active is put in the box at once (card shows the new "Dov\'è?")', Xph);
+        await Xgo(XBox[1].sc);
+        Xv = await XPp.evaluate(() => ({view:SC.view, box:SA.st && SA.st.box.code, msg:(document.getElementById('sa-msg') || {}).innerText || ''}));
+        await Xgo(XS[3].sc);
+        Xv2 = await XPp.evaluate(() => ({lid:SC.rec.binder.location_id, msg:(document.getElementById('sa-msg') || {}).innerText || ''}));
+        ok(Xv.view === 'location' && Xv.box === 'MAG1-A1-S1-R1-B02' && /B02/.test(Xv.msg) && Xv2.lid === XBox[1].id && /XS4/.test(Xv2.msg), 'X: phone: another box QR switches the active box; the next binder goes there', {Xv, Xv2});
+        Xv = await Promise.all(XS.map(x => Xq('binder', {token:XT.lucia, q:{qr:x.sc}})));
+        Xv2 = await Xq('pull', {token:XT.lucia, q:{since:0, log_since:0}});
+        const Xlogs = (Xv2.j.activity_log || []).filter(e => e.action === 'binder.locate');
+        ok(Xv.slice(0, 3).every(x => x.j.binder.location_id === XBox[0].id && x.j.binder.location_code === 'MAG1-A1-S1-R1-B01' && x.j.binder.room_code === 'B') && Xv[3].j.binder.location_id === XBox[1].id && Xv[3].j.binder.location_code === 'MAG1-A1-S1-R1-B02',
+          'X: server records: the 4 binders carry location_id + location_code of their box (room fields untouched)', Xv.map(x => x.j.binder.location_code));
+        ok(Xlogs.length === 4 && Xlogs.every(e => e.source === 'mobile' && e.details.via === 'phone' && e.details.to.id && e.details.device && e.details.user === 'mario.tel') && Xlogs.some(e => e.details.to.code === 'MAG1-A1-S1-R1-B02'),
+          'X: server activity log: one binder.locate per assignment (via phone, device, user, from → to)', Xlogs.map(e => e.details && e.details.to && e.details.to.code));
+        // undo on the phone, reopening the same QR does not put it back
+        await XPp.click('#sa-undo'); await XPp.waitForTimeout(700);
+        Xv = await Xq('binder', {token:XT.lucia, q:{qr:XS[3].sc}});
+        await Xgo(XS[3].sc);
+        Xv2 = await Xq('binder', {token:XT.lucia, q:{qr:XS[3].sc}});
+        ok(Xv.j.binder.location_id === '' && Xv.j.binder.location_code === 'B2-γ' && Xv2.j.binder.location_id === '', 'X: phone: "Annulla" sends the binder back (position text restored) and reopening its QR does not re-assign it', {a:Xv.j.binder.location_code, b:Xv2.j.binder.location_id});
+        // in-page sequence scanner (typed / keyboard input: same handler as the camera)
+        await XPp.click('#sa-seq'); await XPp.waitForTimeout(150);
+        const Xtype = async (txt) => { await XPp.fill('#sa-typed', txt); await XPp.press('#sa-typed', 'Enter'); await XPp.waitForTimeout(700); return XPp.evaluate(() => ({view:SC.view, box:SA.st && SA.st.box.code, msg:(document.getElementById('sa-msg') || {}).innerText || '', list:(document.getElementById('sa-seq-list') || {}).innerText || ''})); };
+        Xv = [await Xtype('https://qr7.it/' + XBox[2].sc), await Xtype('https://qr7.it/' + XS[3].sc), await Xtype('https://qr7.it/' + XS[3].sc)];
+        await XPp.screenshot({path:'shots/x_phone_seq.png'});
+        Xv2 = await Xq('binder', {token:XT.lucia, q:{qr:XS[3].sc}});
+        ok(Xv[0].view === 'seq' && Xv[0].box === 'MAG1-A1-S1-R1-B03' && /XS4/.test(Xv[1].msg) && /Già registrato/.test(Xv[2].msg) && /B03/.test(Xv[2].list) && /1 faldone/.test(Xv[2].list) && Xv2.j.binder.location_id === XBox[2].id,
+          'X: phone "Scansiona in sequenza": box QR switches, binder QR assigns, the same binder again is detected, running list per box', Xv);
+        await Xgo(XBox[0].sc);
+        Xv = await XPp.evaluate(() => ({n:(document.getElementById('sa-count') || {}).textContent, list:(document.getElementById('sa-binders') || {}).innerText || ''}));
+        ok(Xv.n === '3 faldoni' && /XS1/.test(Xv.list) && /XS3/.test(Xv.list) && !/XS4/.test(Xv.list), 'X: phone: the location page lists the binders in the box', Xv);
+        await XPp.click('#sa-stop'); await XPp.waitForTimeout(100);
+        await Xgo(XS[0].sc);
+        Xv = await XPp.evaluate(() => ({st:localStorage.getItem('docmap_v26_assoc'), banner:!!document.getElementById('sa-banner'), view:SC.view}));
+        // expiry after 30 minutes without scans
+        await XPp.evaluate((bx) => localStorage.setItem('docmap_v26_assoc', JSON.stringify({v:1, user:'mario.tel', box:{id:bx.id, code:bx.code, title:'', path:'', short_code:bx.sc}, at:Date.now() - 31 * 60000, n:0, list:[]})), XBox[1]);
+        await Xgo(XS[0].sc);
+        Xv2 = await XPp.evaluate(() => ({st:localStorage.getItem('docmap_v26_assoc'), lid:SC.rec.binder.location_id, txt:document.getElementById('app').innerText}));
+        ok(Xv.st === null && !Xv.banner && Xv.view === 'card' && Xv2.st === null && Xv2.lid === XBox[0].id && /scaduta/.test(Xv2.txt), 'X: phone: Stop ends association mode; it also expires after 30 minutes without scans', {Xv, lid:Xv2.lid, st:Xv2.st});
+        await XP.close();
+
+        // desktop A syncs the phone work; desktop B (second app page) gets the tree; rename + delete travel back
+        Xv = await XAp.evaluate(async (bx) => { await srvSync({}); const g = (c) => S.binders.find(b => b.speaking_code === c);
+          return {x1:g('XS1').location_id === bx[0].id && g('XS1').location_code === 'MAG1-A1-S1-R1-B01', x4:g('XS4').location_code, log:LOG.entries.some(e => e.action === 'binder.locate' && e.source === 'mobile')}; }, XBox);
+        ok(Xv.x1 && Xv.x4 === 'MAG1-A1-S1-R1-B03' && Xv.log, 'X: desktop sync receives the phone assignments (location_id, derived location_code, mobile log lines)', Xv);
+        const XB2 = await b.newContext({viewport:{width:1366, height:768}}), XB2p = await XB2.newPage();
+        XB2p.on('pageerror', e => errs.push('XB PAGEERR ' + e.message)); XB2p.on('dialog', d => d.accept());
+        await XB2p.goto(URL_); await XB2p.evaluate(([url, tok]) => { localStorage.clear(); localStorage.setItem('docmap_v26_srv', JSON.stringify({url, token:tok, basic:''})); }, [XAPI, XT.dave]);
+        await XB2p.reload(); await XB2p.waitForTimeout(1500);
+        Xv = await XB2p.evaluate(async () => { S.onboarded = true; while (topModal()) closeModal(true); await srvSync({});
+          return {n:S.locations.length, codes:S.locations.map(l => l.code).sort(naturalCmp).join(','), x1:(S.binders.find(b => b.speaking_code === 'XS1') || {}).location_code}; });
+        ok(Xv.n === 7 && /MAG1-A1-S1-R1-B03/.test(Xv.codes) && Xv.x1 === 'MAG1-A1-S1-R1-B01', 'X: a second app page syncing with the server gets the whole location tree and the binder locations', Xv);
+        await XB2p.evaluate(async (bx) => { locSaveFields(bx[0].id, {seg:'B10', name:'Scatola rinominata'}); locAfterChange(); commit(); LUI.sel = bx[2].id; S.view = 'info'; S.infoTab = 'loc'; renderAll(); }, XBox);
+        await XB2p.click('#lo-del'); await XB2p.click('.modal-f .btn-danger-solid'); await XB2p.waitForTimeout(100);
+        Xv = await XB2p.evaluate(async () => { const r = await srvSync({}); return {r, n:S.locations.length}; });
+        Xv2 = await XAp.evaluate(async (bx) => { await srvSync({}); const g = (c) => S.binders.find(b => b.speaking_code === c);
+          return {code:(locById(bx[0].id) || {}).code, name:(locById(bx[0].id) || {}).name, gone:!locById(bx[2].id), n:S.locations.length, x1:g('XS1').location_code, x4:g('XS4').location_id + '|' + g('XS4').location_code, tomb:(S.tombstones || []).some(t => t.type === 'location' && t.id === bx[2].id)}; }, XBox);
+        ok(Xv.n === 6 && Xv2.code === 'MAG1-A1-S1-R1-B10' && Xv2.name === 'Scatola rinominata' && Xv2.x1 === 'MAG1-A1-S1-R1-B10' && Xv2.gone && Xv2.n === 6 && Xv2.x4 === '|B2-γ' && Xv2.tomb,
+          'X: rename and delete of a location travel between the two app pages through the server (binder codes follow, tombstone)', {Xv, Xv2});
+        Xv = await Xq('pull', {token:XT.lucia, q:{since:0}});
+        ok((Xv.j.tombstones || []).some(t => t.type === 'location' && t.id === XBox[2].id) && (Xv.j.records || []).some(x => x.type === 'location' && x.data.code === 'MAG1-A1-S1-R1-B10'), 'X: the server keeps the location tombstone and the renamed record', {t:(Xv.j.tombstones || []).length});
+        await XB2.close(); await XA.close();
+      } finally {
+        Xsrv.kill();
+      }
+    }
+  }
   // @@STREAM-J@@
   console.log('\nerrors:', errs.length ? errs.join('\n') : 'none');
   if (errs.length) fails += errs.length;

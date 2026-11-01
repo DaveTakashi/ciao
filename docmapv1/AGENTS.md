@@ -37,6 +37,7 @@ What changed from v7 is summarised in §10.
 | 0 | `vendor/sql-wasm.js` | sql.js (`initSqlJs`) + `DM_SQL_WASM_B64` |
 | 1 | `assets/js/01-qr.js` | `DMQR` — pure-JS QR encoder → SVG (ISO/IEC 18004, byte mode, ECC L/M/Q/H) |
 | 2 | `assets/js/02-core.js` | constants, `I18N` + `t()`, utils (`$`, `esc`, `uuid`, `randChars`…), binder helpers (`normalizeBinder`, `computeLocation`, `pipeToContents`, `suggestSpeakingCode`, `newShortCode`, `ensureIntegrity`, `normalizeClient`, `destFor`/`renderDest`, `manifestTags`), `CSV_COLUMNS`, `BUILTIN_PRESETS`, demo data, `defaultState()`, `migrate()`, `loadState()`, `persist()`, `commit()`, `savePrefs()`, `markExported()` |
+| 2c | `assets/js/02c-locations.js` | **v11** location tree pure model (shared with scan.html): `LOC_SC_RE`, `locLevels`, `normalizeLocation`, cached index (`locIndex`, `locById`, `locChildren`, `locCodeFor`, `locPath`, `locPathText`), `newLocShortCode`, `locNextSeg`, `locIntegrity`, `assocParseCode`, `locDest`, `locManifestTags` |
 | 2b | `assets/js/02b-colors.js` | v10 smart spine colours: `COLOR_FAMILIES`, `COLOR_CAT_RULES`, colour math (`colorContrast`, `colorDeltaE` CIEDE2000, `colorHash` FNV-1a), `colorFamilyId`, `colorShades`, `colorCategoryHex`, `colorAssign`, `applyAutoColor`, `colorPlan`, `recolorAll`, `colorLockLegacy`, editor hooks `edAutoColor`/`edColorLock`/`colorSwatchesHTML`, Settings card `colorSettingsHTML`, `COLOR_ACTIONS`, help topic `colors` (see §12) |
 | 3 | `assets/js/03-print.js` | label engine: `renderLabel` (A/B/U), `renderFull` (S, complete label), `renderSlotLabel` (turned sheets), `slotSeq`, `layoutLabels`, `buildLabelSheets`, `buildCalibSheet`, `buildRegisterHTML`, `doPrint`, `printLabels` |
 | 4 | `assets/js/04-ui.js` | `ICONS`/`ic()`, `toast`, undo (`undoPoint`/`undoToast`), modal stack (`openModal`/`closeModal`/`confirmAction`), `download`, `copyText`, `readFileText`, CSV (`detectDelim`, `parseCSV`, `toCSV`, `safeCell`/`unsafeCell`), `HEADER_ALIASES`, `mapRecord`, export builders (`binderToCsvRow`, `exportManifest`, `mergeManifest`, `exportFullCSV`, `workspaceJSON`, `quickBackup`), AI prompt (`csvTemplateHeader`, `buildAIPrompt`) |
@@ -52,11 +53,13 @@ What changed from v7 is summarised in §10.
 | 6e | `assets/js/06e-log.js` | activity log (v9): `logAct(action, target, summary, details, source)`, `LOG` (memory mirror) + SQLite `activity_log`, wrappers around exports/print/sessions/Informazioni/undo, view `log` (`viewLog`, filters `LOGV`, CSV), `S.settings.operator`, help topic `log` |
 | 6f | `assets/js/06f-sync.js` | v10 manual sync local ⇄ web app (docs/SYNC.md): change tracking inside `persist()` (`syncTrack`: bumps `updated_at` when content changed without a bump, writes tombstones `S.tombstones` for vanished ids), stable `S.settings.deviceId` (+ localStorage `docmap_v26_device`), package `docmap-sync` v1 (`syncBuildPackage`, `syncExport`), optional AES-256-GCM/PBKDF2 wrapper `docmap-sync-enc` (`syncEncrypt`/`syncDecrypt`), `syncParse` → `syncAnalyze` (review plan: new/updated/unchanged/older/delete/conflict/propagate) → `syncApply` (one undo step, `logAct` source `'sync'`), peer bookkeeping `S.sync`, view `sync` (⚙ menu › Dati, pushed onto `NAV_MORE`), `SYNC_ACTIONS`, help topic `sync`. Wraps `persist`, `undoPoint`, `applyWorkspaceObject`, `analyzeImport`, `renderView`, `handleDroppedFile` |
 | 6g | `assets/js/06g-server.js` | **v10.1** sync with the shared online database (`server-php/api.php`): the server is the 06f peer `server:<url>`; `srvSync({interactive})` (pull → `syncAnalyze`/`syncApply` → push, seed confirmation on an empty server, review modal on conflicts), automatic mode in web+apiBase (`srvBoot`, debounced push from a `persist` wrapper, 60 s pull, backoff), top-bar status `#srv-status`, "Server online" card appended to `viewSync`, admin token management, `SRV_ACTIONS` — §14 |
+| 6h | `assets/js/06h-locations.js` | **v11** Informazioni › Ubicazioni (tree editor, bulk create, levels, move, delete+undo), assignment (`locAssign`) from archive/editor, archive filter `UI.fLoc`, "Dov'è?" path, label template `loc` (kind `L`), manifest rows, desktop association mode (`LUI.assoc`, keyboard scanner `#la-scan`, webcam), `LOC_ACTIONS`, help topic `locations` + guide |
 | 7 | `assets/js/07-help.js` | extra i18n keys, `HELP_TAGS`, `HELP_TOPICS`, help drawer, `helpDot(id)`, onboarding |
 | 8 | `assets/js/08-guide.js` | guided-action engine, `GUIDES` |
 | 8b | `assets/js/10-auth.js` | v10 provider seams (`dmProviders()`, `DataProvider`/`AuthProvider`/`CryptoProvider`/`BlobStore`, local + remote stubs), `DocMapVault` (web-mode encrypted storage, boot gate), Impostazioni › Utenti e accesso, "Anteprima mobile", live merge of mobile edits, help topic `mobile` — §12 |
 | 7 | `assets/js/07-help.js` | extra i18n keys, `HELP_TAGS`, `HELP_ACTS`, `HELP_TOPICS`, `HELP_META`, help drawer (popularity, favourites, filters, search `helpQueryTerms`/`helpMatch`), `helpStore()`, `helpDot(id)`, onboarding |
 | 8 | `assets/js/08-guide.js` | guided-action engine, `GUIDES` (14 tours), exit question, keyboard, resume (`guideResume`) |
+| 8c | `assets/js/11b-assoc.js` | **v11** `DMCamScanner` (BarcodeDetector or lazy `vendor/jsqr.js`), `dmDecodeQRCanvas`, `dmScanFeedback`; on scan.html (when `SC` exists) location page + phone association mode (`SA`, `docmap_v26_assoc`) |
 | 9 | `assets/js/09-actions.js` | `ACTIONS` map, global event delegation (click/input/change/keydown/drag-drop), file inputs, **boot** (`loadState` → `ensureIntegrity` → `persist` → `renderAll` → `maybeOnboard` → `dbInit`), `window.DocMap` test hook |
 
 CSS: `assets/docmap.css` (main) + `css-info.css` (top bar, Informazioni), `css-editor.css` (typeahead, editor), `css-import.css` (column mapping), … `css-help.css` (v10 help panel and tour additions), loaded in that order.
@@ -283,4 +286,28 @@ Field-level details and file formats: `docs/MODELLO-DATI.md`.
 - **Apply to selected** ops: `category`, `tag_add`, `tag_rm`, `state`, `color`, `color_auto` (only if the colour module exposes one), `loc` (position prefix: only the parts typed are set), `year`, `city`.
 - **Colour hooks (interface expected from 02b-colors.js)**: `colorAssign(binder, binders) → '#RRGGBB'` or `applyAutoColor(binder, binders)` (may mutate the copy and/or return a hex) for "Colore automatico"; optional `colorMarkManual(binder)` after a manual colour. Any field they change on the copy is staged too. Without them only the plain colour input is shown.
 - To add a column: append to `BULK_COLS`, add `bk_c_<key>` in IT + EN, extend `bkPatchFor()` if the value needs normalising.
+
+## 15. v11: locations, location QR codes, association mode (stream X)
+
+- **Files**: `02c-locations.js` (pure model, also loaded by scan.html), `06h-locations.js` (desktop), `11b-assoc.js`
+  (camera scanner + scan.html association), `css-locations.css`, `vendor/jsqr.js` (+ `LICENSE-jsQR.txt`).
+  scan.html loads `02-core → 02c → 10-auth → 11-scan → 11b`.
+- **Data**: `S.locations[]` (fields in `docs/MODELLO-DATI.md` §14), `binder.location_id` (CSV column appended at the
+  end, aliases `id_ubicazione`/`ubicazione_id`/`id_luogo`), `settings.locLevels` / `locLevelsAt`. `location.code` and
+  `binder.location_code` are **derived** (`locIntegrity`, `binderLocCode`): never treat them as sync content.
+  Location short codes are `dm26L` + 8 (13 chars), binder codes `dm26` + 8: tell them apart with `assocParseCode` /
+  `LOC_SC_RE`, never by lookup. **No demo locations**: the tree starts empty.
+- **After editing a location in place** call `locTouch()` (or `locAfterChange()` = integrity + binder codes) so the
+  cached index rebuilds; replacing `S.locations` is detected automatically.
+- **SQLite**: `DB_SCHEMA_VERSION 7` (table `locations`, column `binders.location_id`, additive migration).
+- **Sync/server**: record type `location` everywhere binders/clients go (06f, 06g, `api.php` `DM_TYPES`). Server: no
+  schema change (reuses `k_short`/`k_code`), new read routes `location` and `resolve`, `patch` accepts
+  `location_id` (+ server-computed `location_code`). v10.1 phones keep working.
+- **Logging**: every assignment is `binder.locate` `{from, to, via, device, user}` (or `binder.locate_bulk`); tree edits
+  `location.*` (log group `location`).
+- **UI naming**: the Informazioni tab is **"Ubicazioni"** (`INFO_TABS` id `loc`) because "Luoghi" already lists the
+  company places (`company_city`).
+- **Tests**: `// @@STREAM-X@@` (desktop tree, labels + PDF decode, manifest, keyboard association, v10.1 local data,
+  then a php -S server started with the v10.1 `api.php` from git `68ae170` and switched to the current one; phone
+  association on scan.html; two desktop pages syncing locations).
 

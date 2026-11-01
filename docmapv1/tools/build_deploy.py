@@ -73,7 +73,7 @@ ErrorDocument 404 {b}404.html
   Header always set Referrer-Policy "no-referrer"
   Header always set X-Frame-Options "DENY"
   Header always set X-Robots-Tag "noindex, nofollow"
-  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+  Header always set Permissions-Policy "camera=(self), microphone=(), geolocation=(), payment=()"
   Header always set Strict-Transport-Security "max-age=31536000"
   Header always set Content-Security-Policy "{CSP}"
   <FilesMatch "\\.(html|js|css)$">

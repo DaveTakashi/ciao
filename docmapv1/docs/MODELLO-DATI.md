@@ -193,11 +193,13 @@ Testo libero; spazi multipli ridotti a uno; maiuscole/minuscole, trattini, barre
 Regole comuni in **export**: delimitatore `;`, a capo `\r\n` (manifest `\n`), campi con `;` `"` o a capo tra virgolette con `""`. Backup e clienti hanno BOM UTF-8 (per Excel) e **protezione formule**: una cella che inizia con `= + - @ TAB CR` riceve un apostrofo iniziale, tolto di nuovo in import.
 In **import**: delimitatore rilevato (`;` `,` TAB) o riga `sep=;`; codifica UTF-8 (con/senza BOM), UTF-16 o Windows-1252; intestazioni confrontate dopo `normHeader` (minuscolo, senza accenti, non alfanumerici → `_`) con gli alias di `HEADER_ALIASES` (es. `cliente → company_name`, `codice_multi → multi_code`, `stanza → room_code`, `contenuti → contents_items`, `stato → archive_state`; v8: `contatti`, `contatto`, `persone`, `persone_coinvolte`, `referenti`, `referente`, `contact`, `people → contacts`; `note`, `nota`, `annotazioni`, `annotazione → notes`). Le intestazioni non riconosciute aprono il passo di abbinamento colonne (§6.5).
 
-### 6.1 Backup completo `docmap_full_backup.csv` (28 colonne, in quest'ordine)
+### 6.1 Backup completo `docmap_full_backup.csv` (29 colonne, in quest'ordine)
 
 ```
-speaking_code;multi_code;company_name;company_city;category;binder_title;ref_year;room_code;cabinet_code;shelf_code;sector_code;location_code;archive_state;contents;tags;color_hex;short_code;short_url;final_destination;extra_codes;shelf_color;contacts;notes;selected_for_print;id;created_at;updated_at;color_locked
+speaking_code;multi_code;company_name;company_city;category;binder_title;ref_year;room_code;cabinet_code;shelf_code;sector_code;location_code;archive_state;contents;tags;color_hex;short_code;short_url;final_destination;extra_codes;shelf_color;contacts;notes;selected_for_print;id;created_at;updated_at;color_locked;location_id
 ```
+
+**v11:** `location_id` (id dell'ubicazione, §14) è aggiunta **in coda**, dopo `color_locked`. Alias in import: `id_ubicazione`, `ubicazione_id`, `id_luogo`. Con `location_id` valorizzato, `location_code` è il percorso dell'ubicazione e in import **non** viene scomposto in stanza/armadio/ripiano (resta com'è se l'ubicazione non è nota su quel PC).
 
 **v10:** `color_locked` (`1`/`0`) è aggiunta **in coda**. Un CSV senza questa colonna si importa come prima; in quel caso un `color_hex` che non è un colore automatico della sua categoria viene considerato scelto a mano (`color_locked = true`), un colore mancante viene assegnato in automatico (§12).
 
@@ -220,7 +222,7 @@ short_code;short_url;final_destination;tags;
 dm26K8m2P9xL;https://qr7.it/dm26K8m2P9xL;https://docmap.pr-it.it/studio-de/q/dm26K8m2P9xL;docmap26,BL1,multi-m-10234,barbieri-luigi;
 ```
 
-**v11:** ogni riga, intestazione compresa, termina con `;` (formato richiesto da qr7.it). L'export e l'unione lo aggiungono sempre alle righe generate; le righe esistenti conservate dall'unione lo ricevono se mancante. In lettura il campo vuoto finale si ignora.
+**v11:** ogni riga, intestazione compresa, termina con `;` (formato richiesto da qr7.it). Il manifest contiene anche **una riga per ogni ubicazione** (§14): `dm26L…;https://qr7.it/dm26L…;<destinazione con {short_code}>;docmap26,location,<codice percorso>;` (es. `docmap26,location,MAG1-A1-S1-R1-B04`). L'unione con «Rimuovi le righe DocMap non più presenti» toglie anche le righe `dm26L…` delle ubicazioni eliminate. L'export e l'unione lo aggiungono sempre alle righe generate; le righe esistenti conservate dall'unione lo ricevono se mancante. In lettura il campo vuoto finale si ignora.
 
 `tags` = `docmap26`, codice parlante, `multi-<slug multi_code>` (se presente), slug del cliente. L'unione con un `manifest.csv` esistente conserva tutte le righe non `dm26`, il delimitatore, il BOM e il fine riga originali.
 Nota: la vista SQLite `v_manifest_qr7` usa tag ridotti (`docmap26,<speaking_code>`); il file esportato dall'app è quello di riferimento.
@@ -484,4 +486,81 @@ di questo documento, cifrati uno per uno.
 | `S.print.pdfCmyk` | booleano, default `false` | "PDF per tipografia": Scarica PDF scrive colori DeviceCMYK, nero e grigi solo K (0/0/0/100). |
 
 Foglio parziale: le caselle già usate (`S.usedSlots`) si saltano sempre sul **foglio originale 1**, anche se l'ordine lo sposta; il pannello indica in che posizione esce. Se l'ultimo foglio non è stampato, DocMap non propone di aggiornare la mappa del foglio parziale.
+
+## 14. Ubicazioni (v11, stream X — `assets/js/02c-locations.js`, `06h-locations.js`)
+
+L'archivio fisico è un **albero di luoghi**: Magazzino › Armadio › Scansia › Scaffale › Scatola (nomi e prefissi
+configurabili, da 1 a 8 livelli). Il QR attaccato al contenitore (di solito la scatola, l'ultimo livello) è un
+**QR ubicazione**. Il faldone indica la scatola in cui si trova con `binder.location_id`.
+
+### 14.1 Ubicazione (`location`) — `S.locations[]`, tabella SQLite `locations`, record server di tipo `location`
+
+| Campo | Tipo | Regole |
+|---|---|---|
+| `id` | testo (uuid) | mai cambiato |
+| `parent_id` | testo | id del genitore; `''` = livello più alto (in SQLite `NULL`) |
+| `level` | intero | profondità 0-based, **derivata** dalla catena dei genitori |
+| `kind` | testo | nome del livello per questo nodo; `''` = nome configurato (`settings.locLevels[level]`) |
+| `name` | testo | nome libero (es. "Archivio seminterrato"); vuoto = mostrato come `<kind> <seg>` |
+| `seg` | testo | segmento del codice (`MAG1`, `A2`, `B04`): maiuscolo, senza spazi né `-`, max 16, **unico tra fratelli** (un doppione diventa `B04.2`) |
+| `code` | testo | codice percorso = segmenti uniti da `-` (`MAG1-A2-S3-R1-B04`); **derivato** dai `seg` (si modifica cambiando i segmenti); salvato per SQLite/CSV/Python, non è "contenuto" per la sincronizzazione |
+| `short_code` | testo | `dm26L` + 8 caratteri dell'alfabeto dei faldoni, unico, mai riusato, stampato nel QR |
+| `short_url` | testo | `https://qr7.it/<short_code>` (derivato) |
+| `notes` | testo | note libere |
+| `sort` | intero | ordine tra fratelli (0 = ordine naturale per `seg`) |
+| `created_at`, `updated_at` | ISO | `updated_at` guida il last-write-wins come per i faldoni |
+
+**Faldone o ubicazione?** Il codice dei faldoni è `dm26` + 8 (12 caratteri, `SC_RE`); quello delle ubicazioni
+`dm26L` + 8 (13 caratteri, `LOC_SC_RE = /^dm26L[A-Za-z0-9]{8}$/`). Il generatore dei faldoni non produce mai codici di
+13 caratteri, quindi righe del manifest, rotta `/q/<code>` e scansioni distinguono i due tipi **dal solo formato**
+(`assocParseCode()`): nessuna chiamata a qr7.it.
+
+### 14.2 Faldone
+
+- `location_id` (nuovo, `''` = nessuna ubicazione). Quando è valorizzato e l'ubicazione è nota, `normalizeBinder`
+  scrive in `location_code` il **codice percorso** dell'ubicazione (`binderLocCode()` in 02-core): ricerca, CSV,
+  etichette e "Dov'è?" continuano a funzionare. Se l'ubicazione non è nota su quel dispositivo, `location_code`
+  resta quello salvato.
+- `room_code`, `cabinet_code`, `shelf_code`, `sector_code` **non vengono toccati**: togliendo l'ubicazione,
+  `location_code` torna al testo calcolato da questi campi.
+- `location_code` non è contenuto di sincronizzazione (rinominare una scatola non "modifica" i faldoni dentro).
+
+### 14.3 Impostazioni
+
+`settings.locLevels` = `[{name, prefix}]` (vuoto/assente = predefiniti nella lingua dell'interfaccia: Magazzino/MAG,
+Armadio/A, Scansia/S, Scaffale/R, Scatola/B — EN Warehouse, Cabinet, Shelving unit, Shelf, Box), `settings.locLevelsAt`
+(ISO, il più recente vince in sincronizzazione; viaggiano nel sottoinsieme impostazioni di pacchetti e server).
+
+### 14.4 SQLite (`DB_SCHEMA_VERSION 7`, migrazione solo additiva)
+
+```sql
+ALTER TABLE binders ADD COLUMN location_id TEXT;                -- + INDEX ix_binders_location
+CREATE TABLE IF NOT EXISTS locations(
+  id TEXT PRIMARY KEY, parent_id TEXT, level INTEGER, kind TEXT, name TEXT, seg TEXT, code TEXT,
+  short_code TEXT UNIQUE, short_url TEXT, notes TEXT, sort INTEGER, created_at TEXT, updated_at TEXT);
+CREATE INDEX IF NOT EXISTS ix_locations_parent ON locations(parent_id);
+```
+
+Un database v6 (v10.1) si apre e riceve tabella e colonna; `dbReadWorkspace` di un file senza `locations` restituisce
+`locations: undefined` e lo stato in memoria resta com'è.
+
+### 14.5 Workspace JSON, pacchetti, server
+
+- Workspace JSON: chiave `locations` (array). Ripristino completo → sostituisce l'albero; unione → per `id`, il più recente vince.
+- Pacchetto `docmap-sync`: `records.locations` + `counts.locations`, tombstone `{type:'location', id, code, deletedAt}`.
+- Server: record `{type:'location', id, updated_at, deleted, data:<ubicazione>}` cifrato come gli altri (`API-CONTRACT.md`).
+
+### 14.6 Registro attività
+
+| Azione | Dettagli |
+|---|---|
+| `location.create` / `location.bulk_create` / `location.edit` / `location.move` / `location.delete` / `location.levels` | codice, genitore, campi cambiati, conteggi |
+| `binder.locate` | `{from:{id, code}, to:{id, code}, via, device, user}`; `via` = `scanner` · `camera` · `manual` · `editor` · `bulk` · `undo` (PC) oppure `phone` · `phone-camera` · `phone-typed` · `undo` (telefono, `source: 'mobile'`) |
+| `binder.locate_bulk` | più faldoni nella stessa ubicazione (`codes`, `to`, `via`) |
+
+### 14.7 Memoria del telefono (scan.html)
+
+`localStorage 'docmap_v26_assoc'` = modalità associazione attiva su quel dispositivo
+`{v:1, user, box:{id, code, title, path, short_code}, startedAt, at, n, list:[…]}` (scade dopo 30 minuti senza
+scansioni); `localStorage 'docmap_v26_scan_device'` = id del telefono per il registro (`phone-xxxxxxxx`).
 

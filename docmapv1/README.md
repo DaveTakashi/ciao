@@ -246,6 +246,28 @@ in ufficio resta com'è (offline, doppio clic su `index.html`) e si allinea quan
   file **nella stessa cartella**). La procedura generale per le versioni future è in `docs/AGGIORNAMENTI.md`.
 - Le foto restano sul PC (non passano dal server).
 
+## Luoghi e associazione (v11)
+
+**Informazioni › Ubicazioni** è la mappa dell'archivio fisico: magazzino › armadio › scansia › scaffale › scatola
+(nomi e numero di livelli in **Livelli…**). Si chiama "Ubicazioni" perché la scheda "Luoghi" elenca già le località
+delle ditte.
+
+1. **Programma la struttura**: **Crea in serie…** crea tutto in un colpo (es. 1 magazzino, 2 armadi, 1 scansia,
+   4 scaffali, 20 scatole B01…B20 per scaffale). Puoi poi aggiungere, rinominare, spostare o eliminare (con Annulla).
+2. **Stampa i QR delle scatole**: spunta le scatole (o **Seleziona ultimo livello**) → **Stampa etichette**: si apre
+   Stampa etichette con codice grande, percorso e QR (foglio MRINK143 o un altro preset; c'è anche **Scarica PDF**).
+   Ricordati di esportare il manifest qr7: contiene anche le righe delle ubicazioni.
+3. **Associa i faldoni**: **Modalità associazione** (o **Avvia associazione qui** su una scatola). Con un lettore QR
+   USB/Bluetooth (o la webcam) scansiona il QR della scatola, poi i QR dei faldoni che contiene, poi la scatola
+   successiva e così via. Ogni passaggio finisce nel Registro attività e si può annullare.
+4. **Dal telefono** (versione online): inquadra con la fotocamera il QR della scatola, premi **Avvia associazione qui**
+   e inquadra i faldoni uno dopo l'altro; un altro QR di scatola cambia scatola. **Scansiona in sequenza** fa lo stesso
+   senza uscire dalla pagina. **Stop** termina (si chiude da sola dopo 30 minuti senza scansioni).
+
+In Archivio: filtro **Tutte le ubicazioni** e pulsante **Ubicazione…** per i faldoni spuntati; nella scheda faldone il
+campo **Ubicazione (scatola)** con i suggerimenti; **Dov'è?** mostra il percorso completo. Le ubicazioni si
+sincronizzano con il server e con i pacchetti come i faldoni.
+
 ## Guida e azioni guidate (v10)
 
 Il pulsante **?** in alto (o **F1**) apre la guida. In cima ci sono le cose che si fanno più spesso: *Come creo un nuovo faldone*, *Come stampo le etichette*, *Come creo un nuovo cliente*, *Come importo un elenco*, *Come trovo un faldone*, *Come scarico il PDF*; poi l'ordine si adatta a quello che usate davvero su questo PC. Puoi ordinare anche per **Preferiti** (stella ☆ accanto a un argomento o a un'azione guidata; con il nome operatore in Impostazioni ognuno ha i suoi) o **A-Z**. Due file di etichette aiutano a filtrare: grigie per l'**argomento** (Stampa, Etichette, Clienti…) e colorate per **cosa vuoi fare** (Come fare, Cos'è, Creare, Modificare, Eliminare, Stampare, Importare/Esportare, Trovare, Risolvere problemi). Appena scrivi nella ricerca i filtri si azzerano e restano accese solo le etichette dei risultati; la ricerca capisce accenti, plurali e sinonimi (faldone/raccoglitore/archivio, cliente/ditta/azienda, stampa/stampare, QR/codice QR). Le **14 azioni guidate** (nuovo faldone, stampa, PDF, nuovo cliente, trova, modifica, calibrazione, foglio già usato, manifest, AI, sessione, backup, import, registro) non si chiudono mai per sbaglio: Esc, la ✕ o un secondo clic fuori chiedono "Vuoi davvero uscire dalla guida?" (Continua è il pulsante evidenziato); cliccando un campo di un altro passo la guida salta a quel passo; Invio o → avanti, ← indietro. Se esci a metà, la guida ricorda il passo: trovi **Riprendi la guida** in cima alla guida.

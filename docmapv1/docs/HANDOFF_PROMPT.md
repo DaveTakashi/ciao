@@ -79,16 +79,37 @@ Usa questo MVP **come front-end** e costruisci dietro di lui la parte di gestion
 7. **Colori come dati configurabili:** spettri delle categorie (`settings.catFamilies`, semi `colorSeeds`), regole colore per parola chiave (`settings.colorRules`, max 10 per categoria, la prima che corrisponde vince) e modalità (`settings.colorMode`) sono impostazioni dello studio, non codice: salvale e sincronizzale lato server con `colorUpdatedAt` (vince il blocco più recente). L'algoritmo (normalizzazione delle parole chiave, precedenza bloccato → regola → sfumatura per cliente, hash FNV-1a) è in MODELLO-DATI.md §12 ed è riproducibile in Python; le liste di sfumature `COLOR_FAMILIES` sono dati da tenere in tabella.
 8. **Analisi e funzioni avanzate:** analisi profonda, ricerca, AI con un'API indipendente dal fornitore, hub multi-utente. Segui HUB-E-API.md come progetto di partenza.
 
-## 3b. Prossima fase già decisa: mappatura delle location con i "QR location"
+## 3b. Mappatura delle ubicazioni con i "QR ubicazione" (fatta nella v11)
 
-Nell'MVP la posizione del faldone (stanza, armadio, ripiano, settore) è **facoltativa**: sta nel database e, se si vuole, sull'etichetta. La mappatura completa degli archivi l'ho rimandata a una fase successiva, che ti chiedo di progettare così:
+La fase che avevo rimandato è stata costruita nell'MVP v11. Studiala prima di progettare la tua versione:
+`MODELLO-DATI.md` §14, `API-CONTRACT.md` (rotte `location`, `resolve`, campi `location_id`/`location_code` in `patch`),
+`SYNC.md` §7b, `ARCHITETTURA.md` §14.
 
-1. **Inizializzazione degli archivi:** una pipeline in cui creo tutti gli ambienti di lavoro: sedi, stanze, armadi, scaffali, scatole. Ogni contenitore ha un genitore, così il contenitore più piccolo sta dentro quello più grande, e ha il suo **QR location** (un nuovo tipo di QR, distinto da quello del faldone, stampabile con lo stesso motore di etichette).
-2. **Mappatura veloce con il telefono:**
-   - Inquadro un QR location: l'app entra in "ascolto" e assegna a quella location ogni QR di faldone che inquadro dopo.
-   - Quando inquadro il QR location successivo, chiude la location precedente (riepilogo: quanti faldoni, eventuali spostamenti da un'altra location) e passa ad ascoltare la nuova.
-   - Così mappo in fretta un archivio esistente dopo aver attaccato le etichette.
-3. **Flessibilità:** le location devono restare inseribili anche a mano e con import CSV, come oggi (`room_code`, `cabinet_code`, `shelf_code`, `sector_code`, `location_code`). Il modello gerarchico delle location deve restare compatibile con questi campi. Ogni assegnazione va nel registro attività.
+**Cosa c'è oggi**
+1. **Albero delle ubicazioni** (`S.locations`, tabella `locations`, record server `location`): Magazzino › Armadio ›
+   Scansia › Scaffale › Scatola, nomi e prefissi configurabili (1–8 livelli). Ogni nodo ha un genitore, un segmento
+   unico tra fratelli, un codice percorso derivato (`MAG1-A2-S3-R1-B04`) e un **QR ubicazione** proprio
+   (`dm26L` + 8 caratteri, distinto dal QR del faldone `dm26` + 8 dal solo formato). In Informazioni › Ubicazioni:
+   crea, crea in serie (es. 20 scatole B01…B20 in uno scaffale), rinomina, sposta, elimina con conferma e annulla.
+2. **Etichette**: le stampa e le scarica in PDF lo stesso motore dei faldoni (modello `loc`, MRINK143 predefinito);
+   il manifest qr7 contiene una riga per ubicazione (`docmap26,location,<codice>`, riga che termina con `;`).
+3. **Faldone → ubicazione**: `binder.location_id` (+ `location_code` = percorso, derivato). I campi `room_code`,
+   `cabinet_code`, `shelf_code`, `sector_code` restano e non vengono toccati: inserimento a mano e import CSV
+   funzionano come prima; il CSV ha `location_id` in coda.
+4. **Modalità associazione**: inquadro il QR di una scatola → diventa attiva; ogni QR di faldone dopo finisce lì;
+   il QR della scatola successiva apre la nuova. Sul PC (offline) con lettore USB/Bluetooth che scrive come una
+   tastiera o con la webcam; sul telefono (`scan.html`, online) aprendo i QR con la fotocamera del telefono
+   ("Avvia associazione qui", banner, Stop, scadenza dopo 30 minuti) o con "Scansiona in sequenza" nella pagina
+   (BarcodeDetector o jsQR offline). Ogni assegnazione è una voce `binder.locate` del registro (`from`, `to`, `via`,
+   `device`, `user`) ed è annullabile.
+
+**Cosa ti chiedo dopo**
+- Portare il modello in Python con gli stessi nomi di campo; il codice percorso deve restare derivato.
+- Registro dei codici `dm26L` emessi (mai riusati) accanto a quello dei `dm26`.
+- Associazione dal telefono anche **offline** (coda di assegnazioni, `locate_batch`), e riepilogo alla chiusura di una
+  scatola (quanti faldoni, quanti spostati da un'altra ubicazione).
+- Risoluzione `/q/<code>` lato server con registrazione della scansione; permessi per ubicazione se servono.
+- Eventuale vista "mappa" delle ubicazioni e inventario (scatole vuote, faldoni senza ubicazione).
 
 ## 4. Cosa protegge oggi la versione web e cosa no (da sapere)
 
