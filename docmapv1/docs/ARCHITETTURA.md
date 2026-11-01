@@ -297,3 +297,35 @@ Ogni riga passa da `mapRecord()` (alias intestazioni → campi), riceve codice p
 - **Correzioni del motore** in 06f/06g: `syNext`, `S.sync.recvAt` (`syncMarkRecv`, `syncIsNew`, `syncSameAsPeer`): vedi
   `SYNC.md` §9.
 - **Memorizzazione**: nessuna modifica di schema locale né del `.sqlite`; il registro va nei backup JSON.
+
+## 15. v11: ubicazioni, QR ubicazione e modalità associazione (stream X)
+
+| File | Ruolo |
+|---|---|
+| `assets/js/02c-locations.js` | modello puro condiviso da `index.html` e `scan.html`: livelli (`locLevels`), `normalizeLocation`, indice in cache (`locIndex`, `locById`, `locChildren`, `locCodeFor`, `locPath`), generatore `newLocShortCode` (`dm26L` + 8), `locNextSeg`, `locIntegrity`, `assocParseCode` (URL/codice scansionato → `{type:'location'|'binder'|'text', code}`), `locDest`, `locManifestTags` |
+| `assets/js/06h-locations.js` | PC: scheda **Informazioni › Ubicazioni** (albero, dettaglio, Crea in serie, Livelli, Sposta, Elimina con conferma + Annulla), assegnazione dall'archivio e dall'editor (typeahead), filtro e ricerca in Archivio, "Dov'è?", modello di etichetta `loc` (tipo `L`) nel motore di stampa, righe del manifest, modalità associazione con lettore-tastiera e webcam, aiuto + guida |
+| `assets/js/11b-assoc.js` | `DMCamScanner` (fotocamera: `BarcodeDetector` o `vendor/jsqr.js` caricato a richiesta) e, su `scan.html`, la pagina ubicazione + modalità associazione del telefono |
+| `vendor/jsqr.js` | jsQR 1.4.0 (Apache-2.0, `vendor/LICENSE-jsQR.txt`), decodifica QR offline |
+| `assets/css-locations.css` | stili `lt-*`, `lo-*`, `la-*` (PC) e `sa-*` (telefono) |
+
+**Ganci nei file condivisi** (tutti piccoli): 02-core (`CSV_COLUMNS` + `location_id`, `binderLocCode`, default e
+migrazione), 04-ui (alias, riga CSV, manifest, workspace JSON, undo), 05-views (filtro/ricerca, select in Archivio,
+import JSON), 06-db (schema 7), 06f/06g (tipo di record `location`), 10-auth (`MOBILE_FIELDS`, `o.log` nelle patch),
+11-scan (`placed` considera `location_id`). 06h e 11b **avvolgono** funzioni globali (`window[nome] = wrap(orig)`,
+come 06e/06f): `infoPanelHTML`, `mountInfo`, `infoTabCount`, `ensureIntegrity`, `queueItems`, `renderLabel`,
+`renderPrintSummary`, `logPrintDetails`, `edLocationHTML`, `edEnhance`, `edSyncLoc`, `saveEditor`, `logBinderSave`,
+`locateBodyHTML`, `renderArchiveResults`; su `scan.html` `scRoute`, `scRender`, `scLoadPhoto`.
+
+**Flusso dell'associazione.** Scansione → `assocParseCode` → ubicazione: diventa la scatola attiva · faldone: gli si
+assegna la scatola attiva (`locAssign` sul PC, `saveBinderPatch` con `{location_id, location_code}` sul telefono) →
+voce `binder.locate` (`from`, `to`, `via`, `device`, `user`) → annullabile riga per riga. Sul PC tutto è locale
+(offline, sincronizzato poi); sul telefono ogni scansione è una chiamata al server (`location`, `binder`, `patch`).
+
+**Etichette.** `locPrintStart(ids)` mette `S.print.contentMode = 'loc'` e la coda `S.print.locIds`; `queueItems`
+restituisce elementi `{kind:'L', b:<pseudo-faldone>}` e `renderLocLabel` disegna tipo di livello, segmento grande,
+codice percorso, percorso e QR. Qualsiasi preset funziona (predefinito MRINK143, letto ruotato); Scarica PDF usa lo
+stesso DOM. «Torna alle etichette dei faldoni» ripristina la modalità precedente (`S.print.locPrevMode`).
+
+**Deploy web.** La fotocamera nella pagina ("Scansiona in sequenza") richiede HTTPS e il permesso della stessa origine:
+`tools/build_deploy.py` scrive ora `Permissions-Policy "camera=(self), …"` (prima `camera=()`, che la bloccava).
+Il flusso con la fotocamera nativa del telefono (aprire i QR come link) non ne ha bisogno.

@@ -88,7 +88,7 @@ function srvPeer(conf){
     settingsAt:null, settingsHash:'', lastImportAt:null, lastSeenRemoteExportAt:null, ackedAt:null, lastExportAt:null}, S.sync.peers[id] || {});
   return S.sync.peers[id];
 }
-function srvSettingsSubset(){ return {studioName:S.settings.studioName || '', destTemplate:S.settings.destTemplate || '', catColors:clone(S.settings.catColors || {}), ...colorSyncSubset()}; }
+function srvSettingsSubset(){ return {studioName:S.settings.studioName || '', destTemplate:S.settings.destTemplate || '', catColors:clone(S.settings.catColors || {}), ...colorSyncSubset(), ...(typeof locSyncSubset === 'function' ? locSyncSubset() : {})}; }
 const srvK = (type, id) => type + ':' + id;
 function srvRecData(r){ const o = syncClean(clone(r)); delete o.selected_for_print; Object.keys(o).forEach(k => { if (k.charAt(0) === '_') delete o[k]; }); return o; }
 
@@ -98,15 +98,15 @@ function srvChanges(peer){
   const fresh = (type) => (r) => r && r.id && nw(type, r.id, r.updated_at) && SRV.known.get(srvK(type, r.id)) !== String(r.updated_at || '');
   const lsince = peer.lastLogPushAt;
   return {
-    binders:S.binders.filter(fresh('binder')), clients:(S.clients || []).filter(fresh('client')),
+    binders:S.binders.filter(fresh('binder')), clients:(S.clients || []).filter(fresh('client')), locations:(S.locations || []).filter(fresh('location')),   // v11: + location tree
     tombstones:(S.tombstones || []).filter(x => x && x.id && nw(x.type, x.id, x.deletedAt) && SRV.known.get(srvK(x.type, x.id)) !== 'del:' + x.deletedAt),
     log:(typeof LOG !== 'undefined' ? LOG.entries : []).filter(e => e && e.id && (!lsince || syTs(e.at) > syTs(lsince)) && !SRV.knownLog.has(e.id))
   };
 }
 function srvPending(){
   const conf = srvConf(); if (!conf || !S || !S.sync) return 0;
-  const id = 'server:' + conf.url, peer = S.sync.peers && S.sync.peers[id]; if (!peer) return S.binders.length + (S.clients || []).length + (S.tombstones || []).length;
-  const c = srvChanges(peer); return c.binders.length + c.clients.length + c.tombstones.length;
+  const id = 'server:' + conf.url, peer = S.sync.peers && S.sync.peers[id]; if (!peer) return S.binders.length + (S.clients || []).length + (S.locations || []).length + (S.tombstones || []).length;
+  const c = srvChanges(peer); return c.binders.length + c.clients.length + c.locations.length + c.tombstones.length;
 }
 
 /* ---------------- pull → package → plan ---------------- */
@@ -131,7 +131,7 @@ function srvPackage(conf, peer, pulled){
   const newSettings = pulled.settings && syTs(pulled.settings.updated_at) > syTs(peer.settingsAt) ? pulled.settings.data : null;
   return {format:SYNC_FORMAT, version:SYNC_VERSION, app:'DocMap26', exportedAt:pulled.serverTime || nowISO(),
     source:{deviceId:'server:' + conf.url, deviceLabel:t('sy_mode_server'), mode:'web', operator:''}, since:peer.seq ? peer.lastPullAt : null, target:'', ack:{},
-    records:{binders:recs('binder'), clients:recs('client')}, tombstones:pulled.tombstones.map(x => ({type:x.type, id:x.id, code:x.code, deletedAt:x.deletedAt, who:x.who})),
+    records:{binders:recs('binder'), clients:recs('client'), locations:recs('location')}, tombstones:pulled.tombstones.map(x => ({type:x.type, id:x.id, code:x.code, deletedAt:x.deletedAt, who:x.who})),
     settingsSubset:newSettings, activity_log:pulled.log};
 }
 function srvPlan(conf, peer, pulled){
@@ -167,7 +167,8 @@ async function srvPush(cl, conf){
   const subset = srvSettingsSubset(), hash = JSON.stringify(subset);
   const settings = hash !== peer.settingsHash ? {updated_at:start, data:subset} : null;
   const recs = ch.binders.map(b => ({type:'binder', id:b.id, updated_at:String(b.updated_at || start), data:srvRecData(b)}))
-    .concat(ch.clients.map(c => ({type:'client', id:c.id, updated_at:String(c.updated_at || start), data:srvRecData(c)})));
+    .concat(ch.clients.map(c => ({type:'client', id:c.id, updated_at:String(c.updated_at || start), data:srvRecData(c)})))
+    .concat(ch.locations.map(l => ({type:'location', id:l.id, updated_at:String(l.updated_at || start), data:srvRecData(l)})));   // v11
   const tombs = ch.tombstones.map(x => ({type:x.type, id:x.id, code:x.code, deletedAt:x.deletedAt, who:x.who}));
   const log = ch.log.map(e => ({id:e.id, at:e.at, who:e.who, action:e.action, target:e.target, summary:e.summary, details:e.details, source:e.source}));
   const res = {applied:0, same:0, rejected:[], sent:recs.length + tombs.length};
@@ -223,7 +224,7 @@ async function srvSync(o){
     const pulled = await srvPullAll(cl, peer);
     const plan = srvPlan(conf, peer, pulled);
     let d = {new:0, updated:0, delete:0, conflict:0}, seeded = false;
-    if (o.interactive && first && pulled.empty && (S.binders.length || (S.clients || []).length)){
+    if (o.interactive && first && pulled.empty && (S.binders.length || (S.clients || []).length || (S.locations || []).length)){
       if (!(await srvConfirmSeed(conf))){ SRV.state = 'idle'; toast(t('sv_cancel'), 'warn'); return (result = {cancelled:true}); }
       srvAfterPull(conf, pulled, plan); seeded = true;
     } else if (o.interactive && plan.counts.conflict){
@@ -269,7 +270,7 @@ function srvConfirmSeed(conf){
   const ch = srvChanges(srvPeer(conf)), li = (k, n) => '<li>' + esc(t(k, {n})) + '</li>';
   return new Promise(res => {
     let done = false;
-    openModal({ title:t('sv_seed_t'), body:'<div class="stack" id="srv-seed"><p>' + esc(t('sv_seed_d')) + '</p><ul>' + li('sv_seed_b', ch.binders.length) + li('sv_seed_c', ch.clients.length) + li('sv_seed_x', ch.tombstones.length) + li('sv_seed_l', ch.log.length) +
+    openModal({ title:t('sv_seed_t'), body:'<div class="stack" id="srv-seed"><p>' + esc(t('sv_seed_d')) + '</p><ul>' + li('sv_seed_b', ch.binders.length) + li('sv_seed_c', ch.clients.length) + (ch.locations.length ? li('sv_seed_lo', ch.locations.length) : '') + li('sv_seed_x', ch.tombstones.length) + li('sv_seed_l', ch.log.length) +
         '<li>' + esc(t('sv_seed_s')) + '</li></ul><div class="hint">' + esc(t('sv_seed_ph')) + '</div><div class="tiny muted mono">' + esc(conf.url) + '</div></div>',
       buttons:[{label:t('cancel'), cls:'btn', action:'modal-close'}, {label:t('sv_seed_ok'), cls:'btn btn-primary', icon:'upload', fn:() => { done = true; closeModal(true); res(true); }}],
       onClose:() => { if (!done) res(false); } });

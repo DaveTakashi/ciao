@@ -1,4 +1,4 @@
-# DocMap — contratto API del database online condiviso (v10.1, registro sincronizzazioni v11)
+# DocMap — contratto API del database online condiviso (v10.1; v11: ubicazioni e registro sincronizzazioni)
 
 > Stato: **contratto in produzione**. Implementazione di riferimento: `server-php/api.php` (un solo file, PHP 8.0+,
 > PDO SQLite + OpenSSL, nessuna dipendenza) pensato per l'hosting condiviso SiteGround (PHP sì, Node/Python no).
@@ -20,7 +20,7 @@
 | Codici HTTP | 400 richiesta malformata · 401 `token_missing` / `token_invalid` · 403 `forbidden` (ruolo) / `origin` (CORS) · 404 `not_found` / `no_route` · 405 metodo · 409 `conflict` · 413 troppo grande · 422 `invalid` / `field_not_allowed` · 429 `locked` + `Retry-After` · 500 `config` (configurazione mancante, messaggio chiaro) / `server_error` |
 | Mappatura nel client | `DMError.code`: 401→`unauthorized`, 403→`forbidden`, 404→`not_found`, 409/412→`conflict`, 400/413/422→`invalid`, 429→`locked`, rete assente→`offline`, altro→`server` |
 | Date | ISO 8601 UTC con millisecondi (`2026-11-01T10:12:44.120Z`). Confronto **come istante** (non come stringa). |
-| Id | `id` creati dai client (UUID), mai riscritti. Tipi di record: `binder`, `client`. |
+| Id | `id` creati dai client (UUID), mai riscritti. Tipi di record: `binder`, `client`, `location` (v11). |
 | CORS | Predefinito: solo stessa origine. `allowed_origins` in `config.php` aggiunge origini; `'null'` = programma sul PC da `file://`. Metodi `GET, POST, OPTIONS`; header `Content-Type, X-DocMap-Token, Authorization, If-Match, X-DocMap-Device, X-DocMap-Device-Name, X-DocMap-App`; esposti `ETag, Retry-After`. |
 | Dispositivo (v11) | Ogni chiamata del client v11 dichiara chi è: header `X-DocMap-Device: <deviceId>`, `X-DocMap-Device-Name: <nome, URI-encoded>`, `X-DocMap-App: <APP_VERSION>`, oppure nel corpo `text/plain` `"_device":{"id","name","app"}`. Facoltativo: un client v10.1 non lo manda e il registro scrive `unknown` (il `push` usa ancora `deviceId` del corpo). Serve solo al registro (§10), mai all'autorizzazione. |
 
@@ -33,6 +33,8 @@
 | `pull` | GET | viewer | `since=<seq>` (0 = tutto) · `log_since=<seq>` | vedi §3 |
 | `push` | POST | editor | vedi §4 | `{"applied":n,"same":n,"rejected":[…],"settings_applied":bool,"logged":n,"seq":n,"server_time":"…"}` |
 | `binder` | GET | viewer | `qr=<short_code>` oppure `code=<speaking_code>` (maiuscole/minuscole indifferenti) | `{"binder":Binder,"etag":"<updated_at>","siblings":[Sibling]}` + header `ETag` · 404 |
+| `location` | GET | viewer | v11: `qr=<dm26L…>` oppure `id=<uuid>` oppure `code=<codice percorso>` | `{"location":Location,"etag":"<updated_at>","path":[Brief],"children":[Brief],"binders":[BinderBrief],"count":n}` · 404 |
+| `resolve` | GET | viewer | v11: `qr=<short_code>` di qualsiasi tipo | `{"type":"location", …come location}` oppure `{"type":"binder", …come binder}` · 404 |
 | `patch` | POST | editor | vedi §5 | `{"binder":Binder,"etag":"<nuovo updated_at>"}` + `ETag` · 409 · 422 |
 | `tokens` | GET | admin | – | `{"items":[{"id":"cfg:0"|"db:…","user","role","source":"config"|"database","created_at"?,"revoked_at"}]}` |
 | `token_create` | POST | admin | `{"user":"…","role":"editor"}` | `{"id":"db:…","user","role","token":"<in chiaro, mostrato una volta>"}` |
@@ -46,6 +48,16 @@ Campi aggiunti in v11 (un client v10.1 li ignora): `ping` → `"schema":2,"featu
 
 `Binder` = l'oggetto di `MODELLO-DATI.md` §1 così come lo invia il client (più `id`, `updated_at`); `Sibling` =
 `{speaking_code, shelf_code, sector_code, location_code}` degli altri faldoni dello **stesso armadio** (stanza+armadio).
+
+**v11 — ubicazioni.** `Location` = l'oggetto di `MODELLO-DATI.md` §14.1; `Brief` = `{id, code, name, kind, seg, level}`
+(`path` = antenati dalla radice, senza il nodo stesso; `children` = figli diretti); `BinderBrief` =
+`{id, speaking_code, company_name, binder_title, color_hex, short_code}` dei faldoni con `location_id` = quell'ubicazione
+(al massimo 500, `count` = totale). Il server trova un'ubicazione con gli stessi indici HMAC dei faldoni
+(`k_short` sul `short_code`, `k_code` sul codice percorso): **nessuna modifica di schema**.
+
+**Risoluzione di `/q/<code>`** (rewrite verso `scan.html`, poi la pagina decide): `dm26L` + 8 caratteri = ubicazione
+(`LOC_SC_RE`), qualsiasi altro codice = faldone. `scan.html` chiama `location` o `binder` di conseguenza; `resolve` fa
+lo stesso in una chiamata sola per altri client (es. Python).
 
 ## 3. `pull` — cambiamenti incrementali
 
@@ -100,7 +112,14 @@ così il client la applica subito senza un altro pull. `reason:"invalid"` (id/ti
 ```
 
 - Campi ammessi (`MOBILE_FIELDS`): `archive_state, contents_items, room_code, cabinet_code, shelf_code, sector_code,
-  notes, tags`; qualsiasi altro → **422** `field_not_allowed` (`field`).
+  notes, tags` e, dalla v11, `location_id, location_code`; qualsiasi altro → **422** `field_not_allowed` (`field`).
+- v11 (modalità associazione): `location_id` deve essere `''` (togli) o l'id di un'ubicazione viva, altrimenti **422**
+  `invalid_location`; con un id valido il server **ricalcola** `location_code` dal record dell'ubicazione. `location_code`
+  da solo (senza `location_id`) → **422** `field_not_allowed`. Con `location_id:''` il `location_code` inviato (testo di
+  stanza/armadio) resta. La voce di registro del telefono ha `action:'binder.locate'` e
+  `details:{from:{id,code}, to:{id,code}, via:'phone'|'phone-camera'|'phone-typed'|'undo', device, user}`.
+  Il telefono usa `force:true`: la patch tocca solo i campi di ubicazione e il server li unisce al record corrente.
+- Un telefono v10.1 (senza questi campi) continua a funzionare uguale.
 - `base_updated_at` (o header `If-Match`) diverso dall'`updated_at` del server e `force` falso → **409**
   `{"error":{"code":"conflict",…},"current":Binder,"current_etag":"…"}`. La pagina mobile mostra "Modificato nel
   frattempo" → **Ricarica** oppure **Salva comunque** (`force:true`: si scrivono solo i campi del telefono, unione per campo).
@@ -176,6 +195,7 @@ nella CSP del `.htaccess` generato.
   Politica: copia di lavoro ottimizzata (foto ≤ 1400 px JPEG, PDF ≤ 15 MB), **non** archiviazione a lungo termine.
   Oggi le foto degli armadi restano nel file SQLite di ogni PC e **non** viaggiano con il server.
 - **Foto "Dov'è?" da telefono**: `GET cabinet_photo&binder=<id>` → `{url, mark:{x,y}|null, caption}`.
+- **Associazione offline dal telefono**: oggi la modalità associazione sul telefono richiede la rete (una chiamata per scansione); un futuro `POST locate_batch` potrebbe accettare una coda di assegnazioni.
 - **Risoluzione QR lato server**: `GET /studio-de/q/{short_code}` → `scan.html` registrando la scansione, senza dati
   prima del login (oggi lo fa il `.htaccess`).
 

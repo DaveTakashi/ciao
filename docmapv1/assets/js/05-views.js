@@ -37,9 +37,10 @@ function filteredBinders(){
     if (UI.fState && b.archive_state !== UI.fState) return false;
     if (UI.fRoom && b.room_code !== UI.fRoom) return false;
     if (UI.fCat && b.category !== UI.fCat) return false;
+    if (UI.fLoc && typeof locBinderIn === 'function' && !locBinderIn(b, UI.fLoc)) return false;   // v11: location filter (06h-locations.js)
     if (UI.fInfo && !infoMatch(b, UI.fInfo)) return false;   // filter set from Informazioni
     if (!q) return true;
-    const hay = [b.speaking_code, b.multi_code, b.company_name, b.company_city, b.ref_year, b.extra_codes, b.category, b.binder_title, b.location_code, b.tags, b.short_code, contentsToPipe(b.contents_items), t('s_' + b.archive_state), b.contacts, b.notes, ciSearchWords(b)].join(' ').toLowerCase();
+    const hay = [b.speaking_code, b.multi_code, b.company_name, b.company_city, b.ref_year, b.extra_codes, b.category, b.binder_title, b.location_code, b.tags, b.short_code, contentsToPipe(b.contents_items), t('s_' + b.archive_state), b.contacts, b.notes, ciSearchWords(b), typeof locBinderSearchText === 'function' ? locBinderSearchText(b) : ''].join(' ').toLowerCase();
     return q.split(/\s+/).every(w => hay.indexOf(w) >= 0);
   });
 }
@@ -56,6 +57,7 @@ function viewArchive(){
       sel('fState', t('all_states'), STATES.map(s => [s, t('s_' + s)]), UI.fState) +
       sel('fRoom', t('all_rooms'), rooms.map(r => [r, r]), UI.fRoom) +
       sel('fCat', t('all_cats'), cats.map(c => [c, c]), UI.fCat) +
+      (typeof locFilterSelectHTML === 'function' ? locFilterSelectHTML() : '') +   // v11
       '<div class="seg"><button data-a="arch-view" data-v="table" class="' + (S.archiveView !== 'map' ? 'on' : '') + '">' + esc(t('view_table')) + '</button><button data-a="arch-view" data-v="map" class="' + (S.archiveView === 'map' ? 'on' : '') + '">' + esc(t('view_map')) + '</button></div>' +
       '<button class="btn btn-sm bk-open" data-a="bulk-open" id="btn-bulk" title="' + esc(t('bk_open_d')) + '">' + ic('table') + esc(t('bk_open')) + '</button>' +
     '</div>' +
@@ -573,6 +575,7 @@ function applyImport(mode){
       }
     });
   }
+  if (IP.workspace && Array.isArray(IP.workspace.locations) && typeof locImportWorkspace === 'function') locImportWorkspace(IP.workspace.locations, mode === 'replace' && UI.restoreAll);   // v11: location tree
   // A final_destination identical to the studio template is the default, not a custom override:
   // keep it empty so a future template change still applies (CSV backups export the resolved URL).
   S.binders.forEach(b => { if (b.final_destination && b.final_destination === renderDest(S.settings.destTemplate, b)) b.final_destination = ''; });

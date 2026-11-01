@@ -249,7 +249,7 @@ function scUserBar(){
 }
 function scCardHTML(){
   const b = SC.rec.binder, canEdit = SC.P.auth.can('edit');
-  const placed = b.room_code || b.cabinet_code || b.shelf_code;
+  const placed = b.location_id || b.room_code || b.cabinet_code || b.shelf_code;   // v11: + location tree (11b-assoc.js)
   const items = b.contents_items || [];
   const tags = String(b.tags || '').split(',').map(x => x.trim()).filter(x => x && x.toLowerCase() !== DEMO_TAG);
   return '<main class="sc-main">' + scUserBar() + scMsgHTML() +
@@ -258,7 +258,7 @@ function scCardHTML(){
       '<div class="sc-company" id="sc-company">' + esc(b.company_name) + '</div>' + (b.binder_title ? '<div class="sc-title">' + esc(b.binder_title) + '</div>' : '') +
       '<div class="sc-chips">' + (b.category ? '<span class="sc-cat">' + esc(b.category) + '</span>' : '') + scStateChip(b.archive_state) + (b.ref_year ? '<span class="sc-cat">' + esc(b.ref_year) + '</span>' : '') + '</div></article>' +
     '<section class="sc-card sc-where" aria-labelledby="sc-where-h"><h2 id="sc-where-h">' + sic('pin') + esc(t('sc_where')) + '</h2>' +
-      (placed ? '<div class="sc-loc" id="sc-loc">' + esc(b.location_code || computeLocation(b)) + '</div><div class="sc-loc-t">' + esc(scLocText(b)) + '</div>' : '<div class="sc-muted">' + esc(t('sc_noloc')) + '</div>') +
+      (placed ? '<div class="sc-loc" id="sc-loc">' + esc(b.location_code || computeLocation(b)) + '</div><div class="sc-loc-t" id="sc-loc-t">' + esc(scLocText(b)) + '</div>' : '<div class="sc-muted">' + esc(t('sc_noloc')) + '</div>') +
       '<div id="sc-photo">' + scPhotoHTML() + '</div></section>' +
     '<section class="sc-card"><h2>' + esc(t('sc_contents')) + '</h2>' + (items.length ? '<ul class="sc-items" id="sc-items">' + items.map(i => '<li><div class="sc-it"><span class="sc-y">' + esc(i.year || '') + '</span><span>' + esc(i.description || '') + '</span></div>' + scCiChip(normCiStatus(i.status)) + '</li>').join('') + '</ul>' : '<div class="sc-muted">' + esc(t('sc_nocontents')) + '</div>') + '</section>' +
     (b.notes || tags.length || b.contacts ? '<section class="sc-card sc-more">' +

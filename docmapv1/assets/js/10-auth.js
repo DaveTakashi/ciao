@@ -392,8 +392,8 @@ class RemoteAuthProvider {
  *   listChanges({binder_id, limit}) → Promise<ActivityEntry[]>    (activity log entries, newest first)
  *   getCabinetPhoto(binder) → Promise<{url, mark:{x,y}|null, caption}|null>
  */
-const MOBILE_FIELDS = ['archive_state', 'contents_items', 'room_code', 'cabinet_code', 'shelf_code', 'sector_code', 'notes', 'tags'];
-const MOBILE_FIELD_IT = {archive_state:'stato', contents_items:'contenuti', room_code:'stanza', cabinet_code:'armadio', shelf_code:'ripiano', sector_code:'settore', notes:'note', tags:'tag', location_code:'posizione'};
+const MOBILE_FIELDS = ['archive_state', 'contents_items', 'room_code', 'cabinet_code', 'shelf_code', 'sector_code', 'notes', 'tags', 'location_id', 'location_code'];   // v11: + location (association mode, 11b-assoc.js)
+const MOBILE_FIELD_IT = {archive_state:'stato', contents_items:'contenuti', room_code:'stanza', cabinet_code:'armadio', shelf_code:'ripiano', sector_code:'settore', notes:'note', tags:'tag', location_code:'posizione', location_id:'ubicazione'};
 
 /** Pure: apply a mobile patch to a binder object (returns a new normalised binder). Shared by local provider and desktop live merge. */
 function mobileApplyPatch(b, patch, at){
@@ -459,6 +459,7 @@ class LocalDataProvider {
     const entry = { id:uuid(), at, who:(u.display_name || u.username || 'Mobile'), action:'binder.edit', target:{type:'binder', id:nb.id, code:nb.speaking_code},
       summary:'Modificato da mobile il faldone ' + nb.speaking_code + ': ' + Object.keys(changed).map(k => MOBILE_FIELD_IT[k] || k).join(', '),
       details:{changed, patch:clean, base_updated_at:cur.updated_at, new_updated_at:at, user_id:u.id || '', forced:!!o.force}, source:MOBILE_LOG_SOURCE };
+    if (o.log){ if (o.log.action) entry.action = o.log.action; if (o.log.summary) entry.summary = o.log.summary; Object.assign(entry.details, o.log.details || {}); }   // v11: association mode logs binder.locate
     // the desktop picks this up from 'docmap_v26_log_pending' at boot (06e-log.js) or live (mobileLiveMerge below)
     try { if (DocMapVault.isActive()) await DocMapVault.appendLog(entry); else { const p = lsGetJSON('docmap_v26_log_pending', []); (Array.isArray(p) ? p : []).push(entry); lsSetJSON('docmap_v26_log_pending', p); } } catch(e){}
     return {binder:this.pack(st, nb).binder, etag:at, entry};
@@ -573,6 +574,7 @@ class RemoteDataProvider {
     const log = {id:uuid(), who, action:'binder.edit', target:{type:'binder', id, code:base ? base.speaking_code : ''}, source:MOBILE_LOG_SOURCE,
       summary:'Modificato da mobile il faldone ' + (base ? base.speaking_code : '') + ': ' + Object.keys(changed).map(k => MOBILE_FIELD_IT[k] || k).join(', '),
       details:{changed, patch:clean, user_id:u.id || ''}};
+    if (o.log){ if (o.log.action) log.action = o.log.action; if (o.log.summary) log.summary = o.log.summary; Object.assign(log.details, o.log.details || {}); }   // v11: association mode logs binder.locate
     try {
       const r = await this.srv.call('patch', {method:'POST', body:{id, patch:clean, base_updated_at:o.etag || '', force:!!o.force, log, operator:who}});
       const binder = this.norm(r.binder); this.last.set(id, binder);

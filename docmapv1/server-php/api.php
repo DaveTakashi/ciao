@@ -13,7 +13,10 @@
      push   {records, tombstones, settings?, activity_log?, deviceId, operator}   editor
                                          per-record LAST-WRITE-WINS by updated_at → {applied, same, rejected[], seq, server_time}
      binder &qr=<short_code> | &code=<speaking_code>   viewer   {binder, etag, siblings[]}
+     location &qr=<dm26L…> | &id= | &code=<path code>   viewer   {location, etag, path[], children[], binders[], count}   (v11)
+     resolve &qr=<short code>                         viewer   {type:'binder'|'location', …}: one QR, either kind (v11)
      patch  {id, patch, base_updated_at, force?, log?}  editor  → {binder, etag} · 409 {error, current, current_etag}
+                                         v11: patch may carry location_id (+ location_code, recomputed here from the location)
      tokens / token_create {user, role} / token_revoke {id}   admin   (tokens kept as SHA-256 in the database)
      journal  &from&to&user&device&record&code&before&limit | &entry=<jid>   editor (own entries) / admin (all)
               v11: the push/sync journal — one entry per push / patch / pull (with changes) / restore, one item per record
@@ -35,9 +38,10 @@ declare(strict_types=1);
 
 const DM_API = 'docmap-php';
 const DM_API_VERSION = 1;
-const DM_TYPES = ['binder', 'client'];
+const DM_TYPES = ['binder', 'client', 'location'];   // v11: + location (tree of boxes, docs/API-CONTRACT.md §location)
 const DM_ROLES = ['viewer' => 1, 'editor' => 2, 'admin' => 3];
-const DM_MOBILE_FIELDS = ['archive_state', 'contents_items', 'room_code', 'cabinet_code', 'shelf_code', 'sector_code', 'notes', 'tags'];
+const DM_MOBILE_FIELDS = ['archive_state', 'contents_items', 'room_code', 'cabinet_code', 'shelf_code', 'sector_code', 'notes', 'tags', 'location_id', 'location_code'];   // v11: + location (association mode)
+const DM_LOC_SC = '/^dm26L[A-Za-z0-9]{8}$/';   // location short codes; binders are dm26 + 8 chars
 const DM_CANON_SKIP = ['updated_at', 'short_url', 'location_code', 'selected_for_print'];   // same as SYNC_B_SKIP (06f-sync.js)
 const DM_PULL_PAGE = 2000;
 const DM_LOG_PAGE = 1000;
@@ -259,6 +263,9 @@ function rec_write(PDO $db, array $c, string $type, string $id, string $updated,
     $kc = hidx($c, strtoupper(trim((string)($data['speaking_code'] ?? ''))));
     $room = (string)($data['room_code'] ?? ''); $cab = (string)($data['cabinet_code'] ?? '');
     $kk = ($room !== '' || $cab !== '') ? hidx($c, $room . "\x1f" . $cab) : null;
+  } elseif ($type === 'location' && !$deleted) {   // v11: same HMAC index columns (k_short = QR, k_code = path code); type keeps them apart
+    $ks = hidx($c, (string)($data['short_code'] ?? ''));
+    $kc = hidx($c, strtoupper(trim((string)($data['code'] ?? ''))));
   }
   unset($data['updated_at']);
   $st = $db->prepare('INSERT INTO records (type, id, updated_at, deleted, who, payload, seq, k_short, k_code, k_cab) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -487,6 +494,50 @@ function r_binder(PDO $db, array $c): array {
   return binder_pack($db, $c, $row);
 }
 
+/* ---------------- v11: locations ---------------- */
+function loc_pack(PDO $db, array $c, array $row): array {
+  $p = rec_public($c, $row); $l = $p['data'];
+  $path = []; $seen = []; $pid = (string)($l['parent_id'] ?? '');
+  while ($pid !== '' && !isset($seen[$pid]) && count($path) < 16) {
+    $seen[$pid] = 1; $r = rec_load($db, 'location', $pid); if (!$r || (int)$r['deleted']) break;
+    $d = rec_data($c, $r); array_unshift($path, ['id' => $r['id'], 'code' => (string)($d['code'] ?? ''), 'name' => (string)($d['name'] ?? ''), 'kind' => (string)($d['kind'] ?? ''), 'seg' => (string)($d['seg'] ?? ''), 'level' => (int)($d['level'] ?? 0)]);
+    $pid = (string)($d['parent_id'] ?? '');
+  }
+  $kids = []; $binders = []; $n = 0;
+  // payloads are encrypted: children and binders are found by decrypting the records of the two types (fine for a studio archive)
+  foreach ($db->query("SELECT * FROM records WHERE type = 'location' AND deleted = 0") as $r) { $d = rec_data($c, $r); if ((string)($d['parent_id'] ?? '') === $row['id']) $kids[] = ['id' => $r['id'], 'code' => (string)($d['code'] ?? ''), 'name' => (string)($d['name'] ?? ''), 'kind' => (string)($d['kind'] ?? ''), 'seg' => (string)($d['seg'] ?? ''), 'level' => (int)($d['level'] ?? 0)]; }
+  foreach ($db->query("SELECT * FROM records WHERE type = 'binder' AND deleted = 0") as $r) {
+    $d = rec_data($c, $r); if ((string)($d['location_id'] ?? '') !== $row['id']) continue;
+    $n++; if (count($binders) < 500) $binders[] = ['id' => $r['id'], 'speaking_code' => (string)($d['speaking_code'] ?? ''), 'company_name' => (string)($d['company_name'] ?? ''), 'binder_title' => (string)($d['binder_title'] ?? ''), 'color_hex' => (string)($d['color_hex'] ?? ''), 'short_code' => (string)($d['short_code'] ?? '')];
+  }
+  usort($kids, fn($a, $b) => strnatcasecmp($a['seg'], $b['seg']));
+  usort($binders, fn($a, $b) => strnatcasecmp($a['speaking_code'], $b['speaking_code']));
+  return ['location' => $l, 'etag' => $row['updated_at'], 'path' => $path, 'children' => $kids, 'binders' => $binders, 'count' => $n];
+}
+function loc_find(PDO $db, array $c, string $qr, string $id, string $code): ?array {
+  if ($id !== '') { if (!valid_id($id)) fail(400, 'invalid', 'id'); $r = rec_load($db, 'location', $id); return $r && !(int)$r['deleted'] ? $r : null; }
+  $q = $db->prepare("SELECT * FROM records WHERE type = 'location' AND deleted = 0 AND " . ($qr !== '' ? 'k_short' : 'k_code') . ' = ? ORDER BY updated_at DESC LIMIT 1');
+  $q->execute([hidx($c, $qr !== '' ? $qr : $code)]); $r = $q->fetch();
+  return $r ?: null;
+}
+function r_location(PDO $db, array $c): array {
+  $qr = trim((string)param($c, 'qr', '')); $id = trim((string)param($c, 'id', '')); $code = strtoupper(trim((string)param($c, 'code', '')));
+  if ($qr !== '' && !preg_match('/^[A-Za-z0-9_-]{1,40}$/', $qr)) fail(400, 'invalid', 'qr');
+  if ($qr === '' && $id === '' && $code === '') fail(400, 'invalid', 'qr, id or code required');
+  $row = loc_find($db, $c, $qr, $id, $code);
+  if (!$row) fail(404, 'not_found', 'location not found');
+  return loc_pack($db, $c, $row);
+}
+/** One QR, either kind: location codes have their own format (dm26L + 8), anything else is looked up as a binder. */
+function r_resolve(PDO $db, array $c): array {
+  $qr = trim((string)param($c, 'qr', ''));
+  if (!preg_match('/^[A-Za-z0-9_-]{1,40}$/', $qr)) fail(400, 'invalid', 'qr');
+  if (preg_match(DM_LOC_SC, $qr)) { $row = loc_find($db, $c, $qr, '', ''); if (!$row) fail(404, 'not_found', 'location not found'); return ['type' => 'location'] + loc_pack($db, $c, $row); }
+  $q = $db->prepare("SELECT * FROM records WHERE type = 'binder' AND deleted = 0 AND k_short = ? ORDER BY updated_at DESC LIMIT 1"); $q->execute([hidx($c, $qr)]); $row = $q->fetch();
+  if (!$row) fail(404, 'not_found', 'binder not found');
+  return ['type' => 'binder'] + binder_pack($db, $c, $row);
+}
+
 function r_patch(PDO $db, array $c, array $who): array {
   $b = body($c); $id = $b['id'] ?? ''; $patch = $b['patch'] ?? null;
   if (!valid_id($id) || !is_array($patch)) fail(400, 'invalid', 'id and patch required');
@@ -512,6 +563,12 @@ function r_patch(PDO $db, array $c, array $who): array {
     }
     if ($conflict === null) {
     $data = $prev;
+    if (array_key_exists('location_id', $patch)) {   // v11: the location must exist; location_code always follows it
+      $lid = is_string($patch['location_id']) ? trim($patch['location_id']) : '';
+      if ($lid !== '') { if (!valid_id($lid)) fail(422, 'invalid_location', 'location_id'); $lr = rec_load($db, 'location', $lid); if (!$lr || (int)$lr['deleted']) fail(422, 'invalid_location', 'location not found', ['location_id' => $lid]); $patch['location_code'] = (string)(rec_data($c, $lr)['code'] ?? ''); }
+      else if (!array_key_exists('location_code', $patch) || !is_string($patch['location_code'])) $patch['location_code'] = '';
+      $patch['location_id'] = $lid;
+    } elseif (array_key_exists('location_code', $patch)) fail(422, 'field_not_allowed', 'location_code only together with location_id', ['field' => 'location_code']);
     foreach ($patch as $k => $v) $data[$k] = $v;
     $now = ts_ms(now_iso()); $old = ts_ms($row['updated_at']); $at = iso_ms(max($now, $old + 1));   // strictly increasing
     rec_write($db, $c, 'binder', $id, $at, false, $label, $data, substr((string)($b['deviceId'] ?? ($ci['device_id'] !== 'unknown' ? $ci['device_id'] : 'mobile')), 0, 100));
@@ -655,7 +712,7 @@ if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) {
     $c = load_config();
     cors($c);
     if ($method === 'OPTIONS') { http_response_code(204); exit; }
-    $reads = ['me' => 'viewer', 'pull' => 'viewer', 'binder' => 'viewer', 'tokens' => 'admin', 'journal' => 'editor'];
+    $reads = ['me' => 'viewer', 'pull' => 'viewer', 'binder' => 'viewer', 'location' => 'viewer', 'resolve' => 'viewer', 'tokens' => 'admin', 'journal' => 'editor'];
     $writes = ['push' => 'editor', 'patch' => 'editor', 'token_create' => 'admin', 'token_revoke' => 'admin', 'journal_restore' => 'admin'];
     if (!isset($reads[$route]) && !isset($writes[$route])) fail(404, 'no_route', 'unknown route');
     if (isset($writes[$route]) && $method !== 'POST') fail(405, 'method', 'use POST');
@@ -667,6 +724,8 @@ if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) {
       case 'pull': $res = r_pull($db, $c, $who); break;
       case 'push': $res = r_push($db, $c, $who); break;
       case 'binder': $res = r_binder($db, $c); header('ETag: "' . $res['etag'] . '"'); break;
+      case 'location': $res = r_location($db, $c); header('ETag: "' . $res['etag'] . '"'); break;
+      case 'resolve': $res = r_resolve($db, $c); break;
       case 'patch': $res = r_patch($db, $c, $who); header('ETag: "' . $res['etag'] . '"'); break;
       case 'tokens': $res = r_tokens($db, $c); break;
       case 'token_create': $res = r_token_create($db, $c, $who); break;

@@ -58,7 +58,7 @@ function toast(msg, kind, ms, action){
 }
 /* One-level undo for every bulk change (delete, import, session restore, .sqlite open). */
 let UNDO = null;
-function undoPoint(){ UNDO = clone({binders:S.binders, clients:S.clients || [], settings:S.settings, print:S.print, customPresets:S.customPresets, usedSlots:S.usedSlots, lang:S.lang}); }
+function undoPoint(){ UNDO = clone({binders:S.binders, clients:S.clients || [], locations:S.locations || [], settings:S.settings, print:S.print, customPresets:S.customPresets, usedSlots:S.usedSlots, lang:S.lang}); }
 function undoToast(msg, kind){
   toast(msg, kind || 'ok', 9000, {label:t('undo'), fn: () => {
     if (!UNDO) return; const W = UNDO; UNDO = null;
@@ -214,6 +214,7 @@ const HEADER_ALIASES = {
   final_destination:['final_destination','destinazione','destination','url_destinazione'],
   selected_for_print:['selected_for_print','stampa','print','selezionato'],
   color_locked:['color_locked','colore_bloccato','colore_manuale','color_manual','colour_locked'],
+  location_id:['location_id','id_ubicazione','ubicazione_id','id_luogo'],   // v11: box of the location tree (02c-locations.js)
   id:['id','uuid'],
   created_at:['created_at','creato','data_creazione'],
   updated_at:['updated_at','aggiornato','data_aggiornamento']
@@ -250,10 +251,10 @@ function mapRecord(raw){
   });
   if (o.archive_state) o.archive_state = normState(o.archive_state);
   if (o.speaking_code) o.speaking_code = o.speaking_code.toUpperCase().replace(/\s+/g, '');
-  if (!o.room_code && !o.cabinet_code && !o.shelf_code && o.location_code){
+  if (!o.room_code && !o.cabinet_code && !o.shelf_code && o.location_code && !o.location_id){
     const p = parseLocation(o.location_code); if (p) Object.keys(p).forEach(k => { if (p[k]) o[k] = p[k]; });
   }
-  delete o.location_code;
+  if (!o.location_id) delete o.location_code;   // v11: with a location_id the code is the location path (kept for a tree not known here)
   if (!o.short_code && o.short_url){ const m = o.short_url.match(/dm26[A-Za-z0-9]{8}/); if (m) o.short_code = m[0]; }
   delete o.short_url;
   return o;
@@ -262,13 +263,13 @@ function mapRecord(raw){
 /* ---------------- Export builders ---------------- */
 function binderToCsvRow(b){
   return [b.speaking_code, b.multi_code, b.company_name, b.company_city, b.category, b.binder_title, b.ref_year, b.room_code, b.cabinet_code, b.shelf_code, b.sector_code, b.location_code, b.archive_state,
-    contentsToPipe(b.contents_items), b.tags, b.color_hex, b.short_code, b.short_url, destFor(b), b.extra_codes, b.shelf_color, b.contacts || '', b.notes || '', b.selected_for_print ? '1' : '0', b.id, b.created_at, b.updated_at, b.color_locked ? '1' : '0'];
+    contentsToPipe(b.contents_items), b.tags, b.color_hex, b.short_code, b.short_url, destFor(b), b.extra_codes, b.shelf_color, b.contacts || '', b.notes || '', b.selected_for_print ? '1' : '0', b.id, b.created_at, b.updated_at, b.color_locked ? '1' : '0', b.location_id || ''];
 }
 function sortedBinders(){ return S.binders.slice().sort((a, b) => naturalCmp(a.speaking_code, b.speaking_code)); }
 function manifestRow(b){ return [b.short_code, b.short_url, destFor(b), manifestTags(b)]; }
 const MANIFEST_HEADER = ['short_code','short_url','final_destination','tags'];
 function exportManifest(){
-  const rows = [MANIFEST_HEADER].concat(sortedBinders().filter(b => b.short_code).map(manifestRow));
+  const rows = [MANIFEST_HEADER].concat(sortedBinders().filter(b => b.short_code).map(manifestRow), typeof locManifestRows === 'function' ? locManifestRows() : []);   // v11: + location QR rows (06h-locations.js)
   const name = 'manifest_qr7_dm26.csv';
   download(name, manifestText(rows), 'text/csv');
   markExported(name); toast(t('ex_done', {f:name}));
@@ -299,6 +300,7 @@ function mergeManifest(text, prune){
     const val = {short_code:b.short_code, short_url:b.short_url, final_destination:destFor(b), tags:manifestTags(b)};
     ours.set(b.short_code, normCols.map(c => csvField(val[c] != null ? val[c] : '', delim)).join(delim));
   });
+  if (typeof locManifestRows === 'function') locManifestRows().forEach(r => { const val = {short_code:r[0], short_url:r[1], final_destination:r[2], tags:r[3]}; ours.set(r[0], normCols.map(c => csvField(val[c] != null ? val[c] : '', delim)).join(delim)); });   // v11 location QRs
   const out = [manifestLineEnd(header, delim)]; let kept = 0, updated = 0, removed = 0;
   const seenOurs = new Set();
   body.forEach(line => {
@@ -306,7 +308,7 @@ function mergeManifest(text, prune){
     const f = (parseCSV(line, delim)[0] || [])[sIdx] || '';
     const code = f.trim();
     if (ours.has(code)){ if (!seenOurs.has(code)){ updated++; seenOurs.add(code); } return; }
-    if (prune && /^dm26[A-Za-z0-9]{8}$/.test(code)){ removed++; return; }
+    if (prune && /^dm26L?[A-Za-z0-9]{8}$/.test(code)){ removed++; return; }   // binder (dm26 + 8) or location (dm26L + 8) codes
     out.push(manifestLineEnd(line, delim)); kept++;
   });
   ours.forEach(row => out.push(row + delim));
@@ -320,7 +322,7 @@ function exportFullCSV(){
 }
 function workspaceJSON(withLog){   // withLog: backups carry the activity log (optional key, 06e-log.js); sessions do not
   return JSON.stringify({ app:'DocMap26', format:'docmap_workspace', version:APP_VERSION, exported_at:nowISO(),
-    settings:S.settings, lang:S.lang, print:S.print, customPresets:S.customPresets, usedSlots:S.usedSlots, binders:S.binders, clients:S.clients || [], activity_log:withLog ? logEntriesForBackup() : undefined }, null, 2);
+    settings:S.settings, lang:S.lang, print:S.print, customPresets:S.customPresets, usedSlots:S.usedSlots, binders:S.binders, clients:S.clients || [], locations:S.locations || [], activity_log:withLog ? logEntriesForBackup() : undefined }, null, 2);
 }
 function exportJSON(){
   const name = 'docmap_workspace.json';

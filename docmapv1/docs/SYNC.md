@@ -150,6 +150,23 @@ tutto con i propri `updated_at` (nessun dato cambia sul PC). Con il server già 
 Riga di registro `sync.server`. Richieste "semplici" (`POST text/plain`, token nel corpo) per evitare il preflight CORS:
 `config.php` deve avere `allowed_origins => ['null']` (opzione di `setup.php`). I file restano come alternativa.
 
+## 7b. v11 — ubicazioni (tipo di record `location`)
+
+Le ubicazioni (`S.locations`, `MODELLO-DATI.md` §14) passano dagli **stessi** percorsi generici dei faldoni e dei
+clienti: `syncTrack` (tombstone quando un'ubicazione sparisce), `syncChangedSince`, pacchetto (`records.locations`,
+`counts.locations`), `syncAnalyze` / `syncApply` (vince il più recente per record, conflitti nella stessa revisione),
+`srvChanges` / `srvPush` (`type:'location'`) e pull dal server. Il diario delle sincronizzazioni (stream J) le vede
+quindi senza codice in più.
+
+- Esclusi dal confronto del contenuto (`SYNC_L_SKIP`): `updated_at`, `short_url`, `code`, `level` (derivati dall'albero).
+  Spostare un nodo aggiorna `updated_at` di tutto il sottoalbero, così gli altri dispositivi ricalcolano insieme codici e livelli.
+- Faldoni: `location_id` è contenuto (un'assegnazione è una modifica del faldone, LWW); `location_code` no (è in
+  `SYNC_B_SKIP`): dopo ogni import `locIntegrity()` e il ricalcolo di `location_code` dei faldoni.
+- Impostazioni condivise: `locLevels` + `locLevelsAt` nel sottoinsieme (vince il più recente).
+- Eliminare un'ubicazione libera i faldoni che conteneva (i faldoni cambiano e si sincronizzano come tali).
+- Telefono: la modalità associazione scrive con `patch` (`API-CONTRACT.md` §5); il PC riceve i faldoni aggiornati e
+  le righe `binder.locate` al pull successivo.
+
 ## 8. Per il back-end Python
 
 Il formato è pensato per diventare l'API di sync: `POST /sync/push` = un pacchetto `docmap-sync` (anche cifrato end-to-end), `GET /sync/pull?since=` = un pacchetto con i record successivi. Il server può applicare la stessa regola (record-level LWW su `updated_at`, tombstone con `deletedAt`) o fare solo da casella postale cifrata. Campi da conservare lato server: `updated_at` dei record, tabella `tombstones(type, id, code, deleted_at, who)`, `device(id, label, mode)` e, per ogni coppia di dispositivi, l'ultima conferma (`ack`).

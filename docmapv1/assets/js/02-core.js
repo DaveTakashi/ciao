@@ -12,7 +12,7 @@ const GREEK = ['α','β','γ','δ','ε','ζ','η','θ'];
 const CATEGORIES = ['Ordinaria','Semplificata','Societario','Lavoro','Dichiarativi','Contenzioso','Privati'];
 const CAT_COLOR = {Ordinaria:'#2563EB',Semplificata:'#059669',Societario:'#7C3AED',Lavoro:'#D97706',Dichiarativi:'#DC2626'};
 const STATES = ['CURRENT','HISTORICAL','CHECKED_OUT'];
-const CSV_COLUMNS = ['speaking_code','multi_code','company_name','company_city','category','binder_title','ref_year','room_code','cabinet_code','shelf_code','sector_code','location_code','archive_state','contents','tags','color_hex','short_code','short_url','final_destination','extra_codes','shelf_color','contacts','notes','selected_for_print','id','created_at','updated_at','color_locked'];   // v10: color_locked appended (never reorder)
+const CSV_COLUMNS = ['speaking_code','multi_code','company_name','company_city','category','binder_title','ref_year','room_code','cabinet_code','shelf_code','sector_code','location_code','archive_state','contents','tags','color_hex','short_code','short_url','final_destination','extra_codes','shelf_color','contacts','notes','selected_for_print','id','created_at','updated_at','color_locked','location_id'];   // v10: color_locked appended · v11: location_id (02c-locations.js) appended (never reorder)
 /* Shelf naming styles: the quick-pick buttons in the binder form follow the chosen style. */
 const SHELF_TYPES = {
   number:['1','2','3','4','5','6','7','8'], letter:['A','B','C','D','E','F','G','H'], greek:GREEK,
@@ -251,6 +251,13 @@ function locHead(room, cab){
 function computeLocation(b){
   return [locHead(b.room_code, b.cabinet_code), String(b.shelf_code || '').trim(), String(b.sector_code || '').trim()].filter(Boolean).join('-');
 }
+/* v11: a binder placed in a location of the tree (02c-locations.js) shows that location's path code as its
+   location_code; otherwise the code is built from room / cabinet / shelf / sector as before. A location id
+   that is not known here (not synced yet, scan page) keeps the stored location_code. */
+function binderLocCode(b){
+  if (b.location_id){ const c = typeof locCodeFor === 'function' ? locCodeFor(b.location_id) : null; return c != null ? c : String(b.location_code || '').trim() || computeLocation(b); }
+  return computeLocation(b);
+}
 function parseLocation(code){
   const s = String(code || '').trim(); if (!s) return null;
   let m = s.match(/^(.+?)\s*·\s*([^-]+)-([^-]+)(?:-(.+))?$/);
@@ -314,7 +321,7 @@ function ensureIntegrity(){
   S.binders.forEach(b => {
     if (!b.id || ids.has(b.id)){ b.id = uuid(); fixed++; }
     ids.add(b.id);
-    if (!b.speaking_code || codes.has(b.speaking_code)){ b.speaking_code = suggestSpeakingCode(b.company_name || b.speaking_code, Array.from(codes)); b.location_code = computeLocation(b); fixed++; }
+    if (!b.speaking_code || codes.has(b.speaking_code)){ b.speaking_code = suggestSpeakingCode(b.company_name || b.speaking_code, Array.from(codes)); b.location_code = binderLocCode(b); fixed++; }
     codes.add(b.speaking_code);
     if (!SC_RE.test(b.short_code) || scs.has(b.short_code)){ b.short_code = newShortCode(Array.from(scs)); fixed++; }
     scs.add(b.short_code); b.short_url = shortUrl(b.short_code);
@@ -342,10 +349,10 @@ function manifestTags(b){ return ['docmap26', b.speaking_code, b.multi_code ? 'm
 function normalizeBinder(b){
   const o = Object.assign({
     id:uuid(), speaking_code:'', multi_code:'', company_name:'', company_city:'', ref_year:'', extra_codes:'', shelf_color:'', category:'', color_hex:'#2563EB', binder_title:'', room_code:'', cabinet_code:'', shelf_code:'', sector_code:'',
-    location_code:'', archive_state:'CURRENT', contents_items:[], tags:'', short_code:'', short_url:'', final_destination:'', contacts:'', notes:'', selected_for_print:false, color_locked:false,
+    location_code:'', archive_state:'CURRENT', contents_items:[], tags:'', short_code:'', short_url:'', final_destination:'', contacts:'', notes:'', selected_for_print:false, color_locked:false, location_id:'',
     created_at:nowISO(), updated_at:nowISO()
   }, b || {});
-  ['speaking_code','multi_code','company_name','company_city','ref_year','extra_codes','shelf_color','category','binder_title','room_code','cabinet_code','shelf_code','sector_code','tags','short_code','final_destination','contacts','notes'].forEach(k => o[k] = String(o[k] == null ? '' : o[k]).trim());
+  ['speaking_code','multi_code','company_name','company_city','ref_year','extra_codes','shelf_color','category','binder_title','room_code','cabinet_code','shelf_code','sector_code','tags','short_code','final_destination','contacts','notes','location_id'].forEach(k => o[k] = String(o[k] == null ? '' : o[k]).trim());
   o.speaking_code = o.speaking_code.toUpperCase().replace(/\s+/g, '');
   if (/^[a-z]{1,2}$/i.test(o.room_code)) o.room_code = o.room_code.toUpperCase();   // short room letters (a → A); names like "Ufficio 1" stay as typed
   o.shelf_color = normHex(o.shelf_color);
@@ -353,7 +360,7 @@ function normalizeBinder(b){
   o.contents_items = pipeToContents(o.contents_items);
   o.color_hex = normHex(o.color_hex) || CAT_COLOR[o.category] || '#2563EB';
   if (!STATES.includes(o.archive_state)) o.archive_state = 'CURRENT';
-  o.location_code = computeLocation(o);
+  o.location_code = binderLocCode(o);   // v11: path code of the location tree when location_id is set
   o.short_url = o.short_code ? shortUrl(o.short_code) : '';
   o.selected_for_print = !!o.selected_for_print;
   o.color_locked = o.color_locked === true || o.color_locked === 1 || /^(1|true|si|sì|yes)$/i.test(String(o.color_locked == null ? '' : o.color_locked).trim());   // v10: colour picked by hand (02b-colors.js)
@@ -421,7 +428,8 @@ function defaultState(){
     print:{ presetId:'mrink143', geometry:geoFromPreset(BUILTIN_PRESETS[0]), geometryModified:false, padding:4, offsetX:0, offsetY:0,
             contentMode:'info', template:'classic', showMulti:true, fields:{}, split:{ratio:0.5, rotate:-90, guides:true}, advanced:false, qrMode:'live', showQrUrl:true, copies:1, previewMode:'labels',
             info:{items:2, pair:false}, edge:{outer:4, cut:1, byPreset:{}} },
-    customPresets:[], usedSlots:{}, clients:[],
+    customPresets:[], usedSlots:{}, clients:[], locations:[],   // v11: location tree (02c-locations.js)
+   
     hasUnexportedChanges:true, onboarded:false, lastExportAt:null, lastExportFile:null, lastSavedAt:null, archiveView:'table',
     syncJournal:[]   // v11: local push/sync journal (06i-journal.js)
   };
@@ -453,7 +461,11 @@ function migrate(st){
   o.print.edge = Object.assign({outer:4, cut:1}, o.print.edge || {}); o.print.edge.byPreset = Object.assign({}, o.print.edge.byPreset || {});
   if (!(st && st.schema >= 26.9) && o.print.presetId === 'mrink143' && o.print.contentMode === 'split') o.print.contentMode = 'info';
   o.schema = 26.9;
+  // v11: the location tree is normalised before the binders, so their location_code can follow it (02c-locations.js)
+  o.locations = Array.isArray(o.locations) && typeof normalizeLocation === 'function' ? o.locations.map(normalizeLocation) : Array.isArray(o.locations) ? o.locations : [];
+  if (typeof locIndexUse === 'function') locIndexUse(o.locations);
   o.binders = Array.isArray(o.binders) ? o.binders.map(normalizeBinder) : [];
+  if (typeof locIndexUse === 'function') locIndexUse(null);
   // v10: a state without settings.colorMode predates smart colours: keep every colour, lock the hand-picked ones (02b-colors.js)
   if (st && !(st.settings && st.settings.colorMode) && typeof colorLockLegacy === 'function') colorLockLegacy(o.binders, o.settings);
   if (!['it','en'].includes(o.lang)) o.lang = 'it';

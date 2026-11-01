@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="assets/css-auth.css">
 <link rel="stylesheet" href="assets/css-help.css">
 <link rel="stylesheet" href="assets/css-journal.css">
+<link rel="stylesheet" href="assets/css-locations.css">   <!-- v11: location tree + association mode -->
 <style id="page-style">@page{size:210mm 297mm;margin:0mm}</style>
 </head>
 <body>
@@ -36,6 +37,7 @@
 <script src="vendor/sql-wasm.js"></script>
 <script src="assets/js/01-qr.js"></script>
 <script src="assets/js/02-core.js"></script>
+<script src="assets/js/02c-locations.js"></script>   <!-- v11: location tree model (shared with scan.html) -->
 <script src="assets/js/02b-colors.js"></script>
 <script src="assets/js/03-print.js"></script>
 <script src="assets/js/04-ui.js"></script>
@@ -51,10 +53,12 @@
 <script src="assets/js/06e-log.js"></script>
 <script src="assets/js/06f-sync.js"></script>
 <script src="assets/js/06g-server.js"></script>   <!-- v10.1: shared online database (server-php) -->
+<script src="assets/js/06h-locations.js"></script>   <!-- v11: Ubicazioni, location QR labels, association mode -->
 <script src="assets/js/06i-journal.js"></script>   <!-- v11: sync journal (Registro sincronizzazioni) -->
 <script src="assets/js/07-help.js"></script>
 <script src="assets/js/08-guide.js"></script>
 <script src="assets/js/10-auth.js"></script>
+<script src="assets/js/11b-assoc.js"></script>   <!-- v11: camera QR scanner (association mode) -->
 <script src="assets/js/09-actions.js"></script>
 </body>
 </html>
