@@ -414,11 +414,12 @@ function demoBinders(){
 /* ---------------- State ---------------- */
 function defaultState(){
   return {
-    schema:26.8, app:'DocMap26', lang:'it', view:'archive',
+    schema:26.9, app:'DocMap26', lang:'it', view:'archive',
     settings:{ studioName:'Studio Demo Commercialisti Associati', destTemplate:DEFAULT_DEST, qrEcc:'M' },
     binders:[],
     print:{ presetId:'mrink143', geometry:geoFromPreset(BUILTIN_PRESETS[0]), geometryModified:false, padding:4, offsetX:0, offsetY:0,
-            contentMode:'split', template:'classic', showMulti:true, fields:{}, split:{ratio:0.5, rotate:-90, guides:true}, advanced:false, qrMode:'live', showQrUrl:true, copies:1, previewMode:'labels' },
+            contentMode:'info', template:'classic', showMulti:true, fields:{}, split:{ratio:0.5, rotate:-90, guides:true}, advanced:false, qrMode:'live', showQrUrl:true, copies:1, previewMode:'labels',
+            info:{items:2, pair:false}, edge:{outer:4, cut:1, byPreset:{}} },
     customPresets:[], usedSlots:{}, clients:[],
     hasUnexportedChanges:true, onboarded:false, lastExportAt:null, lastExportFile:null, lastSavedAt:null, archiveView:'table'
   };
@@ -445,7 +446,11 @@ function migrate(st){
   // v7: each physical MRINK143 label holds 2 complete labels (8 per sheet); old 105×148 geometry and slot maps are reset once
   if (!(st && st.schema >= 26.7) && o.print.presetId === 'mrink143'){ o.print.geometry = presetGeo('mrink143'); o.print.geometryModified = false; o.usedSlots.mrink143 = []; }
   o.print.pvLandscape = !!o.print.pvLandscape;
-  o.schema = 26.8;
+  // v9: template options (info label) and edge / cut compensation; the info label becomes the default on MRINK143 once
+  o.print.info = Object.assign({items:2, pair:false}, o.print.info || {});
+  o.print.edge = Object.assign({outer:4, cut:1}, o.print.edge || {}); o.print.edge.byPreset = Object.assign({}, o.print.edge.byPreset || {});
+  if (!(st && st.schema >= 26.9) && o.print.presetId === 'mrink143' && o.print.contentMode === 'split') o.print.contentMode = 'info';
+  o.schema = 26.9;
   o.binders = Array.isArray(o.binders) ? o.binders.map(normalizeBinder) : [];
   if (!['it','en'].includes(o.lang)) o.lang = 'it';
   if (o.view === 'clients'){ o.view = 'info'; o.infoTab = 'clients'; }   // v8: the client register lives in Informazioni
