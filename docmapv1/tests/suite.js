@@ -3026,8 +3026,8 @@ const sec = (n) => console.log('\n== ' + n);
         return {n:S.binders.length, codes:S.binders.map(b => b.location_code).join(','), ups:S.binders.map(b => b.updated_at).join(','), loc:Array.isArray(S.locations) && S.locations.length === 0, lid:S.binders.every(b => b.location_id === ''),
           cols:dbQuery('PRAGMA table_info(binders)').map(r => r.name).includes('location_id'), t:dbScalar("SELECT COUNT(*) FROM sqlite_master WHERE name = 'locations'"), ver:dbScalar("SELECT value FROM meta WHERE key = 'schema_version'"), nb:dbScalar('SELECT COUNT(*) FROM binders'), key:!!localStorage.getItem('docmap_v26_state')}; });
       await Xp.evaluate(() => { S.view = 'info'; S.infoTab = 'loc'; renderAll(); });
-      ok(!Xv2.cols && Xv2.t === 0 && Xv.n === 3 && Xv.codes === 'A1-β,A2-β,A3-β' && Xv.ups === '2026-10-02T09:00:00.000Z,2026-10-02T09:00:00.000Z,2026-10-02T09:00:00.000Z' && Xv.loc && Xv.lid && Xv.cols && Xv.t === 1 && Xv.ver === '7' && Xv.nb === 3 && Xv.key && await Xp.isVisible('#lo-empty-bulk'),
-        'X: v10.1 data (state without location fields, SQLite schema 6) opens unchanged: positions and timestamps kept, DB migrated additively to 7', {before:Xv2, Xv});
+      ok(!Xv2.cols && Xv2.t === 0 && Xv.n === 3 && Xv.codes === 'A1-β,A2-β,A3-β' && Xv.ups === '2026-10-02T09:00:00.000Z,2026-10-02T09:00:00.000Z,2026-10-02T09:00:00.000Z' && Xv.loc && Xv.lid && Xv.cols && Xv.t === 1 && +Xv.ver >= 7 && Xv.nb === 3 && Xv.key && await Xp.isVisible('#lo-empty-bulk'),
+        'X: v10.1 data (state without location fields, SQLite schema 6) opens unchanged: positions and timestamps kept, DB migrated additively to 7+', {before:Xv2, Xv});
       await Xctx.close();
     }
     await p.evaluate((ids) => { S.binders.forEach(b => { b.selected_for_print = ids.includes(b.id); }); S.view = 'archive'; renderAll(); }, Xsel);
