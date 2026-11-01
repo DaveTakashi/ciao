@@ -37,7 +37,7 @@ Al primo avvio parte un breve tour. Il pulsante **?** in alto (o F1) apre la gui
 - **Anagrafica clienti** importabile dal vostro CSV (es. `CLIENTI STORICI ELENCO TIPIZZATO.csv`): il faldone nuovo si compila da solo.
 - Posizione tutta facoltativa, **stanze con nome** ("Ufficio 1"), **tipo e colore del ripiano**.
 - Contenuti con **"Archivio 1"** di partenza e modifica rapida **una riga per voce**.
-- Guida libera: **Avanti e Indietro funzionano sempre**, cliccando un altro campo la guida salta al suo passo.
+- Guida libera: **Avanti e Indietro funzionano sempre**, cliccando un altro campo la guida salta al suo passo (v10: vedi "Guida e azioni guidate").
 - Faldoni di esempio con tag **demo**, da nascondere o eliminare con un clic.
 
 ## Checklist prima della prima stampa
@@ -184,6 +184,10 @@ Predefinito: **MRINK143** (4 etichette fisiche 105×148 = 8 etichette 105×74). 
 ## Registro attività
 
 Nel menu **⚙ Funzioni avanzate › Registro attività** trovi l'elenco di tutto quello che è stato fatto, dal più recente: faldoni creati, modificati (con i campi cambiati, prima → dopo), duplicati ed eliminati, operazioni annullate, import, export e backup, stampe e PDF delle etichette, modifiche in Informazioni e nell'anagrafica clienti, sessioni e file del database. Per sapere **chi** ha fatto cosa scrivi il tuo nome in **Impostazioni › Il tuo nome (operatore)** (o in cima al registro); senza nome le operazioni risultano fatte da "Questo PC". Puoi cercare per testo, tipo di operazione, persona e date, cliccare il codice di un faldone per aprirlo ed esportare le righe in CSV per Excel. Il registro sta nel database SQLite (anche nel `.sqlite` scaricato) e nei backup JSON; restano le ultime 20.000 operazioni.
+
+## Guida e azioni guidate (v10)
+
+Il pulsante **?** in alto (o **F1**) apre la guida. In cima ci sono le cose che si fanno più spesso: *Come creo un nuovo faldone*, *Come stampo le etichette*, *Come creo un nuovo cliente*, *Come importo un elenco*, *Come trovo un faldone*, *Come scarico il PDF*; poi l'ordine si adatta a quello che usate davvero su questo PC. Puoi ordinare anche per **Preferiti** (stella ☆ accanto a un argomento o a un'azione guidata; con il nome operatore in Impostazioni ognuno ha i suoi) o **A-Z**. Due file di etichette aiutano a filtrare: grigie per l'**argomento** (Stampa, Etichette, Clienti…) e colorate per **cosa vuoi fare** (Come fare, Cos'è, Creare, Modificare, Eliminare, Stampare, Importare/Esportare, Trovare, Risolvere problemi). Appena scrivi nella ricerca i filtri si azzerano e restano accese solo le etichette dei risultati; la ricerca capisce accenti, plurali e sinonimi (faldone/raccoglitore/archivio, cliente/ditta/azienda, stampa/stampare, QR/codice QR). Le **14 azioni guidate** (nuovo faldone, stampa, PDF, nuovo cliente, trova, modifica, calibrazione, foglio già usato, manifest, AI, sessione, backup, import, registro) non si chiudono mai per sbaglio: Esc, la ✕ o un secondo clic fuori chiedono "Vuoi davvero uscire dalla guida?" (Continua è il pulsante evidenziato); cliccando un campo di un altro passo la guida salta a quel passo; Invio o → avanti, ← indietro. Se esci a metà, la guida ricorda il passo: trovi **Riprendi la guida** in cima alla guida.
 
 ## Problemi comuni
 

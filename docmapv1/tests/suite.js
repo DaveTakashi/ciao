@@ -192,7 +192,8 @@ const sec = (n) => console.log('\n== ' + n);
   for (const g of Object.keys(await p.evaluate(() => GUIDES))){
     await p.evaluate(g => guideStart(g), g); await p.waitForTimeout(250);
     ok(await p.evaluate(() => !!document.querySelector('.g-card h4')), 'guide starts: ' + g);
-    await p.keyboard.press('Escape');
+    await p.keyboard.press('Escape');   // v10: Esc asks first ("Vuoi davvero uscire dalla guida?")
+    if (await p.isVisible('[data-a="guide-quit"]')) await p.click('[data-a="guide-quit"]');
   }
   // help search
   await p.click('[data-a="help-open"]'); await p.fill('#help-q', 'calibr'); await p.waitForTimeout(100);
@@ -1259,6 +1260,190 @@ const sec = (n) => console.log('\n== ' + n);
   // @@STREAM-K@@
 
   // @@STREAM-R@@
+
+  // @@STREAM-G@@
+  sec('v10 G: help popularity, favourites, action tags, forgiving search, guided tours');
+  const Gsnap = await p.evaluate(() => {
+    while (topModal()) closeModal(true); guideStop(); helpClose();
+    const st = helpStore(), s = JSON.stringify(st);
+    st.usage = {}; st.fav = {}; st.resume = {}; st.sort = {}; helpSave();
+    const snap = {s, op:S.settings.operator, lang:S.lang, view:S.view, binders:JSON.stringify(S.binders), clients:JSON.stringify(S.clients || []), sess:dbSessions().map(x => x.id), dirty:S.hasUnexportedChanges, print:JSON.stringify(S.print), used:JSON.stringify(S.usedSlots || {}), infoTab:S.infoTab};
+    S.settings.operator = ''; S.lang = 'it'; S.view = 'archive'; renderAll();
+    return snap;
+  });
+  let Gv;
+  // default order: the seeded everyday tasks first (topics and guided actions)
+  await p.click('[data-a="help-open"]'); await p.waitForTimeout(150);
+  Gv = await p.evaluate(() => ({topics:$$('#help-topics .help-item').map(b => b.dataset.id), guides:$$('#help-guides .help-g').map(b => b.dataset.id), sort:($('[data-a="help-sort"].on') || {}).dataset.v,
+    titles:['create','print','client-new','import','locate','pdf'].map(id => L(helpTopic(id).title))}));
+  ok(Gv.topics.slice(0, 3).join() === 'create,print,client-new' && Gv.guides.slice(0, 3).join() === 'create,print,client' && Gv.sort === 'pop' && Gv.guides.length === 5, 'help: default order is by popularity (create binder, print labels, new client first), top 5 guided actions', Gv);
+  ok(Gv.titles.every(x => /^Come /.test(x)) && Gv.titles[0] === 'Come creo un nuovo faldone e la sua etichetta' && Gv.titles[2] === 'Come creo un nuovo cliente', 'help: task-oriented Italian titles', Gv.titles);
+  // usage changes the order (counted per installation, decayed)
+  await p.click('#help-topics [data-a="help-topic"][data-id="register"]'); await p.waitForTimeout(100);
+  await p.click('[data-a="help-back"]'); await p.waitForTimeout(100);
+  Gv = await p.evaluate(() => { const c1 = helpUseCount('t:register'); for (let i = 0; i < 14; i++) helpUse('t:register'); renderHelpList(); const top = $$('#help-topics .help-item')[0].dataset.id;
+    const st = helpStore(); st.usage['t:register'].t = Date.now() - 120 * 864e5; const old = helpUseCount('t:register'); return {c1, top, old, raw:st.usage['t:register'].n}; });
+  ok(Math.abs(Gv.c1 - 1) < 0.01 && Gv.top === 'register' && Math.abs(Gv.old - Gv.raw / 4) < 0.01, 'help: opening topics raises them (usage counted in localStorage, halves every 60 days)', Gv);
+  Gv = await p.evaluate(() => { helpUse('g:backup'); helpUse('g:backup'); for (let i = 0; i < 20; i++) helpUse('g:register'); renderHelpList(); const g = $$('#help-guides .help-g').map(b => b.dataset.id); helpStore().usage = {}; helpSave(); renderHelpList(); return {g, back:$$('#help-guides .help-g')[0].dataset.id}; });
+  ok(Gv.g[0] === 'register' && Gv.back === 'create', 'help: guided actions follow real usage too', Gv);
+  // favourites: star, section on top, sort by favourites / A-Z, separate per operator
+  await p.click('#help-topics [data-a="help-fav"][data-k="t:register"]'); await p.waitForTimeout(100);
+  await p.click('#help-guides [data-a="help-fav"][data-k="g:print"]'); await p.waitForTimeout(100);
+  Gv = await p.evaluate(() => ({fav:helpFavs(), sec:$$('.help-sec')[0].textContent.includes('Preferiti'), favRows:$$('.help-sec')[0].querySelectorAll('.help-row').length, pressed:$('#help-topics [data-a="help-fav"][data-k="t:register"]').getAttribute('aria-pressed'), ls:JSON.parse(localStorage.getItem(HELP_LS)).fav.pc}));
+  ok(Gv.fav.join() === 'g:print,t:register' && Gv.sec && Gv.favRows === 2 && Gv.pressed === 'true' && Gv.ls.length === 2, 'help: star adds topics and guided actions to Preferiti (shown on top, saved per installation)', Gv);
+  await p.click('[data-a="help-sort"][data-v="fav"]'); await p.waitForTimeout(100);
+  Gv = await p.evaluate(() => ({t:$$('#help-topics .help-item')[0].dataset.id, g:$$('#help-guides .help-g')[0].dataset.id}));
+  await p.click('[data-a="help-sort"][data-v="az"]'); await p.waitForTimeout(100);
+  Gv.az = await p.evaluate(() => { const a = $$('#help-topics .help-item .hi-t').map(x => x.textContent); return a.every((x, i) => !i || a[i - 1].localeCompare(x, 'it', {sensitivity:'base'}) <= 0); });
+  await p.click('[data-a="help-sort"][data-v="pop"]'); await p.waitForTimeout(100);
+  ok(Gv.t === 'register' && Gv.g === 'print' && Gv.az, 'help: sort by Preferiti puts favourites first, A-Z sorts by title', Gv);
+  Gv = await p.evaluate(() => { S.settings.operator = 'Mario Test'; const m0 = helpFavs().length; helpToggleFav('g:backup'); const m1 = helpFavs().join(); S.settings.operator = ''; const pc = helpFavs().join(); S.settings.operator = 'mario test '; const m2 = helpFavs().join(); S.settings.operator = ''; return {m0, m1, pc, m2}; });
+  ok(Gv.m0 === 0 && Gv.m1 === 'g:backup' && Gv.pc === 'g:print,t:register' && Gv.m2 === 'g:backup', 'help: favourites are separate per operator name (else per PC)', Gv);
+  // action tags: every topic has colour-coded action tags with readable contrast, and a legend
+  Gv = await p.evaluate(() => { helpEnsure(); return {acts:HELP_ACTS, bad:HELP_TOPICS.filter(tp => !tp.acts.length || tp.acts.some(a => !HELP_ACTS[a]) || !tp.tags.length).map(tp => tp.id), n:HELP_TOPICS.length,
+    btns:$$('#help-filters [data-a="help-act"]').length, chip:getComputedStyle($('#help-topics .hact')).color, legend:!!$('.hf-legend'), keys:['Come fare','Cos\'è','Creare','Modificare','Eliminare','Stampare','Importare / Esportare','Risolvere problemi'].every(k => Object.values(HELP_ACTS).some(a => a.it === k))}; });
+  const Glum = (h) => { const c = [1, 3, 5].map(i => parseInt(h.substr(i, 2), 16) / 255).map(v => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+  const Gcr = Object.values(Gv.acts).map(a => { const [l1, l2] = [Glum(a.c), Glum(a.bg)].sort((x, y) => y - x); return (l1 + 0.05) / (l2 + 0.05); });
+  ok(!Gv.bad.length && Gv.n >= 33 && Gv.btns >= 8 && Gv.keys && Gv.legend && new Set(Object.values(Gv.acts).map(a => a.c)).size === Object.keys(Gv.acts).length && Gcr.every(x => x >= 4.5), 'help: action tags (Come fare, Cos\'è, Creare, Modificare, Eliminare, Stampare, Importare/Esportare, Risolvere problemi…) on every topic, distinct colours, contrast ≥ 4.5', {bad:Gv.bad, cr:Gcr.map(x => x.toFixed(1))});
+  // tag filters, then search has priority: tags reset and only the tags of the results stay lit
+  await p.click('#help-filters [data-a="help-tag"][data-t="print"]'); await p.waitForTimeout(80);
+  await p.click('#help-filters [data-a="help-act"][data-t="fix"]'); await p.waitForTimeout(80);
+  Gv = await p.evaluate(() => ({tag:HELP.tag, act:HELP.act, ids:$$('#help-topics .help-item').map(b => b.dataset.id), all:helpList().every(tp => tp.tags.includes('print') && tp.acts.includes('fix'))}));
+  ok(Gv.tag === 'print' && Gv.act === 'fix' && Gv.ids.length >= 3 && Gv.all && Gv.ids.includes('calib'), 'help: the two filters (topic + action) combine', Gv);
+  await p.fill('#help-q', 'QR'); await p.waitForTimeout(120);
+  Gv = await p.evaluate(() => ({tag:HELP.tag, act:HELP.act, lit:$$('#help-filters [data-a="help-tag"].lit').map(b => b.dataset.t), litA:$$('#help-filters .hact.lit').length, ai:$('#help-filters [data-a="help-tag"][data-t="ai"]').className, aiVis:$('#help-filters [data-a="help-tag"][data-t="ai"]').checkVisibility(), first:$$('#help-topics .help-item').slice(0, 3).map(b => b.dataset.id), n:$$('#help-topics .help-item').length, focus:document.activeElement.id}));
+  ok(Gv.tag === '' && Gv.act === '' && ['label', 'print', 'archive', 'qr'].every(x => Gv.lit.includes(x)) && !Gv.lit.includes('ai') && /nomatch/.test(Gv.ai) && !Gv.aiVis && Gv.litA > 0 && Gv.first.includes('qr-reprint') && Gv.focus === 'help-q', 'help: typing resets the filters; searching "QR" lights Etichette/Stampa/Archivio, never AI', Gv);
+  Gv = await p.evaluate(() => { const r = (q) => { HELP.q = q; return helpList().map(x => x.id); };
+    const o = {racc:r('raccoglitore').slice(0, 3), arch:r('nuovo archivio').slice(0, 4), ditta:r('nuova ditta').slice(0, 3), azienda:r('azienda').includes('client-new'), stampare:r('stampare')[0], stampa:r('stampa')[0], e1:r('etichetta').join(), e2:r('etichette').join(),
+      acc:r('calibrazióne')[0], acc2:r('CALIBRAZIONE')[0], cose:r('cos\'è il codice multi')[0], cqr:r('codice qr').slice(0, 3), excel:r('excel')[0], none:r('zzzqqq').length, en:null};
+    S.lang = 'en'; o.en = r('labels printing')[0]; o.enBinder = r('new folder').slice(0, 3); S.lang = 'it'; HELP.q = ''; return o; });
+  ok(Gv.racc.includes('create') && Gv.arch.includes('create') && Gv.ditta.includes('client-new') && Gv.azienda && Gv.stampare === 'print' && Gv.stampa === 'print' && Gv.e1 === Gv.e2 && Gv.e1.length > 0 && Gv.acc === 'calib' && Gv.acc2 === 'calib' && Gv.cose === 'multi' && Gv.cqr.includes('qr') && Gv.excel === 'excel' && Gv.none === 0 && Gv.en === 'print' && Gv.enBinder.includes('create'), 'help search: accents, plurals, synonyms (faldone/raccoglitore/archivio, cliente/ditta/azienda, stampa/stampare, QR/codice QR), English', Gv);
+  await p.fill('#help-q', ''); await p.waitForTimeout(80);
+  await p.fill('#help-q', 'zzzqqq'); await p.waitForTimeout(80);
+  ok((await p.innerText('#help-topics')).includes('Nessun argomento') && (await p.$$('#help-filters .btn-tag.lit')).length === 0, 'help: no result → friendly message, no tag lit');
+  await p.fill('#help-q', ''); await p.waitForTimeout(80);
+  // topic page: star + guided action + new topics
+  await p.click('#help-topics [data-a="help-topic"][data-id="client-new"]'); await p.waitForTimeout(100);
+  Gv = await p.evaluate(() => ({h:$('.help-title').textContent, star:!!$('.help-title-row [data-a="help-fav"]'), cta:($('.guide-cta [data-a="guide-start"]') || {}).dataset, acts:$$('.help-body > .hi-tags .hact').map(x => x.dataset.act), newT:['edit', 'guide-help', 'client-new'].every(id => { const h = helpTopic(id); return h.body.it.length > 300 && h.body.en.length > 300 && h.guide !== undefined; }), meta:helpTopic('pdf').guide === 'pdf' && /^Come scarico/.test(helpTopic('pdf').title.it)}));
+  ok(Gv.h === 'Come creo un nuovo cliente' && Gv.star && Gv.cta && Gv.cta.id === 'client' && Gv.acts.join() === 'how,create' && Gv.newT && Gv.meta, 'help: topic page with star, guided action, action tags; new topics (new client, edit binder, how to use help); topics of other files get titles/tags', Gv);
+  await p.evaluate(() => helpClose());
+  // a topic registered later by another module, without tags/acts/pop, is handled gracefully
+  Gv = await p.evaluate(() => { HELP_TOPICS.push({id:'g-late', title:{it:'Come elimino un foglio di prova', en:'How do I delete a test sheet'}, body:{it:'<p>Prova tardiva</p>', en:'<p>Late test</p>'}});
+    helpOpen(); const tp = helpTopic('g-late'); const o = {tags:tp.tags.join(), acts:tp.acts.join(), pop:tp.pop, row:!!$('#help-topics [data-id="g-late"]'), chip:$('#help-filters [data-t="other"]') ? 1 : 0};
+    HELP_TOPICS.splice(HELP_TOPICS.indexOf(tp), 1); helpClose(); return o; });
+  ok(Gv.tags === 'other' && Gv.acts === 'how,delete' && Gv.pop === 20 && Gv.row && Gv.chip, 'help: topics added later without tags get defaults (tag Altro, actions guessed from the title, popularity 20)', Gv);
+
+  // ---- guided tours: every tour runs start → end in the current UI (target visible or graceful skip)
+  Gv = await p.evaluate(async () => {
+    const wait = (ms) => new Promise(r => setTimeout(r, ms));
+    const setv = (sel, v) => { const el = $(sel); if (el){ el.value = v; el.dispatchEvent(new Event('input', {bubbles:true})); } };
+    const out = {}, bad = [];
+    for (const id of Object.keys(GUIDES)){
+      while (topModal()) closeModal(true);
+      S.view = 'archive'; UI.q = ''; renderAll(); guideStart(id); await wait(450);
+      const log = [];
+      for (let k = 0; k < 40 && G.g; k++){
+        const st = guideStep();
+        if (st.final){ log.push('end'); break; }
+        let el = guideResolve(st.target) || guideResolve(st.target);
+        if (!el){ await wait(1100); el = guideResolve(st.target); }
+        const hint = ($('#g-hint') || {}).textContent || '';
+        if (!el){ log.push('skip:' + G.i); if (!hint) bad.push(id + ':' + G.i); }
+        if (st.extra) st.extra.fn();
+        if (UI.ed && $('#ed-company_name') && !UI.ed.d.company_name) setv('#ed-company_name', 'Guida Test G Srl');
+        if ($('#cl-name') && !$('#cl-name').value) setv('#cl-name', 'Cliente Test G');
+        if ($('#db-session-name') && !$('#db-session-name').value) setv('#db-session-name', 'Sessione test G');
+        if (id === 'find' && st.require && !UI.q){ setv('.card .toolbar input[data-bind="q"]', (filteredBinders()[0] || S.binders[0]).speaking_code); await wait(100); }
+        if (id === 'edit' && UI.ed && !UI.ed.isNew && st.guard) setv('#ed-binder_title', 'Titolo test G ' + Date.now());
+        if (id === 'partial' && st.require && !usedSet().size){ const s = $('#slotmap .slot'); if (s) s.click(); await wait(100); }
+        const i = G.i;
+        for (let r = 0; r < 4 && G.g && G.i === i; r++){ guideNext(); await wait(650); }
+        if (G.i <= i){ bad.push(id + ' stuck at ' + i + ' ' + G.msg); break; }
+        log.push(i);
+      }
+      out[id] = log.join(' ');
+      if (!guideStep() || !guideStep().final) bad.push(id + ' not finished');
+      guideStop(); while (topModal()) closeModal(true);
+    }
+    return {out, bad, n:Object.keys(GUIDES).length, ids:Object.keys(GUIDES).join()};
+  });
+  ok(!Gv.bad.length && Gv.n >= 14 && ['create','print','pdf','client','find','edit','calib','partial','manifest','ai','session','backup','import','register'].every(id => Gv.ids.split(',').includes(id)), 'guides: all ' + Gv.n + ' tours run start → end in IT (targets incl. ⚙ menu and print Advanced options)', Gv);
+  ok(await p.evaluate(() => Object.values(GUIDES).every(g => g.title.it && g.title.en && g.steps.every(s => s.title.it && s.title.en && s.text.it && s.text.en)) && !JSON.stringify(Object.values(GUIDES).map(g => g.steps.map(s => s.text.it))).includes('Etichetta divisa')), 'guides: IT + EN on every step, no outdated label mode names');
+  // missing target → graceful skip message, Next goes on
+  Gv = await p.evaluate(async () => { S.view = 'archive'; renderAll(); GUIDES.gtest = {title:{it:'Prova', en:'Test'}, steps:[{target:'#non-esiste', title:{it:'A', en:'A'}, text:{it:'a', en:'a'}}, {final:true, title:{it:'B', en:'B'}, text:{it:'b', en:'b'}}]};
+    guideStart('gtest'); await new Promise(r => setTimeout(r, 1300)); const h = $('#g-hint').textContent; guideNext(); const i = G.i; guideStop(); delete GUIDES.gtest; return {h, i}; });
+  ok(Gv.h === await p.evaluate(() => t('g_missing')) && Gv.i === 1, 'guides: a missing target shows "premi Avanti per saltare" and Next skips it', Gv);
+  // never exit by accident: Esc, ✕, clicks outside → question; Continua keeps the step
+  await p.evaluate(() => { while (topModal()) closeModal(true); S.view = 'archive'; renderAll(); guideStart('create'); }); await p.waitForTimeout(700);
+  await p.click('[data-a="guide-next"]'); await p.waitForTimeout(600);
+  await p.evaluate(() => { const d = $$('.g-dot'); d[4].click(); }); await p.waitForTimeout(200);
+  Gv = await p.evaluate(() => ({i:G.i, live:$('#g-live').textContent}));
+  ok(Gv.i === 4 && Gv.live.includes('Passo 5 di') && Gv.live.includes('Titolo del faldone'), 'guides: the step is announced (aria-live)', Gv);
+  await p.evaluate(() => { if (typeof taClose === 'function') taClose(); $('.g-card [data-a="guide-next"]').focus(); });   // (an open typeahead list takes the first Esc)
+  await p.keyboard.press('Escape'); await p.waitForTimeout(150);
+  Gv = await p.evaluate(() => ({c:!!$('.g-confirm'), txt:$('.g-confirm') && $('.g-confirm').textContent, f:document.activeElement && document.activeElement.dataset.a, g:!!G.g, ed:!!UI.ed}));
+  ok(Gv.c && /Vuoi davvero uscire dalla guida\?/.test(Gv.txt) && /stesso passo/.test(Gv.txt) && Gv.f === 'guide-stay' && Gv.g && Gv.ed, 'guides: Esc asks "Vuoi davvero uscire dalla guida?" with focus on Continua', Gv);
+  await p.keyboard.press('Enter'); await p.waitForTimeout(150);
+  Gv = await p.evaluate(() => ({c:!!$('.g-confirm'), i:G.i, g:!!G.g, ed:!!UI.ed}));
+  ok(!Gv.c && Gv.i === 4 && Gv.g && Gv.ed, 'guides: "Continua la guida" keeps the same step and the form', Gv);
+  await p.click('.g-card [data-a="guide-close"]'); await p.waitForTimeout(120);
+  const Gx = await p.evaluate(() => !!$('.g-confirm'));
+  await p.mouse.click(5, 5); await p.waitForTimeout(100);
+  const Gx2 = await p.evaluate(() => !!$('.g-confirm') && !!G.g);
+  await p.keyboard.press('Escape'); await p.waitForTimeout(120);
+  ok(Gx && Gx2 && await p.evaluate(() => !$('.g-confirm') && G.i === 4), 'guides: the ✕ asks too; a click around the question or Esc keeps the guide');
+  await p.mouse.click(4, 400); await p.waitForTimeout(120);
+  Gv = await p.evaluate(() => ({msg:G.msg === t('g_outside'), c:!!$('.g-confirm')}));
+  await p.mouse.click(4, 400); await p.waitForTimeout(120);
+  Gv.c2 = await p.evaluate(() => !!$('.g-confirm') && !!G.g && !!UI.ed);
+  await p.click('[data-a="guide-stay"]'); await p.waitForTimeout(100);
+  ok(Gv.msg && !Gv.c && Gv.c2 && await p.evaluate(() => G.i === 4 && !$('.g-confirm')), 'guides: a click outside reminds, a second one asks — never exits silently', Gv);
+  // clicking a field of another step jumps to it; keyboard arrows
+  await p.evaluate(() => $('#ed-tags').scrollIntoView({block:'center'})); await p.waitForTimeout(300);
+  const Gtb = await p.evaluate(() => { const r = $('#ed-tags').getBoundingClientRect(); return {x:r.x + 30, y:r.y + r.height / 2}; });
+  await p.mouse.click(Gtb.x, Gtb.y); await p.waitForTimeout(250);
+  Gv = await p.evaluate(() => ({t:L(guideStep().title), f:document.activeElement.id, c:!!$('.g-confirm'), i:G.i}));
+  ok(Gv.t === 'Tag' && Gv.f === 'ed-tags' && !Gv.c, 'guides: clicking the field of another step jumps to that step (no exit question)', Gv);
+  const Gi0 = Gv.i;
+  await p.keyboard.press('ArrowRight'); await p.waitForTimeout(80);
+  const Gi1 = await p.evaluate(() => G.i);   // focus is in the field: arrows edit text, the guide does not move
+  await p.evaluate(() => document.activeElement.blur()); await p.keyboard.press('ArrowRight'); await p.waitForTimeout(120);
+  const Gi2 = await p.evaluate(() => G.i);
+  await p.keyboard.press('ArrowLeft'); await p.waitForTimeout(120);
+  const Gi3 = await p.evaluate(() => G.i);
+  await p.evaluate(() => document.activeElement.blur()); await p.keyboard.press('Enter'); await p.waitForTimeout(120);
+  const Gi4 = await p.evaluate(() => G.i);
+  ok(Gi1 === Gi0 && Gi2 === Gi0 + 1 && Gi3 === Gi0 && Gi4 === Gi0 + 1, 'guides: → / Enter next, ← back (not while typing in a field)', [Gi0, Gi1, Gi2, Gi3, Gi4]);
+  // leave halfway → "Riprendi la guida" from the same step (toast + help panel)
+  await p.keyboard.press('Escape'); await p.waitForTimeout(100); await p.click('[data-a="guide-quit"]'); await p.waitForTimeout(150);
+  Gv = await p.evaluate(() => ({g:!!G.g, ed:!!UI.ed, r:guideResumeInfo(), toast:[...document.querySelectorAll('.toast')].some(x => x.textContent.includes('Riprendi'))}));
+  ok(!Gv.g && Gv.ed && Gv.r && Gv.r.id === 'create' && Gv.r.i === Gi4 && Gv.toast, 'guides: "Esci" stops the guide, keeps the form and remembers the step', Gv);
+  await p.evaluate(() => helpOpen()); await p.waitForTimeout(120);
+  Gv = await p.evaluate(() => ({txt:($('.help-resume') || {}).textContent || ''}));
+  await p.click('[data-a="guide-resume"]'); await p.waitForTimeout(500);
+  Gv.after = await p.evaluate(() => ({id:G.id, i:G.i, help:HELP.open}));
+  ok(Gv.txt.includes('Riprendi la guida') && Gv.txt.includes('passo ' + (Gi4 + 1)) && Gv.after.id === 'create' && Gv.after.i === Gi4 && !Gv.after.help, 'guides: "Riprendi la guida" in the help panel restarts from the same step', Gv);
+  await p.evaluate(() => { const d = $$('.g-dot'); d[d.length - 1].click(); }); await p.waitForTimeout(150);
+  await p.keyboard.press('Escape'); await p.waitForTimeout(100);
+  ok(await p.evaluate(() => !G.g && !$('.g-confirm') && !guideResumeInfo()), 'guides: on the final step Esc / Termina just close, nothing left to resume');
+  await p.evaluate(() => { while (topModal()) closeModal(true); });
+  // English
+  await p.evaluate(() => { S.lang = 'en'; S.view = 'archive'; renderAll(); helpOpen(); }); await p.waitForTimeout(120);
+  Gv = await p.evaluate(() => ({sort:$('[data-a="help-sort"][data-v="pop"]').textContent, act:$('#help-filters [data-a="help-act"][data-t="how"]').textContent, first:$('#help-topics .hi-t').textContent, g:$('#help-guides .help-g .hi-t').textContent, ph:$('#help-q').placeholder}));
+  await p.evaluate(() => { helpClose(); guideStart('client'); }); await p.waitForTimeout(300);
+  await p.keyboard.press('Escape'); await p.waitForTimeout(100);
+  Gv.card = await p.evaluate(() => ({h:$('.g-card h4').textContent, q:$('.g-confirm h4').textContent, b:$('[data-a="guide-stay"]').textContent}));
+  await p.click('[data-a="guide-quit"]'); await p.waitForTimeout(100);
+  ok(Gv.sort === 'Popular' && Gv.act === 'How to' && Gv.first === 'How do I create a new binder and its label?' && /Create a new binder/.test(Gv.g) && /client/.test(Gv.ph) && Gv.card.h === 'Open Information' && /really want to leave/.test(Gv.card.q) && /Continue the guide/.test(Gv.card.b), 'help + guides in English', Gv);
+  // clean up: help memory, operator, language, binders/clients/sessions created by the tours
+  await p.evaluate(async (snap) => {
+    guideStop(); while (topModal()) closeModal(true); helpClose();
+    HELP_MEM = JSON.parse(snap.s); helpSave(); HELP.sort = ''; HELP.q = ''; HELP.tag = ''; HELP.act = '';
+    S.settings.operator = snap.op; S.lang = snap.lang; S.binders = JSON.parse(snap.binders); S.clients = JSON.parse(snap.clients);
+    for (const s of dbSessions()) if (!snap.sess.includes(s.id)) await dbDeleteSession(s.id);
+    UI.q = ''; S.print = JSON.parse(snap.print); S.usedSlots = JSON.parse(snap.used); S.infoTab = snap.infoTab; UI.importParsed = null; commit(); S.hasUnexportedChanges = snap.dirty; S.view = 'archive'; renderAll(); dbSyncFromState('t'); await dbPersist();
+  }, Gsnap);
+  ok(await p.evaluate((n) => S.binders.length === n && !S.binders.some(b => /Test G/.test(b.company_name)) && !(S.clients || []).some(c => c.name === 'Cliente Test G'), JSON.parse(Gsnap.binders).length), 'stream G cleanup: binders, clients and help memory restored');
 
   // @@STREAM-M@@
 
