@@ -265,7 +265,8 @@ function scCardHTML(){
       (b.notes ? '<h3>' + esc(t('sc_notes')) + '</h3><p class="sc-notes" id="sc-notes">' + esc(b.notes) + '</p>' : '') +
       (b.contacts ? '<h3>' + esc(t('sc_contacts')) + '</h3><p>' + esc(b.contacts) + '</p>' : '') +
       (tags.length ? '<h3>' + esc(t('sc_tags')) + '</h3><div class="sc-chips">' + tags.map(x => '<span class="sc-tag">' + esc(x) + '</span>').join('') + '</div>' : '') + '</section>' : '') +
-    '<div class="sc-foot sc-muted">' + esc(t('sc_updated', {d:fmtDate(b.updated_at, true)})) + (SC.P.mode === 'local' ? '<br>' + esc(t('sc_local')) : SC.P.server ? '<br>' + esc(t('sc_server')) : '') + '</div>' +
+    '<div class="sc-foot sc-muted">' + esc(t('sc_updated', {d:fmtDate(b.updated_at, true)})) + (SC.P.mode === 'local' ? '<br>' + esc(t('sc_local')) : SC.P.server ? '<br>' + esc(t('sc_server')) : '') +
+      (SC.P.server && typeof jrPhoneHTML === 'function' ? '<br><button type="button" class="sc-link jr-ph-open" data-jr="ph-open" id="jr-ph-open">' + esc(t('jr_ph_h')) + '</button>' : '') + '</div>' +
     (canEdit ? '<button type="button" class="sc-fab" data-s="edit" id="sc-edit" aria-label="' + esc(t('sc_edit')) + '">' + sic('pencil') + '<span>' + esc(t('sc_edit')) + '</span></button>' : '<div class="sc-ro sc-muted">' + sic('lock') + esc(t('sc_readonly')) + '</div>') +
     '</main>';
 }
@@ -329,6 +330,7 @@ function scRender(){
       '<button type="button" class="sc-btn sc-block" data-s="logout">' + sic('out') + esc(t('sc_logout')) + '</button></div></main>'; break;
     case 'card': body = scCardHTML(); break;
     case 'edit': body = scEditHTML(); break;
+    case 'journal': body = typeof jrPhoneHTML === 'function' ? jrPhoneHTML() : ''; break;   // v11: le mie sincronizzazioni (06i-journal.js)
     default: body = scInfoHTML('alert', (SC.msg && SC.msg.text) || 'Error', '');
   }
   document.getElementById('app').innerHTML = scHeader() + body;

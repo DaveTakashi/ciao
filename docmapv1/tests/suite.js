@@ -2819,6 +2819,291 @@ const sec = (n) => console.log('\n== ' + n);
   }
   // @@STREAM-X@@
   // @@STREAM-J@@
+  sec('v11 J: push / sync journal, multi-client convergence, v10.1 server upgrade');
+  {
+    const Jcp = require('child_process'), Jpath = require('path'), Jcrypto = require('crypto');
+    const APP_VERSION_J = await p.evaluate(() => APP_VERSION);
+    let Jphp = ''; try { Jphp = Jcp.execFileSync('php', ['-r', 'echo extension_loaded("pdo_sqlite") && extension_loaded("openssl") ? "ok" : "no";']).toString(); } catch(e){}
+    // ---- local state: a v10.1 state (no syncJournal) loads, the field is added with its default ----
+    let Jv, Jv2, Jv3;
+    Jv = await p.evaluate(() => { const o = migrate({schema:26.9, settings:{deviceId:'dev-old'}, binders:[{id:'jm1', speaking_code:'JM1', updated_at:'2026-10-01T08:00:00.000Z'}], sync:{peers:{}, history:[]}});
+      return {j:Array.isArray(o.syncJournal) && o.syncJournal.length === 0, b:o.binders.length, u:o.binders[0].updated_at, keep:migrate({syncJournal:[{id:'jr-1', at:'2026-11-01T08:00:00.000Z'}, null]}).syncJournal.length}; });
+    ok(Jv.j && Jv.b === 1 && Jv.u === '2026-10-01T08:00:00.000Z' && Jv.keep === 1, 'J: a v10.1 state without syncJournal loads unchanged and gets syncJournal = [] (migrate, additive)', Jv);
+    Jv = await p.evaluate(async () => {
+      const r = {b:'x', n:2.5, t:true, z:null, e:{}, l:[1, 'a'], o:{b:1, a:' '}, _p:1, updated_at:'x', short_url:'u', id:'k'};
+      const ci = jrClientInfo(); return {canon:jrJson(jrCanon(r, true)), info:{app:ci.app, name:typeof ci.name}, dev:ci.id === syncDeviceId()};
+    });
+    ok(Jv.canon === '{"b":"x","e":[],"id":"k","l":["1","a"],"n":"2.5","o":{"a":"\\u2028","b":"1"},"t":"true","z":""}' && Jv.dev && Jv.info.app === APP_VERSION_J && Jv.info.name === 'string', 'J: canonical JSON mirrors api.php canon() (sorted keys, scalars as strings, {} → [], meta / _ keys out, U+2028 escaped); client identity {id, name, app}', Jv);
+
+    if (Jphp !== 'ok') console.log('  (stream J server part skipped: php CLI with pdo_sqlite + openssl not installed)');
+    else {
+      const JR_ = Jpath.resolve(__dirname, 'shots', 'jsrv'), JDp = Jpath.join(JR_, 'studio-de'), JSP = Jpath.join(JDp, 'server-php');
+      Jcp.execFileSync('python3', [Jpath.resolve(__dirname, '..', 'tools', 'build_deploy.py'), JDp, '--studio-name', 'Studio Registro Prova']);
+      const JDATA = Jpath.resolve(__dirname, 'shots', 'jsrv-data', String(Date.now())); fs.mkdirSync(JDATA, {recursive:true});
+      const JT = {dave:'jtok-admin-' + Jcrypto.randomBytes(9).toString('hex'), mario:'jtok-ed-' + Jcrypto.randomBytes(9).toString('hex'), anna:'jtok-ed2-' + Jcrypto.randomBytes(9).toString('hex'), lucia:'jtok-v-' + Jcrypto.randomBytes(9).toString('hex')};
+      const sha = (s) => Jcrypto.createHash('sha256').update(s).digest('hex');
+      const Jcfg = (extra) => "<?php\nif (!defined('DOCMAP_API')) { http_response_code(404); exit; }\nreturn ['data_dir' => " + JSON.stringify(JDATA) + ", 'aes_key' => '" + Jcrypto.randomBytes(32).toString('base64') + "',\n  'tokens' => [" +
+        [['dave', 'admin'], ['mario', 'editor'], ['anna', 'editor'], ['lucia', 'viewer']].map(([u, r]) => "['user' => '" + u + "', 'role' => '" + r + "', 'token_sha256' => '" + sha(JT[u]) + "']").join(', ') + "],\n  'allowed_origins' => ['null'], 'max_fails' => 50, 'studio_name' => 'Studio Registro Prova'" + (extra || '') + "];\n";
+      const JcfgText = Jcfg();
+      fs.writeFileSync(Jpath.join(JSP, 'config.php'), JcfgText);
+      // the v10.1 API first (same data folder, same key): the data the user has today
+      fs.writeFileSync(Jpath.join(JSP, 'api.php'), Jcp.execFileSync('git', ['show', '68ae170:docmapv1/server-php/api.php'], {cwd:Jpath.resolve(__dirname, '..')}));
+      const JPORT = 18850 + (process.pid % 300), JO = 'http://127.0.0.1:' + JPORT, JAPI = JO + '/studio-de/server-php/api.php';
+      const Jsrv = Jcp.spawn('php', ['-S', '127.0.0.1:' + JPORT, '-t', JR_, Jpath.resolve(__dirname, 'php-router.php')], {stdio:'ignore'});
+      const Jsleep = (ms) => new Promise(r => setTimeout(r, ms));
+      const Jq = async (route, o) => {
+        o = o || {}; const h = Object.assign({}, o.headers || {});
+        if (o.token) h['X-DocMap-Token'] = o.token;
+        if (o.body !== undefined) h['Content-Type'] = 'application/json';
+        const r = await fetch(JAPI + '?r=' + route + (o.q ? '&' + new URLSearchParams(o.q).toString() : ''), {method:o.body !== undefined ? 'POST' : 'GET', headers:h, body:o.body === undefined ? undefined : JSON.stringify(o.body)});
+        let j = null; try { j = await r.json(); } catch(e){}
+        return {s:r.status, j};
+      };
+      const Jsql = (q) => JSON.parse(Jcp.execFileSync('python3', ['-c', 'import sqlite3,json,sys; c=sqlite3.connect(sys.argv[1]); print(json.dumps([list(r) for r in c.execute(sys.argv[2])]))', Jpath.join(JDATA, 'docmap.sqlite'), q]).toString());
+      let Jup = false; for (let i = 0; i < 50 && !Jup; i++){ try { Jup = (await Jq('ping')).s === 200; } catch(e){ await Jsleep(100); } }
+      const Jctxs = [];
+      try {
+        // ---- 1. v10.1 server with data (pushed by a v10.1 client: no device info) ----
+        const JB = (id, code, at, x) => Object.assign({id, speaking_code:code, company_name:'Ornitorinco Riservato ' + code + ' Srl', category:'IVA', short_code:'dm26Jr' + code.slice(-3) + 'Qx', room_code:'R', cabinet_code:'7', shelf_code:'β',
+          contents_items:[{year:'2025', description:'Fatture riservate', status:'archive'}], tags:'registro', created_at:'2026-10-01T08:00:00.000Z', updated_at:at}, x || {});
+        const Jbase = [JB('j-x', 'JRX', '2026-10-10T09:00:00.000Z'), JB('j-y', 'JRY', '2026-10-11T09:00:00.000Z'), JB('j-z', 'JRZ', '2026-10-12T09:00:00.000Z'), JB('j-w', 'JRW', '2026-10-13T09:00:00.000Z')];
+        const Jcl = {id:'j-c1', name:'Ornitorinco Riservato JRX Srl', multi_code:'J901', updated_at:'2026-10-09T09:00:00.000Z'};
+        Jv = await Jq('push', {token:JT.mario, body:{records:Jbase.map(b => ({type:'binder', id:b.id, updated_at:b.updated_at, data:b})).concat([{type:'client', id:Jcl.id, updated_at:Jcl.updated_at, data:Jcl}]), tombstones:[{type:'binder', id:'j-gone', code:'JRG', deletedAt:'2026-10-05T10:00:00.000Z'}], deviceId:'dev-v101-pc', operator:'Dave'}});
+        const Jv1 = await Jq('ping');
+        ok(Jup && Jv.s === 200 && Jv.j.applied === 6 && Jv.j.journal_id === undefined && Jv1.j.schema === undefined && Jsql("SELECT v FROM meta WHERE k='schema'")[0][0] === '1', 'J: v10.1 API (git 68ae170) holds the data of today: schema 1, no journal', {push:Jv.j, ping:Jv1.j});
+        // ---- 2. upgrade: replace ONLY api.php (config.php and the data folder stay) ----
+        fs.copyFileSync(Jpath.resolve(__dirname, '..', 'server-php', 'api.php'), Jpath.join(JSP, 'api.php'));
+        Jv = await Jq('pull', {token:JT.lucia, q:{since:0}});
+        const Jtables = Jsql("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").map(r => r[0]);
+        ok(Jv.s === 200 && Jv.j.records.length === 5 && Jv.j.tombstones.length === 1 && Jv.j.records.find(r => r.id === 'j-z').updated_at === '2026-10-12T09:00:00.000Z' && Jv.j.records.find(r => r.id === 'j-x').data.company_name === 'Ornitorinco Riservato JRX Srl' &&
+          Jsql("SELECT v FROM meta WHERE k='schema'")[0][0] === '2' && Jtables.includes('sync_journal') && Jtables.includes('sync_journal_items') && Jtables.includes('records') && Jtables.includes('tokens') && (await Jq('ping')).j.schema === 2,
+          'J: the new api.php upgrades the v10.1 database IN PLACE on the first request (schema 1 → 2, additive tables), every record / tombstone / time stamp kept', {n:Jv.j.records.length, t:Jtables});
+        // a v10.1 client (no device info) keeps working: push + patch, journaled as device "unknown"
+        Jv = await Jq('push', {token:JT.mario, body:{records:[{type:'binder', id:'j-old', updated_at:'2026-10-20T09:00:00.000Z', data:JB('j-old', 'JRO', '2026-10-20T09:00:00.000Z')}], tombstones:[], deviceId:'dev-v101-pc'}});
+        Jv2 = await Jq('patch', {token:JT.mario, body:{id:'j-old', patch:{archive_state:'CHECKED_OUT'}, base_updated_at:'2026-10-20T09:00:00.000Z', log:{id:'j-v101-log', who:'Tel', action:'binder.edit', source:'mobile', summary:'v10.1'}}});
+        Jv3 = await Jq('journal', {token:JT.dave, q:{record:'j-old'}});
+        ok(Jv.s === 200 && Jv.j.applied === 1 && Jv2.s === 200 && Jv3.s === 200 && Jv3.j.items.length === 2 && Jv3.j.items.every(e => e.device.name === 'unknown' && e.device.app === 'unknown') && Jv3.j.items.some(e => e.route === 'push' && e.device.id === 'dev-v101-pc') && Jv3.j.items.some(e => e.route === 'patch' && e.records[0].action === 'update'),
+          'J: a v10.1 client (no device headers) still pushes and patches; the journal records it as device "unknown" (push keeps its deviceId)', Jv3.j.items.map(e => [e.route, e.device]));
+
+        // ---- 3. desktop A (v10.1 state of today, file://) and desktop B (new PC), both on the server ----
+        const Jdesk = async (dev, label, token, state) => {
+          const c = await b.newContext({viewport:{width:1366, height:768}, acceptDownloads:true}); Jctxs.push(c);
+          const pg = await c.newPage(); pg.on('pageerror', e => errs.push('J ' + dev + ' PAGEERR ' + e.message)); pg.on('dialog', d => d.accept());
+          pg.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errs.push('J ' + dev + ' CONSOLE ' + m.text()); });
+          await pg.goto(URL_);
+          await pg.evaluate(([st, d, url, tok]) => { localStorage.clear(); localStorage.setItem('docmap_v26_state', JSON.stringify(st)); localStorage.setItem('docmap_v26_device', d); localStorage.setItem('docmap_v26_srv', JSON.stringify({url, token:tok, basic:''})); }, [state, dev, JAPI, token]);
+          await pg.reload(); await pg.waitForTimeout(1200);
+          await pg.evaluate(() => { while (topModal()) closeModal(true); window.__jB = (c) => S.binders.find(x => x.speaking_code === c); window.__jW = (ms) => new Promise(r => setTimeout(r, ms || 15)); window.__jLast = () => S.syncJournal[S.syncJournal.length - 1]; });
+          return pg;
+        };
+        const Jv101 = {schema:26.9, lang:'it', view:'archive', onboarded:true, hasUnexportedChanges:false, settings:{studioName:'Studio Registro Prova', operator:'Dave', colorMode:'category', deviceId:'dev-A', deviceLabel:'PC Ufficio A'},
+          binders:Jbase.map(x => JSON.parse(JSON.stringify(x))), clients:[Object.assign({}, Jcl)], tombstones:[{type:'binder', id:'j-gone', code:'JRG', deletedAt:'2026-10-05T10:00:00.000Z', who:'Dave'}], sync:{peers:{}, lastExportAt:null, lastImportAt:null, lastPeer:'', history:[]}};
+        const A = await Jdesk('dev-A', 'PC Ufficio A', JT.dave, Jv101);
+        const B = await Jdesk('dev-B', 'PC Ufficio B', JT.mario, {schema:26.9, lang:'it', onboarded:true, settings:{operator:'Mario', deviceLabel:'PC Ufficio B', colorMode:'category'}, binders:[], clients:[]});
+        Jv = await A.evaluate(() => ({n:S.binders.length, j:Array.isArray(S.syncJournal) && S.syncJournal.length === 0, u:__jB('JRZ').updated_at, label:jrClientInfo().name}));
+        ok(Jv.n === 4 && Jv.j && Jv.u === '2026-10-12T09:00:00.000Z' && Jv.label === 'PC Ufficio A', 'J: desktop A opens its v10.1 state unchanged (4 binders, timestamps), empty local journal, device name "PC Ufficio A"', Jv);
+        const Jsync = (pg, o) => pg.evaluate(async (oo) => { const r = await srvSync(oo || {}); await JR.last; return r; }, o || {});
+        Jv = [await Jsync(A), await Jsync(B)];
+        Jv2 = await B.evaluate(() => ({n:S.binders.length, codes:S.binders.map(x => x.speaking_code).sort().join(','), e:__jLast()}));
+        ok(!Jv[0].error && !Jv[1].error && Jv2.n === 5 && Jv2.codes === 'JRO,JRW,JRX,JRY,JRZ' && Jv2.e.kind === 'server' && Jv2.e.counts.received >= 5 && Jv2.e.items.filter(i => i.action === 'create').length >= 5 && Jv2.e.device.id === 'dev-B' && Jv2.e.server_journal.length >= 1,
+          'J: first syncs: B receives everything; its local journal lists each record (create, took_remote) with the server journal ids', {r:Jv, e:Jv2.e && Jv2.e.counts});
+
+        // ---- S1: A edits X offline, B edits X LATER but syncs EARLIER ----
+        await A.evaluate(async () => { __jB('JRX').notes = 'A: prima modifica'; commit(); await __jW(25); });
+        await B.evaluate(async () => { __jB('JRX').notes = 'B: modifica dopo'; commit(); });
+        await Jsync(B); Jv = await Jsync(A);
+        Jv2 = await A.evaluate(() => { const e = __jLast(), it = e.items.find(i => i.code === 'JRX'); return {notes:__jB('JRX').notes, it, kind:e.kind}; });
+        Jv3 = await Jq('binder', {token:JT.lucia, q:{code:'JRX'}});
+        ok(Jv2.notes === 'B: modifica dopo' && Jv3.j.binder.notes === 'B: modifica dopo' && Jv2.it && Jv2.it.action === 'conflict' && Jv2.it.reason === 'both' && Jv2.it.resolution === 'took_remote' && Jv2.it.how === 'auto' &&
+          Jv2.it.fields.some(f => f[0] === 'notes' && f[1] === 'A: prima modifica' && f[2] === 'B: modifica dopo'),
+          'J S1: X edited on A, later on B, B syncs first → most recent (B) wins everywhere; A\'s journal shows the conflict, the rule and both values', Jv2.it);
+        // ---- S2: deletion vs edit, both orders ----
+        await B.evaluate(async () => { __jB('JRZ').notes = 'B modifica Z'; commit(); });
+        await Jsync(B);
+        await A.evaluate(async () => { await __jW(25); S.binders = S.binders.filter(x => x.speaking_code !== 'JRZ'); commit(); });   // A had not seen B's edit: deletes later
+        await Jsync(A); await Jsync(B);
+        Jv = await A.evaluate(() => { const e = __jLast(); return {hasZ:!!__jB('JRZ'), inZ:e.items.find(i => i.code === 'JRZ' && i.dir === 'in'), outZ:e.items.find(i => i.code === 'JRZ' && i.dir === 'out')}; });
+        Jv2 = await B.evaluate(() => ({hasZ:!!__jB('JRZ'), it:__jLast().items.find(i => i.code === 'JRZ')}));
+        Jv3 = await Jq('binder', {token:JT.lucia, q:{code:'JRZ'}});
+        ok(!Jv.hasZ && !Jv2.hasZ && Jv3.s === 404 && Jv.inZ && Jv.inZ.action === 'rejected-older' && Jv.outZ && Jv.outZ.action === 'sent-delete' && Jv.outZ.resolution === 'accepted' && Jv2.it && Jv2.it.action === 'delete' && Jv2.it.snapshot && Jv2.it.snapshot.notes === 'B modifica Z',
+          'J S2a: B edits Z, A deletes it later → the deletion wins on A, server and B; journals: A "older, ignored" + "deletion sent/accepted", B "deleted" with a full copy of what was removed', {A:Jv, B:Jv2.it && Jv2.it.action});
+        await A.evaluate(async () => { S.binders = S.binders.filter(x => x.speaking_code !== 'JRW'); commit(); });
+        await Jsync(A);
+        await B.evaluate(async () => { await __jW(25); __jB('JRW').notes = 'B la tiene'; commit(); });   // B had not pulled the deletion: edits later
+        await Jsync(B); await Jsync(A);
+        Jv = await A.evaluate(() => ({w:__jB('JRW') && __jB('JRW').notes, it:__jLast().items.find(i => i.code === 'JRW')}));
+        Jv2 = await Jq('journal', {token:JT.dave, q:{code:'JRW', route:'push', device:'dev-B'}});
+        ok(Jv.w === 'B la tiene' && Jv.it && Jv.it.action === 'conflict' && Jv.it.reason === 'deleted_local' && Jv.it.resolution === 'took_remote' && Jv2.j.items[0] && Jv2.j.items[0].records.some(r => r.code === 'JRW' && r.action === 'create' && r.reason === 'resurrect'),
+          'J S2b: A deletes W, B edits it later → the edit wins (W back on A); server journal: B\'s push "create / resurrect" over the deletion', {A:Jv, srv:Jv2.j.items[0] && Jv2.j.items[0].records});
+
+        // ---- phone (scan.html, web mode with the server): device name, save, conflict, forced ----
+        const Pc = await b.newContext({viewport:{width:390, height:844}, isMobile:true}); Jctxs.push(Pc);
+        const P = await Pc.newPage(); P.on('pageerror', e => errs.push('J phone PAGEERR ' + e.message));
+        await P.goto(JO + '/studio-de/scan.html?q=dm26JrJRYQx'); await P.waitForTimeout(900);
+        await P.fill('#sc-user', 'anna.tel'); await P.fill('#sc-pin', '8642'); await P.fill('#sc-pin2', '8642'); await P.fill('#sc-token', JT.anna); await P.click('#sc-enter'); await P.waitForTimeout(2200);
+        ok(await P.evaluate(() => SC.view === 'card' && document.getElementById('sc-code').textContent === 'JRY' && !!document.getElementById('jr-ph-open')), 'J phone: scan.html (apiBase) shows the binder and the link "Le mie sincronizzazioni"');
+        await P.click('#jr-ph-open'); await P.waitForTimeout(300);
+        ok(await P.isVisible('#jr-ph-empty'), 'J phone: empty list before the first save');
+        await P.fill('#jr-ph-name', 'Telefono Anna'); await P.click('[data-jr="ph-name"]'); await P.click('[data-jr="ph-back"]'); await P.waitForTimeout(400);
+        await P.click('#sc-edit'); await P.fill('#sc-notes-in', 'dal telefono di Anna'); await P.click('#sc-save'); await P.waitForTimeout(900);
+        Jv = await Jq('journal', {token:JT.dave, q:{code:'JRY', route:'patch'}});
+        ok(Jv.j.items[0] && Jv.j.items[0].device.name === 'Telefono Anna' && /^dev-/.test(Jv.j.items[0].device.id) && Jv.j.items[0].device.app === APP_VERSION_J && Jv.j.items[0].user === 'anna' && Jv.j.items[0].records[0].action === 'update',
+          'J phone: the save reaches the server journal with the phone\'s device id, name "Telefono Anna", app version and token user', Jv.j.items[0] && Jv.j.items[0].device);
+        // A changes Y meanwhile; the phone saves from its stale card → 409 → conflict screen → "Salva comunque"
+        await Jsync(A); await A.evaluate(async () => { __jB('JRY').tags = 'registro,da-A'; commit(); }); await Jsync(A);
+        await P.click('#sc-edit'); await P.click('[data-s="state"][data-v="HISTORICAL"]'); await P.click('#sc-save'); await P.waitForTimeout(900);
+        const Jconf = await P.isVisible('#sc-conflict');
+        await P.click('[data-s="conflict-force"]'); await P.waitForTimeout(900);
+        await P.click('#jr-ph-open'); await P.waitForTimeout(400);
+        Jv = await P.evaluate(() => ({items:Array.from(document.querySelectorAll('#jr-ph-list .jr-ph-it')).map(li => li.querySelector('.jr-ph-st').className.replace(/.*jr-st-/, '') + ':' + li.querySelector('.jr-ph-code').textContent),
+          w:document.documentElement.scrollWidth, vault:!!localStorage.getItem('docmap_v26_vault_journal'), plain:Object.keys(localStorage).some(k => /JRY/.test(localStorage.getItem(k) || ''))}));
+        await P.screenshot({path:Jpath.join(__dirname, 'shots', 'j_phone_journal.png')});
+        Jv2 = await Jq('journal', {token:JT.dave, q:{code:'JRY', route:'patch'}});
+        ok(Jconf && Jv.items.join(',') === 'forced:JRY,conflict:JRY,ok:JRY' && Jv.w <= 390 && Jv.vault && !Jv.plain && Jv2.j.items.length === 3 && Jv2.j.items[1].records[0].action === 'conflict' && Jv2.j.items[1].records[0].reason === 'stale_base' && Jv2.j.items[0].records[0].reason === 'forced',
+          'J phone: "Le mie sincronizzazioni" lists saved / refused (changed elsewhere) / saved anyway, encrypted in the vault, no horizontal scroll; the server journal has the refused attempt (stale_base) and the forced save', {ph:Jv, srv:Jv2.j.items.map(e => e.records[0].action + '/' + e.records[0].reason)});
+        await Jsync(A); await Jsync(B);
+
+        // ---- S4: clock skew within the warning (B is 90 s ahead) ----
+        await B.evaluate(() => { window.__jOrigNow = nowISO; window.nowISO = () => new Date(Date.now() + 90000).toISOString(); });
+        await B.evaluate(async () => { __jB('JRX').notes = 'B con orologio avanti'; commit(); });
+        await Jsync(B); await Jsync(A);
+        Jv = await A.evaluate(async () => { const before = __jB('JRX').updated_at; __jB('JRX').notes = 'A subito dopo'; commit(); const after = __jB('JRX').updated_at; const r = await srvSync({}); await JR.last; return {before, after, r, out:__jLast().items.find(i => i.code === 'JRX' && i.dir === 'out')}; });
+        Jv2 = await Jq('binder', {token:JT.lucia, q:{code:'JRX'}});
+        ok(Jv.after > Jv.before && Jv.out && Jv.out.resolution === 'accepted' && Jv2.j.binder.notes === 'A subito dopo',
+          'J S4 (fix): an edit made on A right after pulling a version stamped by a clock 90 s ahead is stamped LATER than it (syNext) and is accepted, not lost', Jv);
+        await B.evaluate(() => { window.nowISO = window.__jOrigNow; });
+        await Jsync(B);
+
+        // ---- S5 (fix): a record that reaches A from B by PACKAGE (old time stamp) is forwarded to the server ----
+        await B.evaluate(async () => { __jB('JRY').notes = 'B offline, via pacchetto'; commit(); await __jW(30); });
+        await A.evaluate(async () => { __jB('JRO').notes = 'A spinge dopo'; commit(); });
+        await Jsync(A);   // A's lastPushAt is now later than B's edit of Y
+        const JpkgB = await B.evaluate(async () => { const r = await syncExport({incremental:false}); return {text:r.text, name:r.name}; });
+        Jv = await A.evaluate(async (pk) => { SYV.fileName = pk.name; const plan = syncAnalyze(await syncParse(pk.text)); syncApply(plan); await JR.last; const e = __jLast(); SYV.fileName = '';
+          return {y:__jB('JRY').notes, e:{kind:e.kind, dir:e.dir, file:e.peer.file, sha:e.peer.sha256, it:e.items.find(i => i.code === 'JRY')}, pend:srvPending()}; }, JpkgB);
+        await Jsync(A);
+        Jv2 = await Jq('binder', {token:JT.lucia, q:{code:'JRY'}});
+        ok(Jv.y === 'B offline, via pacchetto' && Jv.pend >= 1 && Jv2.j.binder.notes === 'B offline, via pacchetto' && Jv.e.kind === 'package' && Jv.e.dir === 'import' && Jv.e.file === JpkgB.name && Jv.e.sha === sha(JpkgB.text) && Jv.e.it.action === 'update',
+          'J S5 (fix): B → A by package with an OLD time stamp, then A syncs: the record is forwarded to the server (recvAt); the journal names the package file and its SHA-256', {A:Jv, srv:Jv2.j.binder.notes});
+        await Jsync(B);
+
+        // ---- convergence: A, B, server (and the phone) hold the same data ----
+        const Jcanon = (pg) => pg.evaluate(() => JSON.stringify({b:S.binders.slice().sort((x, y) => x.id < y.id ? -1 : 1).map(x => [x.id, x.updated_at, syncCanon(x, 'binder')]), c:(S.clients || []).slice().sort((x, y) => x.id < y.id ? -1 : 1).map(x => [x.id, syncCanon(x, 'client')]),
+          t:(S.tombstones || []).map(x => x.type + ':' + x.id).sort()}));
+        const JcA = await Jcanon(A), JcB = await Jcanon(B);
+        Jv = await A.evaluate(async (api) => { const r = await srvClient(srvConf()).call('pull', {q:{since:0}});
+          const srv = r.records.filter(x => x.type === 'binder').map(x => syncNormRemote(Object.assign({}, x.data, {id:x.id, updated_at:x.updated_at}), 'binder')).sort((x, y) => x.id < y.id ? -1 : 1).map(x => [x.id, x.updated_at, syncCanon(x, 'binder')]);
+          const loc = S.binders.slice().sort((x, y) => x.id < y.id ? -1 : 1).map(x => [x.id, x.updated_at, syncCanon(x, 'binder')]);
+          return {same:JSON.stringify(srv) === JSON.stringify(loc), n:srv.length, tomb:r.tombstones.map(x => x.id).sort().join(',')}; });
+        await P.goto(JO + '/studio-de/scan.html?code=JRX'); await P.waitForTimeout(1200);
+        Jv2 = await P.evaluate(() => SC.rec ? SC.rec.binder.notes : SC.view + ' ' + JSON.stringify(SC.msg));
+        ok(JcA === JcB && Jv.same && Jv.n === 4 && /j-w/.test(JcA) && JSON.parse(JcA).b.every(x => x[0] !== 'j-z') && Jv.tomb.includes('j-z') && Jv2 === 'A subito dopo',
+          'J: after all the asynchronous rounds A, B, the server and the phone converge on identical data (binders, clients, tombstones)', {same:JcA === JcB, srv:Jv, phone:Jv2});
+
+        // ---- server journal API: roles, filters, entry detail, hashes ----
+        const Jall = await Jq('journal', {token:JT.dave, q:{limit:200}}), Jmario = await Jq('journal', {token:JT.mario, q:{limit:200, user:'dave'}}), Jview = await Jq('journal', {token:JT.lucia});
+        const Jdev = await Jq('journal', {token:JT.dave, q:{device:'dev-A', limit:200}}), Jfuture = await Jq('journal', {token:JT.dave, q:{from:'2099-01-01'}}), Jtoday = await Jq('journal', {token:JT.dave, q:{to:new Date().toISOString().slice(0, 10), limit:1}});
+        ok(Jall.s === 200 && Jall.j.items.length > 10 && new Set(Jall.j.items.map(e => e.user)).size >= 3 && Jmario.s === 200 && Jmario.j.items.length > 0 && Jmario.j.items.every(e => e.user === 'mario') && Jview.s === 403 &&
+          Jdev.j.items.length > 0 && Jdev.j.items.every(e => e.device.id === 'dev-A' && e.device.name === 'PC Ufficio A') && Jfuture.j.items.length === 0 && Jtoday.j.items.length === 1 && Jtoday.j.more === true && Jtoday.j.next_before > 0,
+          'J: GET journal — admin sees every device, an editor only his own entries (user filter ignored), a viewer gets 403; filters device / date range / paging', {all:Jall.j.items.length, mario:Jmario.j.items.length, view:Jview.s, dev:Jdev.j.items.length});
+        // the hash A computed for what it sent equals the server's new_hash for the same push
+        Jv = await A.evaluate(() => { for (let i = S.syncJournal.length - 1; i >= 0; i--){ const e = S.syncJournal[i], it = e.items.find(x => x.code === 'JRX' && x.dir === 'out' && x.resolution === 'accepted'); if (it) return {hash:it.hash, jids:e.server_journal}; } return null; });
+        Jv2 = null;
+        for (const jid of (Jv && Jv.jids) || []){ const r = await Jq('journal', {token:JT.dave, q:{entry:jid}}); const it = r.j.items[0].records.find(x => x.code === 'JRX' && x.action === 'update'); if (it){ Jv2 = it; break; } }
+        ok(Jv && Jv.hash && Jv2 && Jv2.new_hash === Jv.hash && Jv2.prev && Jv2.new && Jv2.new.notes === 'A subito dopo' && Jv2.prev.notes === 'B con orologio avanti',
+          'J: entry detail (admin) returns the decrypted previous / new version; the SHA-256 computed by the client for what it sent equals the server\'s new_hash', {local:Jv && Jv.hash, srv:Jv2 && Jv2.new_hash});
+        // encryption at rest: no names, device names or codes in the database files
+        Jv = fs.readdirSync(JDATA).filter(f => /^docmap\.sqlite/.test(f)).map(f => fs.readFileSync(Jpath.join(JDATA, f)));
+        ok(Jv.length >= 1 && Jv.every(buf => !buf.includes('Ornitorinco') && !buf.includes('PC Ufficio') && !buf.includes('Telefono Anna') && !buf.includes('dal telefono di Anna') && !buf.includes('JRX') && !buf.includes('anna.tel')),
+          'J: the journal is encrypted at rest (no names, device names, codes or notes in the SQLite file / WAL)', Jv.map(x => x.length));
+
+        // ---- UI: Registro sincronizzazioni on A (admin): local + server, detail, server restore ----
+        await A.evaluate(() => { S.view = 'sync'; renderAll(); document.getElementById('jr-card').scrollIntoView(); });
+        await A.waitForTimeout(300);
+        Jv = await A.evaluate(() => ({rows:document.querySelectorAll('#jr-tbl tbody tr').length, seg:document.querySelectorAll('#jr-src button').length, w:document.documentElement.scrollWidth}));
+        await A.locator('#jr-card').screenshot({path:Jpath.join(__dirname, 'shots', 'j_card_local.png')});
+        ok(Jv.rows >= 5 && Jv.seg === 2 && Jv.w <= 1366, 'J UI: ⚙ Sincronizzazione › "Registro sincronizzazioni" lists the local entries; admin sees the "Server" switch', Jv);
+        await A.fill('#jr-f-code', 'JRW'); await A.waitForTimeout(400);
+        Jv = await A.evaluate(() => document.querySelectorAll('#jr-tbl tbody tr').length);
+        await A.fill('#jr-f-code', ''); await A.waitForTimeout(350);
+        ok(Jv >= 1 && Jv < await A.evaluate(() => document.querySelectorAll('#jr-tbl tbody tr').length), 'J UI: the binder-code filter narrows the list', Jv);
+        await A.click('#jr-src [data-v="srv"]'); await A.waitForFunction(() => !JR.srv.loading && JR.srv.loaded, null, {timeout:8000}).catch(() => {});
+        await A.fill('#jr-f-code', 'JRX'); await A.waitForTimeout(250);
+        await A.waitForFunction(() => !JR.srv.loading, null, {timeout:8000}).catch(() => {});
+        Jv = await A.evaluate(() => ({n:JR.srv.items.length, rows:document.querySelectorAll('#jr-tbl tbody tr').length, txt:(document.getElementById('jr-tbl') || {}).innerText || ''}));
+        await A.locator('#jr-card').screenshot({path:Jpath.join(__dirname, 'shots', 'j_card_server.png')});
+        ok(Jv.n >= 3 && Jv.rows === Jv.n && /PC Ufficio B/.test(Jv.txt) && /PC Ufficio A/.test(Jv.txt), 'J UI: the server journal (admin) filtered by code shows entries of both PCs with device names', {n:Jv.n});
+        // open the entry where B wrote "B con orologio avanti" and restore the version it overwrote
+        const JidxB = await A.evaluate(() => JR.rows.findIndex(e => e.route === 'push' && e.device.id === 'dev-B' && e.records.some(r => r.code === 'JRX' && r.action === 'update')));
+        await A.click('#jr-tbl tr[data-jrrow="' + JidxB + '"] [data-a="jr-detail"]'); await A.waitForTimeout(700);
+        Jv = await A.evaluate(() => ({txt:document.getElementById('jr-detail').innerText, btn:!!document.querySelector('#jr-detail [data-a="jr-restore-srv"][data-v="prev"]')}));
+        await A.locator('.overlay .modal').last().screenshot({path:Jpath.join(__dirname, 'shots', 'j_detail_server.png')});
+        ok(/B con orologio avanti/.test(Jv.txt) && /PC Ufficio B/.test(Jv.txt) && Jv.btn, 'J UI: server entry detail shows device, field diff before / after and "Ripristina la versione precedente"', Jv.txt.slice(0, 200));
+        const JprevNotes = await A.evaluate(() => { const it = JR.srvDetail.records.find(r => r.code === 'JRX' && r.action === 'update'); return it.prev.notes; });
+        await A.click('#jr-detail [data-a="jr-restore-srv"][data-v="prev"]'); await A.waitForTimeout(300);
+        await A.click('.modal-f .btn-primary'); await A.waitForTimeout(2500);
+        while (await A.evaluate(() => !!topModal())) { await A.evaluate(() => closeModal(true)); }
+        Jv = await Jq('binder', {token:JT.lucia, q:{code:'JRX'}});
+        Jv2 = await Jq('journal', {token:JT.dave, q:{route:'journal_restore'}});
+        Jv3 = await A.evaluate(() => ({notes:__jB('JRX').notes, log:LOG.entries.some(e => e.action === 'sync.restore')}));
+        ok(Jv.j.binder.notes === JprevNotes && Jv2.j.items.length === 1 && Jv2.j.items[0].records[0].action === 'restore' && Jv2.j.items[0].extra.source.version === 'prev' && Jv3.notes === JprevNotes && Jv3.log,
+          'J UI: "Ripristina" (admin, confirmed) writes that version again as a NEW change, journaled (journal_restore) and logged; A receives it at once', {srv:Jv.j.binder.notes, prev:JprevNotes, A:Jv3});
+        await Jsync(B);
+        ok(await B.evaluate(() => __jB('JRX').notes) === JprevNotes, 'J: B receives the restored version at its next sync (it is the newest write)');
+        // local restore: the S1 conflict on A (took B's version) → restore A's own version
+        await A.click('#jr-src [data-v="local"]'); await A.fill('#jr-f-code', 'JRX'); await A.waitForTimeout(400);
+        const JidxL = await A.evaluate(() => JR.rows.findIndex(e => e.items.some(i => i.code === 'JRX' && i.action === 'conflict' && i.fields.some(f => f[1] === 'A: prima modifica'))));
+        await A.click('#jr-tbl tr[data-jrrow="' + JidxL + '"] [data-a="jr-detail"]'); await A.waitForTimeout(300);
+        await A.locator('.overlay .modal').last().screenshot({path:Jpath.join(__dirname, 'shots', 'j_detail_local.png')});
+        await A.click('#jr-detail [data-a="jr-restore"]'); await A.waitForTimeout(200); await A.click('.modal-f .btn-primary'); await A.waitForTimeout(300);
+        Jv = await A.evaluate(async () => { await JR.last; return {notes:__jB('JRX').notes, e:__jLast()}; });
+        await Jsync(A); Jv2 = await Jq('binder', {token:JT.lucia, q:{code:'JRX'}});
+        ok(Jv.notes === 'A: prima modifica' && Jv.e.kind === 'restore' && Jv.e.items[0].action === 'restore' && Jv2.j.binder.notes === 'A: prima modifica', 'J UI: local "Ripristina questa versione" brings back the version that lost the conflict, as a new change that also reaches the server', {A:Jv.notes, srv:Jv2.j.binder.notes});
+        // exports for dispute evidence
+        const [Jdl] = await Promise.all([A.waitForEvent('download'), A.click('[data-a="jr-csv"]')]);
+        const Jcsv = fs.readFileSync(await Jdl.path(), 'utf8');
+        const [Jdl2] = await Promise.all([A.waitForEvent('download'), A.click('[data-a="jr-json"]')]);
+        const Jjson = JSON.parse(fs.readFileSync(await Jdl2.path(), 'utf8'));
+        const Jlines = Jcsv.replace(/^﻿/, '').trim().split(/\r\n/);
+        ok(Jdl.suggestedFilename().endsWith('.csv') && Jlines[0].split(';')[0] === 'source' && Jlines[0].split(';').length === 28 && Jlines.length > 2 && Jlines.slice(1).every(l => /^local;/.test(l)) && Jlines.some(l => /;JRX;/.test(l)) &&
+          Jjson.format === 'docmap-sync-journal' && Jjson.entries.length >= 1 && Jjson.device.id === 'dev-A', 'J: export CSV (";" delimited, one row per record) and JSON of the filtered journal', {head:Jlines[0], n:Jlines.length});
+        // backups carry the journal; a restored backup merges it back
+        Jv = await A.evaluate(() => { const W = JSON.parse(workspaceJSON(true)), Ws = JSON.parse(workspaceJSON(false)); const n = S.syncJournal.length; const keep = clone(S.syncJournal); S.syncJournal = []; jrMerge(W.sync_journal); const ok2 = S.syncJournal.length === n; S.syncJournal = keep; return {inBackup:Array.isArray(W.sync_journal) && W.sync_journal.length === n, notInSession:!('sync_journal' in Ws), ok2}; });
+        ok(Jv.inBackup && Jv.notInSession && Jv.ok2, 'J: JSON backups carry sync_journal (sessions do not); restoring merges it back by id', Jv);
+        // the local SQLite schema is unchanged (journal lives in S only)
+        ok(await A.evaluate(() => DB.ready && !dbQuery("SELECT name FROM sqlite_master WHERE name LIKE '%journal%'").length), 'J: local SQLite schema untouched by the journal (no table, version unchanged)');
+      } finally {
+        for (const c of Jctxs) { try { await c.close(); } catch(e){} }
+        Jsrv.kill();
+      }
+    }
+
+    // ---- local ⇄ local by package, two desktop pages, NO server: conflicts decided by hand ----
+    const Jloc = async (dev) => { const c = await b.newContext({viewport:{width:1366, height:768}, acceptDownloads:true}); const pg = await c.newPage(); pg.on('pageerror', e => errs.push('J ' + dev + ' PAGEERR ' + e.message));
+      await pg.goto(URL_); await pg.evaluate((d) => { localStorage.clear(); localStorage.setItem('docmap_v26_device', d); localStorage.setItem('docmap_v26_state', JSON.stringify({schema:26.9, onboarded:true, settings:{deviceLabel:'PC ' + d, operator:d}, binders:[], clients:[]})); }, dev);
+      await pg.reload(); await pg.waitForTimeout(900); await pg.evaluate(() => { while (topModal()) closeModal(true); window.__jB = (c) => S.binders.find(x => x.speaking_code === c); window.__jLast = () => S.syncJournal[S.syncJournal.length - 1]; }); return {c, pg}; };
+    const JC = await Jloc('dev-C'), JD = await Jloc('dev-D');
+    try {
+      await JC.pg.evaluate(() => { ['JLA', 'JLB'].forEach(c => S.binders.push(normalizeBinder({speaking_code:c, company_name:'Locale ' + c, short_code:newShortCode()}))); commit(); });
+      const Jex = (pg, target) => pg.evaluate(async (tg) => { const r = await syncExport({incremental:!!tg, target:tg || ''}); await JR.last; return {text:r.text, name:r.name}; }, target || '');
+      const Jim = (pg, pk, choose) => pg.evaluate(async ([pk, ch]) => { SYV.fileName = pk.name; const plan = syncAnalyze(await syncParse(pk.text)); syncOpenReview(plan);
+        if (ch) plan.items.forEach((it, i) => { if (it.kind === 'conflict'){ const r = document.querySelector('[data-syc="' + i + '"][value="' + ch + '"]'); if (r){ r.checked = true; r.dispatchEvent(new Event('change', {bubbles:true})); } } });
+        syncApplyFromReview(); await JR.last; return {counts:plan.counts, e:__jLast()}; }, [pk, choose || '']);
+      let pk = await Jex(JC.pg); await Jim(JD.pg, pk);   // first exchange both ways: from now on each side knows the other (base for conflicts)
+      pk = await Jex(JD.pg, 'dev-C'); await Jim(JC.pg, pk);
+      await JC.pg.evaluate(() => { __jB('JLA').notes = 'C'; commit(); });
+      await JD.pg.evaluate(async () => { await new Promise(r => setTimeout(r, 25)); __jB('JLA').notes = 'D (più recente)'; __jB('JLB').notes = 'solo D'; commit(); });
+      pk = await Jex(JD.pg, 'dev-C');
+      Jv = await Jim(JC.pg, pk, 'local');   // C keeps its own (older) version by hand
+      const Jit = Jv.e.items.find(i => i.code === 'JLA');
+      ok(Jv.counts.conflict === 1 && Jit.action === 'conflict' && Jit.how === 'manual' && Jit.resolution === 'kept_local' && Jv.e.items.find(i => i.code === 'JLB').action === 'update' && Jv.e.peer.file === pk.name && Jv.e.peer.sha256 === require('crypto').createHash('sha256').update(pk.text).digest('hex'),
+        'J local⇄local: package D → C, conflict decided BY HAND (kept local): journal "manual", file name + SHA-256 of the package', {it:Jit, file:Jv.e.peer.file});
+      pk = await Jex(JC.pg, 'dev-D'); Jv = await Jim(JD.pg, pk);
+      const Jcc = await JC.pg.evaluate(() => JSON.stringify(S.binders.map(x => [x.id, x.updated_at, syncCanon(x, 'binder')]).sort())), Jdd = await JD.pg.evaluate(() => JSON.stringify(S.binders.map(x => [x.id, x.updated_at, syncCanon(x, 'binder')]).sort()));
+      Jv2 = await JD.pg.evaluate(() => ({a:__jB('JLA').notes, kinds:S.syncJournal.map(e => e.kind + ':' + e.dir).join(',')}));
+      ok(Jcc === Jdd && Jv2.a === 'C' && Jv2.kinds === 'package:import,package:export,package:export,package:import', 'J local⇄local: C\'s manual choice travels back (stamped later) and both PCs converge; D\'s journal lists import, export, export, import', Jv2);
+    } finally { await JC.c.close(); await JD.c.close(); }
+  }
   console.log('\nerrors:', errs.length ? errs.join('\n') : 'none');
   if (errs.length) fails += errs.length;
   console.log(`\nRESULT: ${passes} passed, ${fails} failed`);

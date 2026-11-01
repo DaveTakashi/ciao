@@ -115,12 +115,41 @@ Livelli, dall'esterno verso l'interno:
   e la password della cartella può usare l'API). Revoca dei token di `config.php` solo a mano (`'disabled' => true`).
 - **Rotazione della chiave** AES (oggi una sola chiave per tutto il database; cambiarla richiede di ricifrare: non c'è
   ancora uno strumento) e chiave fuori dal web server (KMS/HSM). Chi legge `config.php` legge tutto.
-- **Audit centrale** completo: oggi il server tiene il registro attività inviato dai client e `changes` (chi/quando per
-  ogni scrittura), non un log degli accessi in sola lettura né firme anti-manomissione.
+- **Audit centrale** completo: oggi il server tiene il registro attività inviato dai client, `changes` (chi/quando per
+  ogni scrittura) e dalla v11 il registro sincronizzazioni (sotto), non un log degli accessi in sola lettura né firme
+  anti-manomissione (un admin con accesso al file può cancellare righe; gli hash servono a confrontare le versioni,
+  non a sigillare il registro).
 - Foto e allegati **non** passano dal server (restano nel SQLite di ogni PC).
 - Ordine delle modifiche = orologi dei dispositivi (`updated_at` dei client, tranne `patch` che usa l'ora del server):
   l'app avvisa se l'orologio differisce di oltre 2 minuti.
 - `allowed_origins: ['null']` accetta qualunque pagina `file://` o sandbox: il token resta comunque necessario.
+
+## 5c. v11 — registro sincronizzazioni: cosa contiene e come è protetto
+
+Il registro esiste per risolvere le contestazioni, quindi contiene **dati personali e copie dei record**:
+
+| Dove | Contenuto | Protezione |
+|---|---|---|
+| server `sync_journal` | ora, rotta, id del token, ruolo, conteggi, sequenze **in chiaro**; utente, operatore, id/nome del dispositivo, versione dell'app, IP **cifrati** (AES-256-GCM, AAD `journal/<jid>`) | indici `k_user` / `k_device` = HMAC (nessun nome in chiaro) |
+| server `sync_journal_items` | tipo, id, azione, tempi, SHA-256 **in chiaro**; codice, motivo e **versioni complete prima/dopo** cifrati (AAD `journal/<jid>/<n>`) | indice `k_code` = HMAC del codice maiuscolo |
+| PC `S.syncJournal` | voci con codici, campi diversi e copie dei record eliminati | come il resto dei dati locali: in chiaro nel browser del PC; nei backup JSON (`sync_journal`) |
+| telefono | ultime 200 voci "Le mie sincronizzazioni" | cassaforte cifrata (`docmap_v26_vault_journal`, DEK del PIN); niente registro se la cassaforte non è sbloccata |
+
+- **Chi legge**: rotta `journal` solo con token `editor` (vede **solo le proprie** voci, filtro imposto dal server) o
+  `admin` (tutte, più l'IP). Un `viewer` riceve 403. `journal_restore` solo `admin`. I test verificano che nel file
+  `.sqlite` non compaiano nomi, codici o nomi di dispositivo del registro.
+- **Gli hash in chiaro** sono SHA-256 del JSON canonico: non rivelano il contenuto, ma due record identici hanno lo
+  stesso hash (chi ha il file può vedere *che* un record è tornato a una versione precedente).
+- **IP**: salvato cifrato e mostrato solo agli admin; è un dato personale (GDPR): tenerlo per il tempo che serve.
+- **Conservazione**: `journal_keep_days` in `config.php` (0 = per sempre). Consigliato 365–730 giorni per uno studio.
+  La potatura gira al massimo una volta al giorno. Sul PC il registro si ferma a 2 000 voci / 12 000 record (si
+  tolgono i più vecchi); esportarlo in CSV/JSON se va conservato più a lungo.
+- **Dimensione** sul server: per ogni record cambiato circa 2 volte la dimensione del record (versione prima + dopo,
+  cifrate) + circa 250 byte; per ogni sincronizzazione circa 400 byte. Con 50 modifiche al giorno su faldoni da 2 KB
+  sono circa 70 MB in 300 giorni lavorativi. I pull registrano solo id e hash.
+- **Dispositivo dichiarato**: id, nome e versione arrivano dal client (header `X-DocMap-Device*` o `_device`) e **non**
+  sono una prova: chi ha il token può dichiarare un altro nome. L'identità certa resta il **token** (`token_id`, utente
+  del token), che il server decide da solo.
 
 ## 6. Cosa deve fare il back-end Python
 

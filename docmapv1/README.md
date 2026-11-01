@@ -246,6 +246,17 @@ in ufficio resta com'è (offline, doppio clic su `index.html`) e si allinea quan
   file **nella stessa cartella**). La procedura generale per le versioni future è in `docs/AGGIORNAMENTI.md`.
 - Le foto restano sul PC (non passano dal server).
 
+## Registro sincronizzazioni (v11)
+
+Ogni sincronizzazione (server, pacchetti tra PC, salvataggi dal telefono) lascia una traccia: **chi**, **quando**, da
+**quale dispositivo** e cosa è successo a **ogni faldone** (nuovo, aggiornato, più vecchio e ignorato, conflitto e come
+è stato deciso). Si apre da ⚙ Funzioni avanzate › Sincronizzazione › **Registro sincronizzazioni**: filtri per data,
+utente, dispositivo e codice; nel dettaglio il confronto campo per campo e **Ripristina questa versione**; **Esporta
+CSV** / **JSON** per conservare la prova. Con il server collegato un admin vede il registro di tutti, un editor solo il
+suo. Sul telefono: **Le mie sincronizzazioni**. Dai un nome al PC in ⚙ Sincronizzazione (es. "PC segreteria"): compare
+nel registro. Passo passo per una contestazione: `docs/SYNC.md` §10. I dati v10.1 (sul PC e sul server) restano
+validi: il server aggiunge da solo le sue tabelle del registro al primo avvio.
+
 ## Guida e azioni guidate (v10)
 
 Il pulsante **?** in alto (o **F1**) apre la guida. In cima ci sono le cose che si fanno più spesso: *Come creo un nuovo faldone*, *Come stampo le etichette*, *Come creo un nuovo cliente*, *Come importo un elenco*, *Come trovo un faldone*, *Come scarico il PDF*; poi l'ordine si adatta a quello che usate davvero su questo PC. Puoi ordinare anche per **Preferiti** (stella ☆ accanto a un argomento o a un'azione guidata; con il nome operatore in Impostazioni ognuno ha i suoi) o **A-Z**. Due file di etichette aiutano a filtrare: grigie per l'**argomento** (Stampa, Etichette, Clienti…) e colorate per **cosa vuoi fare** (Come fare, Cos'è, Creare, Modificare, Eliminare, Stampare, Importare/Esportare, Trovare, Risolvere problemi). Appena scrivi nella ricerca i filtri si azzerano e restano accese solo le etichette dei risultati; la ricerca capisce accenti, plurali e sinonimi (faldone/raccoglitore/archivio, cliente/ditta/azienda, stampa/stampare, QR/codice QR). Le **14 azioni guidate** (nuovo faldone, stampa, PDF, nuovo cliente, trova, modifica, calibrazione, foglio già usato, manifest, AI, sessione, backup, import, registro) non si chiudono mai per sbaglio: Esc, la ✕ o un secondo clic fuori chiedono "Vuoi davvero uscire dalla guida?" (Continua è il pulsante evidenziato); cliccando un campo di un altro passo la guida salta a quel passo; Invio o → avanti, ← indietro. Se esci a metà, la guida ricorda il passo: trovi **Riprendi la guida** in cima alla guida.

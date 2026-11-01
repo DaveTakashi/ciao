@@ -528,11 +528,13 @@ class DMServer {
     o = o || {};
     const tok = typeof this.token === 'function' ? this.token() : this.token;
     const h = {'Accept':'application/json'}; let method = o.method || 'GET', body = o.body, q = o.q;
+    let ci = null; try { ci = typeof jrClientInfo === 'function' ? jrClientInfo() : null; } catch(e){ ci = null; }   // v11: who is calling (06i-journal.js), for the server journal
     if (this.opts.simple){   // cross-origin desktop: no custom headers → no preflight
-      method = 'POST'; body = Object.assign({}, body || {}, q || {}, tok ? {_token:tok} : {}); q = null;
+      method = 'POST'; body = Object.assign({}, body || {}, q || {}, tok ? {_token:tok} : {}, ci ? {_device:ci} : {}); q = null;
       h['Content-Type'] = 'text/plain;charset=UTF-8'; delete h.Accept;
       if (this.opts.basic){ h.Authorization = 'Basic ' + btoa(unescape(encodeURIComponent(this.opts.basic))); }
     } else {
+      if (ci){ h['X-DocMap-Device'] = ci.id; h['X-DocMap-Device-Name'] = encodeURIComponent(ci.name); h['X-DocMap-App'] = ci.app; }
       if (tok) h['X-DocMap-Token'] = tok;
       if (body !== undefined) h['Content-Type'] = 'application/json';
     }
@@ -543,7 +545,7 @@ class DMServer {
     catch(e){ throw new DMError('offline', 'network'); }
     finally { clearTimeout(tm); }
     let j = {}; try { j = await r.json(); } catch(e){ j = {}; }
-    if (r.ok) return j;
+    if (r.ok){ if (j && j.journal_id) this.lastJournalId = j.journal_id; return j; }   // v11: server journal entry of this call
     const code = {400:'invalid', 401:'unauthorized', 403:'forbidden', 404:'not_found', 409:'conflict', 412:'conflict', 413:'invalid', 422:'invalid', 429:'locked'}[r.status] || 'server';
     const er = j.error || {};
     throw new DMError(code, er.message || ('HTTP ' + r.status), Object.assign({}, er, {status:r.status, server_code:er.code || '', retry_in:+(r.headers.get('Retry-After') || er.retry_in || 0)}, j.current ? {current:j.current, current_etag:j.current_etag} : {}));

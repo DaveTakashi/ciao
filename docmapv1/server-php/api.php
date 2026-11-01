@@ -1,6 +1,6 @@
 <?php
 /* =====================================================================
-   DocMap 2026 — shared online database, REST API (v10.1, reference implementation)
+   DocMap 2026 — shared online database, REST API (v11, reference implementation; v10.1 databases upgrade in place)
 
    One file, PHP 8.0+, no Composer: PDO SQLite + OpenSSL. Built for shared hosting (SiteGround: PHP yes,
    Node / Python no). The contract is docs/API-CONTRACT.md: a Python back-end can replace this file 1:1
@@ -15,6 +15,12 @@
      binder &qr=<short_code> | &code=<speaking_code>   viewer   {binder, etag, siblings[]}
      patch  {id, patch, base_updated_at, force?, log?}  editor  → {binder, etag} · 409 {error, current, current_etag}
      tokens / token_create {user, role} / token_revoke {id}   admin   (tokens kept as SHA-256 in the database)
+     journal  &from&to&user&device&record&code&before&limit | &entry=<jid>   editor (own entries) / admin (all)
+              v11: the push/sync journal — one entry per push / patch / pull (with changes) / restore, one item per record
+     journal_restore {jid, n, version:'prev'|'new'}   admin   writes that version again as a NEW write (journaled)
+
+   v11 client identity (optional, v10.1 clients send nothing → 'unknown'): headers X-DocMap-Device,
+   X-DocMap-Device-Name (URI-encoded), X-DocMap-App, or "_device": {id, name, app} in the JSON body.
 
    Auth: header X-DocMap-Token: <token> (primary — SiteGround's password protection already uses the
    Authorization header for HTTP Basic auth), or Authorization: Bearer <token>, or "_token" in a text/plain JSON
@@ -36,6 +42,8 @@ const DM_CANON_SKIP = ['updated_at', 'short_url', 'location_code', 'selected_for
 const DM_PULL_PAGE = 2000;
 const DM_LOG_PAGE = 1000;
 const DM_MAX_RECORD = 262144;   // bytes of JSON per record
+const DM_SCHEMA = 2;            // server database schema: 1 = v10.1, 2 = v11 (sync_journal + sync_journal_items)
+const DM_JOURNAL_PAGE = 50, DM_JOURNAL_PAGE_MAX = 200, DM_JOURNAL_ITEMS_LIST = 500;
 
 define('DOCMAP_API', true);
 ini_set('display_errors', '0');
@@ -74,7 +82,8 @@ function load_config(): array {
   if (!is_file($f)) fail(500, 'config', 'config.php missing: open setup.php once (or copy config.sample.php to config.php).');
   $c = require $f;
   if (!is_array($c)) fail(500, 'config', 'config.php must return an array.');
-  $c += ['data_dir' => '', 'aes_key' => '', 'tokens' => [], 'allowed_origins' => [], 'max_fails' => 5, 'lock_seconds' => 60, 'max_body_mb' => 20, 'studio_name' => ''];
+  $c += ['data_dir' => '', 'aes_key' => '', 'tokens' => [], 'allowed_origins' => [], 'max_fails' => 5, 'lock_seconds' => 60, 'max_body_mb' => 20, 'studio_name' => '',
+    'journal_keep_days' => 0, 'journal_pulls' => 'changes'];   // v11 (optional in config.php): 0 = keep the whole journal; pulls: changes | all | none
   $key = base64_decode((string)$c['aes_key'], true);
   if ($key === false || strlen($key) !== 32) fail(500, 'config', 'Encryption key missing or invalid: aes_key must be 32 random bytes in base64 (setup.php creates it). The API does not run without encryption.');
   if (!in_array('aes-256-gcm', openssl_get_cipher_methods(), true)) fail(500, 'config', 'OpenSSL without aes-256-gcm.');
@@ -127,7 +136,35 @@ function db(array $c): PDO {
     $ok = false; try { $ok = dec($c, $b, 'meta/key_check') === 'docmap-key-check'; } catch (Throwable $e) { $ok = false; }
     if (!$ok) fail(500, 'config', 'aes_key does not match the existing database (restore the original key from your backup of config.php).');
   }
+  db_migrate($db);   // v11: a v10.1 database (schema 1) is upgraded in place on the first request
   return $db;
+}
+/** Additive, idempotent schema upgrades (never DROP / RENAME). meta 'schema' records the level reached.
+    Each step: CREATE TABLE / INDEX IF NOT EXISTS or ALTER TABLE ADD COLUMN (guarded by PRAGMA table_info). */
+function db_migrate(PDO $db): void {
+  $cur = (int)($db->query("SELECT v FROM meta WHERE k = 'schema'")->fetchColumn() ?: 1);
+  if ($cur >= DM_SCHEMA) return;
+  $steps = [
+    2 => "CREATE TABLE IF NOT EXISTS sync_journal (jid INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, route TEXT NOT NULL, token_id TEXT NOT NULL DEFAULT '',
+            role TEXT NOT NULL DEFAULT '', k_user TEXT, k_device TEXT, n_sent INTEGER NOT NULL DEFAULT 0, n_accepted INTEGER NOT NULL DEFAULT 0,
+            n_rejected INTEGER NOT NULL DEFAULT 0, n_conflicts INTEGER NOT NULL DEFAULT 0, n_same INTEGER NOT NULL DEFAULT 0, n_items INTEGER NOT NULL DEFAULT 0,
+            seq_from INTEGER, seq_to INTEGER, meta BLOB);
+          CREATE INDEX IF NOT EXISTS sync_journal_at ON sync_journal (at);
+          CREATE INDEX IF NOT EXISTS sync_journal_user ON sync_journal (k_user);
+          CREATE INDEX IF NOT EXISTS sync_journal_device ON sync_journal (k_device);
+          CREATE TABLE IF NOT EXISTS sync_journal_items (jid INTEGER NOT NULL, n INTEGER NOT NULL, type TEXT NOT NULL, id TEXT NOT NULL, k_code TEXT, action TEXT NOT NULL,
+            client_updated_at TEXT, prev_updated_at TEXT, new_updated_at TEXT, prev_hash TEXT, new_hash TEXT, payload BLOB, PRIMARY KEY (jid, n));
+          CREATE INDEX IF NOT EXISTS sync_journal_items_rec ON sync_journal_items (type, id);
+          CREATE INDEX IF NOT EXISTS sync_journal_items_code ON sync_journal_items (k_code);",
+  ];
+  $db->exec('BEGIN IMMEDIATE');
+  try {
+    $cur = (int)($db->query("SELECT v FROM meta WHERE k = 'schema'")->fetchColumn() ?: 1);   // re-read under the lock (two first requests at once)
+    foreach ($steps as $n => $sql) if ($n > $cur) { $db->exec($sql); $cur = $n; }
+    $db->prepare("INSERT INTO meta (k, v) VALUES ('schema', ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v")->execute([(string)$cur]);
+    $db->prepare("INSERT OR IGNORE INTO meta (k, v) VALUES (?, ?)")->execute(['migrated_' . $cur . '_at', now_iso()]);
+    $db->exec('COMMIT');
+  } catch (Throwable $e) { try { $db->exec('ROLLBACK'); } catch (Throwable $e2) {} throw $e; }
 }
 function max_seq(PDO $db): int { return (int)$db->query('SELECT COALESCE(MAX(seq), 0) FROM changes')->fetchColumn(); }
 function max_log_seq(PDO $db): int { return (int)$db->query('SELECT COALESCE(MAX(seq), 0) FROM activity_log')->fetchColumn(); }
@@ -155,7 +192,7 @@ function cors(array $c): void {
   header('Access-Control-Allow-Origin: ' . $origin);
   header('Vary: Origin');
   header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-  header('Access-Control-Allow-Headers: Content-Type, X-DocMap-Token, Authorization, If-Match');
+  header('Access-Control-Allow-Headers: Content-Type, X-DocMap-Token, Authorization, If-Match, X-DocMap-Device, X-DocMap-Device-Name, X-DocMap-App');
   header('Access-Control-Expose-Headers: ETag, Retry-After');
   header('Access-Control-Max-Age: 600');
 }
@@ -242,10 +279,85 @@ function log_insert(PDO $db, array $c, array $e): bool {
   return $st->rowCount() > 0;
 }
 
-/* ---------------- routes ---------------- */
-function r_ping(array $c): array { return ['ok' => true, 'api' => DM_API, 'version' => DM_API_VERSION, 'server_time' => now_iso(), 'php' => PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION]; }
+/* ---------------- v11: push / sync journal (sync_journal + sync_journal_items) ----------------
+   One journal ENTRY per push, patch, pull that returned changes (config journal_pulls) and restore; one ITEM per record
+   touched. Plaintext columns: ids, times, route, role, token id, counts, SHA-256 hashes, action. Everything that could
+   name a person or a client (user, device name, codes, payloads) is AES-256-GCM encrypted (AAD journal/<jid>[/<n>]);
+   look-ups by user / device / code go through HMAC index columns. Generic over record types (binder, client, …). */
+function cut_str($v, int $n): string {
+  $v = preg_replace('/[\x00-\x1F\x7F]/u', '', is_scalar($v) ? (string)$v : '');
+  if (!is_string($v) || !preg_match('/^.{0,' . $n . '}/us', $v, $m)) return '';
+  return trim($m[0]);
+}
+/** Who is calling, as declared by the client (v11). v10.1 clients send nothing: 'unknown' (push still has deviceId). */
+function client_info(array $c): array {
+  $b = body($c); $d = is_array($b['_device'] ?? null) ? $b['_device'] : [];
+  $h = fn(string $k) => (string)($_SERVER[$k] ?? '');
+  $id = cut_str($d['id'] ?? ($h('HTTP_X_DOCMAP_DEVICE') !== '' ? $h('HTTP_X_DOCMAP_DEVICE') : ($b['deviceId'] ?? '')), 100);
+  $name = cut_str($d['name'] ?? rawurldecode($h('HTTP_X_DOCMAP_DEVICE_NAME')), 80);
+  $app = cut_str($d['app'] ?? $h('HTTP_X_DOCMAP_APP'), 40);
+  return ['device_id' => $id !== '' ? $id : 'unknown', 'device_name' => $name !== '' ? $name : 'unknown', 'app_version' => $app !== '' ? $app : 'unknown'];
+}
+/** Human code of a record of any type (binder speaking code, client Multi code / name, location code…). */
+function rec_code(?array $d): string {
+  if (!$d) return '';
+  foreach (['speaking_code', 'code', 'full_code', 'location_code', 'multi_code', 'name'] as $k) if (isset($d[$k]) && is_scalar($d[$k]) && trim((string)$d[$k]) !== '') return cut_str($d[$k], 100);
+  return '';
+}
+/** SHA-256 of the canonical JSON (same canon() as LWW: keys sorted, updated_at / short_url / location_code /
+    selected_for_print / _* left out, scalars as strings). A tombstone hashes "deleted:<type>/<id>@<deletedAt>". */
+function jr_hash(?array $data): ?string { return $data === null ? null : hash('sha256', jenc(canon($data))); }
+function jr_tomb_hash(string $type, string $id, string $at): string { return hash('sha256', 'deleted:' . $type . '/' . $id . '@' . $at); }
+function jr_new(string $route, array $who, array $ci, array $extra = []): array {
+  return ['route' => $route, 'who' => $who, 'ci' => $ci, 'extra' => $extra, 'items' => [], 'seq_from' => null, 'seq_to' => null,
+    'n' => ['sent' => 0, 'accepted' => 0, 'rejected' => 0, 'conflicts' => 0, 'same' => 0]];
+}
+/** o: code, client_updated_at, prev_updated_at, new_updated_at, prev_hash, new_hash, prev (data|null), new (data|null), reason, extra */
+function jr_item(array &$j, string $type, string $id, string $action, array $o = []): void { $j['items'][] = ['type' => $type, 'id' => $id, 'action' => $action] + $o; }
+/** Writes the entry and its items. Call inside the caller's transaction (push, patch, restore) or on its own (pull). */
+function jr_write(PDO $db, array $c, array $j): int {
+  $who = $j['who']; $ci = $j['ci'];
+  $meta = ['user' => (string)($who['user'] ?? ''), 'device_id' => $ci['device_id'], 'device_name' => $ci['device_name'], 'app_version' => $ci['app_version'],
+    'operator' => (string)($j['extra']['operator'] ?? ''), 'ip' => client_ip(), 'extra' => $j['extra']];
+  $st = $db->prepare('INSERT INTO sync_journal (at, route, token_id, role, k_user, k_device, n_sent, n_accepted, n_rejected, n_conflicts, n_same, n_items, seq_from, seq_to) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+  $st->execute([now_iso(), $j['route'], (string)($who['token_id'] ?? ''), (string)($who['role'] ?? ''), hidx($c, 'user/' . strtolower((string)($who['user'] ?? ''))), hidx($c, 'device/' . $ci['device_id']),
+    $j['n']['sent'], $j['n']['accepted'], $j['n']['rejected'], $j['n']['conflicts'], $j['n']['same'], count($j['items']), $j['seq_from'], $j['seq_to']]);
+  $jid = (int)$db->lastInsertId();
+  $u = $db->prepare('UPDATE sync_journal SET meta = ? WHERE jid = ?'); $u->bindValue(1, enc($c, jenc($meta), 'journal/' . $jid), PDO::PARAM_LOB); $u->bindValue(2, $jid, PDO::PARAM_INT); $u->execute();
+  $ins = $db->prepare('INSERT INTO sync_journal_items (jid, n, type, id, k_code, action, client_updated_at, prev_updated_at, new_updated_at, prev_hash, new_hash, payload) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+  foreach ($j['items'] as $n => $it) {
+    $code = (string)($it['code'] ?? '');
+    $pl = ['code' => $code, 'reason' => (string)($it['reason'] ?? ''), 'prev' => $it['prev'] ?? null, 'new' => $it['new'] ?? null, 'extra' => $it['extra'] ?? null];
+    $ins->bindValue(1, $jid, PDO::PARAM_INT); $ins->bindValue(2, $n + 1, PDO::PARAM_INT); $ins->bindValue(3, $it['type']); $ins->bindValue(4, $it['id']);
+    $ins->bindValue(5, $code !== '' ? hidx($c, strtoupper(trim($code))) : null); $ins->bindValue(6, $it['action']);
+    $ins->bindValue(7, $it['client_updated_at'] ?? null); $ins->bindValue(8, $it['prev_updated_at'] ?? null); $ins->bindValue(9, $it['new_updated_at'] ?? null);
+    $ins->bindValue(10, $it['prev_hash'] ?? null); $ins->bindValue(11, $it['new_hash'] ?? null);
+    $ins->bindValue(12, enc($c, jenc($pl), 'journal/' . $jid . '/' . ($n + 1)), PDO::PARAM_LOB);
+    $ins->execute();
+  }
+  return $jid;
+}
+/** Retention (config journal_keep_days, 0 = keep everything): at most once a day, oldest entries first. */
+function jr_prune(PDO $db, array $c): void {
+  $days = (int)$c['journal_keep_days']; if ($days <= 0) return;
+  $last = (string)($db->query("SELECT v FROM meta WHERE k = 'journal_pruned_at'")->fetchColumn() ?: '');
+  if ($last !== '' && ts_ms($last) > ts_ms(now_iso()) - 86400000) return;
+  $cut = iso_ms(ts_ms(now_iso()) - $days * 86400000);
+  $db->exec('BEGIN IMMEDIATE');
+  try {
+    $db->prepare('DELETE FROM sync_journal_items WHERE jid IN (SELECT jid FROM sync_journal WHERE at < ?)')->execute([$cut]);
+    $db->prepare('DELETE FROM sync_journal WHERE at < ?')->execute([$cut]);
+    $db->prepare("INSERT INTO meta (k, v) VALUES ('journal_pruned_at', ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v")->execute([now_iso()]);
+    $db->exec('COMMIT');
+  } catch (Throwable $e) { try { $db->exec('ROLLBACK'); } catch (Throwable $e2) {} throw $e; }
+}
+function jr_meta(array $c, array $row): array { $m = $row['meta'] ? json_decode(dec($c, $row['meta'], 'journal/' . $row['jid']), true) : null; return is_array($m) ? $m : []; }
+function jr_payload(array $c, array $it): array { $p = $it['payload'] ? json_decode(dec($c, $it['payload'], 'journal/' . $it['jid'] . '/' . $it['n']), true) : null; return is_array($p) ? $p : []; }
 
-function r_pull(PDO $db, array $c): array {
+/* ---------------- routes ---------------- */
+function r_ping(array $c): array { return ['ok' => true, 'api' => DM_API, 'version' => DM_API_VERSION, 'schema' => DM_SCHEMA, 'features' => ['journal', 'device_info'], 'server_time' => now_iso(), 'php' => PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION]; }
+
+function r_pull(PDO $db, array $c, ?array $who = null): array {
   $since = max(0, (int)param($c, 'since', 0)); $logSince = max(0, (int)param($c, 'log_since', 0));
   $db->beginTransaction();   // one snapshot (WAL): rows and seq are consistent
   try {
@@ -265,7 +377,18 @@ function r_pull(PDO $db, array $c): array {
     $counts = $since === 0 ? ['records' => (int)$db->query('SELECT COUNT(*) FROM records WHERE deleted = 0')->fetchColumn(), 'tombstones' => (int)$db->query('SELECT COUNT(*) FROM records WHERE deleted = 1')->fetchColumn()] : null;
     $db->commit();
   } catch (Throwable $e) { if ($db->inTransaction()) $db->rollBack(); throw $e; }
-  return ['seq' => $seq, 'more' => $more, 'records' => $records, 'tombstones' => $tombs, 'settings' => $settings, 'activity_log' => $log, 'log_seq' => $logSeq, 'counts' => $counts, 'server_time' => now_iso()];
+  // v11 journal: what this device received (config journal_pulls: 'changes' = pulls that returned something or a full pull)
+  $jid = null; $mode = (string)$c['journal_pulls'];
+  if ($who !== null && ($mode === 'all' || ($mode !== 'none' && ($records || $tombs || $settings || $since === 0)))) {
+    $jr = jr_new('pull', $who, client_info($c), ['since' => $since, 'more' => $more]);
+    $jr['seq_from'] = $since; $jr['seq_to'] = $seq; $jr['n']['sent'] = count($records) + count($tombs);
+    foreach ($records as $r) jr_item($jr, $r['type'], $r['id'], 'pull', ['code' => rec_code($r['data']), 'new_updated_at' => $r['updated_at'], 'new_hash' => jr_hash($r['data'])]);
+    foreach ($tombs as $t) jr_item($jr, $t['type'], $t['id'], 'pull-delete', ['code' => (string)($t['code'] ?? ''), 'new_updated_at' => $t['deletedAt'], 'new_hash' => jr_tomb_hash($t['type'], $t['id'], $t['deletedAt'])]);
+    if ($settings) jr_item($jr, 'settings', 'subset', 'pull', ['new_updated_at' => $settings['updated_at'], 'new_hash' => is_array($settings['data']) ? jr_hash($settings['data']) : null]);
+    $db->exec('BEGIN IMMEDIATE');
+    try { $jid = jr_write($db, $c, $jr); $db->exec('COMMIT'); } catch (Throwable $e) { try { $db->exec('ROLLBACK'); } catch (Throwable $e2) {} throw $e; }
+  }
+  return ['seq' => $seq, 'more' => $more, 'records' => $records, 'tombstones' => $tombs, 'settings' => $settings, 'activity_log' => $log, 'log_seq' => $logSeq, 'counts' => $counts, 'server_time' => now_iso(), 'journal_id' => $jid];
 }
 
 function r_push(PDO $db, array $c, array $who): array {
@@ -273,37 +396,62 @@ function r_push(PDO $db, array $c, array $who): array {
   $device = substr((string)($b['deviceId'] ?? ''), 0, 100); $op = substr(trim((string)($b['operator'] ?? '')), 0, 80);
   $label = $op !== '' ? $op : $who['user'];
   $applied = 0; $same = 0; $rejected = []; $logged = 0;
+  $ci = client_info($c); $jr = jr_new('push', $who, $ci, ['operator' => $op]);   // v11 journal
+  $bad = function ($type, $id, string $reason, ?string $u) use (&$jr) { jr_item($jr, is_string($type) ? substr($type, 0, 40) : '', is_string($id) ? substr($id, 0, 100) : '', 'rejected-invalid', ['reason' => $reason, 'client_updated_at' => $u]); };
   $db->exec('BEGIN IMMEDIATE');
   try {
     foreach ((array)($b['records'] ?? []) as $r) {
+      $jr['n']['sent']++;
       $type = $r['type'] ?? ''; $id = $r['id'] ?? ''; $data = $r['data'] ?? null; $u = (string)($r['updated_at'] ?? ($data['updated_at'] ?? ''));
-      if (!in_array($type, DM_TYPES, true) || !valid_id($id) || !is_array($data) || ts_ms($u) <= 0) { $rejected[] = ['type' => (string)$type, 'id' => is_string($id) ? $id : '', 'reason' => 'invalid']; continue; }
-      if (strlen(jenc($data)) > DM_MAX_RECORD) { $rejected[] = ['type' => $type, 'id' => $id, 'reason' => 'too_large']; continue; }
+      if (!in_array($type, DM_TYPES, true) || !valid_id($id) || !is_array($data) || ts_ms($u) <= 0) { $rejected[] = ['type' => (string)$type, 'id' => is_string($id) ? $id : '', 'reason' => 'invalid']; $bad($type, $id, 'invalid', $u); continue; }
+      if (strlen(jenc($data)) > DM_MAX_RECORD) { $rejected[] = ['type' => $type, 'id' => $id, 'reason' => 'too_large']; $bad($type, $id, 'too_large', $u); continue; }
       $data['id'] = $id;
-      $cur = rec_load($db, $type, $id);
+      $cur = rec_load($db, $type, $id); $curData = $cur && !(int)$cur['deleted'] ? rec_data($c, $cur) : null;
+      $prevHash = $cur ? ((int)$cur['deleted'] ? jr_tomb_hash($type, $id, $cur['updated_at']) : jr_hash($curData)) : null;
       if ($cur) {
         $lt = ts_ms($cur['updated_at']); $rt = ts_ms($u);
-        if ($rt === $lt && !(int)$cur['deleted'] && jenc(canon(rec_data($c, $cur))) === jenc(canon($data))) { $same++; continue; }
-        if ($rt <= $lt) { $rejected[] = ['type' => $type, 'id' => $id, 'server_updated_at' => $cur['updated_at'], 'reason' => $rt === $lt ? 'tie' : 'older', 'current' => rec_public($c, $cur)]; continue; }
+        if ($rt === $lt && !(int)$cur['deleted'] && jenc(canon($curData)) === jenc(canon($data))) { $same++; $jr['n']['same']++; continue; }
+        if ($rt <= $lt) {
+          $rejected[] = ['type' => $type, 'id' => $id, 'server_updated_at' => $cur['updated_at'], 'reason' => $rt === $lt ? 'tie' : 'older', 'current' => rec_public($c, $cur)];
+          if ($rt === $lt) $jr['n']['conflicts']++;
+          jr_item($jr, $type, $id, $rt === $lt ? 'conflict' : 'rejected-older', ['code' => rec_code($data) ?: rec_code($curData), 'reason' => $rt === $lt ? 'tie' : 'older', 'client_updated_at' => $u, 'prev_updated_at' => $cur['updated_at'],
+            'new_updated_at' => $cur['updated_at'], 'prev_hash' => $prevHash, 'new_hash' => jr_hash($data), 'prev' => $curData, 'new' => $data, 'extra' => (int)$cur['deleted'] ? ['server_deleted' => true] : null]);
+          continue;
+        }
       }
       rec_write($db, $c, $type, $id, $u, false, $label, $data, $device); $applied++;
+      jr_item($jr, $type, $id, $curData !== null ? 'update' : 'create', ['code' => rec_code($data), 'reason' => $cur && (int)$cur['deleted'] ? 'resurrect' : '', 'client_updated_at' => $u,
+        'prev_updated_at' => $cur ? $cur['updated_at'] : null, 'new_updated_at' => $u, 'prev_hash' => $prevHash, 'new_hash' => jr_hash($data), 'prev' => $curData, 'new' => $data]);
     }
     foreach ((array)($b['tombstones'] ?? []) as $t) {
+      $jr['n']['sent']++;
       $type = $t['type'] ?? ''; $id = $t['id'] ?? ''; $d = (string)($t['deletedAt'] ?? '');
-      if (!in_array($type, DM_TYPES, true) || !valid_id($id) || ts_ms($d) <= 0) { $rejected[] = ['type' => (string)$type, 'id' => is_string($id) ? $id : '', 'reason' => 'invalid']; continue; }
-      $cur = rec_load($db, $type, $id);
+      if (!in_array($type, DM_TYPES, true) || !valid_id($id) || ts_ms($d) <= 0) { $rejected[] = ['type' => (string)$type, 'id' => is_string($id) ? $id : '', 'reason' => 'invalid']; $bad($type, $id, 'invalid', $d); continue; }
+      $cur = rec_load($db, $type, $id); $curData = $cur && !(int)$cur['deleted'] ? rec_data($c, $cur) : null;
       if ($cur) {
         $lt = ts_ms($cur['updated_at']); $rt = ts_ms($d);
-        if ((int)$cur['deleted'] && $rt <= $lt) { $same++; continue; }
-        if (!(int)$cur['deleted'] && $rt <= $lt) { $rejected[] = ['type' => $type, 'id' => $id, 'server_updated_at' => $cur['updated_at'], 'reason' => $rt === $lt ? 'tie' : 'older', 'current' => rec_public($c, $cur)]; continue; }
+        if ((int)$cur['deleted'] && $rt <= $lt) { $same++; $jr['n']['same']++; continue; }
+        if (!(int)$cur['deleted'] && $rt <= $lt) {
+          $rejected[] = ['type' => $type, 'id' => $id, 'server_updated_at' => $cur['updated_at'], 'reason' => $rt === $lt ? 'tie' : 'older', 'current' => rec_public($c, $cur)];
+          if ($rt === $lt) $jr['n']['conflicts']++;
+          jr_item($jr, $type, $id, $rt === $lt ? 'conflict' : 'rejected-older', ['code' => rec_code($curData) ?: cut_str($t['code'] ?? '', 100), 'reason' => ($rt === $lt ? 'tie' : 'older') . '_delete', 'client_updated_at' => $d,
+            'prev_updated_at' => $cur['updated_at'], 'new_updated_at' => $cur['updated_at'], 'prev_hash' => jr_hash($curData), 'new_hash' => jr_tomb_hash($type, $id, $d), 'prev' => $curData, 'new' => null]);
+          continue;
+        }
       }
-      rec_write($db, $c, $type, $id, $d, true, substr((string)($t['who'] ?? $label), 0, 80), ['code' => substr((string)($t['code'] ?? ''), 0, 100)], $device); $applied++;
+      $tcode = substr((string)($t['code'] ?? ''), 0, 100);
+      rec_write($db, $c, $type, $id, $d, true, substr((string)($t['who'] ?? $label), 0, 80), ['code' => $tcode], $device); $applied++;
+      jr_item($jr, $type, $id, 'delete', ['code' => rec_code($curData) ?: $tcode, 'client_updated_at' => $d, 'prev_updated_at' => $cur ? $cur['updated_at'] : null, 'new_updated_at' => $d,
+        'prev_hash' => $curData !== null ? jr_hash($curData) : ($cur ? jr_tomb_hash($type, $id, $cur['updated_at']) : null), 'new_hash' => jr_tomb_hash($type, $id, $d), 'prev' => $curData, 'new' => null]);
     }
     $settingsApplied = false;
     $s = $b['settings'] ?? null;
     if (is_array($s) && is_array($s['data'] ?? null) && ts_ms($s['updated_at'] ?? '') > 0) {
-      $q = $db->query("SELECT updated_at FROM settings_shared WHERE key = 'subset'"); $old = $q->fetchColumn();
+      $q = $db->query("SELECT updated_at, json FROM settings_shared WHERE key = 'subset'"); $oldRow = $q->fetch(); $old = $oldRow ? $oldRow['updated_at'] : false;
       if ($old === false || ts_ms($s['updated_at']) > ts_ms($old)) {
+        $oldData = $oldRow ? json_decode(dec($c, $oldRow['json'], 'settings/subset'), true) : null;
+        jr_item($jr, 'settings', 'subset', $oldRow ? 'update' : 'create', ['client_updated_at' => (string)$s['updated_at'], 'prev_updated_at' => $old ?: null, 'new_updated_at' => (string)$s['updated_at'],
+          'prev_hash' => is_array($oldData) ? jr_hash($oldData) : null, 'new_hash' => jr_hash($s['data']), 'prev' => is_array($oldData) ? $oldData : null, 'new' => $s['data']]);
         $db->prepare('INSERT INTO changes (type, id, updated_at, at, device, who) VALUES (?, ?, ?, ?, ?, ?)')->execute(['settings', 'subset', $s['updated_at'], now_iso(), $device, $label]);
         $seq = (int)$db->lastInsertId();
         $st = $db->prepare("INSERT INTO settings_shared (key, json, updated_at, seq) VALUES ('subset', ?, ?, ?) ON CONFLICT(key) DO UPDATE SET json = excluded.json, updated_at = excluded.updated_at, seq = excluded.seq");
@@ -312,9 +460,13 @@ function r_push(PDO $db, array $c, array $who): array {
       }
     }
     foreach (array_slice((array)($b['activity_log'] ?? []), 0, 5000) as $e) if (is_array($e) && log_insert($db, $c, $e)) $logged++;
+    $jr['n']['accepted'] = $applied; $jr['n']['rejected'] = count($rejected); $jr['seq_to'] = max_seq($db);
+    $jr['extra'] += ['logged' => $logged, 'settings_applied' => $settingsApplied, 'device_body' => $device];
+    $jid = jr_write($db, $c, $jr);   // same transaction: a push and its journal entry are written together or not at all
     $db->exec('COMMIT');
   } catch (Throwable $e) { try { $db->exec('ROLLBACK'); } catch (Throwable $e2) {} throw $e; }
-  return ['applied' => $applied, 'same' => $same, 'rejected' => $rejected, 'settings_applied' => $settingsApplied, 'logged' => $logged, 'seq' => max_seq($db), 'server_time' => now_iso()];
+  jr_prune($db, $c);
+  return ['applied' => $applied, 'same' => $same, 'rejected' => $rejected, 'settings_applied' => $settingsApplied, 'logged' => $logged, 'seq' => max_seq($db), 'server_time' => now_iso(), 'journal_id' => $jid];
 }
 
 function binder_pack(PDO $db, array $c, array $row): array {
@@ -341,26 +493,131 @@ function r_patch(PDO $db, array $c, array $who): array {
   foreach (array_keys($patch) as $k) if (!in_array($k, DM_MOBILE_FIELDS, true)) fail(422, 'field_not_allowed', 'field not allowed from mobile', ['field' => (string)$k]);
   $base = (string)($b['base_updated_at'] ?? trim((string)($_SERVER['HTTP_IF_MATCH'] ?? ''), '"'));
   $force = !empty($b['force']);
+  $ci = client_info($c); $label = substr(trim((string)($b['operator'] ?? '')), 0, 80) ?: $who['user'];
+  $jr = jr_new('patch', $who, $ci, ['operator' => $label, 'base_updated_at' => $base, 'forced' => $force, 'fields' => array_keys($patch)]);
+  $jr['n']['sent'] = 1; $conflict = null; $jid = null;
   $db->exec('BEGIN IMMEDIATE');
   try {
     $row = rec_load($db, 'binder', $id);
     if (!$row || (int)$row['deleted']) fail(404, 'not_found', 'binder not found');
-    if (!$force && $base !== $row['updated_at']) { $cur = binder_pack($db, $c, $row); fail(409, 'conflict', 'binder changed meanwhile', ['current' => $cur['binder'], 'current_etag' => $row['updated_at']]); }
-    $data = rec_data($c, $row);
+    $prev = rec_data($c, $row);
+    if (!$force && $base !== $row['updated_at']) {
+      // v11: the refused save is journaled too (what the phone tried, on which version) before answering 409
+      $cur = binder_pack($db, $c, $row); $tried = $prev; foreach ($patch as $k => $v) $tried[$k] = $v;
+      $jr['n']['rejected'] = 1; $jr['n']['conflicts'] = 1;
+      jr_item($jr, 'binder', $id, 'conflict', ['code' => rec_code($prev), 'reason' => 'stale_base', 'client_updated_at' => $base, 'prev_updated_at' => $row['updated_at'], 'new_updated_at' => $row['updated_at'],
+        'prev_hash' => jr_hash($prev), 'new_hash' => jr_hash($tried), 'prev' => $prev, 'new' => $tried, 'extra' => ['patch' => $patch]]);
+      jr_write($db, $c, $jr); $db->exec('COMMIT');
+      $conflict = ['current' => $cur['binder'], 'current_etag' => $row['updated_at']];
+    }
+    if ($conflict === null) {
+    $data = $prev;
     foreach ($patch as $k => $v) $data[$k] = $v;
     $now = ts_ms(now_iso()); $old = ts_ms($row['updated_at']); $at = iso_ms(max($now, $old + 1));   // strictly increasing
-    $label = substr(trim((string)($b['operator'] ?? '')), 0, 80) ?: $who['user'];
-    rec_write($db, $c, 'binder', $id, $at, false, $label, $data, substr((string)($b['deviceId'] ?? 'mobile'), 0, 100));
+    rec_write($db, $c, 'binder', $id, $at, false, $label, $data, substr((string)($b['deviceId'] ?? ($ci['device_id'] !== 'unknown' ? $ci['device_id'] : 'mobile')), 0, 100));
+    $jr['n']['accepted'] = 1;
+    jr_item($jr, 'binder', $id, 'update', ['code' => rec_code($data), 'reason' => $force ? 'forced' : '', 'client_updated_at' => $base, 'prev_updated_at' => $row['updated_at'], 'new_updated_at' => $at,
+      'prev_hash' => jr_hash($prev), 'new_hash' => jr_hash($data), 'prev' => $prev, 'new' => $data, 'extra' => ['patch' => $patch]]);
     $e = is_array($b['log'] ?? null) ? $b['log'] : [];
     $e += ['id' => bin2hex(random_bytes(16)), 'action' => 'binder.edit', 'source' => 'mobile', 'who' => $label, 'target' => ['type' => 'binder', 'id' => $id, 'code' => (string)($data['speaking_code'] ?? '')], 'summary' => 'Modificato da mobile il faldone ' . ($data['speaking_code'] ?? '')];
     $e['at'] = $at; $e['details'] = (is_array($e['details'] ?? null) ? $e['details'] : []) + ['patch' => $patch];
     $e['details']['base_updated_at'] = $row['updated_at']; $e['details']['new_updated_at'] = $at; $e['details']['forced'] = $force; $e['details']['token_user'] = $who['user'];
     log_insert($db, $c, $e);
+    $jr['seq_to'] = max_seq($db); $jid = jr_write($db, $c, $jr);
     $db->exec('COMMIT');
+    }
   } catch (Throwable $ex) { try { $db->exec('ROLLBACK'); } catch (Throwable $e2) {} throw $ex; }
+  if ($conflict !== null) fail(409, 'conflict', 'binder changed meanwhile', $conflict);
   $row = rec_load($db, 'binder', $id);
   $p = binder_pack($db, $c, $row);
-  return ['binder' => $p['binder'], 'etag' => $row['updated_at']];
+  return ['binder' => $p['binder'], 'etag' => $row['updated_at'], 'journal_id' => $jid, 'hash' => jr_hash(rec_data($c, $row))];
+}
+
+/* ---------------- v11: journal routes ---------------- */
+/** List (newest first, paged with before=<jid>) or one entry (entry=<jid>, with the decrypted previous / new payloads).
+    Filters: from, to (ISO or YYYY-MM-DD), user, device (device id), record (record id), code (human code), route.
+    Editors only ever see their own entries (user forced to the token's user); viewers get 403 from the dispatcher. */
+function r_journal(PDO $db, array $c, array $who): array {
+  $admin = $who['role'] === 'admin';
+  $entry = (int)param($c, 'entry', 0);
+  $where = []; $args = [];
+  $user = $admin ? trim((string)param($c, 'user', '')) : $who['user'];
+  if ($user !== '') { $where[] = 'k_user = ?'; $args[] = hidx($c, 'user/' . strtolower($user)); }
+  if ($entry > 0) { $where[] = 'jid = ?'; $args[] = $entry; }
+  else {
+    $from = trim((string)param($c, 'from', '')); $to = trim((string)param($c, 'to', ''));
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) $to .= 'T23:59:59.999Z';
+    if ($from !== '') { $where[] = 'at >= ?'; $args[] = $from; }
+    if ($to !== '') { $where[] = 'at <= ?'; $args[] = $to; }
+    $dev = trim((string)param($c, 'device', '')); if ($dev !== '') { $where[] = 'k_device = ?'; $args[] = hidx($c, 'device/' . $dev); }
+    $route = trim((string)param($c, 'route', '')); if ($route !== '') { $where[] = 'route = ?'; $args[] = $route; }
+    $before = (int)param($c, 'before', 0); if ($before > 0) { $where[] = 'jid < ?'; $args[] = $before; }
+  }
+  $rec = trim((string)param($c, 'record', '')); $code = strtoupper(trim((string)param($c, 'code', '')));
+  $iw = []; $ia = [];
+  if ($rec !== '') { $iw[] = 'id = ?'; $ia[] = $rec; }
+  if ($code !== '') { $iw[] = 'k_code = ?'; $ia[] = hidx($c, $code); }
+  if ($iw) { $where[] = 'jid IN (SELECT jid FROM sync_journal_items WHERE ' . implode(' AND ', $iw) . ')'; array_push($args, ...$ia); }
+  $limit = max(1, min(DM_JOURNAL_PAGE_MAX, (int)param($c, 'limit', DM_JOURNAL_PAGE)));
+  $q = $db->prepare('SELECT * FROM sync_journal' . ($where ? ' WHERE ' . implode(' AND ', $where) : '') . ' ORDER BY jid DESC LIMIT ' . ($limit + 1));
+  $q->execute($args); $rows = $q->fetchAll();
+  $more = count($rows) > $limit; if ($more) array_pop($rows);
+  if ($entry > 0 && !$rows) fail(404, 'not_found', 'journal entry not found');
+  $items = [];
+  foreach ($rows as $r) {
+    $m = jr_meta($c, $r);
+    $e = ['jid' => (int)$r['jid'], 'at' => $r['at'], 'route' => $r['route'], 'token_id' => $r['token_id'], 'role' => $r['role'], 'user' => (string)($m['user'] ?? ''),
+      'device' => ['id' => (string)($m['device_id'] ?? 'unknown'), 'name' => (string)($m['device_name'] ?? 'unknown'), 'app' => (string)($m['app_version'] ?? 'unknown')],
+      'operator' => (string)($m['operator'] ?? ''), 'extra' => $m['extra'] ?? null,
+      'counts' => ['sent' => (int)$r['n_sent'], 'accepted' => (int)$r['n_accepted'], 'rejected' => (int)$r['n_rejected'], 'conflicts' => (int)$r['n_conflicts'], 'same' => (int)$r['n_same']],
+      'items_total' => (int)$r['n_items'], 'seq_from' => $r['seq_from'] === null ? null : (int)$r['seq_from'], 'seq_to' => $r['seq_to'] === null ? null : (int)$r['seq_to']];
+    if ($admin) $e['ip'] = (string)($m['ip'] ?? '');
+    $sq = 'SELECT * FROM sync_journal_items WHERE jid = ?' . ($iw ? ' AND ' . implode(' AND ', $iw) : '') . ' ORDER BY n LIMIT ' . ($entry > 0 ? 20000 : DM_JOURNAL_ITEMS_LIST);
+    $s = $db->prepare($sq); $s->execute(array_merge([(int)$r['jid']], $ia));
+    $e['records'] = [];
+    foreach ($s->fetchAll() as $it) {
+      $p = jr_payload($c, $it);
+      $x = ['n' => (int)$it['n'], 'type' => $it['type'], 'id' => $it['id'], 'code' => (string)($p['code'] ?? ''), 'action' => $it['action'], 'reason' => (string)($p['reason'] ?? ''),
+        'client_updated_at' => $it['client_updated_at'], 'prev_updated_at' => $it['prev_updated_at'], 'new_updated_at' => $it['new_updated_at'], 'prev_hash' => $it['prev_hash'], 'new_hash' => $it['new_hash']];
+      if ($entry > 0) { $x['prev'] = $p['prev'] ?? null; $x['new'] = $p['new'] ?? null; $x['extra'] = $p['extra'] ?? null; }
+      $e['records'][] = $x;
+    }
+    $items[] = $e;
+  }
+  return ['items' => $items, 'more' => $more, 'next_before' => $more && $rows ? (int)end($rows)['jid'] : null, 'server_time' => now_iso()];
+}
+/** Writes a journaled version of a record again, as a NEW write (updated_at = max(now, current + 1 ms)), so that it wins
+    the last-write-wins on every client at the next sync. version 'prev' = what the item overwrote, 'new' = what it wrote.
+    A version without data (the record did not exist / was deleted) is restored as a deletion (tombstone). */
+function r_journal_restore(PDO $db, array $c, array $who): array {
+  $jid = (int)param($c, 'jid', 0); $n = (int)param($c, 'n', 0); $ver = (string)param($c, 'version', 'prev');
+  if ($jid <= 0 || $n <= 0 || !in_array($ver, ['prev', 'new'], true)) fail(422, 'invalid', 'jid, n and version prev|new required');
+  $db->exec('BEGIN IMMEDIATE');
+  try {
+    $q = $db->prepare('SELECT * FROM sync_journal_items WHERE jid = ? AND n = ?'); $q->execute([$jid, $n]); $it = $q->fetch();
+    if (!$it) fail(404, 'not_found', 'journal item not found');
+    $type = $it['type']; $id = $it['id'];
+    if (!in_array($type, DM_TYPES, true) || !valid_id($id)) fail(422, 'invalid', 'this item cannot be restored (type ' . $type . ')');
+    $p = jr_payload($c, $it); $data = $p[$ver] ?? null;
+    if ($data !== null && !is_array($data)) fail(422, 'invalid', 'no stored version');
+    if ($data === null && in_array($it['action'], ['pull', 'pull-delete', 'rejected-invalid'], true)) fail(422, 'invalid', 'this item holds no version to restore');
+    $cur = rec_load($db, $type, $id); $curData = $cur && !(int)$cur['deleted'] ? rec_data($c, $cur) : null;
+    $at = iso_ms(max(ts_ms(now_iso()), $cur ? ts_ms($cur['updated_at']) + 1 : 0));
+    $code = rec_code($data) ?: rec_code($curData) ?: (string)($p['code'] ?? '');
+    $ci = client_info($c);
+    $jr = jr_new('journal_restore', $who, $ci, ['source' => ['jid' => $jid, 'n' => $n, 'version' => $ver]]);
+    $jr['n']['sent'] = 1; $jr['n']['accepted'] = 1;
+    if ($data !== null) { $data['id'] = $id; unset($data['updated_at']); rec_write($db, $c, $type, $id, $at, false, $who['user'], $data, $ci['device_id']); }
+    else rec_write($db, $c, $type, $id, $at, true, $who['user'], ['code' => $code], $ci['device_id']);
+    jr_item($jr, $type, $id, 'restore', ['code' => $code, 'reason' => 'journal ' . $jid . '/' . $n . ' ' . $ver, 'prev_updated_at' => $cur ? $cur['updated_at'] : null, 'new_updated_at' => $at,
+      'prev_hash' => $curData !== null ? jr_hash($curData) : ($cur ? jr_tomb_hash($type, $id, $cur['updated_at']) : null), 'new_hash' => $data !== null ? jr_hash($data) : jr_tomb_hash($type, $id, $at), 'prev' => $curData, 'new' => $data]);
+    $jr['seq_to'] = max_seq($db);
+    $newJid = jr_write($db, $c, $jr);
+    log_insert($db, $c, ['id' => bin2hex(random_bytes(16)), 'at' => $at, 'who' => $who['user'], 'action' => 'sync.restore', 'source' => 'sync', 'target' => ['type' => $type, 'id' => $id, 'code' => $code],
+      'summary' => 'Ripristinata dal registro sincronizzazioni una versione di ' . ($code !== '' ? $code : $id) . ' (voce ' . $jid . '/' . $n . ')', 'details' => ['journal_id' => $jid, 'n' => $n, 'version' => $ver, 'new_journal_id' => $newJid, 'new_updated_at' => $at, 'deleted' => $data === null]]);
+    $db->exec('COMMIT');
+  } catch (Throwable $ex) { try { $db->exec('ROLLBACK'); } catch (Throwable $e2) {} throw $ex; }
+  return ['ok' => true, 'type' => $type, 'id' => $id, 'updated_at' => $at, 'deleted' => $data === null, 'journal_id' => $newJid, 'seq' => max_seq($db)];
 }
 
 function r_tokens(PDO $db, array $c): array {
@@ -398,8 +655,8 @@ if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) {
     $c = load_config();
     cors($c);
     if ($method === 'OPTIONS') { http_response_code(204); exit; }
-    $reads = ['me' => 'viewer', 'pull' => 'viewer', 'binder' => 'viewer', 'tokens' => 'admin'];
-    $writes = ['push' => 'editor', 'patch' => 'editor', 'token_create' => 'admin', 'token_revoke' => 'admin'];
+    $reads = ['me' => 'viewer', 'pull' => 'viewer', 'binder' => 'viewer', 'tokens' => 'admin', 'journal' => 'editor'];
+    $writes = ['push' => 'editor', 'patch' => 'editor', 'token_create' => 'admin', 'token_revoke' => 'admin', 'journal_restore' => 'admin'];
     if (!isset($reads[$route]) && !isset($writes[$route])) fail(404, 'no_route', 'unknown route');
     if (isset($writes[$route]) && $method !== 'POST') fail(405, 'method', 'use POST');
     if (!in_array($method, ['GET', 'POST'], true)) fail(405, 'method', 'use GET or POST');
@@ -407,12 +664,14 @@ if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) {
     $who = auth($db, $c, $reads[$route] ?? $writes[$route]);
     switch ($route) {
       case 'me': $res = ['user' => $who['user'], 'role' => $who['role'], 'token_id' => $who['token_id'], 'studio_name' => (string)$c['studio_name'], 'server_time' => now_iso()]; break;
-      case 'pull': $res = r_pull($db, $c); break;
+      case 'pull': $res = r_pull($db, $c, $who); break;
       case 'push': $res = r_push($db, $c, $who); break;
       case 'binder': $res = r_binder($db, $c); header('ETag: "' . $res['etag'] . '"'); break;
       case 'patch': $res = r_patch($db, $c, $who); header('ETag: "' . $res['etag'] . '"'); break;
       case 'tokens': $res = r_tokens($db, $c); break;
       case 'token_create': $res = r_token_create($db, $c, $who); break;
+      case 'journal': $res = r_journal($db, $c, $who); break;
+      case 'journal_restore': $res = r_journal_restore($db, $c, $who); break;
       default: $res = r_token_revoke($db, $c);
     }
     out(200, $res);

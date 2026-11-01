@@ -476,6 +476,21 @@ solo additive:
 Il database del server ha un suo schema (`API-CONTRACT.md` §6): i record sono gli stessi oggetti `binder` / `client`
 di questo documento, cifrati uno per uno.
 
+### v11 — Registro sincronizzazioni (stream J, nessuna modifica di schema locale)
+
+Schema stato e `DB_SCHEMA_VERSION` del `.sqlite` **invariati**; stesse chiavi di memoria. Novità solo additive:
+
+| Dove | Campo | Significato |
+|---|---|---|
+| `S.syncJournal` | array di voci, default `[]` (massimo 2 000 voci / 12 000 record) | registro sincronizzazioni locale, forma in `SYNC.md` §9. Uno stato v10.1 senza il campo lo riceve vuoto da `migrate()`; voci senza `id` vengono scartate |
+| `S.sync.recvAt` | `{'<type>:<id>': [quando è arrivato qui, peer di provenienza, updated_at ricevuto]}` (massimo 20 000) | per inoltrare i record ricevuti con un'ora vecchia e non segnare falsi conflitti (`SYNC.md` §9); creato da `syncEnsure()` |
+| workspace JSON / "Salva backup" | chiave facoltativa `sync_journal` (accanto ad `activity_log`) | il registro locale; al ripristino viene **unito** per `id` (mai sostituito). File senza la chiave = come prima |
+| `localStorage 'docmap_v26_vault_journal'` | blob cifrato | `scan.html` web: "Le mie sincronizzazioni" (ultime 200) |
+| `localStorage 'docmap_v26_device_label'` | stringa | `scan.html`: nome di questo telefono nel registro |
+
+Il registro **non** è nel `.sqlite` (nessuna tabella nuova sul PC); per conservarlo: backup JSON o Esporta CSV/JSON.
+Sul server: tabelle `sync_journal` e `sync_journal_items` (`API-CONTRACT.md` §6, §10), `meta.schema` = 2.
+
 ### v10 — Pagine e PDF (stream R)
 
 | Dove | Campo | Significato |

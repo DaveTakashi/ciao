@@ -1,4 +1,4 @@
-# DocMap 2026 — Sincronizzazione: pacchetti manuali (v10) e database online condiviso (v10.1)
+# DocMap 2026 — Sincronizzazione: pacchetti manuali (v10), database online condiviso (v10.1), registro (v11)
 
 Codice: `assets/js/06f-sync.js` · Test: blocco `// @@STREAM-S@@` in `tests/suite.js` · Aiuto in app: argomento `sync`.
 
@@ -153,3 +153,96 @@ Riga di registro `sync.server`. Richieste "semplici" (`POST text/plain`, token n
 ## 8. Per il back-end Python
 
 Il formato è pensato per diventare l'API di sync: `POST /sync/push` = un pacchetto `docmap-sync` (anche cifrato end-to-end), `GET /sync/pull?since=` = un pacchetto con i record successivi. Il server può applicare la stessa regola (record-level LWW su `updated_at`, tombstone con `deletedAt`) o fare solo da casella postale cifrata. Campi da conservare lato server: `updated_at` dei record, tabella `tombstones(type, id, code, deleted_at, who)`, `device(id, label, mode)` e, per ogni coppia di dispositivi, l'ultima conferma (`ack`).
+
+## 9. v11 — Registro sincronizzazioni (journal di push e sync)
+
+Codice: `assets/js/06i-journal.js` (client), `server-php/api.php` (server, tabelle `sync_journal` +
+`sync_journal_items`) · Test: blocco `// @@STREAM-J@@` di `tests/suite.js` · Aiuto in app: argomento `journal`.
+
+Ogni scambio di dati lascia una traccia **per record**: chi, quando, da quale dispositivo (id, nome, versione
+dell'app), con quale esito e con quale versione del record. Tre registri con la stessa forma:
+
+| Registro | Dove vive | Chi lo scrive |
+|---|---|---|
+| **locale** | `S.syncJournal` (localStorage, come il resto di `S`; nei backup JSON come `sync_journal`; **non** nel `.sqlite`) | import ed export di pacchetti (06f), sincronizzazione con il server (06g), ripristini locali |
+| **del telefono** | cassaforte cifrata `docmap_v26_vault_journal` (solo `scan.html` in modalità web, a cassaforte sbloccata) | ogni salvataggio diretto dal telefono (`patch`) |
+| **del server** | `sync_journal` / `sync_journal_items` nel `docmap.sqlite`, cifrati | ogni `push`, ogni `patch` (anche quelle respinte con 409), i `pull` che restituiscono qualcosa, i ripristini |
+
+**Voce locale** (le più recenti in fondo; massimo 2 000 voci, 300 record per voce, 12 000 record in tutto):
+`{id, at, kind:'server'|'package'|'phone'|'restore', dir:'sync'|'import'|'export'|'patch'|'restore', auto, ok, error,
+peer:{id,label,mode,url?,file?,sha256?,bytes?,enc?}, device:{id,name,app}, user, role, counts:{sent, received, accepted,
+rejected, conflicts, created, updated, deleted, ignored}, server_journal:[jid…], items:[…], items_total}`.
+Ogni `item`: `{type, id, code, dir:'in'|'out', action, resolution, how, reason, local_updated_at, remote_updated_at,
+hash, fields?:[[campo, qui, altro]], snapshot?}`. Il tipo è libero (`binder`, `client`, `settings` e i tipi futuri,
+per esempio `location`): il registro non ha un elenco chiuso.
+
+- `action`: `create` · `update` · `delete` · `tombstone` · `conflict` · `rejected-older` · `sent` · `sent-delete` · `restore`.
+- `resolution`: `took_remote` · `kept_local` · `accepted` · `rejected-older` · `conflict` · `rejected-invalid` · `queued` · `forced`.
+- `how` (solo conflitti): `auto` (regola "vince il più recente", senza finestra), `confirmed` (proposta accettata nella
+  revisione), `manual` (scelta cambiata a mano).
+- `hash` = SHA-256 del JSON canonico della versione tenuta/inviata (chiavi ordinate, senza `updated_at`, `short_url`,
+  `location_code`, `selected_for_print`, campi `_*`, valori scalari come stringhe): per un record inviato è **identico**
+  al `new_hash` del server, così le due tracce si confrontano. Una tombstone ha `sha256("deleted:<type>/<id>@<deletedAt>")`.
+- `fields` = i campi diversi (conflitti, aggiornamenti, ripristini); `snapshot` = il record prima di un'eliminazione:
+  la versione persa si può sempre rimettere.
+- Un file di pacchetto è registrato con nome, dimensione e SHA-256 del testo (`peer.file/bytes/sha256`).
+- Non si registrano: le sincronizzazioni automatiche della web app che non hanno spostato nulla e gli errori
+  automatici (riprovati da soli). Quelle a richiesta si registrano sempre, anche se falliscono.
+
+**Identità del dispositivo** su ogni chiamata al server (`DMServer.call`): header `X-DocMap-Device`,
+`X-DocMap-Device-Name` (URI-encoded), `X-DocMap-App`, oppure `"_device":{id,name,app}` nel corpo `text/plain` del PC
+(`file://`). `id` = `S.settings.deviceId`, `name` = `S.settings.deviceLabel` (modificabile in ⚙ Sincronizzazione),
+`app` = `APP_VERSION`. Il telefono usa `docmap_v26_device` / `docmap_v26_device_label` di localStorage. Un client v10.1
+non manda nulla: il server registra `unknown` (per il `push` usa ancora il `deviceId` del corpo).
+
+**Interfaccia** (⚙ Sincronizzazione, riquadro *Registro sincronizzazioni*): filtri per data (dal/al), utente,
+dispositivo, codice faldone; sorgente *Questo dispositivo* oppure *Server (tutti)* (admin) / *Server (le mie)* (editor),
+visibile solo con il server collegato; dettaglio con l'esito di ogni record e il **confronto campo per campo**;
+pulsante **Ripristina questa versione**; **Esporta CSV** (separatore `;`, BOM UTF-8, 28 colonne, una riga per record) ed
+**Esporta JSON** (`{format:'docmap-sync-journal', version:1, …}`). Sul telefono: *Le mie sincronizzazioni* (ultime 200).
+
+**Ripristino**:
+- *locale*: rimette la versione che **non** aveva vinto (o lo `snapshot` prima di un'eliminazione) con `updated_at` =
+  adesso (e comunque dopo la versione attuale e dopo un'eventuale tombstone), scrive `sync.restore` nel registro
+  attività e una voce `restore` nel registro sincronizzazioni; alla prossima sincronizzazione vince ovunque. Si annulla
+  con **Annulla**.
+- *server* (solo admin): `journal_restore {jid, n, version:'prev'|'new'}` riscrive quella versione sul server come
+  nuova scrittura (`updated_at = max(ora del server, attuale + 1 ms)`), poi il PC si sincronizza subito.
+
+**Regole del motore corrette in v11** (pacchetti e server; nessun cambiamento di formato):
+1. `syNext(prev, now) = max(now, prev + 1 ms)`: una modifica fatta su una versione arrivata da un dispositivo con
+   l'orologio avanti riceve comunque un `updated_at` **successivo** (prima poteva risultare più vecchia e perdere).
+   Vale per `syncTrack`, per *tieni locale* e per le tombstone.
+2. `S.sync.recvAt['type:id'] = [quando è arrivato qui, da quale peer, quale updated_at]`: un record ricevuto da un
+   pacchetto o dal server con un `updated_at` vecchio viene comunque **inoltrato** agli altri dispositivi (prima un
+   faldone arrivato dal PC A non passava mai al server tramite il PC B). Massimo 20 000 voci.
+3. Nessun falso conflitto "modificato da entrambe le parti" quando la versione locale è proprio quella ricevuta da
+   (o accettata da) quell'altro dispositivo.
+4. Se `lastPushAt` o l'ultimo export risultano **nel futuro** (orologio corretto all'indietro) si manda tutto invece
+   di niente.
+5. Il ramo del push con record rifiutati usa il `server_time` del server (prima usava l'ora del PC).
+
+## 10. Come risolvere una contestazione
+
+Esempio: «Martedì ho spostato il faldone BL123 nell'armadio 4, oggi è di nuovo nell'armadio 2. Chi l'ha cambiato?»
+
+1. **Apri il registro**: ⚙ Funzioni avanzate › Sincronizzazione › *Registro sincronizzazioni*. Con il server
+   collegato scegli **Server (tutti)** (serve un codice admin; un editor vede solo le proprie sincronizzazioni).
+2. **Filtra**: scrivi `BL123` in *Codice faldone* e, se serve, il periodo (*Dal* / *Al*). Restano solo le
+   sincronizzazioni che hanno toccato quel faldone, la più recente in alto.
+3. **Leggi le righe**: per ognuna vedi quando, chi (utente del codice di accesso e operatore), da quale dispositivo
+   (nome, id, versione dell'app) e l'esito (*accettato*, *più vecchio, ignorato*, *conflitto*, *ripristinato*…).
+4. **Apri il dettaglio** della riga sospetta: il confronto mostra campo per campo la versione **prima** e **dopo**
+   (per esempio `shelf_code: 4 → 2`). Per i conflitti c'è anche *come* è stato deciso: in automatico (vince il più
+   recente), confermato nella revisione o scelto a mano.
+5. **Controlla il registro dell'altro dispositivo**, se serve: ogni voce locale riporta lo SHA-256 della versione
+   inviata, uguale al `new_hash` del server. Se coincidono, quella versione è partita proprio da lì.
+6. **Rimetti la versione giusta**: nel dettaglio premi **Ripristina questa versione**. Diventa la modifica più
+   recente e alla prossima sincronizzazione arriva su tutti i dispositivi. Anche il ripristino resta nel registro
+   (azione *ripristinato*) e nel registro attività (`sync.restore`).
+7. **Conserva la prova**: **Esporta CSV** (si apre in Excel) o **Esporta JSON** con i filtri attivi, e allegalo alla
+   segnalazione.
+
+Se il faldone non compare nel registro del server, la modifica non è mai arrivata: cercala nel registro locale del
+PC (*Questo dispositivo*) o sul telefono (*Le mie sincronizzazioni*). Un orologio sbagliato si riconosce dagli orari:
+l'app avvisa quando un dispositivo differisce dal server di oltre 2 minuti.

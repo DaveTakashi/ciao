@@ -1,4 +1,4 @@
-# DocMap — contratto API del database online condiviso (v10.1)
+# DocMap — contratto API del database online condiviso (v10.1, registro sincronizzazioni v11)
 
 > Stato: **contratto in produzione**. Implementazione di riferimento: `server-php/api.php` (un solo file, PHP 8.0+,
 > PDO SQLite + OpenSSL, nessuna dipendenza) pensato per l'hosting condiviso SiteGround (PHP sì, Node/Python no).
@@ -21,7 +21,8 @@
 | Mappatura nel client | `DMError.code`: 401→`unauthorized`, 403→`forbidden`, 404→`not_found`, 409/412→`conflict`, 400/413/422→`invalid`, 429→`locked`, rete assente→`offline`, altro→`server` |
 | Date | ISO 8601 UTC con millisecondi (`2026-11-01T10:12:44.120Z`). Confronto **come istante** (non come stringa). |
 | Id | `id` creati dai client (UUID), mai riscritti. Tipi di record: `binder`, `client`. |
-| CORS | Predefinito: solo stessa origine. `allowed_origins` in `config.php` aggiunge origini; `'null'` = programma sul PC da `file://`. Metodi `GET, POST, OPTIONS`; header `Content-Type, X-DocMap-Token, Authorization, If-Match`; esposti `ETag, Retry-After`. |
+| CORS | Predefinito: solo stessa origine. `allowed_origins` in `config.php` aggiunge origini; `'null'` = programma sul PC da `file://`. Metodi `GET, POST, OPTIONS`; header `Content-Type, X-DocMap-Token, Authorization, If-Match, X-DocMap-Device, X-DocMap-Device-Name, X-DocMap-App`; esposti `ETag, Retry-After`. |
+| Dispositivo (v11) | Ogni chiamata del client v11 dichiara chi è: header `X-DocMap-Device: <deviceId>`, `X-DocMap-Device-Name: <nome, URI-encoded>`, `X-DocMap-App: <APP_VERSION>`, oppure nel corpo `text/plain` `"_device":{"id","name","app"}`. Facoltativo: un client v10.1 non lo manda e il registro scrive `unknown` (il `push` usa ancora `deviceId` del corpo). Serve solo al registro (§10), mai all'autorizzazione. |
 
 ## 2. Rotte
 
@@ -36,6 +37,12 @@
 | `tokens` | GET | admin | – | `{"items":[{"id":"cfg:0"|"db:…","user","role","source":"config"|"database","created_at"?,"revoked_at"}]}` |
 | `token_create` | POST | admin | `{"user":"…","role":"editor"}` | `{"id":"db:…","user","role","token":"<in chiaro, mostrato una volta>"}` |
 | `token_revoke` | POST | admin | `{"id":"db:…"}` | `{"ok":true}` (i token di `config.php` si disattivano con `'disabled' => true`) |
+| `journal` (v11) | GET | editor (solo le proprie voci) · admin (tutte) | filtri, vedi §10 | `{"items":[Entry],"more":bool,"next_before":jid|null,"server_time":"…"}` · viewer → 403 |
+| `journal_restore` (v11) | POST | admin | `{"jid":n,"n":n,"version":"prev"|"new"}` | `{"ok":true,"type","id","updated_at","deleted":bool,"journal_id":n,"seq":n}` |
+
+Campi aggiunti in v11 (un client v10.1 li ignora): `ping` → `"schema":2,"features":["journal","device_info"]`;
+`push` e `pull` → `"journal_id":n|null` (voce del registro scritta da quella chiamata); `patch` → `"journal_id"` e
+`"hash"` (SHA-256 canonico della versione salvata).
 
 `Binder` = l'oggetto di `MODELLO-DATI.md` §1 così come lo invia il client (più `id`, `updated_at`); `Sibling` =
 `{speaking_code, shelf_code, sector_code, location_code}` degli altri faldoni dello **stesso armadio** (stanza+armadio).
@@ -113,7 +120,14 @@ settings_shared(key TEXT PRIMARY KEY, json BLOB, updated_at TEXT, seq INTEGER)  
 activity_log(seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT UNIQUE, at TEXT, payload BLOB)  -- cifrato
 auth_fail(k TEXT PRIMARY KEY, n INTEGER, until INTEGER, at INTEGER)     -- blocco progressivo per IP
 tokens(id, token_sha256 UNIQUE, user, role, created_at, created_by, revoked_at)          -- token creati dall'app
-meta(k, v)                                                              -- key_check, schema, created_at
+meta(k, v)                                                              -- key_check, schema, created_at, migrated_2_at, journal_pruned_at
+-- v11 (schema 2, creato da db_migrate all'avvio su un database v10.1: solo tabelle nuove, nessun dato toccato)
+sync_journal(jid INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT, route TEXT, token_id TEXT, role TEXT, k_user TEXT, k_device TEXT,
+             n_sent, n_accepted, n_rejected, n_conflicts, n_same, n_items INTEGER, seq_from, seq_to INTEGER, meta BLOB)
+             -- meta cifrato (AAD journal/<jid>): {user, device_id, device_name, app_version, operator, ip, extra}
+sync_journal_items(jid INTEGER, n INTEGER, type TEXT, id TEXT, k_code TEXT, action TEXT, client_updated_at TEXT,
+             prev_updated_at TEXT, new_updated_at TEXT, prev_hash TEXT, new_hash TEXT, payload BLOB, PRIMARY KEY(jid, n))
+             -- payload cifrato (AAD journal/<jid>/<n>): {code, reason, prev, new, extra} = versioni complete prima/dopo
 ```
 
 - **Cifratura a riposo**: AES-256-GCM (`openssl_encrypt`), chiave di 32 byte da `config.php` (`aes_key`, base64),
@@ -164,3 +178,52 @@ nella CSP del `.htaccess` generato.
 - **Foto "Dov'è?" da telefono**: `GET cabinet_photo&binder=<id>` → `{url, mark:{x,y}|null, caption}`.
 - **Risoluzione QR lato server**: `GET /studio-de/q/{short_code}` → `scan.html` registrando la scansione, senza dati
   prima del login (oggi lo fa il `.htaccess`).
+
+## 10. v11 — registro sincronizzazioni (`journal`, `journal_restore`)
+
+Il server scrive **una voce** (`sync_journal`) per ogni `push`, ogni `patch` (anche la 409: la voce viene salvata
+prima della risposta di errore), ogni `pull` con dei cambiamenti (`journal_pulls` di `config.php`: `'changes'`
+predefinito = pull che restituiscono qualcosa o pull completi, `'all'`, `'none'`) e ogni `journal_restore`; e **un
+elemento** (`sync_journal_items`) per ogni record toccato, nella stessa transazione della scrittura.
+
+| `action` dell'elemento | Quando |
+|---|---|
+| `create` / `update` | push accettato (`reason:"resurrect"` se il record era eliminato); `patch` riuscita (`reason:"forced"` con `force`); impostazioni condivise (`type:"settings"`, `id:"subset"`) |
+| `delete` | tombstone accettata |
+| `conflict` | push a parità di ora con contenuto diverso (`reason:"tie"` / `"tie_delete"`); `patch` con base vecchia (`reason:"stale_base"`, 409) |
+| `rejected-older` | push più vecchio (`reason:"older"` / `"older_delete"`) |
+| `rejected-invalid` | push non valido (`reason:"invalid"` / `"too_large"`) |
+| `pull` / `pull-delete` | ciò che il dispositivo ha ricevuto (solo hash, senza versioni) |
+| `restore` | `journal_restore` |
+
+I record con contenuto identico (`same`) si contano soltanto (`counts.same`). Per ogni elemento: `client_updated_at`
+(ora dichiarata dal client), `prev_updated_at` / `new_updated_at` (sul server prima/dopo), `prev_hash` / `new_hash`
+(SHA-256 del JSON canonico di `canon()`; tombstone = `sha256("deleted:<type>/<id>@<deletedAt>")`) e, cifrate,
+le **versioni complete** `prev` / `new`.
+
+**`GET ?r=journal`** — parametri facoltativi: `from`, `to` (ISO; una data `AAAA-MM-GG` in `to` vale fino a fine
+giornata), `user` (solo admin: un editor vede sempre e solo le proprie voci), `device` (id esatto), `route`
+(`push`|`pull`|`patch`|`journal_restore`), `record` (id), `code` (codice esatto, maiuscole indifferenti, via indice
+HMAC), `limit` (50, massimo 200), `before` (paginazione: `next_before` della pagina precedente), `entry` (una voce,
+con le versioni `prev` / `new` di ogni record). Ordine: dalla più recente.
+
+```json
+{"items":[{"jid":12,"at":"…","route":"push","token_id":"cfg:1","role":"editor","user":"mario",
+  "device":{"id":"dev-…","name":"PC segreteria","app":"26.11.0"},"operator":"Mario","extra":{…},
+  "counts":{"sent":3,"accepted":2,"rejected":1,"conflicts":0,"same":0},"items_total":3,"seq_from":40,"seq_to":42,
+  "ip":"…" /* solo admin */,
+  "records":[{"n":1,"type":"binder","id":"…","code":"BL2","action":"update","reason":"","client_updated_at":"…",
+    "prev_updated_at":"…","new_updated_at":"…","prev_hash":"…","new_hash":"…" /* + prev, new, extra con entry= */}]}],
+ "more":false,"next_before":null,"server_time":"…"}
+```
+
+**`POST ?r=journal_restore`** (admin) `{"jid","n","version":"prev"|"new"}`: riscrive quella versione del record come
+**nuova** scrittura con `updated_at = max(ora del server, updated_at attuale + 1 ms)`, quindi vince al prossimo pull di
+ogni client. Una versione vuota (il record non esisteva / era eliminato) diventa una tombstone. Scrive una voce
+`journal_restore` con `extra.source = {jid, n, version}` e una riga `sync.restore` nel registro attività. 422 se
+l'elemento non ha una versione (`pull`, `pull-delete`, `rejected-invalid`) o il tipo non è di `DM_TYPES`.
+
+**Conservazione**: `journal_keep_days` in `config.php` (0 = per sempre, predefinito); la potatura gira al massimo una
+volta al giorno e toglie le voci più vecchie con i loro elementi. **Compatibilità**: un database v10.1 riceve le due
+tabelle al primo avvio dell'API v11 (`meta.schema` 1 → 2); un client v10.1 continua a funzionare (i campi nuovi
+delle risposte sono ignorati, il dispositivo risulta `unknown`).

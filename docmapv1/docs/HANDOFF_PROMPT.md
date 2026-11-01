@@ -122,6 +122,33 @@ La cartella `deploy/studio-de/` è un sito **statico**: sul server c'è solo il 
   sul modello di `docs/AGGIORNAMENTO-v10-v10.1.md`) e un test nella suite che apre dati della versione precedente.
   La procedura standard è in `docs/AGGIORNAMENTI.md`.
 
+## 4c. Dalla v11: registro sincronizzazioni (da riprodurre nel Python)
+
+Lo studio usa il registro per risolvere le contestazioni ("chi ha sovrascritto il faldone?"): l'API Python deve
+offrirlo identico. Riferimenti: `docs/API-CONTRACT.md` §10, `docs/SYNC.md` §9–10, `docs/SICUREZZA.md` §5c.
+
+- **Rotte**: `journal` (editor = solo le proprie voci, admin = tutte; viewer 403) e `journal_restore` (admin), con gli
+  stessi parametri e lo stesso JSON. `ping` risponde `schema` e `features:["journal","device_info"]`; `push`, `pull`,
+  `patch` aggiungono `journal_id` (e `patch` anche `hash`).
+- **Tabelle**: una voce per `push` / `patch` (anche la 409) / `pull` con cambiamenti / ripristino, un elemento per record
+  con `action`, tempi (`client_updated_at`, `prev_updated_at`, `new_updated_at`), hash e versioni complete prima/dopo
+  cifrate. Scrivere voce ed elementi **nella stessa transazione** della modifica.
+- **Hash** (deve coincidere byte per byte, il client lo confronta): `sha256(json(canon(record)))` dove `canon` toglie (al primo
+  livello) `updated_at`, `short_url`, `location_code`, `selected_for_print`, a ogni livello le chiavi che iniziano con
+  `_`, ordina le chiavi degli oggetti (le liste restano in ordine), trasforma ogni scalare in stringa (`null` → `""`,
+  booleani `"true"`/`"false"`, numeri come testo; vedi `canon()` in `api.php` e `jrCanon` in
+  `06i-journal.js`) e serializza senza spazi, UTF-8 non escapato, `/` non escapato. Tombstone:
+  `sha256("deleted:<type>/<id>@<deletedAt>")`.
+- **Dispositivo**: leggere `X-DocMap-Device`, `X-DocMap-Device-Name` (URI-encoded), `X-DocMap-App` o `_device` nel corpo;
+  assente → `unknown`. Non usarlo mai per autorizzare.
+- **Ripristino**: `updated_at = max(adesso, attuale + 1 ms)`; versione vuota = tombstone.
+- **Regole del client da non rompere** (v11, `SYNC.md` §9): `syNext` (un nuovo `updated_at` è sempre > del precedente),
+  `S.sync.recvAt` (i record ricevuti si inoltrano anche se hanno un'ora vecchia), nessun conflitto per la versione
+  ricevuta da quel peer. Il server non deve riscrivere gli `updated_at` del push (solo `patch` e `journal_restore`
+  usano l'ora del server).
+- **Migrazione**: il PHP porta `meta.schema` da 1 a 2 creando solo tabelle nuove; per spostare anche il registro nel
+  Python leggi `sync_journal*` con la chiave di `config.php` (blob come gli altri: `0x01 | iv | tag | testo`).
+
 ## 5. Regole da rispettare
 
 - **Non rompere l'uso offline:** l'app deve continuare ad aprirsi con doppio clic e a funzionare senza server. Il server è un'aggiunta, scelta con i provider.

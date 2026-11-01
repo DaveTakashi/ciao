@@ -422,7 +422,8 @@ function defaultState(){
             contentMode:'info', template:'classic', showMulti:true, fields:{}, split:{ratio:0.5, rotate:-90, guides:true}, advanced:false, qrMode:'live', showQrUrl:true, copies:1, previewMode:'labels',
             info:{items:2, pair:false}, edge:{outer:4, cut:1, byPreset:{}} },
     customPresets:[], usedSlots:{}, clients:[],
-    hasUnexportedChanges:true, onboarded:false, lastExportAt:null, lastExportFile:null, lastSavedAt:null, archiveView:'table'
+    hasUnexportedChanges:true, onboarded:false, lastExportAt:null, lastExportFile:null, lastSavedAt:null, archiveView:'table',
+    syncJournal:[]   // v11: local push/sync journal (06i-journal.js)
   };
 }
 let S = null;
@@ -457,6 +458,7 @@ function migrate(st){
   if (st && !(st.settings && st.settings.colorMode) && typeof colorLockLegacy === 'function') colorLockLegacy(o.binders, o.settings);
   if (!['it','en'].includes(o.lang)) o.lang = 'it';
   if (o.view === 'clients'){ o.view = 'info'; o.infoTab = 'clients'; }   // v8: the client register lives in Informazioni
+  o.syncJournal = Array.isArray(o.syncJournal) ? o.syncJournal.filter(e => e && typeof e === 'object' && e.id) : [];   // v11 (06i-journal.js): absent in v10.1 states
   return o;
 }
 function loadState(){

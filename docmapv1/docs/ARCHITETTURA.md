@@ -282,3 +282,18 @@ Ogni riga passa da `mapRecord()` (alias intestazioni → campi), riceve codice p
   `RemoteDataProvider` (client `DMServer`) per `scan.html`; il token del server sta cifrato nella cassaforte.
 - **Memorizzazione invariata**: stesse chiavi `localStorage` / IndexedDB, nessuna modifica di schema; i dati v10 si
   aprono così come sono.
+
+## 14. v11: registro sincronizzazioni (`06i-journal.js`, `css-journal.css`)
+
+- **Ruolo**: osservatore. Non cambia le decisioni del motore 06f/06g; avvolge (`window[nome] = wrapper`) le funzioni
+  di sincronizzazione (`syncParse`, `syncOpenReview`, `syncApply`, `syncExport`, `srvSync`, `srvApplyPlan`, `srvPush`),
+  `DMServer.prototype.call` e `RemoteDataProvider.prototype.saveBinderPatch`, e scrive una voce in `S.syncJournal` per
+  ogni scambio (`SYNC.md` §9). Ogni chiamata al server dichiara id, nome e versione del dispositivo.
+- **Server**: `api.php` scrive il proprio registro (`sync_journal`, `sync_journal_items`) nella stessa transazione di
+  `push` / `patch`, e per i `pull` con cambiamenti; rotte `journal` e `journal_restore`. Lo schema del server passa a
+  2 con `db_migrate()` (solo tabelle nuove).
+- **Interfaccia**: riquadro in fondo alla vista Sincronizzazione (`viewSync`), dettaglio in finestra modale con il
+  confronto dei campi, ripristino, export CSV/JSON; in `scan.html` la schermata `journal` ("Le mie sincronizzazioni").
+- **Correzioni del motore** in 06f/06g: `syNext`, `S.sync.recvAt` (`syncMarkRecv`, `syncIsNew`, `syncSameAsPeer`): vedi
+  `SYNC.md` §9.
+- **Memorizzazione**: nessuna modifica di schema locale né del `.sqlite`; il registro va nei backup JSON.

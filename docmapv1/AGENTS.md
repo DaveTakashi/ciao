@@ -52,6 +52,7 @@ What changed from v7 is summarised in §10.
 | 6e | `assets/js/06e-log.js` | activity log (v9): `logAct(action, target, summary, details, source)`, `LOG` (memory mirror) + SQLite `activity_log`, wrappers around exports/print/sessions/Informazioni/undo, view `log` (`viewLog`, filters `LOGV`, CSV), `S.settings.operator`, help topic `log` |
 | 6f | `assets/js/06f-sync.js` | v10 manual sync local ⇄ web app (docs/SYNC.md): change tracking inside `persist()` (`syncTrack`: bumps `updated_at` when content changed without a bump, writes tombstones `S.tombstones` for vanished ids), stable `S.settings.deviceId` (+ localStorage `docmap_v26_device`), package `docmap-sync` v1 (`syncBuildPackage`, `syncExport`), optional AES-256-GCM/PBKDF2 wrapper `docmap-sync-enc` (`syncEncrypt`/`syncDecrypt`), `syncParse` → `syncAnalyze` (review plan: new/updated/unchanged/older/delete/conflict/propagate) → `syncApply` (one undo step, `logAct` source `'sync'`), peer bookkeeping `S.sync`, view `sync` (⚙ menu › Dati, pushed onto `NAV_MORE`), `SYNC_ACTIONS`, help topic `sync`. Wraps `persist`, `undoPoint`, `applyWorkspaceObject`, `analyzeImport`, `renderView`, `handleDroppedFile` |
 | 6g | `assets/js/06g-server.js` | **v10.1** sync with the shared online database (`server-php/api.php`): the server is the 06f peer `server:<url>`; `srvSync({interactive})` (pull → `syncAnalyze`/`syncApply` → push, seed confirmation on an empty server, review modal on conflicts), automatic mode in web+apiBase (`srvBoot`, debounced push from a `persist` wrapper, 60 s pull, backoff), top-bar status `#srv-status`, "Server online" card appended to `viewSync`, admin token management, `SRV_ACTIONS` — §14 |
+| 6i | `assets/js/06i-journal.js` | **v11** push / sync journal "Registro sincronizzazioni" (docs/SYNC.md §9): `S.syncJournal` (`jrAdd`, `jrPrune`, `jrMerge`), canonical hash `jrCanon`/`jrRecHash` (= server `canon()`), client identity `jrClientInfo()` (sent by `DMServer.call`), observation wrappers (`jrWrapSync`, `jrWrapProviders`), card appended to `viewSync` (filters, detail + diff, restore, CSV/JSON), phone list in `scan.html`, `JR_ACTIONS`, help topic `journal`; CSS `assets/css-journal.css` — §15. Also loaded by `scan.html` after `10-auth.js` |
 | 7 | `assets/js/07-help.js` | extra i18n keys, `HELP_TAGS`, `HELP_TOPICS`, help drawer, `helpDot(id)`, onboarding |
 | 8 | `assets/js/08-guide.js` | guided-action engine, `GUIDES` |
 | 8b | `assets/js/10-auth.js` | v10 provider seams (`dmProviders()`, `DataProvider`/`AuthProvider`/`CryptoProvider`/`BlobStore`, local + remote stubs), `DocMapVault` (web-mode encrypted storage, boot gate), Impostazioni › Utenti e accesso, "Anteprima mobile", live merge of mobile edits, help topic `mobile` — §12 |
@@ -270,6 +271,27 @@ Field-level details and file formats: `docs/MODELLO-DATI.md`.
 - **Tests**: `// @@STREAM-W@@` builds the deploy into `tests/shots/srv/`, runs `setup.php` through `php -S` with
   `tests/php-router.php` (applies the `.htaccess` deny rules), then API, encryption at rest, web app, scan page,
   desktop seed + review, v10 data preservation, rate limit. Skipped with a notice when `php` (pdo_sqlite + openssl) is missing.
+
+## 15. v11: push / sync journal (stream J)
+
+- **Client** `06i-journal.js` only *observes*: it wraps `syncParse`, `syncOpenReview`, `syncApply`, `syncExport` (06f),
+  `srvSync`, `srvApplyPlan`, `srvPush` (06g), `DMServer.prototype.call` and `RemoteDataProvider.prototype.saveBinderPatch`
+  (10-auth), `workspaceJSON` / `logImport` (backups: key `sync_journal`, merged by id) and `viewSync` (card `#jr-card`).
+  If you rename one of these functions, update the wrapper list (`jrWrapSync`). Entries are generic over record types:
+  a new type that flows through `syncApply` / `srvChanges` is journaled with no change (label key `jr_t_<type>`).
+- **State**: `S.syncJournal` (default `[]`, normalised by `migrate`), `S.sync.recvAt` (06f). No `.sqlite` change.
+- **Sync engine rules added in 06f/06g** (keep them): `syNext(prev, now)` for every new `updated_at` / tombstone /
+  keep-local bump; `syncMarkRecv` + `syncIsNew(type, id, ts, since, exclude)` so that received records are forwarded and
+  a future `since` sends everything; `syncSameAsPeer` against false "both" conflicts; push-rejection packages use the
+  server's `server_time`.
+- **Server** `api.php`: `DM_SCHEMA = 2`, `db_migrate()` (steps array: a new table set = a new step, never edit an old
+  one), tables `sync_journal` / `sync_journal_items`, `client_info()`, `jr_*` helpers, routes `journal` (editor: own
+  entries only) and `journal_restore` (admin), config `journal_keep_days`, `journal_pulls`. `push` / `pull` / `patch`
+  return `journal_id`.
+- **i18n** prefix `jr_*`, log actions `sync.restore`, `sync.journal_export`, log source label `lg_src_journal`.
+- **Tests** `// @@STREAM-J@@`: v10.1 server upgraded in place (API from commit `68ae170`), two desktops + phone against
+  `php -S`, clock skew, package forwarding, convergence, journal roles / filters / hashes / encryption at rest, UI,
+  restore (server and local), exports, local ⇄ local packages with a manual conflict choice.
 
 ## v10 E — Bulk edit ("Modifica massiva", `05d-bulk.js`)
 

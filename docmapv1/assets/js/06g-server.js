@@ -94,12 +94,12 @@ function srvRecData(r){ const o = syncClean(clone(r)); delete o.selected_for_pri
 
 /* ---------------- what is waiting to be sent ---------------- */
 function srvChanges(peer){
-  const since = peer.lastPushAt, nw = (ts) => !since || syTs(ts) > syTs(since);
-  const fresh = (type) => (r) => r && r.id && nw(r.updated_at) && SRV.known.get(srvK(type, r.id)) !== String(r.updated_at || '');
+  const since = peer.lastPushAt, nw = (type, id, ts) => syncIsNew(type, id, ts, since, peer.id);   // v11: also records that arrived from another device (06f recvAt)
+  const fresh = (type) => (r) => r && r.id && nw(type, r.id, r.updated_at) && SRV.known.get(srvK(type, r.id)) !== String(r.updated_at || '');
   const lsince = peer.lastLogPushAt;
   return {
     binders:S.binders.filter(fresh('binder')), clients:(S.clients || []).filter(fresh('client')),
-    tombstones:(S.tombstones || []).filter(x => x && x.id && nw(x.deletedAt) && SRV.known.get(srvK(x.type, x.id)) !== 'del:' + x.deletedAt),
+    tombstones:(S.tombstones || []).filter(x => x && x.id && nw(x.type, x.id, x.deletedAt) && SRV.known.get(srvK(x.type, x.id)) !== 'del:' + x.deletedAt),
     log:(typeof LOG !== 'undefined' ? LOG.entries : []).filter(e => e && e.id && (!lsince || syTs(e.at) > syTs(lsince)) && !SRV.knownLog.has(e.id))
   };
 }
@@ -177,7 +177,11 @@ async function srvPush(cl, conf){
       const rs = recs.slice(k * SRV_REC_CHUNK, (k + 1) * SRV_REC_CHUNK), ls = log.slice(k * SRV_LOG_CHUNK, (k + 1) * SRV_LOG_CHUNK);
       const r = await cl.call('push', {method:'POST', body:{records:rs, tombstones:k ? [] : tombs, settings:k ? null : settings, activity_log:ls, deviceId:syncDeviceId(), operator:String(S.settings.operator || '')}});
       res.applied += +r.applied || 0; res.same += +r.same || 0; res.rejected.push(...(r.rejected || []));
+      if (r.server_time) res.serverTime = r.server_time;   // v11: the server clock, not ours, marks what we have seen of it
+      if (r.journal_id) (res.journalIds || (res.journalIds = [])).push(r.journal_id);
       rs.forEach(x => SRV.known.set(srvK(x.type, x.id), x.updated_at));
+      const rj = new Set((r.rejected || []).map(x => srvK(x.type, x.id)));   // v11: the server now holds exactly this version (06f syncSameAsPeer)
+      rs.forEach(x => { if (!rj.has(srvK(x.type, x.id))) syncMarkRecv(x.type, x.id, peer.id, x.updated_at); });
       if (!k) tombs.forEach(x => SRV.known.set(srvK(x.type, x.id), 'del:' + x.deletedAt));
       ls.forEach(e => SRV.knownLog.add(e.id));
     }
@@ -189,7 +193,7 @@ async function srvPush(cl, conf){
   const cur = res.rejected.filter(x => x.current);
   res.rejected.filter(x => !x.current).forEach(x => SRV.known.set(srvK(x.type, x.id), 'invalid'));
   if (cur.length){
-    const pulled = {records:cur.filter(x => !x.current.deleted).map(x => x.current), tombstones:cur.filter(x => x.current.deleted).map(x => x.current), settings:null, log:[], seq:p.seq, logSeq:p.logSeq, serverTime:nowISO()};
+    const pulled = {records:cur.filter(x => !x.current.deleted).map(x => x.current), tombstones:cur.filter(x => x.current.deleted).map(x => x.current), settings:null, log:[], seq:p.seq, logSeq:p.logSeq, serverTime:res.serverTime || nowISO()};
     const plan = srvPlan(conf, p, pulled); srvAutoChoose(plan);
     const d = srvHasWork(plan) ? syncApply(plan, {quiet:true}) : {new:0, updated:0, delete:0};
     pulled.records.forEach(r => SRV.known.set(srvK(r.type, r.id), String(r.updated_at || '')));

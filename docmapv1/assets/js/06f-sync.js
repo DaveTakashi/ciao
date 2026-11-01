@@ -120,6 +120,9 @@ ADV_VIEWS.push('sync');
 /* ---------------- Helpers ---------------- */
 const syTs = (iso) => { const n = Date.parse(iso || ''); return isNaN(n) ? 0 : n; };
 const syMax = (a, b) => syTs(a) >= syTs(b) ? (a || b || null) : b;
+/** v11: the time stamp of a new local change made on top of a version stamped `prev`: now, but always LATER than prev.
+    (A version pulled from a device whose clock is ahead must never beat an edit made after it here.) */
+const syNext = (prev, now) => syTs(now) > syTs(prev) ? now : new Date(syTs(prev) + 1).toISOString();
 const syB64 = (u8) => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
 const syUnB64 = (s) => Uint8Array.from(atob(String(s || '')), c => c.charCodeAt(0));
 /** 'local' (file:// or localhost) or 'web' (served online). The web deploy can force it with window.DM_CONFIG = {mode:'web'}. */
@@ -147,6 +150,7 @@ function syncEnsure(){
   S.sync = Object.assign({peers:{}, lastExportAt:null, lastImportAt:null, lastPeer:'', history:[]}, y);
   if (!S.sync.peers || typeof S.sync.peers !== 'object') S.sync.peers = {};
   if (!Array.isArray(S.sync.history)) S.sync.history = [];
+  if (!S.sync.recvAt || typeof S.sync.recvAt !== 'object' || Array.isArray(S.sync.recvAt)) S.sync.recvAt = {};   // v11, see syncMarkRecv
   if (S.settings){ syncDeviceId(); if (S.settings.deviceLabel == null) S.settings.deviceLabel = ''; }
 }
 function syncDeviceLabel(){ return String((S.settings && S.settings.deviceLabel) || '').trim() || t('sy_mode_' + syncMode()); }
@@ -194,7 +198,7 @@ function syncTrack(){
       if (!r || !r.id) return;
       const h = syncCanon(r, type), p = prev && prev[type].get(r.id);
       if (prev && !quiet){
-        if (p && p.h !== h && p.u === String(r.updated_at || '')) r.updated_at = now;   // edited without bumping
+        if (p && p.h !== h && p.u === String(r.updated_at || '')) r.updated_at = syNext(p.u, now);   // edited without bumping (v11: never earlier than the edited version)
         if (!p){
           if (type === 'client' && !r.updated_at) r.updated_at = now;
           if (tombs.has(syTombKey(type, r.id))){ S.tombstones = S.tombstones.filter(x => !(x.type === type && x.id === r.id)); tombs.delete(syTombKey(type, r.id)); }
@@ -202,7 +206,7 @@ function syncTrack(){
       }
       cur[type].set(r.id, {h, u:String(r.updated_at || ''), code:type === 'binder' ? r.speaking_code : (r.multi_code || r.name)});
     });
-    if (prev && !quiet) prev[type].forEach((p, id) => { if (!cur[type].has(id) && !tombs.has(syTombKey(type, id))) syncAddTomb({type, id, code:p.code, deletedAt:now}); });
+    if (prev && !quiet) prev[type].forEach((p, id) => { if (!cur[type].has(id) && !tombs.has(syTombKey(type, id))) syncAddTomb({type, id, code:p.code, deletedAt:syNext(p.u, now)}); });
   });
   SYNC.base = cur; SYNC.quiet = false;
   syncPrune();
@@ -241,15 +245,37 @@ function syncSinceFor(target){
   const p = target && syncPeer(target);
   return (p && (p.ackedAt || p.lastExportAt)) || (!target && S.sync.lastExportAt) || null;
 }
-function syncChangedSince(since){
-  const nw = (ts) => !since || syTs(ts) > syTs(since);
-  return { binders:S.binders.filter(b => nw(b.updated_at)), clients:(S.clients || []).filter(c => nw(c.updated_at)), tombstones:(S.tombstones || []).filter(x => nw(x.deletedAt)) };
+/** v11: remember WHEN (local clock) a record or tombstone arrived here from a peer, and from which one. Without it a record
+    received from device B with an old updated_at (B edited it this morning, we imported it this afternoon) would never be
+    forwarded to the server / to a third device whose last exchange is in between.
+    S.sync.recvAt = {'type:id': [localISO, peerId, version]}: version = the updated_at that peer holds (received from it,
+    or accepted by the server on push) — syncAnalyze uses it to tell "unchanged here since that peer gave / took it". */
+const SYNC_RECV_CAP = 20000;
+function syncMarkRecv(type, id, from, ver){
+  const m = S.sync.recvAt || (S.sync.recvAt = {});
+  m[syTombKey(type, id)] = [nowISO(), String(from || ''), String(ver || '')];
+  const keys = Object.keys(m);
+  if (keys.length > SYNC_RECV_CAP) keys.sort((a, b) => syTs(m[a][0]) - syTs(m[b][0])).slice(0, keys.length - SYNC_RECV_CAP).forEach(k => delete m[k]);
+}
+/** v11: this exact local version came from (or was accepted by) that peer: not a local change, whatever its time stamp
+    (a version stamped by a clock that is ahead would otherwise look "changed here after the last sync" → false conflict). */
+function syncSameAsPeer(type, l, peerId){ const r = S.sync && S.sync.recvAt && S.sync.recvAt[syTombKey(type, l.id)]; return !!(r && r[1] === peerId && r[2] && r[2] === String(l.updated_at || '')); }
+/** Changed since `since` (local edit or arrival from a peer other than `exclude`, the peer we are sending to). */
+function syncIsNew(type, id, ts, since, exclude){
+  if (!since || syTs(ts) > syTs(since) || syTs(since) > Date.now() + 5000) return true;   // a baseline in the future (clock put back): everything counts
+
+  const r = S.sync && S.sync.recvAt && S.sync.recvAt[syTombKey(type, id)];
+  return !!(r && r[1] !== exclude && syTs(r[0]) > syTs(since));
+}
+function syncChangedSince(since, exclude){
+  const nw = (type, id, ts) => syncIsNew(type, id, ts, since, exclude || '');
+  return { binders:S.binders.filter(b => nw('binder', b.id, b.updated_at)), clients:(S.clients || []).filter(c => nw('client', c.id, c.updated_at)), tombstones:(S.tombstones || []).filter(x => nw(x.type, x.id, x.deletedAt)) };
 }
 /** opts: {incremental:bool, target:deviceId|''} → package object (plain). */
 function syncBuildPackage(opts){
   opts = opts || {}; syncEnsure();
   const since = opts.incremental ? syncSinceFor(opts.target) : null;
-  const ch = syncChangedSince(since), p = opts.target && syncPeer(opts.target);
+  const ch = syncChangedSince(since, opts.target || ''), p = opts.target && syncPeer(opts.target);
   const logSince = since || (p && (p.ackedAt || p.lastExportAt)) || null;
   const log = (typeof LOG !== 'undefined' ? LOG.entries : []).filter(e => !logSince || syTs(e.at) > syTs(logSince));
   const ack = {}; Object.keys(S.sync.peers).forEach(id => { const x = S.sync.peers[id]; if (x.lastSeenRemoteExportAt) ack[id] = x.lastSeenRemoteExportAt; });
@@ -340,7 +366,7 @@ function syncAnalyze(pkg){
         const lt = syTs(l.updated_at), rt = syTs(r.updated_at);
         it.fields = syncFieldDiff(l, r, type);
         if (lt === rt){ it.kind = 'conflict'; it.reason = 'tie'; it.choice = 'local'; }
-        else if (hasBase && lt > syTs(baseLocal) && rt > syTs(baseRemote)){ it.kind = 'conflict'; it.reason = 'both'; it.choice = rt > lt ? 'remote' : 'local'; }
+        else if (hasBase && lt > syTs(baseLocal) && !syncSameAsPeer(type, l, peerId) && rt > syTs(baseRemote)){ it.kind = 'conflict'; it.reason = 'both'; it.choice = rt > lt ? 'remote' : 'local'; }
         else if (rt > lt) it.kind = 'updated';
         else it.kind = 'older';
       }
@@ -397,20 +423,21 @@ function syncApply(plan, opts){
     if (it.type === 'binder'){ const b = normalizeBinder(r); b.updated_at = it.remote.updated_at || now; if (k >= 0){ b.selected_for_print = !!lists.binder[k].selected_for_print; lists.binder[k] = b; } else lists.binder.push(b); }
     else { const c = normalizeClient(r); c.updated_at = it.remote.updated_at || now; if (k >= 0) lists.client[k] = c; else lists.client.push(c); }
     S.tombstones = S.tombstones.filter(x => !(x.type === it.type && x.id === it.id));
+    syncMarkRecv(it.type, it.id, plan.peer.id, it.remote.updated_at);
   };
-  const drop = (it) => { const k = idx(it.type, it.id); if (k >= 0) lists[it.type].splice(k, 1); syncAddTomb(it.tomb); };
+  const drop = (it) => { const k = idx(it.type, it.id); if (k >= 0) lists[it.type].splice(k, 1); syncAddTomb(it.tomb); syncMarkRecv(it.type, it.id, plan.peer.id, ''); };
   const confLog = [];
   plan.items.forEach(it => {
     if (it.kind === 'new'){ put(it); done.new++; codes.new.push(it.code); }
     else if (it.kind === 'updated'){ put(it); done.updated++; codes.updated.push(it.code); }
     else if (it.kind === 'delete'){ drop(it); done.delete++; codes.delete.push(it.code); }
-    else if (it.kind === 'propagate'){ if (!syncTombMap().has(syTombKey(it.type, it.id))) syncAddTomb(it.tomb); }
+    else if (it.kind === 'propagate'){ if (!syncTombMap().has(syTombKey(it.type, it.id))){ syncAddTomb(it.tomb); syncMarkRecv(it.type, it.id, plan.peer.id, ''); } }
     else if (it.kind === 'conflict'){
       done.conflict++;
       if (it.choice === 'remote'){ if (it.remote) put(it); else drop(it); }
       else if (it.local){   // keep local: make sure it stays the most recent so it wins on the other side too
         const k = idx(it.type, it.id), rt = it.remote ? it.remote.updated_at : it.tomb.deletedAt;
-        if (k >= 0 && syTs(lists[it.type][k].updated_at) <= syTs(rt)) lists[it.type][k].updated_at = now;
+        if (k >= 0 && syTs(lists[it.type][k].updated_at) <= syTs(rt)) lists[it.type][k].updated_at = syNext(rt, now);   // v11: later than the other side even with clock skew
       }
       confLog.push(it);
     }
@@ -470,7 +497,7 @@ const SYV = { text:'', fileName:'', incr:false, target:null, busy:false };
 const syFieldLabel = (k) => S.lang === 'en' ? k.replace(/_/g, ' ') : (LOG_FIELD_IT[k] || k);
 const syDate = (iso) => iso ? fmtDate(iso, true) : '—';
 const syDateS = (iso) => { const d = new Date(iso || ''); return isNaN(d) ? '—' : d.toLocaleString(S.lang === 'en' ? 'en-GB' : 'it-IT', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit'}); };
-function syncPendingCount(since){ const c = syncChangedSince(since); return c.binders.length + c.clients.length + c.tombstones.length; }
+function syncPendingCount(since, exclude){ const c = syncChangedSince(since, exclude); return c.binders.length + c.clients.length + c.tombstones.length; }
 function syncPeersList(){ return Object.keys(S.sync.peers).map(id => S.sync.peers[id]).sort((a, b) => syTs(syMax(b.lastImportAt, b.lastExportAt)) - syTs(syMax(a.lastImportAt, a.lastExportAt))); }
 function syncTarget(){ if (SYV.target === null) SYV.target = S.sync.lastPeer && syncPeer(S.sync.lastPeer) ? S.sync.lastPeer : ''; return SYV.target; }
 function syncExportInfoHTML(){
@@ -511,7 +538,7 @@ function syncQueueHTML(){
       '<div class="field"><label for="sy-label">' + esc(t('sy_dev_label')) + '</label><input class="inp" id="sy-label" data-set="deviceLabel" value="' + esc(S.settings.deviceLabel || '') + '" placeholder="' + esc(t('sy_mode_' + syncMode())) + '" style="max-width:280px"></div>' +
       '<div class="small muted">' + esc(t('sy_dev_id')) + ': <span class="mono" id="sy-devid">' + esc(syncDeviceId()) + '</span> · ' + esc(t('sy_dev_mode')) + ': ' + esc(t('sy_mode_' + syncMode())) + '</div></div>' +
     '<div class="stack" style="gap:6px"><div class="small"><b>' + esc(t('sy_q_pending')) + '</b>: <span class="badge b-upd" id="sy-pending">' + pend + '</span>' + (S.sync.lastExportAt ? ' <span class="small muted">(' + esc(t('sy_since', {d:fmtDate(S.sync.lastExportAt, true)})) + ')</span>' : '') + '</div>' +
-      peers.map(p => { const s = p.ackedAt || p.lastExportAt; return s ? '<div class="small">' + esc(t('sy_q_pending_peer', {l:p.label})) + ': <b>' + syncPendingCount(s) + '</b></div>' : ''; }).join('') + '</div></div>' +
+      peers.map(p => { const s = p.ackedAt || p.lastExportAt; return s ? '<div class="small">' + esc(t('sy_q_pending_peer', {l:p.label})) + ': <b>' + syncPendingCount(s, p.id) + '</b></div>' : ''; }).join('') + '</div></div>' +
     '<div class="small" style="margin-top:14px"><b>' + esc(t('sy_q_peers')) + '</b></div>' +
     (peers.length ? '<div class="tbl-wrap"><table class="tbl" id="sy-peers"><thead><tr><th>' + esc(t('sy_q_peer')) + '</th><th>' + esc(t('sy_q_last_im')) + '</th><th>' + esc(t('sy_q_last_ex')) + '</th><th>' + esc(t('sy_q_ack')) + '</th></tr></thead><tbody>' +
       peers.map(p => '<tr><td><b>' + esc(p.label) + '</b> <span class="tiny muted">' + esc(t('sy_mode_' + p.mode)) + '</span><div class="tiny muted mono">' + esc(p.id) + '</div></td><td class="small">' + esc(syDate(p.lastImportAt)) + '</td><td class="small">' + esc(syDate(p.lastExportAt)) + '</td><td class="small">' + esc(syDate(p.ackedAt)) + '</td></tr>').join('') + '</tbody></table></div>'

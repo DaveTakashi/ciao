@@ -32,4 +32,10 @@ return [
   'lock_seconds' => 60,     // first lock; doubles at every further wrong token, max 15 min
   'max_body_mb' => 20,      // largest push accepted
   'studio_name' => '',
+
+  // v11 sync journal ("Registro sincronizzazioni"). Both optional: a v10.1 config.php without them works as before.
+  // journal_keep_days: 0 = keep the whole journal; e.g. 730 = entries older than two years are pruned (once a day).
+  // journal_pulls: 'changes' = journal pulls that returned something (default) · 'all' · 'none'.
+  'journal_keep_days' => 0,
+  'journal_pulls' => 'changes',
 ];
