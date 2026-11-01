@@ -1,0 +1,7 @@
+_trash/
+__pycache__/
+*.pyc
+config.json
+config.php
+data/
+.venv/
