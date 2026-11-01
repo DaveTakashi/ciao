@@ -21,8 +21,9 @@ Object.assign(I18N.en, {
   g_anyway:'Press Next again to go on anyway.', g_jump:'Moved to the step of this field.'
 });
 
-const VIEW_LABEL = { archive:'nav_archive', print:'nav_print', clients:'nav_clients', import:'nav_import', export:'nav_export', ai:'nav_ai', settings:'nav_settings', database:'nav_database' };
-const navStep = (view, title, text) => ({ target:'.nav [data-v="' + view + '"]', title, text, done:() => S.view === view });
+const VIEW_LABEL = { archive:'nav_archive', print:'nav_print', info:'nav_info', clients:'nav_info', import:'nav_import', export:'nav_export', ai:'nav_ai', settings:'nav_settings', database:'nav_database' };
+// advanced views sit in the "Funzioni avanzate" menu (a <details>): guideResolve opens it, navStepText says where it is
+const navStep = (view, title, text) => ({ target:'.nav [data-v="' + view + '"]', title, text:navStepText(view, text), done:() => S.view === view });
 const edField = (k) => () => { const el = $('#ed-' + k); return el && el.closest('.field'); };
 const edOpen = () => !!(UI.ed && topModal());
 const SAMPLE_CSV = 'speaking_code;company_name;category;binder_title;room_code;cabinet_code;shelf_code;sector_code;location_code;archive_state;contents;tags;color_hex;short_code;short_url;final_destination\n' +
@@ -193,7 +194,7 @@ function guideNext(){
   const st = guideStep(); if (!st || st.final) return;
   if (st.require && G.soft !== G.i){ const m = st.require(G.ctx); if (m){ G.soft = G.i; guideNudge(L(m) + ' ' + t('g_anyway')); return; } }
   if (st.done && !st.done(G.ctx)){
-    const el = guideResolve(st.target);
+    const el = guideResolve(st.target) || guideResolve(st.target);   // the first call may only open a closed menu/<details>
     const btn = el && (el.matches('[data-a]') ? el : null);
     if (btn && !btn.disabled && (!topModal() || topModal().contains(btn))){ btn.click(); return; }
   }

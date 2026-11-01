@@ -448,6 +448,7 @@ function migrate(st){
   o.schema = 26.7;
   o.binders = Array.isArray(o.binders) ? o.binders.map(normalizeBinder) : [];
   if (!['it','en'].includes(o.lang)) o.lang = 'it';
+  if (o.view === 'clients'){ o.view = 'info'; o.infoTab = 'clients'; }   // v8: the client register lives in Informazioni
   return o;
 }
 function loadState(){
