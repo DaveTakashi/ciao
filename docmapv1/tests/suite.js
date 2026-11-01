@@ -2968,7 +2968,7 @@ const sec = (n) => console.log('\n== ' + n);
     // ---- qr7 manifest: location rows, trailing ';' ----
     Xv = await p.evaluate(() => {
       const rows = [MANIFEST_HEADER].concat(sortedBinders().filter(b => b.short_code).map(manifestRow), locManifestRows()), txt = manifestText(rows);
-      const lines = txt.trimEnd().split('\n'), locLines = lines.filter(l => /^dm26L/.test(l));
+      const lines = txt.trimEnd().split('\n'), locLines = lines.filter(l => /^dm26L[A-Za-z0-9]{8};/.test(l))   /* anchored: a binder code dm26+8 can start with an L by chance */;
       const l0 = S.locations.find(l => l.code === 'MAG1-A1-S1-R1-B01');
       const m = mergeManifest('short_code;short_url;final_destination;tags;\nOTHER1;https://qr7.it/OTHER1;https://x.example/;foo;\n' + l0.short_code + ';https://qr7.it/' + l0.short_code + ';https://old.example/;old;\ndm26LZzZzZzZz;https://qr7.it/dm26LZzZzZzZz;https://old.example/;gone;\n', true);
       return {n:locLines.length, all:lines.every(l => l.endsWith(';')), row:locLines.find(l => l.startsWith(l0.short_code + ';')), want:l0.short_code + ';https://qr7.it/' + l0.short_code + ';https://docmap.pr-it.it/studio-de/q/' + l0.short_code + ';docmap26,location,MAG1-A1-S1-R1-B01;',
