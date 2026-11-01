@@ -2817,6 +2817,8 @@ const sec = (n) => console.log('\n== ' + n);
       }
     }
   }
+  // @@STREAM-X@@
+  // @@STREAM-J@@
   console.log('\nerrors:', errs.length ? errs.join('\n') : 'none');
   if (errs.length) fails += errs.length;
   console.log(`\nRESULT: ${passes} passed, ${fails} failed`);
