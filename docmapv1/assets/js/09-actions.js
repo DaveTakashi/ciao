@@ -118,8 +118,8 @@ const ACTIONS = {
   'print-calib': () => printCalibration(),
   // import
   'pick-import': () => $('#file-import').click(),
-  'im-analyze': () => { UI.importText = $('#im-text').value; analyzeImport(UI.importText); $('#im-preview').innerHTML = importPreviewHTML(); $('#im-preview').scrollIntoView({behavior:'smooth', block:'start'}); },
-  'im-clear': () => { UI.importText = ''; UI.importParsed = null; renderView(); },
+  'im-analyze': () => { UI.importText = $('#im-text').value; imapAnalyzeText(UI.importText); $('#im-preview').innerHTML = importPreviewHTML(); $('#im-preview').scrollIntoView({behavior:'smooth', block:'start'}); },
+  'im-clear': () => { UI.importText = ''; UI.importParsed = null; UI.imap = null; renderView(); },
   'im-merge': () => {
     const IP = UI.importParsed; if (!IP) return;
     const u = IP.rows.filter(r => r.status === 'upd').length;
@@ -269,7 +269,7 @@ async function handleImportFile(file){
     const txt = await readFileText(file);
     UI.importText = txt; S.view = 'import'; renderAll();
     if (readFileText.lastAnsi) toast(t('im_ansi'), 'warn', 8000);
-    analyzeImport(txt); $('#im-preview').innerHTML = importPreviewHTML();
+    imapRouteText(txt, {name:file.name}); $('#im-preview').innerHTML = importPreviewHTML();   // CSV → column mapping, JSON → preview
   } catch(err){ toast(String(err), 'err'); }
 }
 $('#file-import').addEventListener('change', (e) => { handleDroppedFile(e.target.files[0]); e.target.value = ''; });
@@ -294,6 +294,7 @@ const isSqliteFile = async (f) => /\.(sqlite3?|db)$/i.test(f.name) || new TextDe
 async function handleDroppedFile(f){
   if (!f) return;
   if (await isSqliteFile(f)){ if (!DB.ready){ toast(t('db_loading'), 'warn'); return; } dbOpenBytes(await f.arrayBuffer(), f.name); return; }
+  if (await imapHandleFile(f)) return;   // .xlsx (and clear messages for .xls/.ods) — 05b-import-map.js
   handleImportFile(f);
 }
 const hasFiles = (e) => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
@@ -315,7 +316,7 @@ document.addEventListener('drop', (e) => {
 });
 
 document.addEventListener('toggle', (e) => { if (e.target && e.target.id === 'pr-adv'){ S.print.advanced = e.target.open; savePrefs(); } }, true);
-Object.assign(ACTIONS, PHOTO_ACTIONS, CLIENT_ACTIONS);
+Object.assign(ACTIONS, PHOTO_ACTIONS, CLIENT_ACTIONS, IMPORT_MAP_ACTIONS);
 
 /* ---------------- Boot ---------------- */
 (function boot(){

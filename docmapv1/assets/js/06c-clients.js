@@ -28,7 +28,7 @@ function isClientList(head){
 function mapClient(raw){
   const o = {};
   Object.keys(raw).forEach(k => {
-    const key = CLIENT_LOOKUP[normHeader(k)]; if (!key || o[key]) return;
+    const key = CLIENT_ALIASES[k] ? k : CLIENT_LOOKUP[normHeader(k)]; if (!key || o[key]) return;   // field names come from the column-mapping step
     const v = unsafeCell(String(raw[k] == null ? '' : raw[k]).trim()); if (v) o[key] = v;
   });
   if (o.notes && /^[A-Z]\d{3}$/.test(o.notes)) o.notes = 'Cod. comune ' + o.notes;

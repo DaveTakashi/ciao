@@ -121,9 +121,11 @@ const sec = (n) => console.log('\n== ' + n);
   fs.writeFileSync('shots/ansi.csv', Buffer.from('cliente;titolo\r\nCitt\xe0 Perch\xe9 Srl;Fatture e Contabilit\xe0\r\n', 'latin1'));
   await p.evaluate(() => { S.view = 'import'; renderAll(); });
   await p.setInputFiles('#file-import', 'shots/ansi.csv'); await p.waitForTimeout(400);
+  await p.click('[data-a="imap-confirm"]'); await p.waitForTimeout(200);   // v8: CSV files go through the column-mapping step
   ok(await p.evaluate(() => UI.importParsed && UI.importParsed.rows[0].p.company_name === 'Città Perché Srl'), 'Windows-1252 CSV decoded', await p.evaluate(() => UI.importParsed && UI.importParsed.rows[0].p));
   fs.writeFileSync('shots/utf16.txt', Buffer.concat([Buffer.from([0xFF, 0xFE]), Buffer.from('cliente\tripiano\r\nGreco Srl\tγ\r\n', 'utf16le')]));
   await p.setInputFiles('#file-import', 'shots/utf16.txt'); await p.waitForTimeout(400);
+  await p.click('[data-a="imap-confirm"]'); await p.waitForTimeout(200);   // v8: CSV files go through the column-mapping step
   ok(await p.evaluate(() => UI.importParsed && UI.importParsed.rows[0].p.shelf_code === 'γ'), 'UTF-16 (Excel Unicode) decoded with Greek letters');
   await p.evaluate(() => { UI.importParsed = null; });
 
@@ -493,6 +495,100 @@ const sec = (n) => console.log('\n== ' + n);
 
   // ===== v8 stream C (Excel import + column mapping) =====
   // @@STREAM-C@@
+  sec('v8 C: Excel import + column mapping');
+  require('child_process').execFileSync('python3', [__dirname + '/fixtures/make_xlsx.py', __dirname + '/shots']);
+  await p.evaluate(() => { UI.importParsed = null; UI.imap = null; S.lang = 'it'; S.view = 'import'; renderAll(); });
+  // raw OOXML reader: stored + deflated entries, empty first sheet, inline/rich/formula strings, styles, gaps
+  await p.setInputFiles('#file-import', 'shots/stream_c_raw.xlsx'); await p.waitForTimeout(700);
+  v = await p.evaluate(() => ({sheet:UI.imap.sheet, names:UI.imap.sheets.map(s => s.name).join('|'), rows:UI.imap.sheets[1].rows, hr:UI.imap.headerRow}));
+  ok(v.sheet === 1 && v.names === 'Vuoto|Dati & prove' && v.hr === 0, 'xlsx: sheets listed, first non-empty sheet preselected, header row found', v);
+  ok(JSON.stringify(v.rows) === JSON.stringify([['cliente','codice','','note'],[],['Rich Text  Srl','007','43037','riga1\nriga2'],['Formula Srl','2024-03-15','0.3',''],['  spazi  ','2023-12-31','12.5%','TRUE','','2024-03-15'],['Über; "Q"','123456789012345670000','-12.5']]),
+    'xlsx reader: rich text without phonetic runs, inner spaces kept, "000" format → 007, no float artefacts, dates (custom, built-in, Italian long) → YYYY-MM-DD, %, booleans, errors empty, gaps filled, _x000D_ unescaped', v.rows);
+  // client register like the studio's file (title row above the header, Dave's columns)
+  await p.setInputFiles('#file-import', 'shots/stream_c_clienti_faldoni.xlsx'); await p.waitForTimeout(700);
+  v = await p.evaluate(() => ({t:UI.imap.target, hr:UI.imap.headerRow, f:UI.imap.fields.join(','), row:UI.imap.sheets[0].rows[3], n:document.querySelectorAll('#imap .imap-row[data-col]').length, sheets:document.querySelectorAll('#imap-sheet option').length, open:UI.imap.open, ip:UI.importParsed}));
+  ok(v.t === 'clients' && v.hr === 2 && v.f === 'type,multi_code,name,address,notes,cap,city,province,category,' && v.open && v.ip === null, 'client sheet: header under a title row detected, register target and TIPO/Ditta/Ragione_soc/… mapping guessed, unknown date column ignored', v);
+  ok(JSON.stringify(v.row) === JSON.stringify(['ENC','007','APS L\'ÀNCORA "Blu"; sede àèìòù','VIA ROMA 1;\nINT. 2 "B"','E547','43037',"LESIGNANO DE' BAGNI",'PR','APS','2024-03-15']), 'xlsx cells exact: leading zeros, apostrophes, quotes, semicolons, line break, accents, numeric CAP, date', v.row);
+  ok(v.n === 10 && v.sheets === 2, 'mapping screen: one row per column, sheet picker for 2 sheets', v);
+  v = await p.evaluate(() => [document.documentElement.scrollWidth, innerWidth]);
+  ok(v[0] <= v[1] + 1, 'mapping screen: no horizontal scroll at 1366', v);
+  await p.evaluate(() => $('#imap').scrollIntoView()); await p.screenshot({path:'shots/c_map_clients.png'});
+  await p.setViewportSize({width:390, height:800}); await p.waitForTimeout(200);
+  v = await p.evaluate(() => [document.documentElement.scrollWidth, innerWidth]);
+  ok(v[0] <= v[1] + 1, 'mapping screen: no horizontal scroll at phone width', v);
+  await p.screenshot({path:'shots/c_map_phone.png'});
+  await p.setViewportSize({width:1366, height:768}); await p.waitForTimeout(200);
+  await p.click('[data-a="imap-confirm"]'); await p.waitForTimeout(300);
+  v = await p.evaluate(() => { const C = UI.importParsed.clients; return {st:C.map(r => r.status).join(','), c:C.map(r => r.c), place:clientPlace(C[0].c), saved:Object.keys(S.settings.importMappings || {}).length, bar:!!document.querySelector('.imap-bar [data-a="imap-edit"]')}; });
+  ok(v.st === 'new,new,new' && v.c[0].multi_code === '007' && v.c[0].name === 'APS L\'ÀNCORA "Blu"; sede àèìòù' && v.c[0].address === 'VIA ROMA 1; INT. 2 "B"' && v.c[0].cap === '43037' && v.place === "LESIGNANO DE' BAGNI (PR)" && v.c[0].notes === 'Cod. comune E547' && v.c[0].category === 'APS' && v.c[1].multi_code === '116' && v.c[2].multi_code === '0042' && v.c[2].name === 'CIRCOLO VERDE ODV',
+    'confirm → client preview with exact values (non-breaking space normalised)', v);
+  ok(v.saved >= 1 && v.bar, 'mapping remembered in S.settings.importMappings, preview offers "Modifica abbinamento colonne"', v);
+  await p.click('[data-a="cl-apply"]'); await p.waitForTimeout(300);
+  v = await p.evaluate(() => ({view:S.view, n:S.clients.length, c:S.clients.find(c => c.multi_code === '007')}));
+  ok(v.view === 'clients' && v.n === 6 && v.c && v.c.name === 'APS L\'ÀNCORA "Blu"; sede àèìòù', 'client import via xlsx adds the clients to the register', v);
+  // re-import the same file: remembered mapping, one click; change a mapping → different result
+  await p.evaluate(() => { S.view = 'import'; renderAll(); });
+  await p.setInputFiles('#file-import', 'shots/stream_c_clienti_faldoni.xlsx'); await p.waitForTimeout(700);
+  v = await p.evaluate(() => ({rem:UI.imap.remembered, how:UI.imap.how.filter(Boolean).every(h => h === 'saved'), info:!!document.querySelector('.imap-info.saved')}));
+  ok(v.rem && v.how && v.info, 'same columns again: remembered mapping reapplied', v);
+  await p.selectOption('[data-imap-col="4"]', ''); await p.waitForTimeout(100);
+  await p.selectOption('[data-imap-col="9"]', 'notes'); await p.waitForTimeout(100);
+  v = await p.evaluate(() => ({f:UI.imap.fields[4] + '|' + UI.imap.fields[9], how:UI.imap.how[9], off:document.querySelector('.imap-row[data-col="4"]').classList.contains('off')}));
+  ok(v.f === '|notes' && v.how === 'user' && v.off, 'changing a select updates the mapping (ignored column greyed out)', v);
+  await p.click('[data-a="imap-confirm"]'); await p.waitForTimeout(300);
+  v = await p.evaluate(() => UI.importParsed.clients.map(r => r.status + ':' + r.c.notes).join(','));
+  ok(v === 'upd:2024-03-15,upd:2023-12-31,upd:', 'changed mapping changes the result (date column → notes, re-import updates)', v);
+  await p.click('[data-a="imap-edit"]'); await p.waitForTimeout(200);
+  await p.click('[data-a="imap-target"][data-v="binders"]'); await p.waitForTimeout(200);
+  v = await p.evaluate(() => ({t:UI.imap.target, f:UI.imap.fields, opts:[...document.querySelectorAll('[data-imap-col="0"] option')].map(o => o.value)}));
+  ok(v.t === 'binders' && v.f[2] === 'company_name' && v.f[6] === 'company_city' && v.opts.includes('binder_title') && v.opts.includes('contents_items') && v.opts.includes(''), 'switching target to binders re-maps with binder fields (data-driven list)', v);
+  // binder sheet: Italian headers in another order, unknown column, guesses from values
+  await p.selectOption('#imap-sheet', '1'); await p.waitForTimeout(200);
+  v = await p.evaluate(() => ({t:UI.imap.target, f:UI.imap.fields.join(','), how:UI.imap.how.join(',')}));
+  ok(v.t === 'binders' && v.f === 'binder_title,company_name,,contents_items,ref_year,color_hex,short_code,room_code,cabinet_code,shelf_code,multi_code' && v.how === 'exact,fuzzy,,fuzzy,exact,value,value,exact,exact,exact,exact', 'binder sheet: exact, similar-name and value-based guesses (#RRGGBB → colour, dm26 → short code), "Peso kg" ignored', v);
+  await p.evaluate(() => $('#imap').scrollIntoView()); await p.screenshot({path:'shots/c_map_binders.png'});
+  await p.selectOption('[data-imap-col="4"]', ''); await p.click('[data-a="imap-confirm"]'); await p.waitForTimeout(200);
+  const y1 = await p.evaluate(() => UI.importParsed.rows[0].p.ref_year || '');
+  await p.click('[data-a="imap-edit"]'); await p.selectOption('[data-imap-col="4"]', 'ref_year'); await p.click('[data-a="imap-confirm"]'); await p.waitForTimeout(200);
+  v = await p.evaluate(() => UI.importParsed.rows.map(r => [r.status, r.p.ref_year, r.p.contents_items.length].join(':')).join(','));
+  ok(y1 === '' && v === 'new:2024:3,new:2023:1', 'ignoring / re-mapping a column changes the preview', [y1, v]);
+  await p.screenshot({path:'shots/c_preview.png'});
+  await p.click('[data-a="im-merge"]'); await p.waitForTimeout(400);
+  const xb = () => p.evaluate(() => { const b = S.binders.find(x => x.short_code === 'dm26Abc234Xy'); return b && {co:b.company_name, ti:b.binder_title, c:b.contents_items.map(i => (i.year ? i.year + ': ' : '') + i.description), m:b.multi_code, loc:b.location_code, col:b.color_hex, y:b.ref_year}; });
+  v = await xb();
+  ok(v && v.co === 'L\'Officina "Due"; S.r.l. àèìòù' && v.ti === 'Fatture e IVA' && v.c.join('|') === '2024: Fatture acquisto|2024: F24|Liquidazioni' && v.m === '007' && v.loc === 'Ufficio 1 · 2-β' && v.col === '#2563EB' && v.y === '2024', 'binder import via xlsx: binders created, line breaks and pipes → contents items, special characters exact', v);
+  // special characters survive the full CSV backup → re-import
+  await p.evaluate(() => { S.view = 'export'; renderAll(); });
+  const cF = await dl('[data-a="ex-csv"]');
+  v = await p.evaluate((txt) => { analyzeImport(txt); const r = UI.importParsed.rows.find(x => x.p.short_code === 'dm26Abc234Xy'); applyImport('merge'); return r && {s:r.status, co:r.p.company_name, c:contentsToPipe(r.p.contents_items)}; }, fs.readFileSync(cF, 'utf8'));
+  const v2 = await xb();
+  ok(v && v.s === 'upd' && v.co === 'L\'Officina "Due"; S.r.l. àèìòù' && v.c === '2024: Fatture acquisto|2024: F24|Liquidazioni' && JSON.stringify(v2.c) === JSON.stringify(['2024: Fatture acquisto','2024: F24','Liquidazioni']) && v2.co === v.co, 'special characters preserved through CSV export → re-import', [v, v2]);
+  // DocMap's own CSV (standard header) skips the mapping but can be re-mapped
+  await p.evaluate(() => { S.view = 'import'; renderAll(); });
+  await p.setInputFiles('#file-import', cF); await p.waitForTimeout(500);
+  v = await p.evaluate(() => ({rows:!!(UI.importParsed && UI.importParsed.rows), std:UI.imap && UI.imap.standard, open:UI.imap && UI.imap.open, link:!!document.querySelector('.imap-bar [data-a="imap-edit"]')}));
+  ok(v.rows && v.std && !v.open && v.link, 'standard DocMap CSV: straight to the preview with a "Modifica abbinamento colonne" link', v);
+  await p.click('.imap-bar [data-a="imap-edit"]'); await p.waitForTimeout(200);
+  v = await p.evaluate(() => ({open:!!document.querySelector('#imap'), how:UI.imap.how.filter(Boolean).length, n:UI.imap.fields.length, sc:UI.imap.fields.includes('short_code') && UI.imap.fields.includes('contents_items')}));
+  ok(v.open && v.how === v.n && v.sc, 'edit link opens the mapping with every standard column recognised', v);
+  await p.click('[data-a="imap-cancel"]'); await p.waitForTimeout(150);
+  // text pasted from Excel (tab separated, quoted multi-line cell) and the client CSV pasted
+  v = await p.evaluate(() => { imapAnalyzeText('Ragione sociale\tTitolo\tContenuti\n"Neri & C.; s.a.s."\tIVA\t"2024: A\n2025: B"\n'); const a = {open:UI.imap.open, t:UI.imap.target, f:UI.imap.fields.join(',')}; imapConfirm(); const r = UI.importParsed.rows[0].p; return Object.assign(a, {co:r.company_name, n:r.contents_items.length}); });
+  ok(v.open && v.t === 'binders' && v.f === 'company_name,binder_title,contents_items' && v.co === 'Neri & C.; s.a.s.' && v.n === 2, 'pasted Excel cells (TSV) go through the mapping; multi-line cell → 2 contents items', v);
+  await p.fill('#im-text', fs.readFileSync(__dirname + '/fixtures/clienti_esempio.csv', 'utf8')); await p.click('[data-a="im-analyze"]'); await p.waitForTimeout(200);
+  v = await p.evaluate(() => ({open:UI.imap.open, t:UI.imap.target, vis:!!document.querySelector('#imap')}));
+  ok(v.open && v.t === 'clients' && v.vis, 'pasted client CSV opens the mapping as client register', v);
+  v = await p.evaluate(() => { imapAnalyzeText('[{"speaking_code":"JQ1","company_name":"Json Q","contents_items":[{"year":"2025","description":"Doc"}]}]'); return {rows:UI.importParsed.rows.length, kind:UI.imap && UI.imap.kind, open:UI.imap && UI.imap.open, c:UI.imap && UI.imap.sheets[0].rows[1][2]}; });
+  ok(v.rows === 1 && v.kind === 'json' && v.open === false && v.c === '2025: Doc', 'JSON skips the mapping (map 1:1) but can still be re-mapped', v);
+  // .xls → clear message
+  await p.setInputFiles('#file-import', 'shots/stream_c_old.xls'); await p.waitForTimeout(400);
+  v = await p.evaluate(() => ({e:UI.importParsed && UI.importParsed.error, box:(document.querySelector('#im-preview .danger-box') || {}).textContent || ''}));
+  ok(/\.xlsx/.test(v.e) && /CSV/.test(v.e) && v.box.includes('.xls'), '.xls gives a clear "save as .xlsx or CSV" message', v);
+  // English + help
+  await p.evaluate(() => { S.lang = 'en'; imapAnalyzeText('Ragione sociale;Titolo\nX;Y'); renderAll(); });
+  v = await p.evaluate(() => ({h:(document.querySelector('#imap h2') || {}).textContent, help:!!helpTopic('excel'), accept:$('#file-import').accept}));
+  ok(/Match the columns/.test(v.h) && v.help && v.accept.includes('.xlsx'), 'English mapping screen, Excel help topic, .xlsx accepted by the file picker', v);
+  await p.evaluate(() => { S.lang = 'it'; UI.imap = null; UI.importParsed = null; UI.importText = ''; S.view = 'archive'; renderAll(); });
 
   // ----------------------------------------------------------------------
 

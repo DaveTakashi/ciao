@@ -450,7 +450,7 @@ function setGeo(key, val, isPP){
 /* ---------------- Import ---------------- */
 function viewImport(){
   return '<div class="page-h"><div><h1>' + esc(t('im_h')) + helpDot('import') + '</h1><p>' + esc(t('im_p')) + '</p></div><div class="row"><button class="btn" data-a="nav" data-v="ai">' + ic('sparkles') + esc(t('nav_ai')) + '</button></div></div>' +
-    '<div class="grid g2"><div class="card card-p"><div class="dropzone" id="dropzone" data-a="pick-import" tabindex="0">' + ic('upload', 'lg') + '<div style="font-weight:700;margin-top:8px">' + esc(t('im_drop')) + '</div><div class="hint">.csv (; , tab) • .json (workspace / array)</div></div></div>' +
+    '<div class="grid g2"><div class="card card-p"><div class="dropzone" id="dropzone" data-a="pick-import" tabindex="0">' + ic('upload', 'lg') + '<div style="font-weight:700;margin-top:8px">' + esc(t('im_drop')) + '</div><div class="hint">' + esc(t('im_drop_hint')) + '</div></div></div>' +
     '<div class="card card-p"><div class="field"><label for="im-text">' + esc(t('im_paste')) + '</label><textarea class="inp mono small" id="im-text" data-bind="importText" rows="7" placeholder="' + esc(t('im_paste_ph')) + '">' + esc(UI.importText) + '</textarea></div>' +
     '<div class="row" style="margin-top:10px"><button class="btn" data-a="im-clip">' + ic('clipboard') + esc(t('im_clip')) + '</button><button class="btn btn-primary" data-a="im-analyze">' + ic('eye') + esc(t('im_analyze')) + '</button><button class="btn" data-a="im-clear">' + ic('x') + esc(t('im_clear')) + '</button></div></div></div>' +
     '<div id="im-preview" style="margin-top:16px">' + importPreviewHTML() + '</div>';
@@ -487,6 +487,10 @@ function analyzeImport(text){
     if (rows.length < 2){ UI.importParsed = {error:t('im_none')}; return; }
     records = rows.slice(1).map(r => { const o = {}; head.forEach((h, i) => { o[h] = r[i] != null ? r[i] : ''; }); return o; });
   }
+  analyzeImportRecords(records, {format: headerless ? format + ' ' + t('im_nohdr') : format, delim, workspace});
+}
+/* Analyse records (any header naming, or DocMap field names from the column-mapping step in 05b-import-map.js) → UI.importParsed. */
+function analyzeImportRecords(records, meta){
   const plannedCodes = [], plannedSC = [], byCode = new Map(S.binders.map(b => [b.speaking_code.toUpperCase(), b]));
   const seenInFile = new Set(), idsInFile = new Set();
   const rows = [];
@@ -513,17 +517,17 @@ function analyzeImport(text){
     if (p.id) idsInFile.add(p.id);
     rows.push({idx, status: match ? 'upd' : 'new', p, w, match: match ? match.id : null});
   });
-  UI.importParsed = { rows, format: headerless ? format + ' ' + t('im_nohdr') : format, delim, workspace };
+  UI.importParsed = { rows, format:meta.format, delim:meta.delim || '', workspace:meta.workspace || null };
 }
 function importPreviewHTML(){
   const IP = UI.importParsed;
-  if (!IP) return '';
+  if (!IP) return UI.imap && UI.imap.open ? imapHTML() : '';   // column-mapping step (05b-import-map.js)
   if (IP.error) return '<div class="danger-box">' + ic('alert') + '<div>' + esc(IP.error) + '</div></div>';
-  if (IP.clients) return clientsPreviewHTML(IP);
+  if (IP.clients) return imapBarHTML() + clientsPreviewHTML(IP);
   const ok = IP.rows.filter(r => r.status !== 'err');
   const nNew = IP.rows.filter(r => r.status === 'new').length, nUpd = IP.rows.filter(r => r.status === 'upd').length, nErr = IP.rows.length - ok.length;
   const badge = (s) => s === 'new' ? '<span class="badge b-new">' + esc(t('im_new')) + '</span>' : s === 'upd' ? '<span class="badge b-upd">' + esc(t('im_upd')) + '</span>' : '<span class="badge b-err">' + esc(t('im_err')) + '</span>';
-  return '<div class="card"><div class="toolbar" style="justify-content:space-between"><div><h2 style="margin:0">' + esc(t('im_prev')) + '</h2><div class="small muted">' + esc(t('im_rows', {n:IP.rows.length})) + ' • ' + esc(t('im_detect', {f:IP.format, d:IP.delim === '\t' ? 'TAB' : (IP.delim || '—')})) + '</div></div>' +
+  return imapBarHTML() + '<div class="card"><div class="toolbar" style="justify-content:space-between"><div><h2 style="margin:0">' + esc(t('im_prev')) + '</h2><div class="small muted">' + esc(t('im_rows', {n:IP.rows.length})) + ' • ' + esc(t('im_detect', {f:IP.format, d:IP.delim === '\t' ? 'TAB' : (IP.delim || '—')})) + '</div></div>' +
     '<div class="row"><span class="badge b-new">' + nNew + ' ' + esc(t('im_new')) + '</span><span class="badge b-upd">' + nUpd + ' ' + esc(t('im_upd')) + '</span>' + (nErr ? '<span class="badge b-err">' + nErr + ' ' + esc(t('im_err')) + '</span>' : '') + '</div></div>' +
     '<div class="tbl-wrap" style="max-height:420px"><table class="tbl"><thead><tr><th>#</th><th></th><th>' + esc(t('th_code')) + '</th><th>' + esc(t('th_client')) + '</th><th>' + esc(t('th_loc')) + '</th><th>' + esc(t('th_contents')) + '</th><th>short_code</th><th>Note</th></tr></thead><tbody>' +
     IP.rows.map(r => { const p = r.p, loc = computeLocation(p); return '<tr><td class="mono small muted">' + (r.idx + 1) + '</td><td>' + badge(r.status) + '</td><td><span class="code-chip"><span class="bar" style="background:' + esc(normHex(p.color_hex) || '#CBD5E1') + '"></span>' + esc(p.speaking_code || '—') + '</span>' + (p.multi_code ? '<div class="multi-tag">' + esc(p.multi_code) + '</div>' : '') + '</td>' +
