@@ -88,7 +88,7 @@ const I18N = {
     im_w_sc:'short code dm26 generato', im_w_sc_dup:'short code duplicato → rigenerato', im_w_code:'codice parlante generato', im_w_color:'colore assegnato da categoria', im_w_skip:'riga senza cliente: saltata',
     // export
     ex_h:'Esporta e Salva', ex_p:'Quattro uscite distinte. Ogni esportazione CSV/JSON azzera l\'avviso "modifiche non scaricate".',
-    ex1:'Manifest qr7.it (redirect)', ex1_d:'CSV con delimitatore punto e virgola e intestazione esatta short_code;short_url;final_destination;tags, pronto per il server qr7.it.',
+    ex1:'Manifest qr7.it (redirect)', ex1_d:'CSV con delimitatore punto e virgola e intestazione esatta short_code;short_url;final_destination;tags; (ogni riga termina con ;), pronto per il server qr7.it.',
     ex1_btn:'Scarica manifest_qr7_dm26.csv', ex1_merge:'Unisci al manifest.csv esistente', ex1_merge_d:'Carica il tuo manifest.csv attuale: tutte le righe esistenti (es. 1TSE0G, Oliva01) vengono conservate, le righe dm26 vengono aggiornate o aggiunte in fondo senza duplicati.',
     ex1_merge_btn:'Carica manifest.csv e unisci', ex1_prune:'Rimuovi le righe dm26 non più presenti in DocMap',
     ex1_merged:'manifest.csv aggiornato: {k} righe conservate, {u} dm26 aggiornate, {a} dm26 aggiunte{r}.', ex1_removed:', {n} dm26 rimosse',
@@ -170,7 +170,7 @@ const I18N = {
     im_none:'No valid row found. Check header and delimiter (; or ,).', im_detect:'Detected format: {f} • delimiter "{d}"',
     im_w_sc:'dm26 short code generated', im_w_sc_dup:'duplicate short code → regenerated', im_w_code:'speaking code generated', im_w_color:'colour assigned from category', im_w_skip:'row without client: skipped',
     ex_h:'Export & Save', ex_p:'Four distinct outputs. Every CSV/JSON export clears the "changes not downloaded" warning.',
-    ex1:'qr7.it Manifest (redirect)', ex1_d:'Semicolon-delimited CSV with the exact header short_code;short_url;final_destination;tags, ready for the qr7.it server.',
+    ex1:'qr7.it Manifest (redirect)', ex1_d:'Semicolon-delimited CSV with the exact header short_code;short_url;final_destination;tags; (every line ends with ;), ready for the qr7.it server.',
     ex1_btn:'Download manifest_qr7_dm26.csv', ex1_merge:'Merge into existing manifest.csv', ex1_merge_d:'Upload your current manifest.csv: all existing rows (e.g. 1TSE0G, Oliva01) are preserved, dm26 rows are updated or appended at the bottom with no duplicates.',
     ex1_merge_btn:'Upload manifest.csv and merge', ex1_prune:'Remove dm26 rows no longer present in DocMap',
     ex1_merged:'manifest.csv updated: {k} rows preserved, {u} dm26 updated, {a} dm26 appended{r}.', ex1_removed:', {n} dm26 removed',

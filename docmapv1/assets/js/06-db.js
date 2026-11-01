@@ -6,7 +6,7 @@
    - Download / open .sqlite files; on Chrome/Edge, link a file on disk
      and save to it automatically (File System Access API)
    ===================================================================== */
-const DB_SCHEMA_VERSION = 7;   // 2: binders.multi_code + photos table · 3: place/year/extra codes/shelf colour + clients table · 4: binders.contacts/notes + contents_items.status · 5: activity_log table (06e-log.js) · 6: binders.color_locked (02b-colors.js) · 7: locations table + binders.location_id (v11, 02c-locations.js)
+const DB_SCHEMA_VERSION = 8;   // 2: binders.multi_code + photos table · 3: place/year/extra codes/shelf colour + clients table · 4: binders.contacts/notes + contents_items.status · 5: activity_log table (06e-log.js) · 6: binders.color_locked (02b-colors.js) · 7: locations table + binders.location_id (v11, 02c-locations.js) · 8: clients.extra_json (v11.1: client fields beyond the 10 columns, e.g. color_hex, tags, updated_at)
 const DB = { SQL:null, db:null, ready:false, error:null, version:'', handle:null, handleName:'', handlePerm:'prompt', lastSync:null, lastFileSave:null, timer:null, busy:false, consoleSql:'', consoleResult:null };
 const IDB_NAME = 'docmap_v26_sqlite', IDB_STORE = 'kv';
 
@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS photos(
 CREATE INDEX IF NOT EXISTS ix_photos_owner ON photos(owner_type, owner_key);
 CREATE TABLE IF NOT EXISTS clients(
   id TEXT PRIMARY KEY, multi_code TEXT, name TEXT NOT NULL,
-  address TEXT, cap TEXT, city TEXT, province TEXT, type TEXT, category TEXT, notes TEXT);
+  address TEXT, cap TEXT, city TEXT, province TEXT, type TEXT, category TEXT, notes TEXT, extra_json TEXT);
 CREATE INDEX IF NOT EXISTS ix_clients_multi ON clients(multi_code);
 CREATE TABLE IF NOT EXISTS audit_log(id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT, action TEXT, detail TEXT);
 CREATE TABLE IF NOT EXISTS activity_log(
@@ -85,6 +85,11 @@ function dbQuery(sql, params, db){
   return rows;
 }
 function dbScalar(sql, params, db){ const r = dbQuery(sql, params, db)[0]; return r ? r[Object.keys(r)[0]] : null; }
+/* v11.1 (schema 8): client fields beyond the 10 base columns (color_hex, tags, updated_at, created_at, …) are kept as
+   JSON in clients.extra_json, so opening a .sqlite file or a session no longer drops them. */
+const CLIENT_BASE_COLS = ['id','multi_code','name','address','cap','city','province','type','category','notes'];
+function clientExtraJSON(c){ const o = {}; Object.keys(c || {}).forEach(k => { if (!CLIENT_BASE_COLS.includes(k) && k.charAt(0) !== '_' && c[k] != null && c[k] !== '') o[k] = c[k]; }); return Object.keys(o).length ? JSON.stringify(o) : null; }
+function clientExtraParse(j){ if (!j) return {}; try { const o = JSON.parse(j); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch(e){ return {}; } }
 function dbMigrate(db){
   db = db || DB.db;
   db.exec(DB_DDL);
@@ -96,6 +101,7 @@ function dbMigrate(db){
   db.exec('CREATE INDEX IF NOT EXISTS ix_binders_location ON binders(location_id)');
   if (!dbQuery('PRAGMA table_info(contents_items)', null, db).some(r => r.name === 'status')) db.exec("ALTER TABLE contents_items ADD COLUMN status TEXT DEFAULT 'archive'");
   db.exec('CREATE INDEX IF NOT EXISTS ix_binders_multi ON binders(multi_code)');
+  if (!dbQuery('PRAGMA table_info(clients)', null, db).some(r => r.name === 'extra_json')) db.exec('ALTER TABLE clients ADD COLUMN extra_json TEXT');   // v8 (v11.1)
   db.run("INSERT OR REPLACE INTO meta(key,value) VALUES ('app','DocMap26'),('schema_version',?)", [String(DB_SCHEMA_VERSION)]);
 }
 function dbLog(action, detail){ try { DB.db.run('INSERT INTO audit_log(at,action,detail) VALUES (?,?,?)', [nowISO(), action, detail || '']); DB.db.run('DELETE FROM audit_log WHERE id <= (SELECT MAX(id) - 500 FROM audit_log)'); } catch(e){} }
@@ -141,8 +147,8 @@ function dbSyncFromState(reason){
     const pp = db.prepare('INSERT INTO label_presets(id,name,geometry_json) VALUES (?,?,?)');
     (S.customPresets || []).forEach(p => pp.run([p.id, p.name, JSON.stringify(p)]));
     pp.free();
-    const cl = db.prepare('INSERT OR REPLACE INTO clients(id,multi_code,name,address,cap,city,province,type,category,notes) VALUES (?,?,?,?,?,?,?,?,?,?)');
-    (S.clients || []).forEach(c => cl.run([c.id, c.multi_code, c.name, c.address, c.cap, c.city, c.province, c.type, c.category, c.notes]));
+    const cl = db.prepare('INSERT OR REPLACE INTO clients(id,multi_code,name,address,cap,city,province,type,category,notes,extra_json) VALUES (?,?,?,?,?,?,?,?,?,?,?)');
+    (S.clients || []).forEach(c => cl.run([c.id, c.multi_code, c.name, c.address, c.cap, c.city, c.province, c.type, c.category, c.notes, clientExtraJSON(c)]));
     cl.free();
     const lo = db.prepare('INSERT OR REPLACE INTO locations(id,parent_id,level,kind,name,seg,code,short_code,short_url,notes,sort,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)');
     (S.locations || []).forEach(l => lo.run([l.id, l.parent_id || null, l.level | 0, l.kind || '', l.name || '', l.seg || '', l.code || '', l.short_code || null, l.short_url || '', l.notes || '', l.sort | 0, l.created_at || '', l.updated_at || '']));
@@ -188,7 +194,7 @@ function dbReadWorkspace(db){
   try { if (dbQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='locations'", null, db).length) locations = dbQuery('SELECT * FROM locations ORDER BY code', null, db).map(l => ({id:l.id, parent_id:l.parent_id || '', level:l.level | 0, kind:l.kind || '', name:l.name || '', seg:l.seg || '', code:l.code || '', short_code:l.short_code || '', notes:l.notes || '', sort:l.sort | 0, created_at:l.created_at || '', updated_at:l.updated_at || ''})); } catch(e){ locations = null; }
   const presets = dbQuery('SELECT geometry_json FROM label_presets', null, db).map(r => { try { return JSON.parse(r.geometry_json); } catch(e){ return null; } }).filter(Boolean);
   return {
-    clients: clients.map(c => ({id:c.id, multi_code:c.multi_code || '', name:c.name || '', address:c.address || '', cap:c.cap || '', city:c.city || '', province:c.province || '', type:c.type || '', category:c.category || '', notes:c.notes || ''})),
+    clients: clients.map(c => Object.assign(clientExtraParse(c.extra_json), {id:c.id, multi_code:c.multi_code || '', name:c.name || '', address:c.address || '', cap:c.cap || '', city:c.city || '', province:c.province || '', type:c.type || '', category:c.category || '', notes:c.notes || ''})),
     settings: settings.settings, print: settings.print, usedSlots: settings.usedSlots, lang: settings.lang, customPresets: presets, locations: locations || undefined,
     binders: binders.map(b => ({ id:b.id, speaking_code:b.speaking_code, multi_code:b.multi_code || '', company_name:b.company_name, company_city:b.company_city || '', ref_year:b.ref_year || '', extra_codes:b.extra_codes || '', shelf_color:b.shelf_color || '', contacts:b.contacts || '', notes:b.notes || '', category:b.category, color_hex:b.color_hex, binder_title:b.binder_title,
       room_code:b.room_code, cabinet_code:b.cabinet_code, shelf_code:b.shelf_code, sector_code:b.sector_code, archive_state:b.archive_state, tags:b.tags,

@@ -71,7 +71,7 @@ Object.assign(I18N.it, {
   jr_exported:'Registro esportato: {f}', jr_cut:'(valore troncato)',
   jr_ph_h:'Le mie sincronizzazioni', jr_ph_p:'I salvataggi fatti da questo telefono, con l\'esito del server.', jr_ph_none:'Nessun salvataggio da questo telefono.', jr_ph_name:'Nome di questo telefono', jr_ph_save:'Salva nome', jr_ph_saved:'Nome salvato',
   jr_ph_ok:'salvato', jr_ph_conflict:'rifiutato: cambiato altrove', jr_ph_queued:'in attesa di rete', jr_ph_err:'errore', jr_ph_forced:'salvato comunque', jr_ph_fields:'Campi: {f}',
-  jr_t_binder:'faldone', jr_t_client:'cliente', jr_t_location:'location', jr_t_settings:'impostazioni',
+  jr_t_binder:'faldone', jr_t_client:'cliente', jr_t_location:'ubicazione', jr_t_settings:'impostazioni',
   lg_src_journal:'registro', 'lga_sync.restore':'Ripristino dal registro sincronizzazioni', 'lga_sync.journal_export':'Export del registro sincronizzazioni'
 });
 Object.assign(I18N.en, {

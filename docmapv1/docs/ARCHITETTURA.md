@@ -1,6 +1,6 @@
 # DocMap 2026 — Architettura
 
-Documento tecnico su DocMap **26.11.1** (v11.1: schema stato `26.9`, `DB_SCHEMA_VERSION 7`, server `DM_SCHEMA 2`).
+Documento tecnico su DocMap **26.11.1** (v11.1: schema stato `26.9`, `DB_SCHEMA_VERSION 8`, server `DM_SCHEMA 2`).
 I §1–§9 descrivono il nucleo (scritto per la v8 e aggiornato); i §10–§15 sono le aggiunte di ogni versione (v8 →
 v11), da leggere anche come storia. Mappa completa dei moduli e ordine di caricamento: `../AGENTS.md` §2. Formati dei
 dati: `MODELLO-DATI.md`; server: `API-CONTRACT.md` e `python/PORTING.md`; indice di tutti i documenti: `INDICE.md`.
@@ -322,7 +322,7 @@ Ogni riga passa da `mapRecord()` (alias intestazioni → campi), riceve codice p
 
 **Ganci nei file condivisi** (tutti piccoli): 02-core (`CSV_COLUMNS` + `location_id`, `binderLocCode`, default e
 migrazione), 04-ui (alias, riga CSV, manifest, workspace JSON, undo), 05-views (filtro/ricerca, select in Archivio,
-import JSON), 06-db (schema 7), 06f/06g (tipo di record `location`), 10-auth (`MOBILE_FIELDS`, `o.log` nelle patch),
+import JSON), 06-db (schema 7; schema 8 in v11.1: `clients.extra_json`), 06f/06g (tipo di record `location`), 10-auth (`MOBILE_FIELDS`, `o.log` nelle patch),
 11-scan (`placed` considera `location_id`). 06h e 11b **avvolgono** funzioni globali (`window[nome] = wrap(orig)`,
 come 06e/06f): `infoPanelHTML`, `mountInfo`, `infoTabCount`, `ensureIntegrity`, `queueItems`, `renderLabel`,
 `renderPrintSummary`, `logPrintDetails`, `edLocationHTML`, `edEnhance`, `edSyncLoc`, `saveEditor`, `logBinderSave`,

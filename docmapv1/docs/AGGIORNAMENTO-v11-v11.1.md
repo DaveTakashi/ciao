@@ -5,12 +5,12 @@ nuove), il blocco **Informazioni su DocMap** in Impostazioni › Dati e sicurezz
 faldone anche incollando o scansionando l'indirizzo del suo QR, correzioni e la documentazione nuova
 ([`INDICE.md`](INDICE.md), [`MANUALE-UTENTE.md`](MANUALE-UTENTE.md)).
 
-**Nessuna migrazione.** Non cambiano:
+**Una sola migrazione, automatica e additiva:** il database locale passa dallo schema 7 allo schema 8 aggiungendo la colonna `clients.extra_json`, che conserva colore, tag e data di modifica dei clienti anche nel file `.sqlite` (prima si perdevano aprendo un `.sqlite` o una sessione salvata). Nessun dato esistente viene toccato. Non cambiano:
 
 | Dove | Resta uguale |
 |---|---|
 | PC (browser) | chiavi di memoria (`docmap_v26_state`, IndexedDB `docmap_v26_sqlite`, `docmap_v26_srv`, cassaforte), stato schema 26.9, faldoni, clienti, ubicazioni, foto, registri |
-| Database locale (.sqlite) | schema 7 |
+| Database locale (.sqlite) | tutte le tabelle e colonne esistenti (si aggiunge solo `clients.extra_json`, schema 7 → 8) |
 | Server (`docmap.sqlite`) | schema 2, contratto API (`docmap-php`, versione 1), `config.php`, chiave, token: **niente da fare sul database** |
 | CSV, JSON, pacchetti, manifest | stesse colonne (29), stessi campi, stesso formato |
 
@@ -42,7 +42,7 @@ le pagine nuove:
 2. Copia i file della nuova `docmapv1` **sopra quelli vecchi, nella stessa cartella**, con lo stesso browser.
 3. Riapri `index.html` e controlla:
    - ⚙ › Impostazioni › Dati e sicurezza › **Informazioni su DocMap**: versione **26.11.1**, schema del database
-     locale 7 e, se usi il server, schema del server 2 (pulsante **Verifica server**);
+     locale 8 (aggiornato da solo dal 7) e, se usi il server, schema del server 2 (pulsante **Verifica server**);
    - numero di faldoni, clienti e ubicazioni uguale a quello annotato; apri un paio di faldoni e una foto;
    - **Sincronizza con il server**: nessun "primo caricamento", il server ha già i tuoi dati.
 4. Se qualcosa non torna, **non lavorare** e vai al §5.
@@ -54,7 +54,7 @@ Ricarica la pagina: il telefono prende la versione nuova dal server (§2). Utent
 ## 5. Tornare indietro (rollback)
 
 - **PC**: chiudi DocMap, rimetti i file di `docmapv1-v11-vecchia` nella stessa cartella e riapri `index.html`. I dati
-  sono gli stessi (la v11.1 non li ha cambiati). Se mancano dati, ⚙ Impostazioni › **Ripristina da backup JSON** o il
+  sono gli stessi: la v11 ignora la colonna in più `clients.extra_json`. Se mancano dati, ⚙ Impostazioni › **Ripristina da backup JSON** o il
   `.sqlite` del §1.
 - **Server**: ricarica i file della v11 sopra `public_html/studio-de/` (sempre senza toccare `config.php` e la
   cartella dati).
@@ -62,6 +62,6 @@ Ricarica la pagina: il telefono prende la versione nuova dal server (§2). Utent
 ## 6. Per chi sviluppa
 
 Regole generali in [`AGGIORNAMENTI.md`](AGGIORNAMENTI.md). Prima del rilascio fai la prova a secco di
-[`CHECKLIST-COLLAUDO.md`](CHECKLIST-COLLAUDO.md) §8. La suite (`tests/suite.js`) continua ad aprire uno stato v10.1 e
+[`CHECKLIST-COLLAUDO.md`](CHECKLIST-COLLAUDO.md) §8. Il blocco `@@STREAM-V@@` verifica la migrazione 7 → 8 di un file `.sqlite` v11. La suite (`tests/suite.js`) continua ad aprire uno stato v10.1 e
 a sostituire `api.php` v10.1 (commit `68ae170`) sulla stessa cartella dati; il blocco `@@STREAM-D@@` controlla che
 la documentazione resti allineata al codice.

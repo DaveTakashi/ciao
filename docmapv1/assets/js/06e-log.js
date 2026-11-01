@@ -93,7 +93,7 @@ function logValid(e){ return e && typeof e === 'object' && typeof e.id === 'stri
 function logNorm(e){
   const tg = e.target && typeof e.target === 'object' ? {type:String(e.target.type || ''), id:String(e.target.id || ''), code:String(e.target.code || '')} : null;
   return {id:e.id, at:e.at, who:String(e.who || LOG_DEVICE), action:e.action, target:tg && tg.type ? tg : null, summary:String(e.summary || ''),
-    details:e.details && typeof e.details === 'object' ? e.details : {}, source:['ui','import','ai','restore','mobile','sync'].includes(e.source) ? e.source : 'ui'};
+    details:e.details && typeof e.details === 'object' ? e.details : {}, source:['ui','import','ai','restore','mobile','sync','journal'].includes(e.source) ? e.source : 'ui'};
 }
 /** The one logging helper. Never throws. */
 function logAct(action, target, summary, details, source){

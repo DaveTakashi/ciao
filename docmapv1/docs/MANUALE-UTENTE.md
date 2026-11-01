@@ -11,7 +11,7 @@ Dove si trovano le cose:
 - Il menu **⚙ Funzioni avanzate** (in alto a destra) ha due gruppi:
   - *Dati*: **Importa**, **Esporta e Salva**, **Database**, **Registro attività**, **Sincronizzazione**;
   - *Strumenti*: **Genera con AI**, **Impostazioni**.
-- Il pulsante **?** (o il tasto F1) apre la guida con le 15 azioni guidate. Ogni azione guidata ti accompagna sullo schermo vero.
+- Il pulsante **?** (o il tasto F1) apre la guida con le 18 azioni guidate. Ogni azione guidata ti accompagna sullo schermo vero.
 
 ---
 

@@ -2,7 +2,7 @@
 
 **Questo documento è il contratto tra l'MVP e il sistema Python dello studio.** In caso di dubbio vincono il modello dati e la UX dell'MVP: il sistema Python si allinea a questi nomi, tipi e regole.
 
-Versione attuale: **26.11.1** (v11.1) — schema stato `26.9` (invariato dalla v9), `DB_SCHEMA_VERSION 7`, server
+Versione attuale: **26.11.1** (v11.1) — schema stato `26.9` (invariato dalla v9), `DB_SCHEMA_VERSION 8`, server
 `DM_SCHEMA 2`. La v11.1 non cambia nessun formato. I §1–§9 descrivono i formati di oggi; i campi aggiunti dopo la v7
 sono segnati con la versione (**(v8)**, **(v10)**, **(v11)**); i §10–§14 raccontano versione per versione cosa è
 cambiato (v8 §10, v9 §11, v10 §12–§13, v10.1 e v11 §13, ubicazioni v11 §14).
@@ -261,6 +261,7 @@ File: download `docmap_AAAAMMGG_HHMM.sqlite`, file collegato, oppure copia in In
 | 5 | tabella `activity_log` + indice `ix_activity_at` (v9, registro attività, §7.2) |
 | 6 | `binders.color_locked INTEGER DEFAULT 0` (v10, colori, §12) |
 | 7 | tabella `locations` + indice `ix_locations_parent`, `binders.location_id` + indice `ix_binders_location` (v11, ubicazioni, §14.4) |
+| 8 | `clients.extra_json TEXT`: i campi del cliente oltre le 10 colonne (`color_hex`, `tags`, `updated_at`, …) in JSON (v11.1; prima si perdevano aprendo un file `.sqlite` o una sessione) |
 
 DDL corrente (da `06-db.js`, `DB_DDL`; la tabella `locations` è riportata al §14.4):
 
@@ -302,7 +303,7 @@ CREATE TABLE IF NOT EXISTS photos(
 CREATE INDEX IF NOT EXISTS ix_photos_owner ON photos(owner_type, owner_key);
 CREATE TABLE IF NOT EXISTS clients(
   id TEXT PRIMARY KEY, multi_code TEXT, name TEXT NOT NULL,
-  address TEXT, cap TEXT, city TEXT, province TEXT, type TEXT, category TEXT, notes TEXT);
+  address TEXT, cap TEXT, city TEXT, province TEXT, type TEXT, category TEXT, notes TEXT, extra_json TEXT);   -- extra_json: v11.1 (schema 8)
 CREATE INDEX IF NOT EXISTS ix_clients_multi ON clients(multi_code);
 CREATE TABLE IF NOT EXISTS audit_log(id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT, action TEXT, detail TEXT);
 CREATE TABLE IF NOT EXISTS activity_log(

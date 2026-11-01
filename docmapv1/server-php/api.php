@@ -313,6 +313,12 @@ function rec_code(?array $d): string {
 }
 /** SHA-256 of the canonical JSON (same canon() as LWW: keys sorted, updated_at / short_url / location_code /
     selected_for_print / _* left out, scalars as strings). A tombstone hashes "deleted:<type>/<id>@<deletedAt>". */
+/** v11.1: equal content for LWW ties. Locations also skip `code` / `level`, derived from the tree on each device
+    (= SYNC_L_SKIP in 06f-sync.js), so the same location re-pushed with the same time stamp is "same", not a "tie". */
+function same_content(string $type, array $a, array $b): bool {
+  if ($type === 'location') foreach (['code', 'level'] as $k) { unset($a[$k], $b[$k]); }
+  return jenc(canon($a)) === jenc(canon($b));
+}
 function jr_hash(?array $data): ?string { return $data === null ? null : hash('sha256', jenc(canon($data))); }
 function jr_tomb_hash(string $type, string $id, string $at): string { return hash('sha256', 'deleted:' . $type . '/' . $id . '@' . $at); }
 function jr_new(string $route, array $who, array $ci, array $extra = []): array {
@@ -417,7 +423,7 @@ function r_push(PDO $db, array $c, array $who): array {
       $prevHash = $cur ? ((int)$cur['deleted'] ? jr_tomb_hash($type, $id, $cur['updated_at']) : jr_hash($curData)) : null;
       if ($cur) {
         $lt = ts_ms($cur['updated_at']); $rt = ts_ms($u);
-        if ($rt === $lt && !(int)$cur['deleted'] && jenc(canon($curData)) === jenc(canon($data))) { $same++; $jr['n']['same']++; continue; }
+        if ($rt === $lt && !(int)$cur['deleted'] && same_content($type, $curData, $data)) { $same++; $jr['n']['same']++; continue; }
         if ($rt <= $lt) {
           $rejected[] = ['type' => $type, 'id' => $id, 'server_updated_at' => $cur['updated_at'], 'reason' => $rt === $lt ? 'tie' : 'older', 'current' => rec_public($c, $cur)];
           if ($rt === $lt) $jr['n']['conflicts']++;

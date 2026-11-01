@@ -1,6 +1,6 @@
 # Allineamento del sistema Python a DocMap
 
-Guida breve per il team Python dello studio, aggiornata alla **v11.1** (`APP_VERSION 26.11.1`, `DB_SCHEMA_VERSION 7`, stato 26.9). Nata con la v8: le note "(v8)" indicano da quando esiste una regola. I JSON Schema dei record sono in [`python/SCHEMI.md`](python/SCHEMI.md); per il server vedi [`python/PORTING.md`](python/PORTING.md). **Regola generale: il modello dati e la UX dell'MVP DocMap sono il riferimento.** Il sistema Python legge e scrive gli stessi campi, con gli stessi nomi e le stesse regole (`MODELLO-DATI.md`). Quando servirà un collegamento in tempo reale si userà l'hub descritto in `HUB-E-API.md` (non ancora implementato).
+Guida breve per il team Python dello studio, aggiornata alla **v11.1** (`APP_VERSION 26.11.1`, `DB_SCHEMA_VERSION 8`, stato 26.9). Nata con la v8: le note "(v8)" indicano da quando esiste una regola. I JSON Schema dei record sono in [`python/SCHEMI.md`](python/SCHEMI.md); per il server vedi [`python/PORTING.md`](python/PORTING.md). **Regola generale: il modello dati e la UX dell'MVP DocMap sono il riferimento.** Il sistema Python legge e scrive gli stessi campi, con gli stessi nomi e le stesse regole (`MODELLO-DATI.md`). Quando servirà un collegamento in tempo reale si userà l'hub descritto in `HUB-E-API.md` (non ancora implementato).
 
 ## 1. Cosa esporta l'MVP
 

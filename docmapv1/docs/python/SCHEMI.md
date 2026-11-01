@@ -1,6 +1,6 @@
 # Schemi JSON dei dati DocMap (per il team Python)
 
-> Base: DocMap **26.11.1** (stato `schema: '26.9'`, SQLite locale `DB_SCHEMA_VERSION 7`, server `DM_SCHEMA 2`).
+> Base: DocMap **26.11.1** (stato `schema: '26.9'`, SQLite locale `DB_SCHEMA_VERSION 8`, server `DM_SCHEMA 2`).
 > Gli schemi sono **JSON Schema 2020-12** in [`schema/`](schema/), si richiamano tra loro con `$ref` relativi al nome del
 > file (`"binder.schema.json"`), non hanno `$id` e ammettono campi in più (`additionalProperties: true`), perché un
 > lettore vecchio deve ignorare i campi nuovi (regola di `docs/AGGIORNAMENTI.md`).

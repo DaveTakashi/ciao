@@ -2826,7 +2826,7 @@ const sec = (n) => console.log('\n== ' + n);
     await p.evaluate(() => { while (topModal()) closeModal(true); S.lang = 'it'; S.view = 'info'; S.infoTab = 'loc'; renderAll(); });
     Xv = await p.evaluate(() => ({n:(S.locations || []).length, empty:!!document.getElementById('lo-empty-bulk'), tab:!!document.querySelector('.info-tabs [data-v="loc"]'), csv:CSV_COLUMNS[CSV_COLUMNS.length - 1], db:DB_SCHEMA_VERSION,
       w:document.documentElement.scrollWidth <= innerWidth + 1}));
-    ok(Xv.n === 0 && Xv.empty && Xv.tab && Xv.csv === 'location_id' && Xv.db === 7 && Xv.w, 'X: Informazioni › Ubicazioni starts empty (no invented locations); CSV ends with location_id; local DB schema 7', Xv);
+    ok(Xv.n === 0 && Xv.empty && Xv.tab && Xv.csv === 'location_id' && Xv.db >= 7 && Xv.w, 'X: Informazioni › Ubicazioni starts empty (no invented locations); CSV ends with location_id; local DB schema 7', Xv);
 
     // ---- bulk create: 1 warehouse › 2 cabinets › 1 shelving unit › 1 shelf › 4 boxes ----
     await p.click('#lo-empty-bulk'); await p.waitForTimeout(150);
@@ -2934,7 +2934,7 @@ const sec = (n) => console.log('\n== ' + n);
       d2.close();
       return {cols:['id', 'parent_id', 'level', 'kind', 'name', 'seg', 'code', 'short_code', 'short_url', 'notes', 'sort', 'created_at', 'updated_at'].every(c => cols.includes(c)), bcol:bcols.includes('location_id'), ver, nullRoot, same:sL === wL, b:xb === sb && /-/.test(xb)};
     });
-    ok(Xv.cols && Xv.bcol && Xv.ver === '7' && Xv.nullRoot === 1 && Xv.same && Xv.b, 'X: SQLite round trip (table locations, binders.location_id, schema_version 7, top level parent NULL)', Xv);
+    ok(Xv.cols && Xv.bcol && +Xv.ver >= 7 && Xv.nullRoot === 1 && Xv.same && Xv.b, 'X: SQLite round trip (table locations, binders.location_id, schema_version 7, top level parent NULL)', Xv);
 
     // ---- location QR labels: print engine + Scarica PDF (MRINK143) ----
     const Xleaves = await p.evaluate(() => S.locations.filter(l => !locChildren(l.id).length).map(l => ({id:l.id, code:l.code, url:l.short_url})).sort((a, b) => naturalCmp(a.code, b.code)));
@@ -3620,6 +3620,24 @@ const sec = (n) => console.log('\n== ' + n);
     ok(Object.keys(Dphp).length === 13 && !Ddiff.length, 'D: openapi.yaml has exactly the routes of api.php, with the same role (writes POST only, reads GET)', {php:Object.keys(Dphp), diff:Ddiff});
     const Dping = (Dapi.match(/'features' => \[([^\]]*)\]/) || [, ''])[1].replace(/'/g, '"').replace(/\s/g, '');
     ok(Dping && Dread('docs/API-CONTRACT.md').includes('"features":[' + Dping + ']') && Dread('docs/HANDOFF_PROMPT.md').includes('"features":[' + Dping + ']'), 'D: API-CONTRACT and HANDOFF_PROMPT show the ping features of api.php', Dping);
+  }
+  // @@STREAM-V@@
+  sec('v11.1: client extra fields survive the .sqlite file (schema 8) and older databases migrate');
+  {
+    let Vv = await p.evaluate(async () => {
+      const keep = clone(S.clients);
+      S.clients = [normalizeClient({id:'v111-c1', name:'Cliente Extra Prova', multi_code:'V111', category:'APS', color_hex:'#9C051E', tags:'aps,proloco', updated_at:'2026-11-01T10:00:00.000Z'}), normalizeClient({id:'v111-c2', name:'Cliente Base'})];
+      dbSyncFromState('t'); await dbPersist();
+      const d2 = new DB.SQL.Database(DB.db.export()); const W = dbReadWorkspace(d2); const ver = dbScalar("SELECT value FROM meta WHERE key='schema_version'", null, d2); const ex2 = dbScalar("SELECT extra_json FROM clients WHERE id='v111-c2'", null, d2); d2.close();
+      const c1 = W.clients.find(c => c.id === 'v111-c1');
+      // a schema-7 database (clients without extra_json) migrates additively and keeps its rows
+      const d3 = new DB.SQL.Database(); d3.exec("CREATE TABLE clients(id TEXT PRIMARY KEY, multi_code TEXT, name TEXT NOT NULL, address TEXT, cap TEXT, city TEXT, province TEXT, type TEXT, category TEXT, notes TEXT); INSERT INTO clients(id,name,multi_code) VALUES ('old-1','Vecchio Cliente','777')");
+      dbMigrate(d3); const W3 = dbReadWorkspace(d3); const col = dbQuery('PRAGMA table_info(clients)', null, d3).some(r => r.name === 'extra_json'); d3.close();
+      S.clients = keep; dbSyncFromState('t');
+      return {ver, col:c1 && c1.color_hex, tags:c1 && c1.tags, up:c1 && c1.updated_at, multi:c1 && c1.multi_code, ex2, old:W3.clients.map(c => c.name + '/' + c.multi_code).join(','), oldCol:col};
+    });
+    ok(+Vv.ver === 8 && Vv.col === '#9C051E' && Vv.tags === 'aps,proloco' && Vv.up === '2026-11-01T10:00:00.000Z' && Vv.multi === 'V111' && Vv.ex2 == null && Vv.old === 'Vecchio Cliente/777' && Vv.oldCol,
+      'v11.1: client colour / tags / updated_at round-trip through SQLite (clients.extra_json); a schema-7 file migrates and keeps its clients', Vv);
   }
   console.log('\nerrors:', errs.length ? errs.join('\n') : 'none');
   if (errs.length) fails += errs.length;
