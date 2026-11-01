@@ -10,7 +10,7 @@ User-facing docs are Italian (`README.md`, `docs/*.md`); code, identifiers and t
 - v10 REST contract for auth + mobile page + blobs (IT): `docs/API-CONTRACT.md` · security model (IT): `docs/SICUREZZA.md` · static web deploy (IT): `docs/DEPLOY-WEB.md`
 - Manual sync local ⇄ web app, package format and merge rules (IT): `docs/SYNC.md`
 
-Baseline described here: **v9** (`APP_VERSION = '26.9.0'`, state `schema: 26.9`, `DB_SCHEMA_VERSION = 5`). v9 adds the label template registry `LABEL_TEMPLATES` (03-print.js; default `info`), `S.print.info`, `S.print.edge`, the PDF exporter (05c-pdf.js) and the activity log (06e-log.js, `logAct()`). To add a label template: add an entry to `LABEL_TEMPLATES` (kinds per binder, paired or not, recommended presets, options HTML), a renderer for any new kind in `renderLabel`, i18n keys, and tests; the PDF exporter needs no change because it reads the rendered DOM.
+Baseline described here: **v10** (`APP_VERSION = '26.10.0'`, state `schema: 26.9`, `DB_SCHEMA_VERSION = 5`). v9 adds the label template registry `LABEL_TEMPLATES` (03-print.js; default `info`), `S.print.info`, `S.print.edge`, the PDF exporter (05c-pdf.js) and the activity log (06e-log.js, `logAct()`). To add a label template: add an entry to `LABEL_TEMPLATES` (kinds per binder, paired or not, recommended presets, options HTML), a renderer for any new kind in `renderLabel`, i18n keys, and tests; the PDF exporter needs no change because it reads the rendered DOM.
 What changed from v7 is summarised in §10.
 
 ---
