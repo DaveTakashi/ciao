@@ -2,6 +2,7 @@
    DocMap 2026 — Precision label engine (all units in millimetres)
    ===================================================================== */
 const MM = (n) => r1(n) + 'mm';
+const LM = {};   // metrics of the last rendered label per kind (used by the print-quality check)
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 function qrBox(b, x, y, q, P){
@@ -14,22 +15,22 @@ function qrBox(b, x, y, q, P){
       tk('left:0;bottom:0;', ['bottom','left']) + tk('right:0;bottom:0;', ['bottom','right']) + '</div>';
   }
   let svg = '';
-  try { svg = DMQR.svg(b.short_url || shortUrl(b.short_code), {ecl:S.settings.qrEcc || 'M', quiet:2}); } catch(e){ svg = ''; }
+  try { svg = DMQR.svg(b.short_url || shortUrl(b.short_code), {ecl:S.settings.qrEcc || 'M', quiet:2, fg:'#000'}); } catch(e){ svg = ''; }
   return '<div class="qr" style="left:' + MM(x) + ';top:' + MM(y) + ';width:' + MM(q) + ';height:' + MM(q) + ';">' + svg + '</div>';
 }
 function qrUrlText(b, x, y, q, fs){
   if (!fs) return '';
-  return '<div class="lmono ln" style="position:absolute;left:' + MM(x - 2) + ';width:' + MM(q + 4) + ';top:' + MM(y) + ';font-size:' + MM(fs) + ';line-height:1.2;text-align:center;color:#334155;letter-spacing:-.02em">qr7.it/' + esc(b.short_code) + '</div>';
+  return '<div class="lmono ln" style="position:absolute;left:' + MM(x - 2) + ';width:' + MM(q + 4) + ';top:' + MM(y) + ';font-size:' + MM(fs) + ';line-height:1.2;text-align:center;color:#000;letter-spacing:-.02em">qr7.it/' + esc(b.short_code) + '</div>';
 }
 function metaLine(b, fm){
-  const loc = b.location_code ? '<span class="lmono" style="font-weight:800;border:' + MM(Math.max(0.18, fm * 0.07)) + ' solid #0F172A;border-radius:' + MM(fm * 0.25) + ';padding:0 ' + MM(fm * 0.3) + ';margin-right:' + MM(fm * 0.35) + '">' + esc(b.location_code) + '</span>' : '';
+  const loc = b.location_code ? '<span class="lmono" style="font-weight:800;border:' + MM(Math.max(0.18, fm * 0.07)) + ' solid #000;border-radius:' + MM(fm * 0.25) + ';padding:0 ' + MM(fm * 0.3) + ';margin-right:' + MM(fm * 0.35) + '">' + esc(b.location_code) + '</span>' : '';
   const hist = b.archive_state === 'HISTORICAL' ? ' · <b>' + esc(t('l_hist')) + '</b>' : '';
-  return '<div class="ln" style="font-size:' + MM(fm) + ';line-height:1.35;color:#334155">' + loc + esc(b.category || '') + hist + '</div>';
+  return '<div class="ln" style="font-size:' + MM(fm) + ';line-height:1.35;color:#000">' + loc + esc(b.category || '') + hist + '</div>';
 }
 function contentsBlock(items, x, y, w, hAvail, fMax, opts){
   opts = opts || {};
   const n = items.length;
-  if (!n) return '<div style="position:absolute;left:' + MM(x) + ';top:' + MM(y) + ';font-size:' + MM(Math.min(fMax, 2.6)) + ';color:#94A3B8;font-style:italic">' + esc(t('no_contents')) + '</div>';
+  if (!n) return '<div style="position:absolute;left:' + MM(x) + ';top:' + MM(y) + ';font-size:' + MM(Math.min(fMax, 2.6)) + ';color:#444;font-style:italic">' + esc(t('no_contents')) + '</div>';
   const LH = 1.22, FMIN = 1.45;
   let cols = 1;
   if (w >= 80 && n >= 5 && hAvail / (n * LH) < fMax * 0.8) cols = 2;
@@ -42,9 +43,10 @@ function contentsBlock(items, x, y, w, hAvail, fMax, opts){
     if (n > cap){ shown = items.slice(0, cap - 1); extra = n - shown.length; }
     rowsPer = Math.ceil((shown.length + (extra ? 1 : 0)) / cols);
   }
+  LM.listFs = fs;
   const rowsHtml = shown.map(it => '<div class="ln" style="line-height:' + LH + '">' + (it.year ? '<b class="lmono" style="font-weight:800;margin-right:' + MM(fs * 0.4) + '">' + esc(it.year) + '</b>' : '') + esc(it.description) + '</div>').join('') +
-    (extra ? '<div class="ln" style="line-height:' + LH + ';color:#64748B;font-style:italic">' + esc(t('l_more', {n:extra})) + '</div>' : '');
-  return '<div style="position:absolute;left:' + MM(x) + ';top:' + MM(y) + ';width:' + MM(w) + ';height:' + MM(hAvail) + ';overflow:hidden;font-size:' + MM(fs) + ';display:grid;grid-auto-flow:column;grid-template-rows:repeat(' + rowsPer + ',auto);grid-template-columns:repeat(' + cols + ',minmax(0,1fr));column-gap:' + MM(Math.max(2, fs)) + ';align-content:start;color:#0F172A">' + rowsHtml + '</div>';
+    (extra ? '<div class="ln" style="line-height:' + LH + ';color:#444;font-style:italic">' + esc(t('l_more', {n:extra})) + '</div>' : '');
+  return '<div style="position:absolute;left:' + MM(x) + ';top:' + MM(y) + ';width:' + MM(w) + ';height:' + MM(hAvail) + ';overflow:hidden;font-size:' + MM(fs) + ';display:grid;grid-auto-flow:column;grid-template-rows:repeat(' + rowsPer + ',auto);grid-template-columns:repeat(' + cols + ',minmax(0,1fr));column-gap:' + MM(Math.max(2, fs)) + ';align-content:start;color:#000">' + rowsHtml + '</div>';
 }
 
 /** Render one label (kind A, B or U) as HTML positioned inside a w×h slot. */
@@ -76,26 +78,28 @@ function renderLabel(kind, b, g, P){
     const fc = Math.min(th * 0.34, tw / (codeLen * 0.62), 28);
     const fco = Math.min(th * 0.115, fc * 0.5, 7.5);
     const ft = fco * 0.84, fm = fco * 0.8;
+    LM.A = {q, code:fc, minText:Math.min(ft, fm, urlFs || 99), url:urlFs};
     html += '<div style="position:absolute;left:' + MM(x0) + ';top:' + MM(y0) + ';width:' + MM(tw) + ';height:' + MM(th) + ';display:flex;flex-direction:column;overflow:hidden">' +
       '<div class="code" style="font-size:' + MM(fc) + ';margin-bottom:' + MM(fc * 0.08) + '">' + code + '</div>' +
       '<div class="cl2" style="font-size:' + MM(fco) + ';font-weight:800;margin-bottom:' + MM(fco * 0.15) + '">' + esc(b.company_name) + '</div>' +
-      '<div class="ln" style="font-size:' + MM(ft) + ';color:#334155;font-weight:500">' + esc(b.binder_title) + '</div>' +
+      '<div class="ln" style="font-size:' + MM(ft) + ';color:#000;font-weight:500">' + esc(b.binder_title) + '</div>' +
       '<div style="margin-top:auto">' + metaLine(b, fm) + '</div></div>';
   }
   else if (kind === 'B'){
     const fh = Math.min(ih * 0.15, iw * 0.075, 5.4);
     const ff = Math.max(1.3, fh * 0.55);
     const headH = fh * 1.3;
-    html += '<div style="position:absolute;left:' + MM(x0) + ';top:' + MM(y0) + ';width:' + MM(iw) + ';height:' + MM(headH) + ';display:flex;align-items:baseline;gap:' + MM(fh * 0.4) + ';border-bottom:' + MM(0.2) + ' solid #94A3B8;overflow:hidden">' +
+    html += '<div style="position:absolute;left:' + MM(x0) + ';top:' + MM(y0) + ';width:' + MM(iw) + ';height:' + MM(headH) + ';display:flex;align-items:baseline;gap:' + MM(fh * 0.4) + ';border-bottom:' + MM(0.15) + ' solid #000;overflow:hidden">' +
       '<span class="code" style="font-size:' + MM(fh) + '">' + code + '</span>' +
-      '<span style="font-size:' + MM(fh * 0.5) + ';font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#475569">' + esc(t('l_contents')) + '</span>' +
-      '<span class="ln" style="font-size:' + MM(fh * 0.56) + ';margin-left:auto;font-weight:700;color:#334155;min-width:0">' + esc(b.company_name) + '</span></div>';
+      '<span style="font-size:' + MM(fh * 0.5) + ';font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#000">' + esc(t('l_contents')) + '</span>' +
+      '<span class="ln" style="font-size:' + MM(fh * 0.56) + ';margin-left:auto;font-weight:700;color:#000;min-width:0">' + esc(b.company_name) + '</span></div>';
     const listTop = y0 + headH + fh * 0.3;
     const footH = ff * 1.35;
     const la = ih - headH - fh * 0.3 - footH - ff * 0.25;
     html += contentsBlock(b.contents_items, x0, listTop, iw, la, Math.min(fh * 0.78, 4.4));
-    html += '<div class="ln" style="position:absolute;left:' + MM(x0) + ';width:' + MM(iw) + ';top:' + MM(y0 + ih - footH) + ';font-size:' + MM(ff) + ';line-height:1.35;color:#475569;display:flex;gap:' + MM(ff) + '">' +
-      '<span>' + esc(t('l_updated')) + ' <b>' + esc(fmtDate(b.updated_at)) + '</b></span>' + (b.location_code ? '<span class="lmono" style="font-weight:800;color:#0F172A">' + esc(b.location_code) + '</span>' : '') +
+    LM.B = {q:0, code:fh, minText:Math.min(ff, LM.listFs || 99)};
+    html += '<div class="ln" style="position:absolute;left:' + MM(x0) + ';width:' + MM(iw) + ';top:' + MM(y0 + ih - footH) + ';font-size:' + MM(ff) + ';line-height:1.35;color:#000;display:flex;gap:' + MM(ff) + '">' +
+      '<span>' + esc(t('l_updated')) + ' <b>' + esc(fmtDate(b.updated_at)) + '</b></span>' + (b.location_code ? '<span class="lmono" style="font-weight:800;color:#000">' + esc(b.location_code) + '</span>' : '') +
       '<span class="lmono" style="margin-left:auto">' + esc(b.short_code) + '</span></div>';
   }
   else { // Unified
@@ -115,17 +119,18 @@ function renderLabel(kind, b, g, P){
       const qx = x0 + iw - q, qy = portrait ? y0 + ih - q - urlH : y0 + (ih - q - urlH) / 2;
       html += qrBox(b, qx, qy, q, P) + qrUrlText(b, qx, qy + q + urlFs * 0.1, q, urlFs);
     }
-    html += '<div style="position:absolute;left:' + MM(x0) + ';top:' + MM(y0) + ';width:' + MM(tw) + ';height:' + MM(th1) + ';display:flex;gap:' + MM(fc * 0.3) + ';align-items:flex-start;overflow:hidden;border-bottom:' + MM(0.2) + ' solid #94A3B8">' +
+    html += '<div style="position:absolute;left:' + MM(x0) + ';top:' + MM(y0) + ';width:' + MM(tw) + ';height:' + MM(th1) + ';display:flex;gap:' + MM(fc * 0.3) + ';align-items:flex-start;overflow:hidden;border-bottom:' + MM(0.15) + ' solid #000">' +
       '<div class="code" style="font-size:' + MM(fc) + ';flex:none">' + code + '</div>' +
       '<div style="min-width:0;flex:1;display:flex;flex-direction:column;height:100%">' +
         '<div class="cl2" style="font-size:' + MM(fco) + ';font-weight:800">' + esc(b.company_name) + '</div>' +
-        '<div class="ln" style="font-size:' + MM(fco * 0.82) + ';color:#334155">' + esc(b.binder_title) + '</div>' +
+        '<div class="ln" style="font-size:' + MM(fco * 0.82) + ';color:#000">' + esc(b.binder_title) + '</div>' +
         '<div style="margin-top:auto">' + metaLine(b, fm) + '</div></div></div>';
     const ly = y0 + th1 + Math.max(0.8, fco * 0.25);
     const lw = portrait ? (q ? iw - q - gap : iw) : tw;
     const lh = ih - th1 - Math.max(0.8, fco * 0.25) - fm * 1.5;
     html += contentsBlock(b.contents_items, x0, ly, lw, lh, Math.min(fco * 0.82, 4.2));
-    html += '<div class="ln" style="position:absolute;left:' + MM(x0) + ';width:' + MM(lw) + ';top:' + MM(y0 + ih - fm * 1.35) + ';font-size:' + MM(fm * 0.85) + ';color:#64748B">' + esc(t('l_updated')) + ' ' + esc(fmtDate(b.updated_at)) + ' · <span class="lmono">' + esc(b.short_code) + '</span></div>';
+    LM.U = {q, code:fc, minText:Math.min(fm * 0.85, LM.listFs || 99, urlFs || 99)};
+    html += '<div class="ln" style="position:absolute;left:' + MM(x0) + ';width:' + MM(lw) + ';top:' + MM(y0 + ih - fm * 1.35) + ';font-size:' + MM(fm * 0.85) + ';color:#444">' + esc(t('l_updated')) + ' ' + esc(fmtDate(b.updated_at)) + ' · <span class="lmono">' + esc(b.short_code) + '</span></div>';
   }
   return html + '</div>';
 }
@@ -234,7 +239,7 @@ function buildRegisterHTML(list){
     '<td><span class="rl">' + esc(b.location_code || '—') + '</span></td>' +
     '<td><b>' + esc(b.company_name) + '</b><br><span style="color:#334155">' + esc(b.binder_title) + '</span>' + (b.category ? '<br><span style="font-size:6.8pt;color:#64748B">' + esc(b.category) + (b.tags ? ' • ' + esc(b.tags) : '') + '</span>' : '') + '</td>' +
     '<td>' + (b.contents_items.length ? '<ul>' + b.contents_items.map(i => '<li>' + (i.year ? '<b class="mono">' + esc(i.year) + '</b> ' : '') + esc(i.description) + '</li>').join('') + '</ul>' : '<span style="color:#94A3B8">—</span>') + '</td>' +
-    '<td><div class="rq">' + (b.short_code ? DMQR.svg(b.short_url, {ecl:S.settings.qrEcc || 'M', quiet:1}) : '') + '</div></td>' +
+    '<td><div class="rq">' + (b.short_code ? DMQR.svg(b.short_url, {ecl:S.settings.qrEcc || 'M', quiet:1, fg:'#000'}) : '') + '</div></td>' +
     '<td><span class="mono" style="font-size:7.5pt;font-weight:700">' + esc(b.short_code) + '</span></td>' +
     '<td><a class="ru" href="' + esc(b.short_url) + '">' + esc(b.short_url) + '</a></td></tr>').join('');
   return '<div class="reg"><div class="rh"><div><div style="font-size:8pt;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#2563EB">DocMap 2026 • DM26</div><h1>' + esc(t('reg_t')) + '</h1><div style="font-size:10pt;font-weight:600">' + esc(S.settings.studioName) + '</div></div>' +

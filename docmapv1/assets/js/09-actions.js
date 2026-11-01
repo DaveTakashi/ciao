@@ -4,7 +4,7 @@
 const byId = (id) => S.binders.find(b => b.id === id);
 const ACTIONS = {
   'nav': (el) => { S.view = el.dataset.v; savePrefs(); renderAll(); window.scrollTo(0, 0); },
-  'lang': (el) => { S.lang = el.dataset.l; savePrefs(); renderAll(); },
+  'lang': (el) => { S.lang = el.dataset.l; savePrefs(); renderAll(); if (HELP.open) renderHelp(); if (G.g) guideRenderCard(); },
   'reload': () => { location.reload(); },
   'quick-backup': () => quickBackup(),
   'modal-close': () => closeModal(),
@@ -66,6 +66,22 @@ const ACTIONS = {
     const k = el.dataset.k, d = parseFloat(el.dataset.d), isPP = ['padding','offsetX','offsetY'].includes(k);
     const cur = isPP ? S.print[k] : S.print.geometry[k];
     setGeo(k, Math.round((cur + d) * 100) / 100, isPP);
+  },
+  'geo-fill': () => {
+    const g = S.print.geometry, SAFE = 5;
+    g.w = Math.floor(((210 - 2 * SAFE - (g.cols - 1) * g.gapX) / g.cols) * 10) / 10;
+    g.h = Math.floor(((297 - 2 * SAFE - (g.rows - 1) * g.gapY) / g.rows) * 10) / 10;
+    ACTIONS['geo-center']();
+  },
+  'geo-center': () => {
+    const g = S.print.geometry;
+    g.marginLeft = Math.round((210 - (g.cols * g.w + (g.cols - 1) * g.gapX)) / 2 * 100) / 100;
+    g.marginTop = Math.round((297 - (g.rows * g.h + (g.rows - 1) * g.gapY)) / 2 * 100) / 100;
+    S.print.geometryModified = true; savePrefs(); renderView();
+  },
+  'im-clip': async () => {
+    try { const txt = await navigator.clipboard.readText(); $('#im-text').value = txt; UI.importText = txt; ACTIONS['im-analyze'](); }
+    catch(e){ toast(t('im_clip_fail'), 'warn', 6000); $('#im-text').focus(); }
   },
   'geo-reset': () => { const p = findPreset(S.print.presetId); S.print.geometry = geoFromPreset(p); S.print.geometryModified = false; savePrefs(); renderView(); },
   'geo-save': () => {
@@ -241,6 +257,7 @@ async function handleImportFile(file){
   try {
     const txt = await readFileText(file);
     UI.importText = txt; S.view = 'import'; renderAll();
+    if (readFileText.lastAnsi) toast(t('im_ansi'), 'warn', 8000);
     analyzeImport(txt); $('#im-preview').innerHTML = importPreviewHTML();
   } catch(err){ toast(String(err), 'err'); }
 }

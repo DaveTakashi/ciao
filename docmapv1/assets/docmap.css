@@ -1,3 +1,10 @@
+/* Fonts bundled locally (SIL OFL) so labels render identically offline on any PC */
+@font-face{font-family:'DM Inter';font-style:normal;font-display:swap;font-weight:100 900;src:url('fonts/inter-greek-wght-normal.woff2') format('woff2');unicode-range:U+0370-0377,U+037A-037F,U+0384-038A,U+038C,U+038E-03A1,U+03A3-03FF}
+@font-face{font-family:'DM Inter';font-style:normal;font-display:swap;font-weight:100 900;src:url('fonts/inter-latin-ext-wght-normal.woff2') format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:'DM Inter';font-style:normal;font-display:swap;font-weight:100 900;src:url('fonts/inter-latin-wght-normal.woff2') format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'DM Mono';font-style:normal;font-display:swap;font-weight:100 900;src:url('fonts/jetbrains-mono-greek-wght-normal.woff2') format('woff2');unicode-range:U+0370-0377,U+037A-037F,U+0384-038A,U+038C,U+038E-03A1,U+03A3-03FF}
+@font-face{font-family:'DM Mono';font-style:normal;font-display:swap;font-weight:100 900;src:url('fonts/jetbrains-mono-latin-ext-wght-normal.woff2') format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:'DM Mono';font-style:normal;font-display:swap;font-weight:100 900;src:url('fonts/jetbrains-mono-latin-wght-normal.woff2') format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 /* =====================================================================
    DocMap 2026 — Swiss Minimalist Design System (self-contained, no CDN)
    ===================================================================== */
@@ -10,8 +17,8 @@
   --radius:12px; --radius-sm:8px;
   --shadow:0 1px 2px rgba(15,23,42,.04),0 1px 1px rgba(15,23,42,.03);
   --shadow-lg:0 24px 64px -16px rgba(15,23,42,.28),0 4px 12px rgba(15,23,42,.06);
-  --font:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
-  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  --font:"DM Inter","Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:"DM Mono","JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
@@ -243,7 +250,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
 /* =====================================================================
    LABEL / SHEET ENGINE — all geometry in millimetres
    ===================================================================== */
-.sheet{width:210mm;height:296.8mm;position:relative;overflow:hidden;background:#fff;color:#0F172A;font-family:var(--font);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.sheet{width:210mm;height:296.8mm;position:relative;overflow:hidden;background:#fff;color:#000;font-family:var(--font);-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .slotbox{position:absolute;overflow:hidden;box-sizing:border-box}
 .slotbox.cut{outline:0.2mm dashed #94A3B8;outline-offset:-0.1mm}
 .slotbox.diecut-scr{box-shadow:inset 0 0 0 0.25mm #CBD5E1}
@@ -261,13 +268,13 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
 .calib-t{position:absolute;color:#CBD5E1;font-family:var(--mono);white-space:nowrap}
 
 /* ---------- Register report ---------- */
-.reg{font-family:var(--font);color:#0F172A;background:#fff}
+.reg{font-family:var(--font);color:#000;background:#fff}
 .reg h1{font-size:18pt;margin:0;letter-spacing:-.02em}
-.reg .rh{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1.5pt solid #0F172A;padding-bottom:3mm;margin-bottom:4mm}
-.reg .rh .m{font-size:8.5pt;color:#475569;text-align:right;line-height:1.4}
+.reg .rh{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1.5pt solid #000;padding-bottom:3mm;margin-bottom:4mm}
+.reg .rh .m{font-size:8.5pt;color:#222;text-align:right;line-height:1.4}
 .reg table{width:100%;border-collapse:collapse;font-size:8pt}
-.reg th{text-align:left;font-size:6.8pt;text-transform:uppercase;letter-spacing:.06em;color:#475569;border-bottom:0.8pt solid #0F172A;padding:1.6mm 1.4mm}
-.reg td{border-bottom:0.4pt solid #CBD5E1;padding:1.8mm 1.4mm;vertical-align:top}
+.reg th{text-align:left;font-size:6.8pt;text-transform:uppercase;letter-spacing:.06em;color:#222;border-bottom:0.8pt solid #000;padding:1.6mm 1.4mm}
+.reg td{border-bottom:0.4pt solid #888;padding:1.8mm 1.4mm;vertical-align:top}
 .reg tr{break-inside:avoid;page-break-inside:avoid}
 .reg .rc{font-family:var(--mono);font-weight:800;font-size:11pt;white-space:nowrap}
 .reg .rl{font-family:var(--mono);font-weight:700;white-space:nowrap}
@@ -276,7 +283,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
 .reg .ru{font-family:var(--mono);font-size:7pt;word-break:break-all;color:#1D4ED8;text-decoration:none}
 .reg ul{margin:0;padding-left:3.5mm}
 .reg li{margin:0 0 .4mm}
-.reg .foot{margin-top:5mm;font-size:7pt;color:#64748B;display:flex;justify-content:space-between}
+.reg .foot{margin-top:5mm;font-size:7pt;color:#333;display:flex;justify-content:space-between}
 .reg-screen{background:#E2E8F0;padding:20px;border-radius:12px;max-height:68vh;overflow:auto}
 .reg-screen .reg{width:190mm;margin:0 auto;padding:10mm;box-shadow:0 10px 30px -10px rgba(15,23,42,.35)}
 
@@ -354,3 +361,8 @@ h1 .help-dot{width:26px;height:26px;font-size:14px;vertical-align:4px}
 .nav button{padding:9px 11px;font-size:14px}
 @media (max-width:1760px){.st-l{display:none}.st-s{display:inline}}
 @media (max-width:1560px){.brand-s{display:none}}
+.pop{display:inline-block;font-size:10.5px;font-weight:800;color:#92400E;background:#FEF3C7;border:1px solid #FCD34D;border-radius:999px;padding:0 6px;margin-right:2px;vertical-align:1px}
+.q-row{display:flex;gap:8px;align-items:flex-start;font-size:13px;padding:4px 0}
+.q-row svg.ic{width:16px;height:16px;margin-top:2px}
+.q-row.ok svg{color:var(--green)}.q-row.warn svg{color:var(--amber)}.q-row.bad svg{color:var(--red)}
+.q-row.bad{color:#991B1B;font-weight:600}

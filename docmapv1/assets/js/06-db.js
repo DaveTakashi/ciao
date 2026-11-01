@@ -126,6 +126,7 @@ function dbScheduleSync(){
 async function dbPersist(){
   if (!DB.ready) return;
   const bytes = DB.db.export();
+  DB.size = bytes.length;
   try { await idbSet('db', bytes); } catch(e){ console.warn('IndexedDB', e); }
   if (DB.handle && DB.handlePerm === 'granted'){
     try { const w = await DB.handle.createWritable(); await w.write(bytes); await w.close(); DB.lastFileSave = nowISO(); }
@@ -266,7 +267,7 @@ function dbRunConsole(sql){
 function dbStats(){
   if (!DB.ready) return null;
   return { binders:dbScalar('SELECT COUNT(*) FROM binders'), items:dbScalar('SELECT COUNT(*) FROM contents_items'), sessions:dbScalar('SELECT COUNT(*) FROM sessions'),
-    size: DB.db.export().length };
+    size: DB.size || 0 };
 }
 function dbStatusHTML(){
   if (DB.error) return '<div class="danger-box">' + ic('alert') + '<div><b>' + esc(t('db_err')) + '</b><br><span class="small mono">' + esc(DB.error) + '</span></div></div>';

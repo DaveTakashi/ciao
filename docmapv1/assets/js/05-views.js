@@ -248,12 +248,12 @@ function presetThumb(p){
 }
 function viewPrint(){
   const P = S.print, g = P.geometry;
-  const groups = [['full', t('pr_full')], ['die', t('pr_die')], ['custom', t('pr_custom')]];
+  const groups = [['die', t('pr_die')], ['full', t('pr_full')], ['custom', t('pr_custom')]];
   const presets = groups.map(([k, lab]) => {
     const ps = allPresets().filter(p => (p.kind || 'custom') === k);
     if (!ps.length) return '';
     return '<div class="tiny muted" style="font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin:6px 0 2px">' + esc(lab) + '</div>' +
-      ps.map(p => '<button type="button" class="preset ' + (P.presetId === p.id ? 'on' : '') + '" data-a="preset" data-id="' + p.id + '">' + presetThumb(p) + '<span style="min-width:0;flex:1"><span class="pt">' + esc(p.name) + '</span><br><span class="pd">' + fmtMM(p.w) + '×' + fmtMM(p.h) + ' mm • ' + p.cols + '×' + p.rows + ' = ' + (p.cols * p.rows) + '</span></span>' +
+      ps.map(p => '<button type="button" class="preset ' + (P.presetId === p.id ? 'on' : '') + '" data-a="preset" data-id="' + p.id + '">' + presetThumb(p) + '<span style="min-width:0;flex:1"><span class="pt">' + (p.popular ? '<span class="pop">★ ' + esc(t('pr_popular')) + '</span> ' : '') + esc(p.name) + '</span><br><span class="pd">' + fmtMM(p.w) + '×' + fmtMM(p.h) + ' mm • ' + p.cols + '×' + p.rows + ' = ' + (p.cols * p.rows) + '</span></span>' +
         (k === 'custom' ? '<span class="icon-btn danger" data-a="del-preset" data-id="' + p.id + '" title="' + esc(t('g_del_preset')) + '">' + ic('trash') + '</span>' : '') + '</button>').join('');
   }).join('');
   const opt = (grp, val, title, desc, cur, full) => '<button type="button" class="opt ' + (cur === val ? 'on ' : '') + (full ? 'full' : '') + '" data-a="' + grp + '" data-v="' + val + '"><b>' + esc(title) + '</b><span>' + esc(desc) + '</span></button>';
@@ -273,7 +273,8 @@ function viewPrint(){
         '<div class="sep" style="margin:10px 0"></div>' +
         '<div id="geo-offsets">' + geoInput('offsetX', t('g_ox'), -10, 10, 0.5, P.offsetX, 'pp') + geoInput('offsetY', t('g_oy'), -10, 10, 0.5, P.offsetY, 'pp') + '</div>' +
         '</div><label class="chk small" style="margin-top:8px"><input type="checkbox" data-pp="cut"' + (g.cut ? ' checked' : '') + '>' + esc(t('g_cut')) + '</label>' +
-        '<div class="row" style="margin-top:12px"><button class="btn btn-sm" data-a="geo-reset">' + ic('rotate') + esc(t('g_reset')) + '</button><button class="btn btn-sm" data-a="geo-save">' + ic('save') + esc(t('g_savepreset')) + '</button></div>' +
+        '<div class="row" style="margin-top:12px"><button class="btn btn-sm" data-a="geo-fill" title="' + esc(t('g_fill_d')) + '">' + ic('grid') + esc(t('g_fill')) + '</button><button class="btn btn-sm" data-a="geo-center">' + ic('crosshair') + esc(t('g_center')) + '</button></div>' +
+        '<div class="row" style="margin-top:8px"><button class="btn btn-sm" data-a="geo-reset">' + ic('rotate') + esc(t('g_reset')) + '</button><button class="btn btn-sm" data-a="geo-save">' + ic('save') + esc(t('g_savepreset')) + '</button></div>' +
         '<div class="geo-warn err-t" id="geo-warn" style="margin-top:8px"></div></div>' +
       '<div class="panel-sec"><h3>' + esc(t('pr_content')) + '</h3><div class="opt-grid">' +
         opt('cmode', 'pair', t('cm_pair'), t('cm_pair_d'), P.contentMode, true) + opt('cmode', 'a', t('cm_a'), t('cm_a_d'), P.contentMode) + opt('cmode', 'b', t('cm_b'), t('cm_b_d'), P.contentMode) + opt('cmode', 'u', t('cm_u'), t('cm_u_d'), P.contentMode, true) +
@@ -282,6 +283,7 @@ function viewPrint(){
         opt('qmode', 'live', t('qm_live'), t('qm_live_d'), P.qrMode, true) + opt('qmode', 'placeholder', t('qm_ph'), t('qm_ph_d'), P.qrMode) + opt('qmode', 'none', t('qm_none'), t('qm_none_d'), P.qrMode) +
         '</div><div class="row" style="margin-top:10px;justify-content:space-between"><label class="chk small"><input type="checkbox" data-pp="showQrUrl"' + (P.showQrUrl ? ' checked' : '') + '>' + esc(t('qr_url')) + '</label>' +
         '<label class="small row" style="gap:6px">' + esc(t('qr_ecc')) + ' <select class="inp" style="width:auto;min-height:34px;padding:4px 8px" data-pp="qrEcc">' + ['L','M','Q','H'].map(e => '<option' + (S.settings.qrEcc === e ? ' selected' : '') + '>' + e + '</option>').join('') + '</select></label></div></div>' +
+      '<div class="panel-sec"><h3>' + esc(t('pr_quality')) + helpDot('design') + '</h3><div id="pr-quality"></div></div>' +
       '<div class="panel-sec"><h3>' + esc(t('pr_slots')) + helpDot('partial') + '</h3><div class="slotmap-wrap"><div class="slotmap" id="slotmap"></div><div class="stack">' +
         '<div class="hint">' + esc(t('sl_hint')) + '</div><div class="small" id="sl-count" style="font-weight:700"></div>' +
         '<button class="btn btn-sm" data-a="slots-free">' + ic('check') + esc(t('sl_all_free')) + '</button>' +
@@ -300,14 +302,36 @@ function mountPrint(){
   const sc = $('#pv-scroll');
   if (sc && window.ResizeObserver){ let lastW = 0; pvObserver = new ResizeObserver(() => { if (Math.abs(sc.clientWidth - lastW) > 4){ lastW = sc.clientWidth; renderPrintPreview(); } }); pvObserver.observe(sc); }
 }
-function refreshPrint(){ renderPrintSummary(); renderSlotMap(); renderPrintPreview(); geoWarn(); }
+function refreshPrint(){ renderPrintSummary(); renderSlotMap(); renderPrintPreview(); geoWarn(); renderQuality(); }
 function geoWarn(){
   const g = S.print.geometry, el = $('#geo-warn'); if (!el) return;
   const right = g.marginLeft + g.cols * g.w + (g.cols - 1) * g.gapX, bottom = g.marginTop + g.rows * g.h + (g.rows - 1) * g.gapY;
   const msg = [];
   if (right > 210.05) msg.push((S.lang === 'en' ? 'Layout exceeds page width: ' : 'Il layout supera la larghezza del foglio: ') + fmtMM(right) + ' > 210 mm');
   if (bottom > 297.05) msg.push((S.lang === 'en' ? 'Layout exceeds page height: ' : 'Il layout supera l\'altezza del foglio: ') + fmtMM(bottom) + ' > 297 mm');
+  const SAFE = 4;
+  if (g.marginLeft < SAFE || g.marginTop < SAFE || 210 - right < SAFE || 297 - bottom < SAFE) msg.push(t('g_edge'));
   el.textContent = msg.join(' • ');
+}
+function renderQuality(){
+  const el = $('#pr-quality'); if (!el) return;
+  const g = S.print.geometry, P = S.print, b = printQueueBinders()[0] || S.binders[0];
+  if (!b){ el.innerHTML = ''; return; }
+  const kinds = P.contentMode === 'pair' ? ['A','B'] : P.contentMode === 'a' ? ['A'] : P.contentMode === 'b' ? ['B'] : ['U'];
+  kinds.forEach(k => renderLabel(k, b, g, P));
+  const rows = [];
+  const line = (ok, txt) => rows.push('<div class="q-row ' + (ok === true ? 'ok' : ok === 'warn' ? 'warn' : 'bad') + '">' + ic(ok === true ? 'check' : 'alert') + '<span>' + txt + '</span></div>');
+  const pt = (mm) => (mm * 72 / 25.4).toFixed(1);
+  const qk = kinds.find(k => LM[k] && LM[k].q);
+  if (P.qrMode === 'live' && qk){
+    const q = LM[qk].q, n = DMQR.encode(b.short_url || shortUrl(b.short_code), S.settings.qrEcc || 'M').size + 4, mod = q / n;
+    line(q >= 15 ? true : q >= 12 ? 'warn' : false, esc(t('q_qr', {q:fmtMM(q), m:mod.toFixed(2)})) + (q < 15 ? ' — ' + esc(t('q_qr_small')) : ''));
+  }
+  const code = Math.min.apply(null, kinds.map(k => LM[k] ? LM[k].code : 99));
+  line(code >= 6 ? true : code >= 4 ? 'warn' : false, esc(t('q_code', {s:fmtMM(code), p:pt(code)})));
+  const minT = Math.min.apply(null, kinds.map(k => LM[k] ? LM[k].minText : 99));
+  line(minT >= 1.8 ? true : minT >= 1.45 ? 'warn' : false, esc(t('q_text', {s:fmtMM(minT), p:pt(minT)})) + (minT < 1.8 ? ' — ' + esc(t('q_text_small')) : ''));
+  el.innerHTML = rows.join('') + '<div class="hint" style="margin-top:6px">' + esc(t('q_tip')) + '</div>';
 }
 function renderPrintSummary(){
   const L = layoutLabels(), q = printQueueBinders(), el = $('#pr-summary');
@@ -369,7 +393,7 @@ function viewImport(){
   return '<div class="page-h"><div><h1>' + esc(t('im_h')) + helpDot('import') + '</h1><p>' + esc(t('im_p')) + '</p></div><div class="row"><button class="btn" data-a="nav" data-v="ai">' + ic('sparkles') + esc(t('nav_ai')) + '</button></div></div>' +
     '<div class="grid g2"><div class="card card-p"><div class="dropzone" id="dropzone" data-a="pick-import" tabindex="0">' + ic('upload', 'lg') + '<div style="font-weight:700;margin-top:8px">' + esc(t('im_drop')) + '</div><div class="hint">.csv (; , tab) • .json (workspace / array)</div></div></div>' +
     '<div class="card card-p"><div class="field"><label for="im-text">' + esc(t('im_paste')) + '</label><textarea class="inp mono small" id="im-text" data-bind="importText" rows="7" placeholder="' + esc(t('im_paste_ph')) + '">' + esc(UI.importText) + '</textarea></div>' +
-    '<div class="row" style="margin-top:10px"><button class="btn btn-primary" data-a="im-analyze">' + ic('eye') + esc(t('im_analyze')) + '</button><button class="btn" data-a="im-clear">' + ic('x') + esc(t('im_clear')) + '</button></div></div></div>' +
+    '<div class="row" style="margin-top:10px"><button class="btn" data-a="im-clip">' + ic('clipboard') + esc(t('im_clip')) + '</button><button class="btn btn-primary" data-a="im-analyze">' + ic('eye') + esc(t('im_analyze')) + '</button><button class="btn" data-a="im-clear">' + ic('x') + esc(t('im_clear')) + '</button></div></div></div>' +
     '<div id="im-preview" style="margin-top:16px">' + importPreviewHTML() + '</div>';
 }
 function analyzeImport(text){
@@ -480,6 +504,9 @@ function applyImport(mode){
       }
     });
   }
+  // A final_destination identical to the studio template is the default, not a custom override:
+  // keep it empty so a future template change still applies (CSV backups export the resolved URL).
+  S.binders.forEach(b => { if (b.final_destination && b.final_destination === renderDest(S.settings.destTemplate, b)) b.final_destination = ''; });
   UI.importParsed = null; UI.importText = '';
   commit();
   toast(t('im_done', {a:added, u:updated}), 'ok', 5000);

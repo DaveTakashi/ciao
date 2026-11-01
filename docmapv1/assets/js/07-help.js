@@ -3,6 +3,12 @@
    contextual help dots and first-run onboarding.
    ===================================================================== */
 Object.assign(I18N.it, {
+  pr_popular:'più usato', g_fill:'Riempi A4 (margine sicuro 5 mm)', g_fill_d:'Calcola larghezza e altezza per riempire l\'A4 con colonne/righe e spazi attuali, lasciando 5 mm dal bordo (zona non stampabile delle stampanti desktop).',
+  g_center:'Centra sul foglio', g_edge:'Attenzione: etichette a meno di 4 mm dal bordo. Le stampanti desktop di solito non stampano in quella fascia.',
+  pr_quality:'Controllo qualità di stampa', q_qr:'QR {q} mm • modulo {m} mm', q_qr_small:'consigliato almeno 15 mm per la lettura con lo smartphone',
+  q_code:'Codice parlante alto {s} mm ({p} pt)', q_text:'Testo più piccolo {s} mm ({p} pt)', q_text_small:'sotto 5 pt la lettura diventa difficile: usa un\'etichetta più grande o meno voci',
+  q_tip:'Stampa in nero pieno, qualità "Alta", tipo carta "Etichette", scala 100%.',
+  im_clip:'Incolla dagli appunti', im_clip_fail:'Il browser non ha permesso di leggere gli appunti: incolla con Ctrl+V nel riquadro.', im_ansi:'File letto come Windows-1252 (CSV salvato da Excel): controlla accenti e lettere greche nell\'anteprima.',
   nav_database:'Database',
   db_h:'Database SQLite locale', db_p:'Un vero database SQLite che gira nel browser, senza server e senza installazione. L\'archivio viene copiato nelle tabelle a ogni modifica; puoi salvare sessioni con un nome e scaricare o riaprire il file .sqlite.',
   db_status:'Stato del database', db_loading:'Avvio del motore SQLite…', db_err:'Il motore SQLite non si è avviato. Le altre funzioni (localStorage, CSV, JSON) restano disponibili.',
@@ -28,6 +34,12 @@ Object.assign(I18N.it, {
   ob_3:'Verifica il foglio in stampante', ob_3d:'Prova quasi bianca per calibrare.', ob_skip:'Esploro da solo', ob_note:'Puoi riaprire guida e azioni guidate in qualsiasi momento con il pulsante ? in alto (o F1).'
 });
 Object.assign(I18N.en, {
+  pr_popular:'most used', g_fill:'Fill A4 (5 mm safe margin)', g_fill_d:'Compute width and height to fill A4 with the current columns/rows and gaps, keeping 5 mm from the edge (non-printable area of desktop printers).',
+  g_center:'Centre on sheet', g_edge:'Warning: labels closer than 4 mm to the edge. Desktop printers usually cannot print there.',
+  pr_quality:'Print quality check', q_qr:'QR {q} mm • module {m} mm', q_qr_small:'at least 15 mm recommended for phone scanning',
+  q_code:'Speaking code {s} mm high ({p} pt)', q_text:'Smallest text {s} mm ({p} pt)', q_text_small:'below 5 pt reading gets hard: use a bigger label or fewer items',
+  q_tip:'Print in solid black, "High" quality, paper type "Labels", scale 100%.',
+  im_clip:'Paste from clipboard', im_clip_fail:'The browser did not allow reading the clipboard: paste with Ctrl+V in the box.', im_ansi:'File read as Windows-1252 (CSV saved by Excel): check accents and Greek letters in the preview.',
   nav_database:'Database',
   db_h:'Local SQLite database', db_p:'A real SQLite database running in the browser, no server, no install. The archive is copied into tables on every change; you can save named sessions and download or reopen the .sqlite file.',
   db_status:'Database status', db_loading:'Starting the SQLite engine…', db_err:'The SQLite engine did not start. Everything else (localStorage, CSV, JSON) still works.',
@@ -58,6 +70,10 @@ const HELP_TAGS = { label:{it:'Etichette',en:'Labels'}, print:{it:'Stampa',en:'P
   ai:{it:'AI',en:'AI'}, db:{it:'Database',en:'Database'}, safety:{it:'Sicurezza dati',en:'Data safety'}, archive:{it:'Archivio',en:'Archive'}, calib:{it:'Calibrazione',en:'Calibration'} };
 
 const HELP_TOPICS = [
+  { id:'design', guide:null, tags:['label','print'], related:['print','calib'],
+    title:{it:'Design delle etichette: font, dimensioni, contrasto', en:'Label design: fonts, sizes, contrast'},
+    body:{it:'<p>Regole usate da DocMap e consigli per stampanti desktop A4:</p><ul><li><b>Nero pieno su bianco</b> per tutto il testo e il QR: i grigi vengono retinati e perdono nitidezza. Il colore resta solo sulla banda del dorso.</li><li><b>Codice parlante</b> in JetBrains Mono ExtraBold, almeno <b>6 mm</b> di altezza: si legge a 2 metri dallo scaffale. Il mono evita confusioni tra 1/I e 0/O.</li><li><b>Testo</b> in Inter (incluso nel progetto, uguale su ogni PC): mai sotto <b>5 pt (1,8 mm)</b>.</li><li><b>QR</b> vettoriale, almeno <b>15 mm</b> di lato e modulo ≥ 0,4 mm, con margine bianco attorno. Correzione M di default; usa Q o H se l\'etichetta si rovina facilmente.</li><li><b>Margine interno</b> 2,5 mm e <b>almeno 4-5 mm dal bordo del foglio</b>: le stampanti desktop non stampano fino al bordo.</li><li>Nel dialogo di stampa: <b>Scala 100%</b>, Margini <b>Nessuno</b>, qualità <b>Alta</b>, tipo carta <b>Etichette</b>. Laser: fogli per laser; inkjet: fogli per inkjet (J8xxx).</li></ul><p>Il riquadro "Controllo qualità di stampa" in Stampa Etichette verifica queste soglie sul formato scelto.</p>',
+          en:'<p>Rules DocMap follows and tips for desktop A4 printers:</p><ul><li><b>Solid black on white</b> for all text and the QR: greys get dithered and lose sharpness. Colour stays only on the spine band.</li><li><b>Speaking code</b> in JetBrains Mono ExtraBold, at least <b>6 mm</b> high: readable 2 m from the shelf. Mono avoids 1/I and 0/O confusion.</li><li><b>Text</b> in Inter (bundled, identical on every PC): never below <b>5 pt (1.8 mm)</b>.</li><li><b>QR</b> vector, at least <b>15 mm</b> wide and module ≥ 0.4 mm, with white margin. ECC M by default; use Q or H if labels get damaged.</li><li><b>Inner padding</b> 2.5 mm and <b>at least 4-5 mm from the sheet edge</b>: desktop printers can\'t print to the edge.</li><li>In the print dialog: <b>Scale 100%</b>, Margins <b>None</b>, quality <b>High</b>, paper type <b>Labels</b>. Laser sheets for laser, inkjet sheets (J8xxx) for inkjet.</li></ul><p>The "Print quality check" box in Print Labels checks these thresholds for the chosen format.</p>'} },
   { id:'create', guide:'create', tags:['label','archive'], related:['print','qr'],
     title:{it:'Come creo un faldone e la sua etichetta?', en:'How do I create a binder and its label?'},
     body:{it:'<p>Ogni faldone è una scheda con tre identità:</p><ul><li><b>Codice parlante</b> (es. <span class="kbd">BL1</span>): iniziali del cliente + numero progressivo. Si legge a colpo d\'occhio sullo scaffale.</li><li><b>Posizione</b> (es. <span class="kbd">A1-α</span>): stanza + armadio, poi ripiano (α β γ dall\'alto) e settore opzionale SX/CX/DX.</li><li><b>Short code QR</b> (es. <span class="kbd">dm26K8m2P9xL</span>): generato da solo, univoco, punta a <span class="kbd">https://qr7.it/…</span>.</li></ul><p>I <b>contenuti</b> (anno + descrizione) finiscono sul Modulo B dell\'etichetta: quando cambiano ristampi solo quello.</p><ol><li>Archivio → <b>Nuovo Faldone</b>.</li><li>Scrivi il cliente: il codice parlante viene suggerito.</li><li>Titolo, posizione, contenuti → <b>Salva</b>.</li></ol><p>Il faldone nuovo è già spuntato per la stampa.</p>',

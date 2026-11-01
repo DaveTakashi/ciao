@@ -304,16 +304,29 @@ function normalizeBinder(b){
 }
 
 /* ---------------- Presets ---------------- */
+/* Sheet presets, die-cut formats in order of popularity (Avery and compatible
+   Herma/Tico/APLI codes share the same geometry). Values from manufacturer templates. */
 const BUILTIN_PRESETS = [
-  {id:'a4-8',  kind:'full', name:'A4 Intero — 8 Etichette Grandi (2×4)', w:97, h:67, cols:2, rows:4, marginTop:14.5, marginLeft:8, gapX:0, gapY:0, radius:0, cut:true},
-  {id:'a4-14', kind:'full', name:'A4 Intero — 14 Etichette Medie (2×7)', w:97, h:38, cols:2, rows:7, marginTop:15.5, marginLeft:8, gapX:0, gapY:0, radius:0, cut:true},
-  {id:'a4-5s', kind:'full', name:'A4 Intero — Strisce Dorso Faldone (1×5)', w:190, h:54, cols:1, rows:5, marginTop:13.5, marginLeft:10, gapX:0, gapY:0, radius:0, cut:true},
-  {id:'l7163', kind:'die', name:'Prefustellato 14 (Tipo Avery L7163)', w:99.1, h:38.1, cols:2, rows:7, marginTop:15.1, marginLeft:4.65, gapX:2.5, gapY:0, radius:2, cut:false},
-  {id:'l7160', kind:'die', name:'Prefustellato 21 (Tipo Avery L7160)', w:63.5, h:38.1, cols:3, rows:7, marginTop:15.1, marginLeft:7.2, gapX:2.5, gapY:0, radius:2, cut:false},
-  {id:'l7165', kind:'die', name:'Prefustellato 8 (Tipo Avery L7165)', w:99.1, h:67.7, cols:2, rows:4, marginTop:13.1, marginLeft:4.65, gapX:2.5, gapY:0, radius:2, cut:false},
-  {id:'l7169', kind:'die', name:'Prefustellato 4 Grandi (Tipo Avery L7169)', w:99.1, h:139, cols:2, rows:2, marginTop:9.5, marginLeft:4.65, gapX:2.5, gapY:0, radius:2, cut:false},
-  {id:'l4761', kind:'die', name:'Prefustellato Dorso Faldone Largo (Tipo Avery L4761 / Standard 4)', w:192, h:61, cols:1, rows:4, marginTop:26.5, marginLeft:9, gapX:0, gapY:0, radius:2, cut:false}
+  {id:'l7160', kind:'die', popular:1, name:'21 etichette 63,5×38,1 (Avery L7160 / J8160)', w:63.5, h:38.1, cols:3, rows:7, marginTop:15.15, marginLeft:7.2, gapX:2.55, gapY:0, radius:2, cut:false},
+  {id:'l7163', kind:'die', popular:2, name:'14 etichette 99,1×38,1 (Avery L7163 / J8163)', w:99.1, h:38.1, cols:2, rows:7, marginTop:15.15, marginLeft:4.65, gapX:2.5, gapY:0, radius:2, cut:false},
+  {id:'l7165', kind:'die', popular:3, name:'8 etichette 99,1×67,7 (Avery L7165 / J8165)', w:99.1, h:67.7, cols:2, rows:4, marginTop:13.1, marginLeft:4.65, gapX:2.5, gapY:0, radius:2, cut:false},
+  {id:'l7173', kind:'die', popular:4, name:'10 etichette 99,1×57 (Avery L7173 / J8173)', w:99.1, h:57, cols:2, rows:5, marginTop:6, marginLeft:4.65, gapX:2.5, gapY:0, radius:2, cut:false},
+  {id:'l7161', kind:'die', name:'18 etichette 63,5×46,6 (Avery L7161 / J8161)', w:63.5, h:46.6, cols:3, rows:6, marginTop:8.7, marginLeft:7.2, gapX:2.55, gapY:0, radius:2, cut:false},
+  {id:'l7159', kind:'die', name:'24 etichette 63,5×33,9 (Avery L7159 / J8159)', w:63.5, h:33.9, cols:3, rows:8, marginTop:12.9, marginLeft:7.2, gapX:2.55, gapY:0, radius:2, cut:false},
+  {id:'l7162', kind:'die', name:'16 etichette 99,1×33,9 (Avery L7162 / J8162)', w:99.1, h:33.9, cols:2, rows:8, marginTop:12.9, marginLeft:4.65, gapX:2.5, gapY:0, radius:2, cut:false},
+  {id:'l7169', kind:'die', name:'4 etichette 99,1×139 (Avery L7169 / J8169)', w:99.1, h:139, cols:2, rows:2, marginTop:9.5, marginLeft:4.65, gapX:2.5, gapY:0, radius:2, cut:false},
+  {id:'l4760', kind:'die', name:'Dorso faldone 192×38 ×7 (Avery L4760)', w:192, h:38, cols:1, rows:7, marginTop:15.5, marginLeft:9, gapX:0, gapY:0, radius:2, cut:false},
+  {id:'l4761', kind:'die', name:'Dorso faldone largo 192×61 ×4 (Avery L4761)', w:192, h:61, cols:1, rows:4, marginTop:26.5, marginLeft:9, gapX:0, gapY:0, radius:2, cut:false},
+  {id:'l7167', kind:'die', name:'1 etichetta A4 199,6×289,1 (Avery L7167)', w:199.6, h:289.1, cols:1, rows:1, marginTop:3.95, marginLeft:5.2, gapX:0, gapY:0, radius:2, cut:false},
+  {id:'a4-8',  kind:'full', name:'A4 adesivo intero — 8 etichette 97×67 (2×4)', w:97, h:67, cols:2, rows:4, marginTop:14.5, marginLeft:8, gapX:0, gapY:0, radius:0, cut:true},
+  {id:'a4-14', kind:'full', name:'A4 adesivo intero — 14 etichette 97×38 (2×7)', w:97, h:38, cols:2, rows:7, marginTop:15.5, marginLeft:8, gapX:0, gapY:0, radius:0, cut:true},
+  {id:'a4-10', kind:'full', name:'A4 adesivo intero — 10 etichette 97×54 (2×5)', w:97, h:54, cols:2, rows:5, marginTop:13.5, marginLeft:8, gapX:0, gapY:0, radius:0, cut:true},
+  {id:'a4-21', kind:'full', name:'A4 adesivo intero — 21 etichette 64×38 (3×7)', w:64, h:38, cols:3, rows:7, marginTop:15.5, marginLeft:9, gapX:0, gapY:0, radius:0, cut:true},
+  {id:'a4-5s', kind:'full', name:'A4 adesivo intero — 5 strisce dorso 190×54 (1×5)', w:190, h:54, cols:1, rows:5, marginTop:13.5, marginLeft:10, gapX:0, gapY:0, radius:0, cut:true},
+  {id:'a4-4s', kind:'full', name:'A4 adesivo intero — 4 strisce dorso larghe 190×66 (1×4)', w:190, h:66, cols:1, rows:4, marginTop:16.5, marginLeft:10, gapX:0, gapY:0, radius:0, cut:true}
 ];
+const DEFAULT_DEST = 'https://studiodallasta.it/docmap/?code={speaking_code}&qr={short_code}';
+const OLD_DEFAULT_DESTS = ['https://archivio.studiodemo.it/view?code={speaking_code}&qr={short_code}'];
 const GEO_KEYS = ['w','h','cols','rows','marginTop','marginLeft','gapX','gapY','radius'];
 function allPresets(){ return BUILTIN_PRESETS.concat(S.customPresets || []); }
 function findPreset(id){ return allPresets().find(p => p.id === id) || BUILTIN_PRESETS[0]; }
@@ -343,9 +356,9 @@ function demoBinders(){
 function defaultState(){
   return {
     schema:26.1, app:'DocMap26', lang:'it', view:'archive',
-    settings:{ studioName:'Studio Demo Commercialisti Associati', destTemplate:'https://archivio.studiodemo.it/view?code={speaking_code}&qr={short_code}', qrEcc:'M' },
+    settings:{ studioName:'Studio Demo Commercialisti Associati', destTemplate:DEFAULT_DEST, qrEcc:'M' },
     binders:[],
-    print:{ presetId:'a4-8', geometry:geoFromPreset(BUILTIN_PRESETS[0]), geometryModified:false, padding:2.5, offsetX:0, offsetY:0,
+    print:{ presetId:'l7160', geometry:geoFromPreset(BUILTIN_PRESETS[0]), geometryModified:false, padding:2.5, offsetX:0, offsetY:0,
             contentMode:'pair', qrMode:'live', showQrUrl:true, copies:1, previewMode:'labels' },
     customPresets:[], usedSlots:{},
     hasUnexportedChanges:true, onboarded:false, lastExportAt:null, lastExportFile:null, lastSavedAt:null, archiveView:'table'
@@ -360,8 +373,10 @@ function migrate(st){
   const d = defaultState();
   const o = Object.assign(d, st || {});
   o.settings = Object.assign(defaultState().settings, (st && st.settings) || {});
+  if (OLD_DEFAULT_DESTS.includes(o.settings.destTemplate)) o.settings.destTemplate = DEFAULT_DEST;
   o.print = Object.assign(defaultState().print, (st && st.print) || {});
   o.print.geometry = Object.assign(geoFromPreset(BUILTIN_PRESETS[0]), o.print.geometry || {});
+  if (!(BUILTIN_PRESETS.concat(o.customPresets || [])).some(p => p.id === o.print.presetId)){ o.print.presetId = BUILTIN_PRESETS[0].id; o.print.geometry = geoFromPreset(BUILTIN_PRESETS[0]); o.print.geometryModified = false; }
   o.customPresets = Array.isArray(o.customPresets) ? o.customPresets : [];
   o.usedSlots = (o.usedSlots && typeof o.usedSlots === 'object') ? o.usedSlots : {};
   o.binders = Array.isArray(o.binders) ? o.binders.map(normalizeBinder) : [];

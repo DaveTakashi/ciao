@@ -108,8 +108,23 @@ async function copyText(text){
   toast(ok ? t('copied') : t('copy_fail'), ok ? 'ok' : 'warn');
   return ok;
 }
+/* Read a text file whatever Windows produced it with: UTF-8 (with/without BOM), UTF-16 (Excel "Unicode text") or Windows-1252 (Excel "CSV"). */
 function readFileText(file){
-  return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result || '')); r.onerror = () => rej(r.error); r.readAsText(file, 'utf-8'); });
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onerror = () => rej(r.error);
+    r.onload = () => {
+      const u = new Uint8Array(r.result);
+      try {
+        if (u[0] === 0xFF && u[1] === 0xFE) return res(new TextDecoder('utf-16le').decode(u.subarray(2)));
+        if (u[0] === 0xFE && u[1] === 0xFF) return res(new TextDecoder('utf-16be').decode(u.subarray(2)));
+        try { return res(new TextDecoder('utf-8', {fatal:true}).decode(u).replace(/^\uFEFF/, '')); }
+        catch(e){ readFileText.lastAnsi = true; return res(new TextDecoder('windows-1252').decode(u)); }
+      } catch(e){ rej(e); }
+    };
+    readFileText.lastAnsi = false;
+    r.readAsArrayBuffer(file);
+  });
 }
 
 /* =====================================================================
