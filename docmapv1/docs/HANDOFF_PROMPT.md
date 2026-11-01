@@ -1,6 +1,6 @@
 # Prompt di passaggio: DocMap 2026 MVP → sistema Python
 
-> Copia tutto il testo sotto la linea e incollalo all'agente che ha già costruito il sistema Python di gestione dello studio. Prima estrai lo zip `docmap_v10.zip` in una cartella che l'agente può leggere e indica il percorso al posto di `<CARTELLA_DOCMAP>`. Lo zip contiene `docmapv1/` (l'app con sorgenti, test e documentazione) e `deploy/studio-de/` (la copia pronta da caricare su https://docmap.pr-it.it/studio-de/).
+> Copia tutto il testo sotto la linea e incollalo all'agente che ha già costruito il sistema Python di gestione dello studio. Prima estrai lo zip `docmap_v11.zip` (la versione v11 è la base di partenza ufficiale per lo sviluppo Python) in una cartella che l'agente può leggere e indica il percorso al posto di `<CARTELLA_DOCMAP>`. Lo zip contiene `docmapv1/` (l'app con sorgenti, test e documentazione) e `deploy/studio-de/` (la copia pronta da caricare su https://docmap.pr-it.it/studio-de/).
 
 ---
 
@@ -10,6 +10,7 @@ Ciao. Ti passo il front-end MVP di **DocMap 2026 (DM26)**, l'archivio fisico-dig
 
 La cartella `<CARTELLA_DOCMAP>/docmapv1/` contiene un'app web completa che funziona **offline**, aprendo `index.html` con un doppio clic in Chrome o Edge: nessun server, nessuna build, nessuna dipendenza da Internet.
 
+- **Novità v11 (studiale per prime):** Ubicazioni gerarchiche con QR delle scatole e modalità associazione (§3b), Registro sincronizzazioni sul PC e sul server con ripristino delle versioni (§4c), sincronizzazione asincrona tra più PC e telefoni, manifest qr7 con `;` in fondo a ogni riga. Ogni tua versione futura deve rispettare `docs/AGGIORNAMENTI.md` (aggiornamento senza perdita di dati, con guida `AGGIORNAMENTO-vX-vY.md` e test sui dati della versione precedente).
 - **Archivio dei faldoni:**
   - codice parlante (es. BL1), Codice Multi (l'ID interno del gestionale, facoltativo);
   - cliente, luogo, categoria, titolo e anno;
@@ -140,7 +141,7 @@ La cartella `deploy/studio-de/` è un sito **statico**: sul server c'è solo il 
   `06g-server.js`); la versione web con `apiBase` lavora online con una copia cifrata offline nel browser.
 - **Regola per ogni versione futura**: ogni rilascio deve portare con sé un **percorso di aggiornamento che conserva i
   dati** (chiavi di `localStorage` / IndexedDB invariate, migrazioni solo additive, guida `docs/AGGIORNAMENTO-vX-vY.md`
-  sul modello di `docs/AGGIORNAMENTO-v10-v10.1.md`) e un test nella suite che apre dati della versione precedente.
+  sul modello di `docs/AGGIORNAMENTO-v10.1-v11.md`) e un test nella suite che apre dati della versione precedente.
   La procedura standard è in `docs/AGGIORNAMENTI.md`.
 
 ## 4c. Dalla v11: registro sincronizzazioni (da riprodurre nel Python)

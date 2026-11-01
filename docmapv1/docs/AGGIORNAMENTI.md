@@ -1,8 +1,8 @@
 # DocMap — procedura standard di aggiornamento (v11 e successive)
 
 Ogni nuova versione di DocMap deve potersi installare **sopra la precedente senza perdere dati**. Questo documento è
-la procedura che vale sempre; ogni rilascio aggiunge una guida specifica `docs/AGGIORNAMENTO-vX-vY.md` (esempio:
-`AGGIORNAMENTO-v10-v10.1.md`) con le sole differenze.
+la procedura che vale sempre; ogni rilascio aggiunge una guida specifica `docs/AGGIORNAMENTO-vX-vY.md` (esempi:
+`AGGIORNAMENTO-v10-v10.1.md`, `AGGIORNAMENTO-v10.1-v11.md`) con le sole differenze.
 
 ## Per chi usa DocMap
 
@@ -10,13 +10,14 @@ la procedura che vale sempre; ogni rilascio aggiunge una guida specifica `docs/A
    numero di faldoni e clienti. Copia la cartella `docmapv1` vecchia da parte.
 2. **Se usi il database online**: dal PC fai **Sincronizza con il server** prima di aggiornare, e scarica dal server
    una copia della cartella dati (`docmap.sqlite*`) e di `config.php`.
-3. **Sostituisci i file nello stesso percorso** (stessa cartella, stesso browser) e riapri `index.html`.
-4. **Controlla**: versione in Impostazioni, numero di faldoni e clienti, un paio di faldoni e foto.
-5. **Server** (se la versione lo richiede): carica la nuova cartella `deploy/studio-de/` sopra la vecchia **senza
+3. **Aggiorna prima il server** (punto 6), poi i PC, poi i telefoni: i client vecchi funzionano con il server nuovo, non il contrario.
+4. **Sostituisci i file nello stesso percorso** (stessa cartella, stesso browser) e riapri `index.html`.
+5. **Controlla**: versione in Impostazioni, numero di faldoni e clienti, un paio di faldoni e foto.
+6. **Server** (se la versione lo richiede): carica la nuova cartella `deploy/studio-de/` sopra la vecchia **senza
    cancellare** `server-php/config.php` né la cartella dati; non rieseguire `setup.php`. Le note della versione dicono
-   se l'API va aggiornata.
-6. **Sincronizza** di nuovo dal PC e prova un telefono.
-7. **Tornare indietro**: rimetti la cartella vecchia nello stesso percorso; se serve ripristina il backup JSON / `.sqlite`.
+   se l'API va aggiornata. Prova `server-php/api.php?r=ping` (campo `schema`).
+7. **Sincronizza** di nuovo dal PC e prova un telefono.
+8. **Tornare indietro**: rimetti la cartella vecchia nello stesso percorso; se serve ripristina il backup JSON / `.sqlite`.
 
 ## Per chi sviluppa (regole del rilascio)
 

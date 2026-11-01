@@ -242,6 +242,7 @@ in ufficio resta com'è (offline, doppio clic su `index.html`) e si allinea quan
   server**. La prima volta, con il server vuoto, DocMap chiede **"Carica il mio archivio sul server (prima volta)"**
   e mostra quanti faldoni e clienti invierà. Se lo stesso faldone è cambiato su entrambi i lati vedi la revisione
   dei conflitti, come con i pacchetti.
+- **Aggiornare dalla v10.1 alla v11**: segui `docs/AGGIORNAMENTO-v10.1-v11.md` (prima il server, poi i PC, poi i telefoni).
 - **Aggiornare dalla v10 senza perdere nulla**: segui `docs/AGGIORNAMENTO-v10-v10.1.md` (prima il backup, poi i nuovi
   file **nella stessa cartella**). La procedura generale per le versioni future è in `docs/AGGIORNAMENTI.md`.
 - Le foto restano sul PC (non passano dal server).

@@ -3368,7 +3368,7 @@ const sec = (n) => console.log('\n== ' + n);
           'J: entry detail (admin) returns the decrypted previous / new version; the SHA-256 computed by the client for what it sent equals the server\'s new_hash', {local:Jv && Jv.hash, srv:Jv2 && Jv2.new_hash});
         // encryption at rest: no names, device names or codes in the database files
         Jv = fs.readdirSync(JDATA).filter(f => /^docmap\.sqlite/.test(f)).map(f => fs.readFileSync(Jpath.join(JDATA, f)));
-        ok(Jv.length >= 1 && Jv.every(buf => !buf.includes('Ornitorinco') && !buf.includes('PC Ufficio') && !buf.includes('Telefono Anna') && !buf.includes('dal telefono di Anna') && !buf.includes('JRX') && !buf.includes('anna.tel')),
+        ok(Jv.length >= 1 && Jv.every(buf => !buf.includes('Ornitorinco') && !buf.includes('PC Ufficio') && !buf.includes('Telefono Anna') && !buf.includes('dal telefono di Anna') && !buf.includes('"JRX"') && !buf.includes('speaking_code') && !buf.includes('anna.tel'))   /* quoted: 3 bare bytes can occur by chance in ciphertext */,
           'J: the journal is encrypted at rest (no names, device names, codes or notes in the SQLite file / WAL)', Jv.map(x => x.length));
 
         // ---- UI: Registro sincronizzazioni on A (admin): local + server, detail, server restore ----
