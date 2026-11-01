@@ -98,6 +98,7 @@ const ACTIONS = {
       }}] });
   },
   'cmode': (el) => { S.print.contentMode = el.dataset.v; savePrefs(); $$('[data-a="cmode"]').forEach(b => b.classList.toggle('on', b === el)); refreshPrint(); },
+  'tpl': (el) => { S.print.template = el.dataset.v; savePrefs(); $$('[data-a="tpl"]').forEach(b => b.classList.toggle('on', b === el)); refreshPrint(); },
   'qmode': (el) => { S.print.qrMode = el.dataset.v; savePrefs(); $$('[data-a="qmode"]').forEach(b => b.classList.toggle('on', b === el)); refreshPrint(); },
   'pv-mode': (el) => { S.print.previewMode = el.dataset.v; savePrefs(); $$('[data-a="pv-mode"]').forEach(b => b.classList.toggle('on', b === el)); refreshPrint(); },
   'slot': (el) => {
@@ -208,7 +209,7 @@ document.addEventListener('input', (e) => {
     else if (k === 'selected_for_print'){ d.selected_for_print = el.checked; }
     else if (k === 'color_hex'){ d.color_hex = el.value.toUpperCase(); const sw = $('#ed-swatches'); if (sw){ $$('.sw', sw).forEach(s => s.classList.toggle('on', s.dataset.c === d.color_hex)); const lab = sw.querySelector('span.mono'); if (lab) lab.textContent = d.color_hex; } }
     else if (k === 'speaking_code'){ const pos = el.selectionStart; el.value = el.value.toUpperCase().replace(/\s+/g, ''); try { el.setSelectionRange(pos, pos); } catch(err){} d.speaking_code = el.value; }
-    else if (k === 'company_name'){ d.company_name = el.value; if (UI.ed.isNew && !UI.ed.codeTouched){ d.speaking_code = el.value.trim() ? suggestSpeakingCode(el.value) : ''; const sc = $('#ed-speaking_code'); if (sc) sc.value = d.speaking_code; } if (UI.ed.isNew && !UI.ed.catTouched){ const same = S.binders.find(b => b.company_name === el.value); if (same){ d.category = same.category; d.color_hex = same.color_hex; const c = $('#ed-category'); if (c) c.value = d.category; $('#ed-swatches').innerHTML = swatchesHTML(d.color_hex); } } }
+    else if (k === 'company_name'){ d.company_name = el.value; if (UI.ed.isNew && !UI.ed.codeTouched){ d.speaking_code = el.value.trim() ? suggestSpeakingCode(el.value) : ''; const sc = $('#ed-speaking_code'); if (sc) sc.value = d.speaking_code; } if (UI.ed.isNew && !UI.ed.catTouched){ const same = S.binders.find(b => b.company_name === el.value); if (same){ d.category = same.category; d.color_hex = same.color_hex; if (!d.multi_code && same.multi_code){ d.multi_code = same.multi_code; const mc = $('#ed-multi_code'); if (mc) mc.value = d.multi_code; } const c = $('#ed-category'); if (c) c.value = d.category; $('#ed-swatches').innerHTML = swatchesHTML(d.color_hex); } } }
     else if (k === 'category'){ d.category = el.value; UI.ed.catTouched = true; if (CAT_COLOR[el.value] && UI.ed.isNew){ d.color_hex = CAT_COLOR[el.value]; $('#ed-swatches').innerHTML = swatchesHTML(d.color_hex); } }
     else d[k] = el.value;
     if (k === 'speaking_code') UI.ed.codeTouched = true;
@@ -237,6 +238,7 @@ document.addEventListener('change', (e) => {
     return;
   }
   if (el.dataset.pp === 'cut'){ S.print.geometry.cut = el.checked; S.print.geometryModified = true; savePrefs(); refreshPrint(); const gm = $('#geo-mod'); if (gm) gm.innerHTML = '<span class="badge b-out">' + esc(t('g_modified')) + '</span>'; }
+  if (el.dataset.pp === 'showMulti'){ S.print.showMulti = el.checked; savePrefs(); refreshPrint(); }
   if (el.dataset.pp === 'showQrUrl'){ S.print.showQrUrl = el.checked; savePrefs(); refreshPrint(); }
   if (el.dataset.pp === 'qrEcc'){ S.settings.qrEcc = el.value; savePrefs(); refreshPrint(); }
   if (el.dataset.ed === 'sector_code' && UI.ed){ UI.ed.d.sector_code = el.value; edRefreshDerived(); }
@@ -302,6 +304,8 @@ document.addEventListener('drop', (e) => {
   const dz = $('#dropzone'); if (dz) dz.classList.remove('drag');
   handleDroppedFile(e.dataTransfer.files[0]);
 });
+
+Object.assign(ACTIONS, PHOTO_ACTIONS);
 
 /* ---------------- Boot ---------------- */
 (function boot(){

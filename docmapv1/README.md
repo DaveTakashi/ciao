@@ -26,6 +26,37 @@ Al primo avvio parte un breve tour. Il pulsante **?** in alto (o F1) apre la gui
 - **Annulla:** dopo un'eliminazione, un import, il ripristino di una sessione o l'apertura di un `.sqlite` compare "Annulla" per alcuni secondi.
 - **Scorciatoie:** `F1` guida, `Ctrl+S` salva il faldone aperto (o fa il backup rapido), `Esc` chiude guida, aiuto o finestra. Se il faldone ha modifiche non salvate, `Esc` chiede conferma.
 
+## Codice Multi
+
+Il **Codice Multi** è l'identificativo interno che lo studio ha già assegnato al cliente o alla pratica nel gestionale. È facoltativo.
+
+- **Faldone:** c'è un campo accanto al codice parlante. Se scegli un cliente esistente, il codice viene proposto da solo.
+- **Ricerca:** puoi scriverlo nella barra di ricerca dell'archivio.
+- **Etichette:** compare su tutte, se compilato. Si spegne in Stampa con "Mostra il Codice Multi".
+- **CSV e JSON:** colonna `multi_code`, seconda dopo `speaking_code`. Sono riconosciute anche le intestazioni `codice_multi`, `multi` e `codice_interno`. I file vecchi senza questa colonna si importano come prima.
+- **Manifest qr7.it:** il formato resta identico. Il Multi viene aggiunto nei tag (`multi-…`), e nel modello di destinazione puoi usare `{multi_code}`.
+- **SQLite:** colonna `binders.multi_code` con indice. I file `.sqlite` vecchi vengono aggiornati da soli quando li apri.
+- **Prompt AI:** 17 colonne. L'AI copia il Multi esattamente com'è e non lo inventa mai.
+
+## Template etichetta (Stampa, sezione 3)
+
+| Template | Quando usarlo |
+|---|---|
+| **Classico** | Codice parlante grande, cliente, titolo, Multi, posizione e categoria. Va bene quasi sempre. |
+| **Codice Multi in evidenza** | Per chi cerca i faldoni con il codice del gestionale. Se un faldone non ha il Multi, usa il Classico. |
+| **Codice gigante** | Per scaffali alti o lontani: si legge a 3-4 m. Ideale su L7163, L7165 e sui dorsi. |
+| **Essenziale** | Solo codice, cliente, Multi e posizione. Pulito, adatto alle etichette piccole (L7160). |
+
+Il template cambia l'etichetta frontale. L'etichetta dei contenuti e quella unificata mostrano comunque il Multi nel piè di pagina.
+
+## Foto e "Dov'è?"
+
+- Nell'archivio, l'icona **segnaposto** di un faldone apre **"Dov'è?"**. Lo stesso succede cliccando un dorso nella Mappa Scaffali.
+- "Dov'è?" mostra lo schema dell'armadio (α in cima, settori SX/CX/DX) con il ripiano giusto **evidenziato e lampeggiante**, più la posizione scritta a parole.
+- **Foto dell'armadio:** premi "Segna" e clicca il punto del ripiano sulla foto. Da quel momento compare un segnaposto rosso per tutti i faldoni di quel ripiano.
+- **Foto del faldone:** si aggiungono dalla scheda del faldone o da "Dov'è?". Da telefono o tablet puoi scattarle direttamente.
+- Le foto vengono ridotte a 1400 px in JPEG (circa 150-300 KB l'una) e salvate nel database locale e nel `.sqlite` scaricato. **Non sono nei backup JSON/CSV:** per conservarle scarica il `.sqlite`.
+
 ## Formati etichette
 
 I più usati, in ordine: **L7160** (21 per foglio, 63,5×38,1), **L7163** (14, 99,1×38,1), **L7165** (8, 99,1×67,7), **L7173** (10, 99,1×57). Ci sono altri formati fustellati e i layout **A4 adesivo intero** (da tagliare), più la geometria personalizzata con "Riempi A4" e "Centra". Font: Inter per il testo e JetBrains Mono per i codici, inclusi nella cartella e quindi uguali su ogni PC.
@@ -49,6 +80,7 @@ I più usati, in ordine: **L7160** (21 per foglio, 63,5×38,1), **L7163** (14, 9
 | L'import dice "nessuna riga valida" | Serve almeno una colonna con il nome del cliente (`company_name` o `cliente`). |
 | Il QR non si legge | Nel riquadro "Qualità di stampa" il QR deve essere almeno 15 mm. Usa la modalità "solo QR" o un formato più grande. |
 | Ho cancellato per errore | Premi subito "Annulla". Più tardi: Database, poi ripristina una sessione, oppure reimporta l'ultimo backup JSON. |
+| Una foto non si carica | Le foto HEIC di iPhone non si aprono in Chrome su Windows. Imposta la fotocamera su "Più compatibile" (JPG) o usa una foto PNG/JPG. |
 | "Il motore SQLite non si è avviato" | Apri `index.html` dalla cartella estratta, non da dentro lo zip. |
 
 ## Cose da fare
@@ -58,6 +90,7 @@ I più usati, in ordine: **L7160** (21 per foglio, 63,5×38,1), **L7163** (14, 9
 - [ ] Pagina di atterraggio su studiodallasta.it/docmap
 - [ ] Redirect dinamico su qr7.it collegato al manifest
 - [ ] Fase multi-utente con server (FastAPI) e sincronizzazione
+- [ ] Foto in un file separato (ZIP) per backup JSON completi
 - [ ] Undo a più livelli (oggi annulla solo l'ultima operazione di massa)
 
 ## Struttura
@@ -66,7 +99,7 @@ I più usati, in ordine: **L7160** (21 per foglio, 63,5×38,1), **L7163** (14, 9
 index.html            apertura con doppio clic
 assets/docmap.css     stile
 assets/fonts/         Inter e JetBrains Mono (licenza OFL)
-assets/js/01..09-*.js QR, dati, stampa, interfaccia, SQLite, guida
+assets/js/01..09-*.js QR, dati, stampa, interfaccia, SQLite, foto (06b), guida
 vendor/sql-wasm.js    sql.js 1.10.3 con WASM incluso
 tests/suite.js        test automatici (solo sviluppo)
 ```
@@ -79,4 +112,4 @@ Servono Node.js, `playwright`, `jsqr`, `pngjs` e Python con `pypdfium2`.
 cd tests && npm i playwright jsqr pngjs && pip install pypdfium2 && node suite.js
 ```
 
-La suite (312 controlli) apre l'app in Chromium. Controlla tutte le schermate e stampa ogni formato in PDF, leggendo ogni QR uno per uno. Verifica anche import ed export, SQLite, le guide, le prestazioni con 2000 faldoni e i casi limite trovati nella caccia ai bug.
+La suite (331 controlli) apre l'app in Chromium. Controlla tutte le schermate e stampa ogni formato in PDF, leggendo ogni QR uno per uno. Verifica anche import ed export, SQLite, le guide, le prestazioni con 2000 faldoni e i casi limite trovati nella caccia ai bug.

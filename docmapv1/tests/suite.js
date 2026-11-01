@@ -278,6 +278,85 @@ const sec = (n) => console.log('\n== ' + n);
   ok(h, 'a file dropped anywhere never navigates away from the app');
   ok(await p.evaluate(() => normalizeBinder({speaking_code:'x1', room_code:'b', cabinet_code:'2', shelf_code:'γ'}).location_code === 'B2-γ'), 'room code normalised to upper case');
 
+  sec('v5: Codice Multi, templates, photos, locator');
+  await p.evaluate(() => { closeModal(true); closeModal(true); S.view = 'archive'; renderAll(); });
+  let v = await p.evaluate(() => {
+    const b = S.binders[0]; b.multi_code = 'M-00777/A'; commit();
+    const csv = toCSV([CSV_COLUMNS].concat(sortedBinders().map(x => binderToCsvRow(x).map(safeCell))), ';');
+    analyzeImport(csv); const r = UI.importParsed.rows.find(x => x.p.speaking_code === b.speaking_code); UI.importParsed = null;
+    analyzeImport(workspaceJSON()); const j = UI.importParsed.rows.find(x => x.p.speaking_code === b.speaking_code); UI.importParsed = null;
+    return {csvCol:CSV_COLUMNS[1] === 'multi_code', csv:r && r.p.multi_code, json:j && j.p.multi_code};
+  });
+  ok(v.csvCol && v.csv === 'M-00777/A' && v.json === 'M-00777/A', 'Codice Multi survives CSV and JSON round trips (leading zeros, slash)', v);
+  v = await p.evaluate(() => { analyzeImport('Codice;Codice Multi;Cliente\nCM1;00123;Cliente Multi'); return UI.importParsed.rows[0].p; });
+  ok(v.multi_code === '00123' && v.company_name === 'Cliente Multi', 'Italian header "Codice Multi" recognised', v);
+  v = await p.evaluate(() => { analyzeImport('BL9;Barbieri Luigi;Lavoro'); const a = UI.importParsed.rows[0].p; analyzeImport('ZZ7;M-1;Zeta Srl;Lavoro;T;A;1;α;;A1-α;CURRENT;2025: X;;;;;'); const c = UI.importParsed.rows[0].p; UI.importParsed = null; return {a, c}; });
+  ok(v.a.company_name === 'Barbieri Luigi' && !v.a.multi_code && v.c.multi_code === 'M-1' && v.c.company_name === 'Zeta Srl', 'headerless rows: old 16-col and new 17-col orders', v);
+  v = await p.evaluate(() => { const pr = buildAIPrompt(true); return {hdr:pr.includes('speaking_code;multi_code;company_name'), n:pr.includes('exactly 17 fields'), rule:pr.includes('Never invent it'), ctx:pr.includes('Codice Multi (reuse it')}; });
+  ok(v.hdr && v.n && v.rule && v.ctx, 'AI prompt: multi_code column, 17 fields, never invented, known codes in context', v);
+  v = await p.evaluate(() => { const b = S.binders[0]; return {tags:manifestTags(b).includes('multi-m-00777-a'), dest:renderDest('https://x/?m={multi_code}', b) === 'https://x/?m=M-00777%2FA', mm:mergeManifest('', false).text.split('\n')[0] === 'short_code;short_url;final_destination;tags'}; });
+  ok(v.tags && v.dest && v.mm, 'manifest: Multi in tags, {multi_code} placeholder, header unchanged', v);
+  v = await p.evaluate(async () => { dbSyncFromState('t'); const ws = dbReadWorkspace(DB.db); const n = dbScalar("SELECT COUNT(*) FROM binders WHERE multi_code = 'M-00777/A'"); return {n, ws:ws.binders.find(b => b.multi_code === 'M-00777/A') ? 1 : 0}; });
+  ok(v.n === 1 && v.ws === 1, 'SQLite: binders.multi_code stored and read back', v);
+  v = await p.evaluate(() => {
+    const old = new DB.SQL.Database();
+    old.exec("CREATE TABLE binders(id TEXT PRIMARY KEY, speaking_code TEXT NOT NULL UNIQUE, company_name TEXT, category TEXT, color_hex TEXT, binder_title TEXT, room_code TEXT, cabinet_code TEXT, shelf_code TEXT, sector_code TEXT, location_code TEXT, archive_state TEXT, tags TEXT, short_code TEXT UNIQUE, short_url TEXT, final_destination TEXT, final_destination_custom TEXT, selected_for_print INTEGER DEFAULT 0, created_at TEXT, updated_at TEXT); INSERT INTO binders(id, speaking_code) VALUES ('x','OLD1');");
+    dbMigrate(old); const cols = dbQuery('PRAGMA table_info(binders)', null, old).map(r => r.name); const ph = dbQuery("SELECT name FROM sqlite_master WHERE name = 'photos'", null, old).length; old.close();
+    return {cols:cols.includes('multi_code'), ph};
+  });
+  ok(v.cols && v.ph === 1, 'old .sqlite files are upgraded (multi_code column + photos table)', v);
+  v = await p.evaluate(() => {
+    const out = {}; const b = S.binders[0];
+    for (const tp of ['classic','multi','bold','minimal']){ S.print.template = tp; for (const pid of ['l7160','l7163','l7165','l4760','a4-21']){ const g = geoFromPreset(findPreset(pid)); const h = renderLabel('A', b, g, S.print); out[tp + pid] = !h.includes('NaN') && h.includes('<svg') && (tp === 'classic' || tp === 'bold' || h.includes('M-00777/A')) && LM.A.q > 0; } }
+    S.print.template = 'classic'; S.print.showMulti = false; const off = !renderLabel('A', b, S.print.geometry, S.print).includes('M-00777/A') && !renderLabel('B', b, S.print.geometry, S.print).includes('M-00777/A'); S.print.showMulti = true;
+    const on = renderLabel('B', b, S.print.geometry, S.print).includes('M-00777/A') && renderLabel('U', b, S.print.geometry, S.print).includes('M-00777/A');
+    return {all:Object.values(out).every(Boolean), out, off, on};
+  });
+  ok(v.all && v.off && v.on, 'every template renders on every size; Multi on A/B/U and can be switched off', v);
+  v = await p.evaluate(() => { const reg = buildRegisterHTML(sortedBinders()); return reg.includes('M M-00777/A'); });
+  ok(v, 'register shows the Codice Multi');
+  // QR still decodes with the dense templates
+  for (const tp of ['multi','bold','minimal']){
+    const info = await p.evaluate((tp) => { S.print.template = tp; S.print.presetId = 'l7160'; S.print.geometry = geoFromPreset(BUILTIN_PRESETS[0]); S.print.contentMode = 'a'; S.print.qrMode = 'live'; S.usedSlots = {}; S.binders.forEach(b => b.selected_for_print = true);
+      document.getElementById('print-root').innerHTML = buildLabelSheets(false)[0]; const L = layoutLabels(); const P = S.print.geometry;
+      return {slots:L.pages[0].map(x => Object.assign(slotRect(x.s), {url:x.item.b.short_url})), w:P.w, h:P.h}; }, tp);
+    await p.emulateMedia({media:'print'}); const pdf = await p.pdf({width:'210mm', height:'297mm', printBackground:true, preferCSSPageSize:true}); await p.emulateMedia({media:'screen'});
+    fs.writeFileSync('shots/q.pdf', pdf);
+    require('child_process').execSync('python3 -c "import pypdfium2 as p;d=p.PdfDocument(\'shots/q.pdf\');d[0].render(scale=300/72).to_pil().convert(\'RGBA\').save(\'shots/q.png\')"');
+    const png = PNG.sync.read(fs.readFileSync('shots/q.png')), k = png.width / 210; let good = 0;
+    for (const s of info.slots){ const x0 = Math.floor(s.x * k), y0 = Math.floor(s.y * k), w = Math.floor(info.w * k), h = Math.floor(info.h * k); const d = new Uint8ClampedArray(w * h * 4);
+      for (let j = 0; j < h; j++){ const st = ((y0 + j) * png.width + x0) * 4; d.set(png.data.subarray(st, st + w * 4), j * w * 4); } const r = jsQR(d, w, h); if (r && r.data === s.url) good++; }
+    ok(good === info.slots.length, 'QR decode with template ' + tp + ': ' + good + '/' + info.slots.length);
+  }
+  await p.evaluate(() => { document.getElementById('print-root').innerHTML = ''; S.print.template = 'classic'; S.print.contentMode = 'pair'; savePrefs(); });
+  v = await p.evaluate(async () => {
+    const c = document.createElement('canvas'); c.width = 3000; c.height = 2000; const x = c.getContext('2d'); x.fillStyle = '#c84'; x.fillRect(0, 0, 3000, 2000);
+    const bl = await new Promise(r => c.toBlob(r, 'image/png')); const f = new File([bl], 'big.png', {type:'image/png'});
+    const b = S.binders.find(z => z.room_code && z.shelf_code);
+    const n1 = await phAdd('binder', b.id, [f]); const n2 = await phAdd('cabinet', cabKey(b), [f]);
+    const bad = await phAdd('binder', b.id, [new File([new Uint8Array([1,2,3])], 'x.jpg', {type:'image/jpeg'})]);
+    const ph = phList('binder', b.id)[0];
+    return {n1, n2, bad, w:ph.width, h:ph.height, mime:ph.mime, count:phCounts()[b.id], id:b.id, cab:cabKey(b)};
+  });
+  ok(v.n1 === 1 && v.n2 === 1 && v.bad === 0 && v.w === 1400 && v.h === 933 && v.mime === 'image/jpeg' && v.count === 1, 'photos: resized to 1400 px JPEG, unreadable files rejected, counted', v);
+  await p.evaluate(() => { S.view = 'archive'; S.archiveView = 'table'; renderAll(); });
+  ok(await p.locator('.ph-n').count() >= 1, 'archive row shows the photo count');
+  await p.evaluate((id) => openLocate(id), v.id); await p.waitForTimeout(200);
+  ok(await p.evaluate(() => !!document.querySelector('.cs-cell.hit .cs-b.me') && !!document.querySelector('.ph-loc img') && /Ripiano/.test(document.querySelector('.loc-say').textContent)), 'locator: shelf cell highlighted, cabinet photo shown, position in words');
+  await p.click('[data-a="ph-mark"]'); const bb = await p.locator('.ph-loc img').boundingBox();
+  await p.mouse.click(bb.x + bb.width * 0.25, bb.y + bb.height * 0.75); await p.waitForTimeout(300);
+  v = await p.evaluate((cab) => { const ph = phList('cabinet', cab)[0]; return {marks:ph.marks, pin:!!document.querySelector('.ph-pin')}; }, v.cab);
+  ok(v.pin && Object.values(v.marks).some(m => Math.abs(m.x - 0.25) < 0.02 && Math.abs(m.y - 0.75) < 0.02), 'locator: clicking the photo stores the shelf mark and shows the pin', v);
+  await p.evaluate(() => closeModal(true));
+  v = await p.evaluate(async () => { await dbPersist(); const bytes = DB.db.export(); const d2 = new DB.SQL.Database(bytes); const n = dbScalar('SELECT COUNT(*) FROM photos', null, d2); d2.close(); return n; });
+  ok(v >= 2, 'photos are inside the downloadable .sqlite', v);
+  v = await p.evaluate(async () => { const id = S.binders[S.binders.length - 1].id; await phAdd('binder', id, [new File([await new Promise(r => { const c = document.createElement('canvas'); c.width = c.height = 50; c.toBlob(r, 'image/jpeg'); })], 'o.jpg', {type:'image/jpeg'})]);
+    S.binders = S.binders.filter(b => b.id !== id); commit(); dbSyncFromState('t'); const o = phOrphans(); await phPurgeOrphans(); return {o, after:phOrphans()}; });
+  ok(v.o === 1 && v.after === 0, 'orphan photos detected and purged on request', v);
+  await p.evaluate(() => { S.view = 'archive'; S.archiveView = 'map'; renderAll(); });
+  ok(await p.evaluate(() => document.querySelectorAll('.spine[data-a="locate"]').length > 0 && document.querySelectorAll('.cab-ph').length > 0), 'shelf map: spines open the locator, cabinets have a photo button');
+  await p.evaluate(() => { S.archiveView = 'table'; renderAll(); });
+
   console.log('\nerrors:', errs.length ? errs.join('\n') : 'none');
   if (errs.length) fails += errs.length;
   console.log(`\nRESULT: ${passes} passed, ${fails} failed`);

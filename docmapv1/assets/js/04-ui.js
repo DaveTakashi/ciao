@@ -2,6 +2,8 @@
    DocMap 2026 — UI primitives: icons, toasts, modals, download, clipboard
    ===================================================================== */
 const ICONS = {
+  camera:'<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
+  pin:'<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
   archive:'<rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/>',
   printer:'<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/>',
   upload:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>',
@@ -187,6 +189,7 @@ function toCSV(rows, delim){ return rows.map(r => r.map(v => csvField(v, delim))
 
 const HEADER_ALIASES = {
   speaking_code:['speaking_code','codice_parlante','codice','code','speaking','cod'],
+  multi_code:['multi_code','codice_multi','multi','cod_multi','codicemulti','multicode','id_multi','multi_id','codice_interno','id_interno','cod_interno','rif_multi'],
   company_name:['company_name','cliente','client','company','ragione_sociale','azienda','nome_cliente'],
   category:['category','categoria','pratica'],
   binder_title:['binder_title','titolo','title','titolo_faldone','faldone','descrizione_faldone','oggetto'],
@@ -248,7 +251,7 @@ function mapRecord(raw){
 
 /* ---------------- Export builders ---------------- */
 function binderToCsvRow(b){
-  return [b.speaking_code, b.company_name, b.category, b.binder_title, b.room_code, b.cabinet_code, b.shelf_code, b.sector_code, b.location_code, b.archive_state,
+  return [b.speaking_code, b.multi_code, b.company_name, b.category, b.binder_title, b.room_code, b.cabinet_code, b.shelf_code, b.sector_code, b.location_code, b.archive_state,
     contentsToPipe(b.contents_items), b.tags, b.color_hex, b.short_code, b.short_url, destFor(b), b.selected_for_print ? '1' : '0', b.id, b.updated_at];
 }
 function sortedBinders(){ return S.binders.slice().sort((a, b) => naturalCmp(a.speaking_code, b.speaking_code)); }
@@ -319,7 +322,7 @@ function quickBackup(){
 }
 
 /* ---------------- AI prompt ---------------- */
-function csvTemplateHeader(){ return 'speaking_code;company_name;category;binder_title;room_code;cabinet_code;shelf_code;sector_code;location_code;archive_state;contents;tags;color_hex;short_code;short_url;final_destination'; }
+function csvTemplateHeader(){ return 'speaking_code;multi_code;company_name;category;binder_title;room_code;cabinet_code;shelf_code;sector_code;location_code;archive_state;contents;tags;color_hex;short_code;short_url;final_destination'; }
 function buildAIPrompt(includeCtx){
   const F = '```';
   const codes = sortedBinders().map(b => b.speaking_code);
@@ -337,13 +340,14 @@ function buildAIPrompt(includeCtx){
   L.push('1. Reply with EXACTLY ONE fenced code block labelled csv and NOTHING ELSE: no greeting, no explanation, no notes before or after the block.');
   L.push('2. Delimiter: semicolon ( ; ). Encoding: UTF-8. The FIRST line must be this exact header, unchanged:');
   L.push(csvTemplateHeader());
-  L.push('3. Every row must have exactly 16 fields (15 semicolons). Keep empty fields empty (e.g. ";;").');
+  L.push('3. Every row must have exactly 17 fields (16 semicolons). Keep empty fields empty (e.g. ";;").');
   L.push('4. One row per physical binder. Never merge two binders into one row and never split one binder into two rows.');
   L.push('5. Never use a semicolon inside a value (replace it with a comma). Do not wrap values in quotes. No line breaks inside values.');
   L.push('6. Do not invent clients, documents or locations that the user did not provide or that are not visible in the photos. If a field is unknown, leave it empty.');
   L.push('');
   L.push('FIELD RULES:');
   L.push('- speaking_code: client initials + progressive number per client. Initials = first letter of up to 3 significant words, ignoring legal forms (S.r.l., S.p.A., S.n.c., S.a.s.) and words like "di", "e", "della". Examples: "Barbieri Luigi S.r.l." → BL1, BL2, BL3; "Rossi Costruzioni S.p.A." → RC1; "Farmacia San Giorgio" → FSG1. Uppercase, no spaces, unique.');
+  L.push('- multi_code: the studio\'s internal "Codice Multi" (identifier already assigned to the client or to the practice in the management software). Copy it EXACTLY as written (keep letters, digits, dashes, slashes, leading zeros). Never invent it: leave empty if the user did not give it. Binders of the same client/practice usually share the same multi_code.');
   L.push('- company_name: full client / company name exactly as the user wrote it.');
   L.push('- category: choose the closest of: ' + CATEGORIES.join(', ') + '.');
   L.push('- binder_title: short macro title of the binder in Italian (e.g. "Fatture e Contabilità IVA", "Bilancio e Dichiarativi", "Paghe e Personale").');
@@ -364,19 +368,21 @@ function buildAIPrompt(includeCtx){
     L.push('- Codes already in use: ' + codes.join(', '));
     L.push('- Next free numbers: ' + Object.keys(byPrefix).sort().map(p => p + (byPrefix[p] + 1)).join(', '));
     L.push('- Known clients → initials: ' + clients.join('; '));
+    const multis = Array.from(new Set(S.binders.filter(b => b.multi_code).map(b => b.company_name + ' → ' + b.multi_code))).slice(0, 60);
+    if (multis.length) L.push('- Known clients → Codice Multi (reuse it for new binders of the same client): ' + multis.join('; '));
     L.push('');
   }
   L.push('EXAMPLE OF A VALID REPLY (format only — use the user\'s real data):');
   L.push(F + 'csv');
   L.push(csvTemplateHeader());
-  L.push('BL4;Barbieri Luigi S.r.l.;Ordinaria;Banche e Finanziamenti;A;1;γ;;A1-γ;CURRENT;2025: Estratti conto bancari|2025: Contratti di finanziamento;banche,finanziamenti,2025;#2563EB;;;');
-  L.push('VR1;Verdi Rita;Privati;Dichiarazioni Personali;B;3;α;SX;B3-α-SX;HISTORICAL;2023: Modello 730|2024: Modello 730|2024: Spese mediche;730,privati,dichiarazioni;#475569;;;');
+  L.push('BL4;M-10234;Barbieri Luigi S.r.l.;Ordinaria;Banche e Finanziamenti;A;1;γ;;A1-γ;CURRENT;2025: Estratti conto bancari|2025: Contratti di finanziamento;banche,finanziamenti,2025;#2563EB;;;');
+  L.push('VR1;;Verdi Rita;Privati;Dichiarazioni Personali;B;3;α;SX;B3-α-SX;HISTORICAL;2023: Modello 730|2024: Modello 730|2024: Spese mediche;730,privati,dichiarazioni;#475569;;;');
   L.push(F);
   L.push('');
   L.push('');
   L.push('===================================================================');
   L.push('🇮🇹 INSERISCI QUI SOTTO LE INFORMAZIONI, LE FOTO O L\'ELENCO DEI FALDONI DA GENERARE:');
-  L.push('(Specifica: Nomi clienti, documenti contenuti, stanze/armadi ed eventuali allegati)');
+  L.push('(Specifica: Nomi clienti, Codice Multi se lo conosci, documenti contenuti, stanze/armadi ed eventuali allegati)');
   L.push('===================================================================');
   L.push('[Scrivi o incolla qui le tue note e allega le foto degli scaffali/documenti...]');
   L.push('');

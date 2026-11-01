@@ -2,7 +2,7 @@
    DocMap 2026 — core: i18n, state, persistence, data model helpers
    ===================================================================== */
 'use strict';
-const APP_VERSION = '26.4.0';
+const APP_VERSION = '26.5.0';
 const LS_KEY = 'docmap_v26_state';
 const LS_PREV = 'docmap_v26_state_prev';
 const SC_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
@@ -12,7 +12,7 @@ const GREEK = ['α','β','γ','δ','ε','ζ','η','θ'];
 const CATEGORIES = ['Ordinaria','Semplificata','Societario','Lavoro','Dichiarativi','Contenzioso','Privati'];
 const CAT_COLOR = {Ordinaria:'#2563EB',Semplificata:'#059669',Societario:'#7C3AED',Lavoro:'#D97706',Dichiarativi:'#DC2626'};
 const STATES = ['CURRENT','HISTORICAL','CHECKED_OUT'];
-const CSV_COLUMNS = ['speaking_code','company_name','category','binder_title','room_code','cabinet_code','shelf_code','sector_code','location_code','archive_state','contents','tags','color_hex','short_code','short_url','final_destination','selected_for_print','id','updated_at'];
+const CSV_COLUMNS = ['speaking_code','multi_code','company_name','category','binder_title','room_code','cabinet_code','shelf_code','sector_code','location_code','archive_state','contents','tags','color_hex','short_code','short_url','final_destination','selected_for_print','id','updated_at'];
 
 /* ---------------- i18n ---------------- */
 const I18N = {
@@ -98,7 +98,7 @@ const I18N = {
     ai_ctx:'Includi i codici già esistenti (evita duplicati)',
     // settings
     se_h:'Impostazioni Studio', se_p:'Preferenze salvate automaticamente insieme ai dati.', se_studio:'Nome studio / ente', se_dest:'Modello URL destinazione finale',
-    se_dest_hint:'Segnaposto disponibili: {speaking_code} {short_code} {company} {location} {id}. Usato per la colonna final_destination del manifest.',
+    se_dest_hint:'Segnaposto disponibili: {speaking_code} {multi_code} {short_code} {company} {location} {id}. Usato per la colonna final_destination del manifest.',
     se_dest_prev:'Esempio', se_apply_dest:'Applica il modello a tutti i faldoni (sovrascrive le destinazioni personalizzate)', se_lang:'Lingua interfaccia',
     se_data:'Dati e sicurezza', se_storage:'Spazio occupato in localStorage: {k} KB', se_restore:'Ripristina da backup JSON', se_demo:'Ricarica dataset demo', se_wipe:'Svuota area di lavoro',
     se_wiped:'Area di lavoro svuotata', se_demo_done:'Dataset demo caricato', se_prev_restore:'Ripristina snapshot precedente', se_prev_done:'Snapshot precedente ripristinato',
@@ -178,7 +178,7 @@ const I18N = {
     ai_steps:['Click "Copy Full Prompt to Clipboard".','Paste it into the AI chat and write/attach your information in the Italian section at the bottom.','Copy the CSV block from the reply.','Go to Import, paste the text and confirm with Merge.'],
     ai_ctx:'Include existing codes (avoid duplicates)',
     se_h:'Studio Settings', se_p:'Preferences are saved automatically together with the data.', se_studio:'Studio / organisation name', se_dest:'Final destination URL template',
-    se_dest_hint:'Available placeholders: {speaking_code} {short_code} {company} {location} {id}. Used for the manifest final_destination column.',
+    se_dest_hint:'Available placeholders: {speaking_code} {multi_code} {short_code} {company} {location} {id}. Used for the manifest final_destination column.',
     se_dest_prev:'Example', se_apply_dest:'Apply the template to all binders (overwrites custom destinations)', se_lang:'Interface language',
     se_data:'Data & safety', se_storage:'localStorage usage: {k} KB', se_restore:'Restore from JSON backup', se_demo:'Reload demo dataset', se_wipe:'Clear workspace',
     se_wiped:'Workspace cleared', se_demo_done:'Demo dataset loaded', se_prev_restore:'Restore previous snapshot', se_prev_done:'Previous snapshot restored',
@@ -297,18 +297,19 @@ function destFor(b){
 function renderDest(tpl, b){
   const enc = encodeURIComponent;
   return String(tpl || '').replace(/\{speaking_code\}/g, enc(b.speaking_code || '')).replace(/\{short_code\}/g, enc(b.short_code || ''))
-    .replace(/\{company\}/g, enc(slugify(b.company_name))).replace(/\{location\}/g, enc(computeLocation(b))).replace(/\{id\}/g, enc(b.id || ''));
+    .replace(/\{multi_code\}/g, enc(b.multi_code || '')).replace(/\{company\}/g, enc(slugify(b.company_name))).replace(/\{location\}/g, enc(computeLocation(b))).replace(/\{id\}/g, enc(b.id || ''));
 }
-function manifestTags(b){ return ['docmap26', b.speaking_code, slugify(b.company_name)].filter(Boolean).join(','); }
+function manifestTags(b){ return ['docmap26', b.speaking_code, b.multi_code ? 'multi-' + slugify(b.multi_code) : '', slugify(b.company_name)].filter(Boolean).join(','); }
 function normalizeBinder(b){
   const o = Object.assign({
-    id:uuid(), speaking_code:'', company_name:'', category:'', color_hex:'#2563EB', binder_title:'', room_code:'', cabinet_code:'', shelf_code:'', sector_code:'',
+    id:uuid(), speaking_code:'', multi_code:'', company_name:'', category:'', color_hex:'#2563EB', binder_title:'', room_code:'', cabinet_code:'', shelf_code:'', sector_code:'',
     location_code:'', archive_state:'CURRENT', contents_items:[], tags:'', short_code:'', short_url:'', final_destination:'', selected_for_print:false,
     created_at:nowISO(), updated_at:nowISO()
   }, b || {});
-  ['speaking_code','company_name','category','binder_title','room_code','cabinet_code','shelf_code','sector_code','tags','short_code','final_destination'].forEach(k => o[k] = String(o[k] == null ? '' : o[k]).trim());
+  ['speaking_code','multi_code','company_name','category','binder_title','room_code','cabinet_code','shelf_code','sector_code','tags','short_code','final_destination'].forEach(k => o[k] = String(o[k] == null ? '' : o[k]).trim());
   o.speaking_code = o.speaking_code.toUpperCase().replace(/\s+/g, '');
   o.room_code = o.room_code.toUpperCase();
+  o.multi_code = o.multi_code.replace(/\s+/g, ' ');
   o.contents_items = pipeToContents(o.contents_items);
   o.color_hex = normHex(o.color_hex) || CAT_COLOR[o.category] || '#2563EB';
   if (!STATES.includes(o.archive_state)) o.archive_state = 'CURRENT';
@@ -353,13 +354,13 @@ function demoBinders(){
   window.__demoTaken = [];
   const list = [];
   const push = (o) => { const b = mk(o); window.__demoTaken.push(b.short_code); list.push(b); };
-  push({speaking_code:'BL1', company_name:'Barbieri Luigi S.r.l.', category:'Ordinaria', color_hex:'#2563EB', binder_title:'Fatture e Contabilità IVA', room_code:'A', cabinet_code:'1', shelf_code:'α', archive_state:'CURRENT',
+  push({speaking_code:'BL1', multi_code:'M-10234', company_name:'Barbieri Luigi S.r.l.', category:'Ordinaria', color_hex:'#2563EB', binder_title:'Fatture e Contabilità IVA', room_code:'A', cabinet_code:'1', shelf_code:'α', archive_state:'CURRENT',
     contents_items:'2025: Fatture Acquisto Q1-Q4|2025: Fatture Vendita Q1-Q4|2025: Liquidazioni IVA mensili|2025: Registri IVA e Corrispettivi', tags:'iva,fatture,contabilità,2025', selected_for_print:true});
-  push({speaking_code:'BL2', company_name:'Barbieri Luigi S.r.l.', category:'Ordinaria', color_hex:'#2563EB', binder_title:'Bilancio e Dichiarativi', room_code:'A', cabinet_code:'1', shelf_code:'β', archive_state:'CURRENT',
+  push({speaking_code:'BL2', multi_code:'M-10234', company_name:'Barbieri Luigi S.r.l.', category:'Ordinaria', color_hex:'#2563EB', binder_title:'Bilancio e Dichiarativi', room_code:'A', cabinet_code:'1', shelf_code:'β', archive_state:'CURRENT',
     contents_items:'2024: Bilancio d\'esercizio e Nota integrativa|2025: Modello Redditi SC|2025: Dichiarazione IRAP|2025: F24 Versamenti|2025: Verbale approvazione bilancio', tags:'bilancio,redditi,irap,2025', selected_for_print:true});
-  push({speaking_code:'BL3', company_name:'Barbieri Luigi S.r.l.', category:'Lavoro', color_hex:'#D97706', binder_title:'Paghe e Personale', room_code:'A', cabinet_code:'2', shelf_code:'α', sector_code:'SX', archive_state:'CURRENT',
+  push({speaking_code:'BL3', multi_code:'M-10234', company_name:'Barbieri Luigi S.r.l.', category:'Lavoro', color_hex:'#D97706', binder_title:'Paghe e Personale', room_code:'A', cabinet_code:'2', shelf_code:'α', sector_code:'SX', archive_state:'CURRENT',
     contents_items:'2025: Cedolini paga Gen-Dic|2025: Certificazione Unica dipendenti|2025: Modello 770|2025: Contratti e comunicazioni UNILAV', tags:'paghe,lavoro,cu,770,2025', selected_for_print:true});
-  push({speaking_code:'RC1', company_name:'Rossi Costruzioni S.p.A.', category:'Societario', color_hex:'#7C3AED', binder_title:'Atti Societari e Verbali', room_code:'B', cabinet_code:'1', shelf_code:'γ', archive_state:'HISTORICAL',
+  push({speaking_code:'RC1', multi_code:'M-20871', company_name:'Rossi Costruzioni S.p.A.', category:'Societario', color_hex:'#7C3AED', binder_title:'Atti Societari e Verbali', room_code:'B', cabinet_code:'1', shelf_code:'γ', archive_state:'HISTORICAL',
     contents_items:'2019: Atto costitutivo e Statuto|2022: Verbali assemblea soci|2023: Visure camerali|2023: Libro soci e Libro giornale', tags:'societario,verbali,statuto,visure', selected_for_print:true});
   push({speaking_code:'FSG1', company_name:'Farmacia San Giorgio', category:'Semplificata', color_hex:'#059669', binder_title:'Contabilità Semplificata', room_code:'B', cabinet_code:'2', shelf_code:'β', sector_code:'DX', archive_state:'CHECKED_OUT',
     contents_items:'2025: Registri IVA acquisti e vendite|2025: Corrispettivi telematici RT|2025: Spese sanitarie Sistema TS|2025: Modello Redditi PF', tags:'farmacia,semplificata,corrispettivi,2025', selected_for_print:true});
@@ -374,7 +375,7 @@ function defaultState(){
     settings:{ studioName:'Studio Demo Commercialisti Associati', destTemplate:DEFAULT_DEST, qrEcc:'M' },
     binders:[],
     print:{ presetId:'l7160', geometry:geoFromPreset(BUILTIN_PRESETS[0]), geometryModified:false, padding:2.5, offsetX:0, offsetY:0,
-            contentMode:'pair', qrMode:'live', showQrUrl:true, copies:1, previewMode:'labels' },
+            contentMode:'pair', template:'classic', showMulti:true, qrMode:'live', showQrUrl:true, copies:1, previewMode:'labels' },
     customPresets:[], usedSlots:{},
     hasUnexportedChanges:true, onboarded:false, lastExportAt:null, lastExportFile:null, lastSavedAt:null, archiveView:'table'
   };

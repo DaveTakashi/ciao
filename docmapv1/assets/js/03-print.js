@@ -22,10 +22,16 @@ function qrUrlText(b, x, y, q, fs){
   if (!fs) return '';
   return '<div class="lmono ln" style="position:absolute;left:' + MM(x - 2) + ';width:' + MM(q + 4) + ';top:' + MM(y) + ';font-size:' + MM(fs) + ';line-height:1.2;text-align:center;color:#000;letter-spacing:-.02em">qr7.it/' + esc(b.short_code) + '</div>';
 }
-function metaLine(b, fm){
+/* Codice Multi chip: small "MULTI" caption + bold monospace value. Optional on every label (Print > Content). */
+const showMulti = (b) => !!(b.multi_code && S.print.showMulti !== false);
+function multiChip(b, fm, big){
+  if (!showMulti(b)) return '';
+  return '<span style="white-space:nowrap;margin-right:' + MM(fm * 0.45) + '"><span style="font-size:' + MM(fm * (big ? 0.5 : 0.62)) + ';font-weight:800;letter-spacing:.06em;margin-right:' + MM(fm * 0.2) + '">MULTI</span><span class="lmono" style="font-weight:800">' + esc(b.multi_code) + '</span></span>';
+}
+function metaLine(b, fm, noMulti){
   const loc = b.location_code ? '<span class="lmono" style="font-weight:800;border:' + MM(Math.max(0.18, fm * 0.07)) + ' solid #000;border-radius:' + MM(fm * 0.25) + ';padding:0 ' + MM(fm * 0.3) + ';margin-right:' + MM(fm * 0.35) + '">' + esc(b.location_code) + '</span>' : '';
   const hist = b.archive_state === 'HISTORICAL' ? ' · <b>' + esc(t('l_hist')) + '</b>' : '';
-  return '<div class="ln" style="font-size:' + MM(fm) + ';line-height:1.35;color:#000">' + loc + esc(b.category || '') + hist + '</div>';
+  return '<div class="ln" style="font-size:' + MM(fm) + ';line-height:1.35;color:#000">' + loc + (noMulti ? '' : multiChip(b, fm)) + esc(b.category || '') + hist + '</div>';
 }
 function contentsBlock(items, x, y, w, hAvail, fMax, opts){
   opts = opts || {};
@@ -75,6 +81,46 @@ function renderLabel(kind, b, g, P){
     const gap = Math.max(1.5, pad * 0.9);
     const tw = portrait ? iw : iw - (q ? q + gap : 0);
     const th = portrait ? ih - (q ? q + (urlFs ? urlFs * 1.35 : 0) + gap : 0) : ih;
+    const tpl = P.template || 'classic';
+    const box = (inner) => '<div style="position:absolute;left:' + MM(x0) + ';top:' + MM(y0) + ';width:' + MM(tw) + ';height:' + MM(th) + ';display:flex;flex-direction:column;overflow:hidden">' + inner + '</div>';
+    const locChip = (fs) => b.location_code ? '<span class="lmono" style="font-weight:800;font-size:' + MM(fs) + ';border:' + MM(Math.max(0.2, fs * 0.07)) + ' solid #000;border-radius:' + MM(fs * 0.22) + ';padding:0 ' + MM(fs * 0.25) + ';white-space:nowrap">' + esc(b.location_code) + '</span>' : '';
+    if (tpl === 'multi' && showMulti(b)){
+      // Codice Multi first: internal management code as the main key, speaking code second
+      const mLen = Math.max(4, b.multi_code.length);
+      const fmc = Math.min(th * 0.3, tw / (mLen * 0.64), 22);
+      const fcap = Math.max(1.4, Math.min(fmc * 0.3, 2.6));
+      const fc2 = Math.min(th * 0.17, tw / (codeLen * 0.62) * 0.6, 11);
+      const fco = Math.min(th * 0.1, 6), fm = fco * 0.82;
+      LM.A = {q, code:Math.max(fmc, fc2), minText:Math.min(fcap, fco, fm, urlFs || 99), url:urlFs};
+      html += box('<div style="font-size:' + MM(fcap) + ';font-weight:800;letter-spacing:.12em;color:#000">CODICE MULTI</div>' +
+        '<div class="code lmono" style="font-size:' + MM(fmc) + ';margin-bottom:' + MM(fmc * 0.06) + '">' + esc(b.multi_code) + '</div>' +
+        '<div class="ln" style="display:flex;align-items:baseline;gap:' + MM(fc2 * 0.35) + ';border-top:' + MM(0.15) + ' solid #000;padding-top:' + MM(fc2 * 0.12) + '"><span class="code" style="font-size:' + MM(fc2) + ';flex:none">' + code + '</span><span class="ln" style="font-size:' + MM(fco) + ';font-weight:800;min-width:0">' + esc(b.company_name) + '</span></div>' +
+        '<div class="ln" style="font-size:' + MM(fco * 0.86) + ';color:#000">' + esc(b.binder_title) + '</div>' +
+        '<div style="margin-top:auto">' + metaLine(b, fm, true) + '</div>');
+      return html + '</div>';
+    }
+    if (tpl === 'bold'){
+      // Big code readable from 3-4 m on the shelf, position chip, little else
+      const fc = Math.min(th * 0.55, tw / (codeLen * 0.6), 40);
+      const fl = Math.min(th * 0.15, fc * 0.38, 8);
+      const fs = Math.min(th * 0.1, fc * 0.26, 5);
+      LM.A = {q, code:fc, minText:Math.min(fs, urlFs || 99), url:urlFs};
+      html += box('<div class="code" style="font-size:' + MM(fc) + ';line-height:.95">' + code + '</div>' +
+        '<div class="ln" style="font-size:' + MM(fs) + ';font-weight:800;margin-top:' + MM(fs * 0.2) + '">' + esc(b.company_name) + '</div>' +
+        '<div style="margin-top:auto;display:flex;align-items:center;gap:' + MM(fl * 0.4) + ';flex-wrap:wrap">' + locChip(fl) + (showMulti(b) ? '<span style="font-size:' + MM(fs) + '">' + multiChip(b, fs) + '</span>' : '') + '</div>');
+      return html + '</div>';
+    }
+    if (tpl === 'minimal'){
+      // Essential: code, client, Multi + position. No title, no category.
+      const fc = Math.min(th * 0.4, tw / (codeLen * 0.62), 30);
+      const fco = Math.min(th * 0.13, fc * 0.45, 7);
+      const fm = fco * 0.85;
+      LM.A = {q, code:fc, minText:Math.min(fco, fm, urlFs || 99), url:urlFs};
+      html += box('<div class="code" style="font-size:' + MM(fc) + '">' + code + '</div>' +
+        '<div class="ln" style="font-size:' + MM(fco) + ';font-weight:700">' + esc(b.company_name) + '</div>' +
+        '<div class="ln" style="margin-top:auto;font-size:' + MM(fm) + ';display:flex;align-items:center;gap:' + MM(fm * 0.5) + '">' + locChip(fm) + multiChip(b, fm) + '</div>');
+      return html + '</div>';
+    }
     const fc = Math.min(th * 0.34, tw / (codeLen * 0.62), 28);
     const fco = Math.min(th * 0.115, fc * 0.5, 7.5);
     const ft = fco * 0.84, fm = fco * 0.8;
@@ -99,7 +145,7 @@ function renderLabel(kind, b, g, P){
     html += contentsBlock(b.contents_items, x0, listTop, iw, la, Math.min(fh * 0.78, 4.4));
     LM.B = {q:0, code:fh, minText:Math.min(ff, LM.listFs || 99)};
     html += '<div class="ln" style="position:absolute;left:' + MM(x0) + ';width:' + MM(iw) + ';top:' + MM(y0 + ih - footH) + ';font-size:' + MM(ff) + ';line-height:1.35;color:#000;display:flex;gap:' + MM(ff) + '">' +
-      '<span>' + esc(t('l_updated')) + ' <b>' + esc(fmtDate(b.updated_at)) + '</b></span>' + (b.location_code ? '<span class="lmono" style="font-weight:800;color:#000">' + esc(b.location_code) + '</span>' : '') +
+      (showMulti(b) ? '<span>' + multiChip(b, ff) + '</span>' : '') + '<span>' + esc(t('l_updated')) + ' <b>' + esc(fmtDate(b.updated_at)) + '</b></span>' + (b.location_code ? '<span class="lmono" style="font-weight:800;color:#000">' + esc(b.location_code) + '</span>' : '') +
       '<span class="lmono" style="margin-left:auto">' + esc(b.short_code) + '</span></div>';
   }
   else { // Unified
@@ -235,7 +281,7 @@ function buildCalibSheet(){
 function buildRegisterHTML(list){
   const c = t('reg_cols');
   const rows = list.map(b => '<tr>' +
-    '<td><div class="rc"><span style="display:inline-block;width:2.2mm;height:4mm;background:' + esc(b.color_hex) + ';vertical-align:-0.6mm;margin-right:1.5mm;border-radius:.5mm"></span>' + esc(b.speaking_code) + '</div><div style="font-size:6.5pt;color:#64748B;margin-top:1mm">' + esc(t('s_' + b.archive_state)) + '</div></td>' +
+    '<td><div class="rc"><span style="display:inline-block;width:2.2mm;height:4mm;background:' + esc(b.color_hex) + ';vertical-align:-0.6mm;margin-right:1.5mm;border-radius:.5mm"></span>' + esc(b.speaking_code) + '</div>' + (b.multi_code ? '<div class="mono" style="font-size:7pt;font-weight:700;margin-top:.8mm">M ' + esc(b.multi_code) + '</div>' : '') + '<div style="font-size:6.5pt;color:#64748B;margin-top:1mm">' + esc(t('s_' + b.archive_state)) + '</div></td>' +
     '<td><span class="rl">' + esc(b.location_code || '—') + '</span></td>' +
     '<td><b>' + esc(b.company_name) + '</b><br><span style="color:#334155">' + esc(b.binder_title) + '</span>' + (b.category ? '<br><span style="font-size:6.8pt;color:#64748B">' + esc(b.category) + (b.tags ? ' • ' + esc(b.tags) : '') + '</span>' : '') + '</td>' +
     '<td>' + (b.contents_items.length ? '<ul>' + b.contents_items.map(i => '<li>' + (i.year ? '<b class="mono">' + esc(i.year) + '</b> ' : '') + esc(i.description) + '</li>').join('') + '</ul>' : '<span style="color:#94A3B8">—</span>') + '</td>' +
