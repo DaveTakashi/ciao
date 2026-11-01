@@ -97,6 +97,7 @@ Regole di validazione dell'editor: codice parlante obbligatorio e unico; cliente
 | `qrPreset` **(v8)** | id preset | assente = `l7159` | foglio della "Ristampa solo QR"; ammessi `l7159, l7160, l7162, l7163, a4-21, a4-14` o un preset personalizzato, altrimenti `l7159` |
 | `importMappings` **(v8)** | `{"<intestazioni normalizzate unite da \|>": {target:'binders'\|'clients', fields:[campo o ''], at:ISO}}` | assente = `{}` | abbinamenti colonne ricordati dall'import Excel/CSV; tenuti gli ultimi 40 |
 | `edLocOpen` **(v8)** | booleano | assente = `false` | sezione "Dettagli posizione" dell'editor aperta |
+| `operator` **(v9)** | stringa | `''` | nome di chi lavora su questo PC, scritto nel registro attività (`who`); vuoto = `"Questo PC"` (§7.2) |
 
 Le chiavi di `settings` viaggiano nel workspace JSON e nella tabella SQLite `settings` (riga `settings`).
 
@@ -232,6 +233,7 @@ File: download `docmap_AAAAMMGG_HHMM.sqlite`, file collegato, oppure copia in In
 | 2 | `binders.multi_code` + indice, tabella `photos` |
 | 3 | `binders.company_city, ref_year, extra_codes, shelf_color`, tabella `clients` |
 | 4 | `binders.contacts`, `binders.notes`, `contents_items.status TEXT DEFAULT 'archive'` (v8) |
+| 5 | tabella `activity_log` + indice `ix_activity_at` (v9, registro attività, §7.2) |
 
 DDL corrente (copiata da `06-db.js`, `DB_DDL`):
 
@@ -274,6 +276,11 @@ CREATE TABLE IF NOT EXISTS clients(
   address TEXT, cap TEXT, city TEXT, province TEXT, type TEXT, category TEXT, notes TEXT);
 CREATE INDEX IF NOT EXISTS ix_clients_multi ON clients(multi_code);
 CREATE TABLE IF NOT EXISTS audit_log(id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT, action TEXT, detail TEXT);
+CREATE TABLE IF NOT EXISTS activity_log(
+  id TEXT PRIMARY KEY, at TEXT NOT NULL, who TEXT, action TEXT NOT NULL,
+  target_type TEXT, target_id TEXT, target_code TEXT,
+  summary TEXT, details_json TEXT, source TEXT DEFAULT 'ui');
+CREATE INDEX IF NOT EXISTS ix_activity_at ON activity_log(at);
 DROP VIEW IF EXISTS v_manifest_qr7;
 CREATE VIEW v_manifest_qr7 AS
   SELECT short_code, short_url, final_destination, 'docmap26,' || speaking_code AS tags FROM binders ORDER BY speaking_code;
@@ -288,9 +295,9 @@ Contenuto delle tabelle di servizio:
 - `settings`: 4 righe, valore JSON — `settings` (comprese le chiavi v8 `catColors`, `qrPreset`, `importMappings`, `edLocOpen`), `print`, `usedSlots`, `lang`.
 - `label_presets`: preset personalizzati, `geometry_json` = oggetto preset completo.
 - `sessions.workspace_json`: stesso formato del workspace JSON (§8).
-- `audit_log`: ultime ~500 operazioni (`sync`, `session_save`, `session_restore`, `open_file`, `link_file`, `photo_add`, …).
+- `audit_log`: ultime ~500 operazioni tecniche del database (`sync`, `session_save`, `session_restore`, `open_file`, `link_file`, `photo_add`, …). Non è il registro attività per l'utente (§7.2).
 
-Semantica: le tabelle `binders`, `contents_items`, `settings`, `label_presets`, `clients` sono uno **specchio** riscritto per intero dallo stato a ogni sincronizzazione. `photos` e `sessions` sono persistenti e vivono solo qui. Le foto non hanno chiave esterna: `phOrphans()` conta quelle di faldoni eliminati.
+Semantica: le tabelle `binders`, `contents_items`, `settings`, `label_presets`, `clients` sono uno **specchio** riscritto per intero dallo stato a ogni sincronizzazione. `photos`, `sessions` e `activity_log` sono persistenti e vivono solo qui (`activity_log` anche nei backup JSON). Le foto non hanno chiave esterna: `phOrphans()` conta quelle di faldoni eliminati.
 
 ### 7.1 Foto (`photos`)
 
@@ -306,6 +313,30 @@ Semantica: le tabelle `binders`, `contents_items`, `settings`, `label_presets`, 
 | `created_at` | ISO |
 
 Le foto **non** sono nei CSV né nel JSON: solo nel `.sqlite`.
+
+### 7.2 Registro attività (`activity_log`, v9)
+
+Una riga per ogni operazione importante fatta dall'utente (modulo `06e-log.js`, helper `logAct(action, target, summary, details, source)`). Pensato già per l'hub multiutente (`HUB-E-API.md`): stessi campi, `id` uuid unico, nessun riferimento a rowid.
+
+| Colonna | Campo JSON | Significato |
+|---|---|---|
+| `id` | `id` | uuid dell'operazione |
+| `at` | `at` | ISO 8601 UTC |
+| `who` | `who` | `settings.operator` (nome scritto in Impostazioni); se vuoto `"Questo PC"` |
+| `action` | `action` | id stabile `<gruppo>.<verbo>`, vedi sotto |
+| `target_type`, `target_id`, `target_code` | `target: {type, id, code}` o `null` | oggetto toccato: `binder` (id + codice parlante), `client` (id + Codice Multi o nome), `info` (lista + voce), `session`, `file` (nome file) |
+| `summary` | `summary` | testo breve in italiano, es. `Modificato il faldone BL1: stanza, titolo` |
+| `details_json` | `details` | JSON piccolo: `{"changed":{"campo":["vecchio","nuovo"]}}` per le modifiche (testi tagliati a 300 caratteri), conteggi (`count`, `added`, `updated`, `errors`), `codes`, `file`, `preset`, `mode`, `labels`, `sheets` |
+| `source` | `source` | `ui` · `import` · `ai` (righe AI senza intestazione) · `restore` (backup, snapshot, sessione, `.sqlite` aperto) |
+
+Azioni: `binder.create`, `binder.edit`, `binder.duplicate`, `binder.delete`, `binder.delete_bulk`, `binder.wipe`, `undo`, `demo.delete`, `demo.load`, `import.merge`, `import.replace`, `backup.restore`, `backup.snapshot`, `client.import`, `client.create`, `client.edit`, `client.delete`, `info.rename`, `info.merge`, `info.delete`, `export.manifest`, `export.csv`, `export.json`, `export.backup`, `export.sqlite`, `export.clients`, `export.log`, `export.file`, `print.labels`, `print.pdf`, `print.register`, `print.calibration`, `db.session_save`, `db.session_restore`, `db.session_delete`, `db.open`, `settings.operator`. Nuove azioni si aggiungono senza cambiare lo schema.
+
+Regole:
+
+- Vengono conservate le **ultime 20 000** operazioni (`LOG_CAP`); le più vecchie si cancellano (SQLite e memoria).
+- Il registro **non** è nello stato `S` né in `localStorage['docmap_v26_state']`: in memoria (`LOG.entries`), in SQLite e, solo per le righe non ancora salvate in IndexedDB, in `localStorage['docmap_v26_log_pending']` (di solito vuoto).
+- Aprendo un altro `.sqlite` o ripristinando un backup JSON i due registri si **uniscono** per `id`: nessuna riga viene tolta. Le sessioni non contengono il registro.
+- Export CSV dal registro: `docmap_registro_attivita_AAAAMMGG_HHMM.csv`, `;`, BOM UTF-8, protezione formule; colonne `date;who;action;operation;target_type;target_code;summary;details;source;at;id`.
 
 ## 8. Workspace JSON (`docmap_workspace.json`)
 
@@ -341,6 +372,7 @@ Le foto **non** sono nei CSV né nel JSON: solo nel `.sqlite`.
 - L'import JSON accetta anche un array di faldoni, `{rows:[…]}`, `{data:[…]}` o un singolo oggetto; con il workspace completo può ripristinare anche impostazioni, stampa, preset, fogli e clienti.
 - Lo stato in `localStorage['docmap_v26_state']` ha la stessa struttura più i campi di servizio (§4: `schema`, `view`, `infoTab`, `printPrev`, …).
 - Un workspace v7 si importa senza modifiche: mancano `contacts`, `notes` e `status`, che diventano `''`, `''` e `'archive'`.
+- v9: i backup ("Esporta workspace JSON", "Salva backup") hanno in più la chiave facoltativa `activity_log` (array di righe come in §7.2). I file senza questa chiave si importano come prima; con "ripristina tutto" + Sostituisci le righe vengono unite al registro esistente. `settings.operator` (stringa, vuota per default) è il nome dell'operatore.
 
 ## 9. Sessioni
 

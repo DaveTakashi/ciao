@@ -6,7 +6,7 @@
    - Download / open .sqlite files; on Chrome/Edge, link a file on disk
      and save to it automatically (File System Access API)
    ===================================================================== */
-const DB_SCHEMA_VERSION = 4;   // 2: binders.multi_code + photos table · 3: place/year/extra codes/shelf colour + clients table · 4: binders.contacts/notes + contents_items.status
+const DB_SCHEMA_VERSION = 5;   // 2: binders.multi_code + photos table · 3: place/year/extra codes/shelf colour + clients table · 4: binders.contacts/notes + contents_items.status · 5: activity_log table (06e-log.js)
 const DB = { SQL:null, db:null, ready:false, error:null, version:'', handle:null, handleName:'', handlePerm:'prompt', lastSync:null, lastFileSave:null, timer:null, busy:false, consoleSql:'', consoleResult:null };
 const IDB_NAME = 'docmap_v26_sqlite', IDB_STORE = 'kv';
 
@@ -62,6 +62,11 @@ CREATE TABLE IF NOT EXISTS clients(
   address TEXT, cap TEXT, city TEXT, province TEXT, type TEXT, category TEXT, notes TEXT);
 CREATE INDEX IF NOT EXISTS ix_clients_multi ON clients(multi_code);
 CREATE TABLE IF NOT EXISTS audit_log(id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT, action TEXT, detail TEXT);
+CREATE TABLE IF NOT EXISTS activity_log(
+  id TEXT PRIMARY KEY, at TEXT NOT NULL, who TEXT, action TEXT NOT NULL,
+  target_type TEXT, target_id TEXT, target_code TEXT,
+  summary TEXT, details_json TEXT, source TEXT DEFAULT 'ui');   -- not mirrored from S: lives here (+ workspace JSON backups), newest 20000 kept
+CREATE INDEX IF NOT EXISTS ix_activity_at ON activity_log(at);
 DROP VIEW IF EXISTS v_manifest_qr7;
 CREATE VIEW v_manifest_qr7 AS
   SELECT short_code, short_url, final_destination, 'docmap26,' || speaking_code AS tags FROM binders ORDER BY speaking_code;
@@ -241,6 +246,7 @@ async function dbOpenBytes(bytes, label){
     DB.db = db; dbMigrate();
     applyWorkspaceObject(W);
     dbLog('open_file', label);
+    logAttach(); logAct('db.open', {type:'file', id:'', code:label}, 'Aperto il database ' + label + ' (' + W.binders.length + ' faldoni)', {file:label, binders:W.binders.length, sessions:nSessions}, 'restore');
     commit(); renderAll();
     undoToast(t('db_opened', {n:W.binders.length}));
   }});
@@ -347,6 +353,6 @@ function viewDatabase(){
           '<div class="row" style="gap:6px">' + SQL_EXAMPLES.map((e, i) => '<button class="btn btn-sm" data-a="db-example" data-i="' + i + '">' + esc(t(e[0])) + '</button>').join('') + '</div>' +
           '<textarea class="inp mono small" id="db-sql" rows="5" spellcheck="false">' + esc(DB.consoleSql || SQL_EXAMPLES[0][1]) + '</textarea>' +
           '<div class="row"><button class="btn btn-dark" data-a="db-run"' + (DB.ready ? '' : ' disabled') + '>' + ic('arrowRight') + esc(t('db_run')) + '</button></div><div id="db-result">' + resHTML + '</div></div>' +
-        '<div class="card card-p"><h2>' + esc(t('db_schema')) + '</h2><div class="codebox" style="max-height:220px;margin-top:10px">binders (id, speaking_code, company_name, category, color_hex, binder_title, room_code, cabinet_code, shelf_code, sector_code, location_code, archive_state, tags, short_code, short_url, final_destination, …)\ncontents_items (binder_id → binders.id, position, year, description, status)\nsessions (id, name, note, created_at, binder_count, workspace_json)\nsettings (key, value JSON) • label_presets • audit_log • meta\nVIEW v_manifest_qr7 (short_code, short_url, final_destination, tags)</div></div>' +
+        '<div class="card card-p"><h2>' + esc(t('db_schema')) + '</h2><div class="codebox" style="max-height:220px;margin-top:10px">binders (id, speaking_code, company_name, category, color_hex, binder_title, room_code, cabinet_code, shelf_code, sector_code, location_code, archive_state, tags, short_code, short_url, final_destination, …)\ncontents_items (binder_id → binders.id, position, year, description, status)\nsessions (id, name, note, created_at, binder_count, workspace_json)\nsettings (key, value JSON) • label_presets • audit_log • activity_log (registro attività) • meta\nVIEW v_manifest_qr7 (short_code, short_url, final_destination, tags)</div></div>' +
       '</div></div>';
 }

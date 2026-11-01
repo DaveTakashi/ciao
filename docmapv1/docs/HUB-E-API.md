@@ -173,6 +173,7 @@ Oggi l'MVP **non chiama nessuna AI**: copia negli appunti un prompt (`buildAIPro
 - Hosting e backup **nell'UE**; cifratura in transito (TLS) e a riposo; backup cifrati con test di ripristino.
 - Minimizzazione: la pagina pubblica del QR non mostra dati personali; log delle scansioni con IP con hash; conservazione limitata (es. 12 mesi).
 - Controllo accessi per ruolo, 2FA per owner/admin, audit log di ogni modifica (chi, quando, prima/dopo), esportazione completa dei dati del tenant (diritto di portabilità) e cancellazione su richiesta.
+- **Audit trail già pronto nell'MVP (v9)**: il registro attività locale (`activity_log`, `MODELLO-DATI.md` §7.2) ha già la forma di una riga di audit dell'hub: `id` uuid, `at` ISO UTC, `who`, `action` stabile (`binder.edit`, `import.merge`, …), `target {type, id, code}`, `summary`, `details` (diff campo → [prima, dopo]), `source`. Nell'hub: `who` diventa l'`user_id` autenticato (oggi è il nome scritto in Impostazioni, o "Questo PC"), si aggiungono `tenant_id` e `device_id`, le righe arrivano con il push di sincronizzazione (`POST /v1/sync/push`, entità `activity`, solo inserimento, mai modificate) e si leggono con `GET /v1/activity?from=&to=&who=&action=&target_id=`. Le righe locali hanno `id` univoci, quindi l'unione di più PC è senza conflitti.
 - AI: nessun addestramento sui dati del tenant (scegliere provider con questa garanzia), opzione "solo locale" (Ollama).
 - Conservazione documentale: DocMap gestisce la **posizione** di documenti cartacei, non sostituisce la conservazione sostitutiva a norma.
 

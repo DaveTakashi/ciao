@@ -163,6 +163,10 @@ Predefinito: **MRINK143** (4 etichette fisiche 105×148 = 8 etichette 105×74). 
 - CSV: separatore `;`. Excel va bene in UTF-8, UTF-16 o ANSI (Windows-1252): la codifica viene riconosciuta da sola.
 - Manifest qr7.it: `short_code;short_url;final_destination;tags`. La destinazione predefinita è `https://studiodallasta.it/docmap/?code={speaking_code}&qr={short_code}` e si cambia nelle Impostazioni.
 
+## Registro attività
+
+Nel menu **⚙ Funzioni avanzate › Registro attività** trovi l'elenco di tutto quello che è stato fatto, dal più recente: faldoni creati, modificati (con i campi cambiati, prima → dopo), duplicati ed eliminati, operazioni annullate, import, export e backup, stampe e PDF delle etichette, modifiche in Informazioni e nell'anagrafica clienti, sessioni e file del database. Per sapere **chi** ha fatto cosa scrivi il tuo nome in **Impostazioni › Il tuo nome (operatore)** (o in cima al registro); senza nome le operazioni risultano fatte da "Questo PC". Puoi cercare per testo, tipo di operazione, persona e date, cliccare il codice di un faldone per aprirlo ed esportare le righe in CSV per Excel. Il registro sta nel database SQLite (anche nel `.sqlite` scaricato) e nei backup JSON; restano le ultime 20.000 operazioni.
+
 ## Problemi comuni
 
 | Problema | Soluzione |

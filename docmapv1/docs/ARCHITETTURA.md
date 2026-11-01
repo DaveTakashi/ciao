@@ -218,6 +218,7 @@ Ogni riga passa da `mapRecord()` (alias intestazioni → campi), riceve codice p
 - **Sessioni**: istantanee con nome nella tabella `sessions` (workspace JSON completo), ripristinabili.
 - **Console SQL in sola lettura** (`SELECT`/`WITH`/`PRAGMA table_info`/`EXPLAIN`, con `PRAGMA query_only = ON`), con esempi pronti.
 - `audit_log` tiene le ultime ~500 operazioni (sync, sessioni, file, foto).
+- v9: `activity_log` è il **registro attività** per l'utente (`06e-log.js`, vista `log` nel menu ⚙): chi ha fatto cosa, ultime 20 000 righe, non ricostruito dallo stato; formato in `MODELLO-DATI.md` §7.2.
 - DDL completa in `MODELLO-DATI.md`.
 
 ## 10. Interfaccia v8 e differenze dalla v7

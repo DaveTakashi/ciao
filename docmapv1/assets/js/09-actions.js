@@ -19,17 +19,17 @@ const ACTIONS = {
   'dup': (el) => {
     const src = byId(el.dataset.id); if (!src) return;
     const b = normalizeBinder(Object.assign(clone(src), {id:uuid(), speaking_code:suggestSpeakingCode(src.company_name), short_code:newShortCode(), final_destination:'', selected_for_print:true, created_at:nowISO(), updated_at:nowISO()}));
-    S.binders.push(b); commit(); toast(t('duplicated') + ': ' + b.speaking_code); renderArchiveResults(); openEditor(b.id);
+    S.binders.push(b); logAct('binder.duplicate', logBT(b), 'Duplicato il faldone ' + src.speaking_code + ' in ' + logBName(b), {from:src.speaking_code, from_id:src.id}); commit(); toast(t('duplicated') + ': ' + b.speaking_code); renderArchiveResults(); openEditor(b.id);
   },
   'del': (el) => {
     const b = byId(el.dataset.id); if (!b) return;
     confirmAction({ danger:true, okLabel:t('delete'), detail:t('c_del_one', {c:b.speaking_code + ' — ' + b.company_name}),
-      onOk: () => { undoPoint(); S.binders = S.binders.filter(x => x.id !== b.id); commit(); undoToast(t('deleted') + ': ' + b.speaking_code); renderView(); } });
+      onOk: () => { undoPoint(); logBinderDelete([b]); S.binders = S.binders.filter(x => x.id !== b.id); commit(); undoToast(t('deleted') + ': ' + b.speaking_code); renderView(); } });
   },
   'del-sel': () => {
     const sel = S.binders.filter(b => b.selected_for_print); if (!sel.length) return;
     confirmAction({ danger:true, okLabel:t('delete'), detail:t('c_del_many', {n:sel.length}) + ' ' + sel.map(b => b.speaking_code).join(', '),
-      onOk: () => { undoPoint(); const ids = new Set(sel.map(b => b.id)); S.binders = S.binders.filter(b => !ids.has(b.id)); commit(); undoToast(t('deleted') + ': ' + sel.length); renderView(); } });
+      onOk: () => { undoPoint(); logBinderDelete(sel, 'binder.delete_bulk'); const ids = new Set(sel.map(b => b.id)); S.binders = S.binders.filter(b => !ids.has(b.id)); commit(); undoToast(t('deleted') + ': ' + sel.length); renderView(); } });
   },
   'toggle-print': (el) => { const b = byId(el.dataset.id); if (!b) return; b.selected_for_print = el.checked; savePrefs(); renderArchiveResults(); },
   'sel-all': () => { const ids = new Set(filteredBinders().map(b => b.id)); S.binders.forEach(b => { if (ids.has(b.id)) b.selected_for_print = true; }); savePrefs(); renderArchiveResults(); },
@@ -145,9 +145,9 @@ const ACTIONS = {
   'se-prev': () => {
     let prev = null; try { prev = localStorage.getItem(LS_PREV); } catch(e){}
     if (!prev){ toast(t('se_prev_none'), 'warn'); return; }
-    confirmAction({ detail:t('se_prev_restore'), onOk:() => { try { S = migrate(JSON.parse(prev)); window.S = S; S.hasUnexportedChanges = true; persist(); renderAll(); toast(t('se_prev_done')); } catch(e){ toast(String(e), 'err'); } } });
+    confirmAction({ detail:t('se_prev_restore'), onOk:() => { try { S = migrate(JSON.parse(prev)); window.S = S; S.hasUnexportedChanges = true; logAct('backup.snapshot', null, 'Ripristinato lo snapshot precedente (' + S.binders.length + ' faldoni)', {binders:S.binders.length}, 'restore'); persist(); renderAll(); toast(t('se_prev_done')); } catch(e){ toast(String(e), 'err'); } } });
   },
-  'se-demo': () => confirmAction({ danger:true, detail:t('se_demo'), onOk:() => { S.binders = demoBinders(); commit(); toast(t('se_demo_done')); S.view = 'archive'; renderAll(); } }),
+  'se-demo': () => confirmAction({ danger:true, detail:t('se_demo'), onOk:() => { S.binders = demoBinders(); logAct('demo.load', null, 'Archivio sostituito dai faldoni di esempio (' + S.binders.length + ')', {count:S.binders.length}); commit(); toast(t('se_demo_done')); S.view = 'archive'; renderAll(); } }),
   // help & guided actions
   'help-open': () => helpOpen(),
   'help-close': () => helpClose(),
@@ -186,7 +186,7 @@ const ACTIONS = {
   'db-unlink': () => dbUnlink(),
   'db-example': (el) => { const q = SQL_EXAMPLES[+el.dataset.i][1]; $('#db-sql').value = q; dbRunConsole(q); renderView(); },
   'db-run': () => { dbRunConsole($('#db-sql').value); renderView(); },
-  'se-wipe': () => confirmAction({ danger:true, okLabel:t('se_wipe'), detail:t('se_wipe') + ': ' + S.binders.length + ' ' + t('k_total').toLowerCase(), onOk:() => { S.binders = []; S.usedSlots = {}; commit(); toast(t('se_wiped')); renderView(); } })
+  'se-wipe': () => confirmAction({ danger:true, okLabel:t('se_wipe'), detail:t('se_wipe') + ': ' + S.binders.length + ' ' + t('k_total').toLowerCase(), onOk:() => { logBinderDelete(S.binders, 'binder.wipe'); S.binders = []; S.usedSlots = {}; commit(); toast(t('se_wiped')); renderView(); } })
 };
 
 document.addEventListener('click', (e) => {

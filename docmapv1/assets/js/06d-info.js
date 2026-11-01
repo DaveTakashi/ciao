@@ -111,7 +111,7 @@ Object.assign(I18N.en, {
 /* ---------------- Navigation ---------------- */
 const NAV_MAIN = [['archive','archive','nav_archive','nav_archive'], ['print','printer','nav_print','nav_print_s'], ['info','book','nav_info','nav_info_s']];
 const NAV_MORE = [
-  ['nm_data', [['import','upload','nav_import','nd_import'], ['export','download','nav_export','nd_export'], ['database','database','nav_database','nd_database']]],
+  ['nm_data', [['import','upload','nav_import','nd_import'], ['export','download','nav_export','nd_export'], ['database','database','nav_database','nd_database'], ['log','history','nav_log','nd_log']]],
   ['nm_tools', [['ai','sparkles','nav_ai','nd_ai'], ['settings','sliders','nav_settings','nd_settings']]]
 ];
 const ADV_VIEWS = NAV_MORE.reduce((a, g) => a.concat(g[1].map(x => x[0])), []);

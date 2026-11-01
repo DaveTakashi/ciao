@@ -62,7 +62,7 @@ function undoPoint(){ UNDO = clone({binders:S.binders, clients:S.clients || [], 
 function undoToast(msg, kind){
   toast(msg, kind || 'ok', 9000, {label:t('undo'), fn: () => {
     if (!UNDO) return; const W = UNDO; UNDO = null;
-    applyWorkspaceObject(W); commit(); renderAll(); toast(t('undone'));
+    applyWorkspaceObject(W); logUndo(); commit(); renderAll(); toast(t('undone'));
   }});
 }
 
@@ -312,19 +312,19 @@ function exportFullCSV(){
   download(name, '﻿' + toCSV(rows, ';'), 'text/csv');
   markExported(name); toast(t('ex_done', {f:name}));
 }
-function workspaceJSON(){
+function workspaceJSON(withLog){   // withLog: backups carry the activity log (optional key, 06e-log.js); sessions do not
   return JSON.stringify({ app:'DocMap26', format:'docmap_workspace', version:APP_VERSION, exported_at:nowISO(),
-    settings:S.settings, lang:S.lang, print:S.print, customPresets:S.customPresets, usedSlots:S.usedSlots, binders:S.binders, clients:S.clients || [] }, null, 2);
+    settings:S.settings, lang:S.lang, print:S.print, customPresets:S.customPresets, usedSlots:S.usedSlots, binders:S.binders, clients:S.clients || [], activity_log:withLog ? logEntriesForBackup() : undefined }, null, 2);
 }
 function exportJSON(){
   const name = 'docmap_workspace.json';
-  download(name, workspaceJSON(), 'application/json');
+  download(name, workspaceJSON(true), 'application/json');
   markExported(name); toast(t('ex_done', {f:name}));
 }
 function quickBackup(){
   const d = new Date(), p = (n) => String(n).padStart(2, '0');
   const name = 'docmap_workspace_' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '_' + p(d.getHours()) + p(d.getMinutes()) + '.json';
-  download(name, workspaceJSON(), 'application/json');
+  download(name, workspaceJSON(true), 'application/json');
   markExported(name); toast(t('ex_done', {f:name}));
   $$('.overlay [data-a="quick-backup"]').forEach(b => { b.disabled = true; });
 }

@@ -67,6 +67,7 @@ function applyClientsImport(){
     if (r.match){ const i = S.clients.findIndex(c => c.id === r.match); if (i >= 0){ S.clients[i] = normalizeClient(Object.assign({}, S.clients[i], r.c, {id:r.match})); updated++; return; } }
     S.clients.push(r.c); added++;
   });
+  logAct('client.import', null, 'Import anagrafica clienti: ' + added + ' nuovi, ' + updated + ' aggiornati', {added, updated, format:IP.format || ''}, 'import');
   UI.importParsed = null; UI.importText = '';
   commit();
   undoToast(t('cl_done', {a:added, u:updated}));
@@ -128,6 +129,7 @@ function openClientEditor(id){
       S.clients = S.clients || [];
       if (src) undoPoint();
       const nb = src ? propagateClientEdit(src, n) : 0;   // "edit once, changes everywhere": linked binders follow
+      logClientSave(src, n, nb);
       const i = S.clients.findIndex(x => x.id === n.id); if (i >= 0) S.clients[i] = n; else S.clients.push(n);
       commit(); closeModal(true); renderView();
       if (nb) undoToast(t('cl_prop', {n:nb})); else toast(t('cl_saved', {n:n.name}));
@@ -165,7 +167,7 @@ const CLIENT_ACTIONS = {
   'cl-edit': (el) => openClientEditor(el.dataset.id),
   'cl-new': () => openClientEditor(null),
   'cl-export': () => exportClientsCSV(),
-  'cl-del': (el) => { const c = (S.clients || []).find(x => x.id === el.dataset.id); if (!c) return; confirmAction({ danger:true, plain:true, okLabel:t('delete'), detail:t('cl_del_d', {n:c.name}), onOk: () => { undoPoint(); S.clients = S.clients.filter(x => x.id !== c.id); commit(); renderView(); undoToast(t('deleted') + ': ' + c.name); } }); },
+  'cl-del': (el) => { const c = (S.clients || []).find(x => x.id === el.dataset.id); if (!c) return; confirmAction({ danger:true, plain:true, okLabel:t('delete'), detail:t('cl_del_d', {n:c.name}), onOk: () => { undoPoint(); S.clients = S.clients.filter(x => x.id !== c.id); logAct('client.delete', {type:'client', id:c.id, code:c.multi_code || c.name}, 'Eliminato il cliente ' + c.name, {name:c.name, multi_code:c.multi_code}); commit(); renderView(); undoToast(t('deleted') + ': ' + c.name); } }); },
   'demo-toggle': () => { S.settings.hideDemo = !S.settings.hideDemo; savePrefs(); renderView(); },
-  'demo-delete': () => { const n = S.binders.filter(isDemo).length; confirmAction({ danger:true, okLabel:t('delete'), detail:t('demo_del_d', {n}), onOk: () => { undoPoint(); S.binders = S.binders.filter(b => !isDemo(b)); S.settings.hideDemo = false; commit(); renderView(); undoToast(t('demo_deleted', {n})); } }); }
+  'demo-delete': () => { const n = S.binders.filter(isDemo).length; confirmAction({ danger:true, okLabel:t('delete'), detail:t('demo_del_d', {n}), onOk: () => { undoPoint(); logBinderDelete(S.binders.filter(isDemo), 'demo.delete'); S.binders = S.binders.filter(b => !isDemo(b)); S.settings.hideDemo = false; commit(); renderView(); undoToast(t('demo_deleted', {n})); } }); }
 };

@@ -19,7 +19,7 @@ function renderView(){
   document.documentElement.lang = S.lang;
   const v = S.view;
   if (v === 'clients'){ S.view = 'info'; S.infoTab = 'clients'; return renderView(); }
-  const fn = {archive:viewArchive, print:viewPrint, import:viewImport, export:viewExport, ai:viewAI, database:viewDatabase, settings:viewSettings, info:viewInfo}[v] || viewArchive;
+  const fn = {archive:viewArchive, print:viewPrint, import:viewImport, export:viewExport, ai:viewAI, database:viewDatabase, settings:viewSettings, info:viewInfo, log:viewLog}[v] || viewArchive;
   $('#view').innerHTML = fn();
   if (v === 'print') mountPrint();
   if (v === 'archive') renderArchiveResults();
@@ -235,6 +235,7 @@ function saveEditor(){
   const b = normalizeBinder(d);
   const doSave = () => {
     const i = S.binders.findIndex(x => x.id === b.id);
+    logBinderSave(i >= 0 ? S.binders[i] : null, b);
     if (i >= 0) S.binders[i] = b; else S.binders.push(b);
     commit(); closeModal(true); edSavedToast(b, ed);
     renderView();
@@ -567,6 +568,7 @@ function applyImport(mode){
   // keep it empty so a future template change still applies (CSV backups export the resolved URL).
   S.binders.forEach(b => { if (b.final_destination && b.final_destination === renderDest(S.settings.destTemplate, b)) b.final_destination = ''; });
   ensureIntegrity();
+  logImport(mode, IP, added, updated);
   UI.importParsed = null; UI.importText = '';
   commit();
   undoToast(t('im_done', {a:added, u:updated}));
@@ -615,6 +617,7 @@ function viewSettings(){
   return '<div class="page-h"><div><h1>' + esc(t('se_h')) + helpDot('backup') + '</h1><p>' + esc(t('se_p')) + '</p></div></div>' +
     '<div class="grid g2"><div class="card card-p stack">' +
       '<div class="field"><label for="se-studio">' + esc(t('se_studio')) + '</label><input class="inp" id="se-studio" data-set="studioName" value="' + esc(S.settings.studioName) + '"></div>' +
+      '<div class="field"><label for="se-operator">' + esc(t('lg_operator')) + helpDot('log') + '</label><input class="inp" id="se-operator" data-set="operator" value="' + esc(S.settings.operator || '') + '" placeholder="' + esc(t('lg_operator_ph')) + '" autocomplete="name"><div class="hint">' + esc(t('lg_operator_hint')) + '</div></div>' +
       '<div class="field"><label for="se-dest">' + esc(t('se_dest')) + '</label><input class="inp mono small" id="se-dest" data-set="destTemplate" value="' + esc(S.settings.destTemplate) + '"><div class="hint">' + esc(t('se_dest_hint')) + '</div>' +
         '<div class="small" style="margin-top:6px">' + esc(t('se_dest_prev')) + ' (' + esc(ex.speaking_code) + '): <span class="mono" id="se-dest-prev" style="word-break:break-all">' + esc(renderDest(S.settings.destTemplate, ex)) + '</span></div></div>' +
       '<button class="btn" data-a="se-apply-dest">' + ic('link') + esc(t('se_apply_dest')) + '</button>' +

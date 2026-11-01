@@ -44,6 +44,7 @@ What changed from v7 is summarised in §10.
 | 6b | `assets/js/06b-photos.js` | photos in SQLite `photos` table, shelf locator "Dov'è?", `PHOTO_ACTIONS` |
 | 6c | `assets/js/06c-clients.js` | client register (`CLIENT_ALIASES`, `isClientList`, `mapClient`, import, editor, CSV export, `clientsPanelHTML`/`renderClientResults` shown in Informazioni › Clienti), demo bar, `CLIENT_ACTIONS` |
 | 6d | `assets/js/06d-info.js` | top bar (`topbarHTML`, `NAV_MAIN`, `NAV_MORE`, `<details id="nav-more">` "Funzioni avanzate" menu), view `info` (`viewInfo`, `INFO_TABS`, `INFO_LISTS`, `infoRename`/`infoDelete`/merge), category colours (`infoApplyCatColors`), QR overview + "Ristampa solo QR" (`qrReprint`, `qrRestorePrint`, `S.printPrev`), label kind `Q` (`renderQrLabel`), `INFO_ACTIONS`, help topics `nav`, `info`, `qr-reprint` |
+| 6e | `assets/js/06e-log.js` | activity log (v9): `logAct(action, target, summary, details, source)`, `LOG` (memory mirror) + SQLite `activity_log`, wrappers around exports/print/sessions/Informazioni/undo, view `log` (`viewLog`, filters `LOGV`, CSV), `S.settings.operator`, help topic `log` |
 | 7 | `assets/js/07-help.js` | extra i18n keys, `HELP_TAGS`, `HELP_TOPICS`, help drawer, `helpDot(id)`, onboarding |
 | 8 | `assets/js/08-guide.js` | guided-action engine, `GUIDES` |
 | 9 | `assets/js/09-actions.js` | `ACTIONS` map, global event delegation (click/input/change/keydown/drag-drop), file inputs, **boot** (`loadState` → `ensureIntegrity` → `persist` → `renderAll` → `maybeOnboard` → `dbInit`), `window.DocMap` test hook |

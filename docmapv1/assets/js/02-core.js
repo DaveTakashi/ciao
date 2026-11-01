@@ -415,7 +415,7 @@ function demoBinders(){
 function defaultState(){
   return {
     schema:26.8, app:'DocMap26', lang:'it', view:'archive',
-    settings:{ studioName:'Studio Demo Commercialisti Associati', destTemplate:DEFAULT_DEST, qrEcc:'M' },
+    settings:{ studioName:'Studio Demo Commercialisti Associati', destTemplate:DEFAULT_DEST, qrEcc:'M', operator:'' },   // operator: name shown in the activity log (06e-log.js)
     binders:[],
     print:{ presetId:'mrink143', geometry:geoFromPreset(BUILTIN_PRESETS[0]), geometryModified:false, padding:4, offsetX:0, offsetY:0,
             contentMode:'split', template:'classic', showMulti:true, fields:{}, split:{ratio:0.5, rotate:-90, guides:true}, advanced:false, qrMode:'live', showQrUrl:true, copies:1, previewMode:'labels' },

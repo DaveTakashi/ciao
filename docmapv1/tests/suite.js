@@ -447,7 +447,7 @@ const sec = (n) => console.log('\n== ' + n);
   ok(v.join('|') === 'Fidenza (PR)|2023|P-1', 'Italian column names for the new fields', v);
   v = await p.evaluate(async () => { dbSyncFromState('t'); await dbPersist(); const d2 = new DB.SQL.Database(DB.db.export()); const W = dbReadWorkspace(d2); const nC = dbScalar('SELECT COUNT(*) FROM clients', null, d2); const ver = dbScalar("SELECT value FROM meta WHERE key='schema_version'", null, d2); d2.close();
     const b = W.binders.find(x => x.speaking_code === 'TS1'); return {nC, ver, wc:W.clients.length, city:b.company_city, year:b.ref_year, extra:b.extra_codes, json:JSON.parse(workspaceJSON()).clients.length}; });
-  ok(v.nC === 3 && v.ver === '4' && v.wc === 3 && v.city === 'Parma (PR)' && v.year === '2024' && v.extra === 'Prot. 77' && v.json === 3, 'SQLite schema 4: clients table + new binder columns, also in the workspace JSON', v);
+  ok(v.nC === 3 && v.ver === '5' && v.wc === 3 && v.city === 'Parma (PR)' && v.year === '2024' && v.extra === 'Prot. 77' && v.json === 3, 'SQLite schema 5 (v9 activity_log; v4: clients table + new binder columns), also in the workspace JSON', v);
   v = await p.evaluate(() => { const d = new DB.SQL.Database(); d.exec("CREATE TABLE binders(id TEXT PRIMARY KEY, speaking_code TEXT NOT NULL UNIQUE, company_name TEXT, category TEXT, color_hex TEXT, binder_title TEXT, room_code TEXT, cabinet_code TEXT, shelf_code TEXT, sector_code TEXT, location_code TEXT, archive_state TEXT, tags TEXT, short_code TEXT UNIQUE, short_url TEXT, final_destination TEXT, final_destination_custom TEXT, selected_for_print INTEGER, created_at TEXT, updated_at TEXT)"); dbMigrate(d); const c = dbQuery('PRAGMA table_info(binders)', null, d).map(r => r.name); d.close(); return ['multi_code','company_city','ref_year','extra_codes','shelf_color'].every(x => c.includes(x)); });
   ok(v, 'old .sqlite files are migrated (new columns added)');
   // demo data
@@ -488,7 +488,7 @@ const sec = (n) => console.log('\n== ' + n);
   sec('v8 A: navigation, Informazioni, QR reprint');
   // top bar: 3 main tabs, everything else in the "Funzioni avanzate" menu
   v = await p.evaluate(() => ({main:[...document.querySelectorAll('.nav .nav-main [data-a="nav"]')].map(b => b.dataset.v), adv:[...document.querySelectorAll('#nav-more [data-a="nav"]')].map(b => b.dataset.v).sort(), vis:[...document.querySelectorAll('.nav [data-a="nav"]')].filter(b => b.checkVisibility()).length}));
-  ok(v.main.join() === 'archive,print,info' && v.vis === 3 && v.adv.join() === 'ai,database,export,import,settings', 'top bar: exactly 3 main tabs, the rest in the "Funzioni avanzate" menu', v);
+  ok(v.main.join() === 'archive,print,info' && v.vis === 3 && v.adv.join() === 'ai,database,export,import,log,settings', 'top bar: exactly 3 main tabs, the rest in the "Funzioni avanzate" menu', v);
   for (const view of ['import', 'export', 'database', 'ai', 'settings']){
     await p.click('#nav-more summary'); await p.waitForTimeout(120);
     await p.click('#nav-more [data-v="' + view + '"]'); await p.waitForTimeout(200);
@@ -863,6 +863,131 @@ const sec = (n) => console.log('\n== ' + n);
   // @@STREAM-P@@
 
   // @@STREAM-L@@
+  sec('v9 L: activity log');
+  let Lv;
+  const Lstart = await p.evaluate(() => { while (topModal()) closeModal(true); S.lang = 'it'; S.settings.operator = ''; S.view = 'archive'; renderAll(); return nowISO(); });
+  // create + edit through the editor
+  Lv = await p.evaluate(() => {
+    openEditor(null); Object.assign(UI.ed.d, {company_name:'Log Test Srl', speaking_code:'LGT1', category:'Ordinaria', tags:'lgtag'}); saveEditor();
+    const b = S.binders.find(x => x.speaking_code === 'LGT1'), c = LOG.entries[LOG.entries.length - 1];
+    openEditor(b.id); UI.ed.d.binder_title = 'Titolo dal log'; UI.ed.d.room_code = 'ZL'; saveEditor();
+    const e = LOG.entries[LOG.entries.length - 1];
+    openEditor(b.id); saveEditor();   // no change → no entry
+    while (topModal()) closeModal(true);
+    return {id:b.id, c, e, last:LOG.entries[LOG.entries.length - 1].id};
+  });
+  ok(Lv.c.action === 'binder.create' && Lv.c.who === 'Questo PC' && Lv.c.target.id === Lv.id && Lv.c.target.code === 'LGT1' && Lv.c.source === 'ui' && /LGT1/.test(Lv.c.summary) && /^[0-9a-f-]{36}$/.test(Lv.c.id) && !isNaN(new Date(Lv.c.at)), 'log: binder create → entry {id, at, who "Questo PC", action, target, summary, source}', Lv.c);
+  ok(Lv.e.action === 'binder.edit' && Lv.e.details.changed.binder_title[1] === 'Titolo dal log' && Lv.e.details.changed.room_code[1] === 'ZL' && !('updated_at' in Lv.e.details.changed) && Lv.last === Lv.e.id, 'log: binder edit records changed fields old → new; saving without changes adds nothing', Lv.e);
+  // operator name from Settings
+  await p.evaluate(() => { S.view = 'settings'; renderAll(); });
+  await p.fill('#se-operator', 'Dave Test'); await p.press('#se-operator', 'Tab'); await p.waitForTimeout(100);
+  Lv = await p.evaluate(() => ({op:S.settings.operator, e:LOG.entries[LOG.entries.length - 1]}));
+  ok(Lv.op === 'Dave Test' && Lv.e.action === 'settings.operator' && Lv.e.who === 'Dave Test' && Lv.e.details.to === 'Dave Test' && Lv.e.details.from === '', 'log: operator name set in Settings is logged and used as "who"', Lv);
+  // single delete (confirm), bulk delete, undo
+  await p.evaluate(() => { S.view = 'archive'; renderAll(); ACTIONS['del']({dataset:{id:S.binders.find(x => x.speaking_code === 'LGT1').id}}); });
+  await p.click('.modal-f .btn-danger-solid'); await p.waitForTimeout(100);
+  Lv = await p.evaluate(() => ({e:LOG.entries[LOG.entries.length - 1], gone:!S.binders.some(x => x.speaking_code === 'LGT1')}));
+  ok(Lv.gone && Lv.e.action === 'binder.delete' && Lv.e.who === 'Dave Test' && Lv.e.target.code === 'LGT1', 'log: single delete by the operator', Lv);
+  await p.evaluate(() => { S.binders.forEach(b => b.selected_for_print = false); ['LGB1','LGB2','LGB3'].forEach(c => S.binders.push(normalizeBinder({speaking_code:c, company_name:'Bulk Log', selected_for_print:true, short_code:newShortCode()}))); commit(); renderView(); ACTIONS['del-sel'](); });
+  await p.click('.modal-f .btn-danger-solid'); await p.waitForTimeout(100);
+  Lv = await p.evaluate(() => LOG.entries[LOG.entries.length - 1]);
+  ok(Lv.action === 'binder.delete_bulk' && Lv.details.count === 3 && Lv.details.codes.join(',') === 'LGB1,LGB2,LGB3' && Lv.target === null, 'log: bulk delete logs the count and codes', Lv);
+  await p.click('#toasts .toast-act >> nth=-1'); await p.waitForTimeout(100);
+  Lv = await p.evaluate(() => ({e:LOG.entries[LOG.entries.length - 1], back:S.binders.filter(b => /^LGB/.test(b.speaking_code)).length}));
+  ok(Lv.back === 3 && Lv.e.action === 'undo' && Lv.e.details.undone_action === 'binder.delete_bulk', 'log: undo is logged with the operation it reverted', Lv);
+  // import + Informazioni rename + client register
+  Lv = await p.evaluate(() => { analyzeImport('speaking_code;company_name;tags\nLGI1;Import Log Srl;lgtag'); applyImport('merge'); return LOG.entries[LOG.entries.length - 1]; });
+  ok(Lv.action === 'import.merge' && Lv.source === 'import' && Lv.details.added === 1 && Lv.details.updated === 0, 'log: import logs counts with source "import"', Lv);
+  Lv = await p.evaluate(() => { undoPoint(); const r = infoRename('tags', 'lgtag', 'lgtag2'); return {r, e:LOG.entries[LOG.entries.length - 1]}; });
+  ok(Lv.r && Lv.e.action === 'info.rename' && Lv.e.details.from === 'lgtag' && Lv.e.details.to === 'lgtag2' && Lv.e.details.binders === 1 && Lv.e.details.list === 'tags', 'log: Informazioni rename logs list, old → new and count', Lv);
+  Lv = await p.evaluate(() => { const c = normalizeClient({name:'Cliente Log', multi_code:'LG9'}); logClientSave(null, c, 0); S.clients.push(c); const old = clone(c); c.city = 'Parma'; logClientSave(old, c, 0); return LOG.entries.slice(-2).map(e => e.action + ':' + JSON.stringify(e.details.changed || {})); });
+  ok(Lv[0] === 'client.create:{}' && Lv[1] === 'client.edit:{"city":["","Parma"]}', 'log: client register create / edit', Lv);
+  // print (dialog stubbed) and generic PDF hook
+  Lv = await p.evaluate(async () => { const o = window.print; window.print = () => {}; S.binders.forEach(b => b.selected_for_print = /^LG/.test(b.speaking_code)); await printLabels(); window.print = o; while (topModal()) closeModal(true); return {e:LOG.entries[LOG.entries.length - 1], pdf:typeof ACTIONS['pdf-download'] !== 'function' || !!ACTIONS['pdf-download']._logged}; });
+  ok(Lv.e.action === 'print.labels' && Lv.e.details.labels > 0 && Lv.e.details.preset && Lv.e.details.mode && Lv.e.details.codes.includes('LGI1') && Lv.pdf, 'log: printing logs preset, content mode and number of labels; PDF button hooked when present', Lv);
+  // exports and SQLite
+  await p.evaluate(() => { S.view = 'export'; renderAll(); });
+  await dl('[data-a="ex-csv"]');
+  Lv = await p.evaluate(() => LOG.entries[LOG.entries.length - 1]);
+  ok(Lv.action === 'export.csv' && Lv.details.file === 'docmap_full_backup.csv', 'log: export logged with file name', Lv);
+  Lv = await p.evaluate(async () => { await dbPersist(); const d2 = new DB.SQL.Database(DB.db.export()); const ver = dbScalar("SELECT value FROM meta WHERE key='schema_version'", null, d2); const n = dbScalar('SELECT COUNT(*) FROM activity_log', null, d2); const r = dbQuery("SELECT * FROM activity_log WHERE action = 'binder.edit' ORDER BY at DESC LIMIT 1", null, d2)[0]; d2.close();
+    const d3 = new DB.SQL.Database(); d3.exec('CREATE TABLE binders(id TEXT PRIMARY KEY, speaking_code TEXT); CREATE TABLE contents_items(id INTEGER PRIMARY KEY, binder_id TEXT)'); dbMigrate(d3); const has = dbQuery("SELECT name FROM sqlite_master WHERE name='activity_log'", null, d3).length; d3.close();
+    return {ver, n, mem:LOG.entries.length, pend:LOG.pending.length, code:r && r.target_code, det:r && JSON.parse(r.details_json).changed.room_code[1], who:r && r.who, has}; });
+  ok(Lv.ver === '5' && Lv.n === Lv.mem && Lv.pend === 0 && Lv.code === 'LGT1' && Lv.det === 'ZL' && Lv.who === 'Questo PC' && Lv.has === 1, 'log: SQLite schema 5, activity_log table mirrors memory, old databases get the table', Lv);
+  await p.evaluate(() => { S.view = 'database'; renderAll(); });
+  const LsqF = await dl('[data-a="db-download"]');
+  Lv = await p.evaluate((b64) => { const d = new DB.SQL.Database(Uint8Array.from(atob(b64), c => c.charCodeAt(0))); const n = dbScalar("SELECT COUNT(*) FROM activity_log WHERE action IN ('binder.create','binder.delete_bulk','info.rename')", null, d); d.close(); return n; }, fs.readFileSync(LsqF).toString('base64'));
+  ok(Lv >= 3, 'log: downloaded .sqlite carries the activity log', Lv);
+  // survives a reload
+  const Lids = await p.evaluate(async () => { await dbPersist(); return LOG.entries.map(e => e.id); });
+  await p.reload(); await p.waitForTimeout(1500);
+  Lv = await p.evaluate(() => ({ready:LOG.ready, ids:LOG.entries.map(e => e.id), op:S.settings.operator}));
+  ok(Lv.ready && Lids.every(id => Lv.ids.includes(id)) && Lv.op === 'Dave Test', 'log: survives a reload (SQLite in IndexedDB), operator kept', {n:Lv.ids.length, m:Lids.length});
+  // JSON backup round trip (+ older backup without the log)
+  Lv = await p.evaluate(() => {
+    const J = JSON.parse(workspaceJSON(true)), sess = JSON.parse(workspaceJSON());
+    const ids = J.activity_log.map(e => e.id);
+    LOG.entries = []; DB.db.exec('DELETE FROM activity_log');
+    analyzeImport(JSON.stringify(J)); UI.restoreAll = true; applyImport('replace');
+    const back = ids.every(id => LOG.entries.some(e => e.id === id)), last = LOG.entries[LOG.entries.length - 1];
+    const n1 = LOG.entries.length; delete J.activity_log;
+    analyzeImport(JSON.stringify(J)); applyImport('replace');
+    const last2 = LOG.entries[LOG.entries.length - 1];
+    return {inJ:ids.length > 5, sess:!('activity_log' in sess), back, a:last.action, src:last.source, restored:last.details.log_entries_restored, n2:LOG.entries.length - n1, a2:last2.action, r2:last2.details.log_entries_restored, db:dbScalar('SELECT COUNT(*) FROM activity_log') === LOG.entries.length};
+  });
+  ok(Lv.inJ && Lv.sess && Lv.back && Lv.a === 'backup.restore' && Lv.src === 'restore' && Lv.restored > 5 && Lv.db, 'log: workspace JSON backup carries activity_log (sessions do not) and restoring it brings the entries back', Lv);
+  ok(Lv.n2 === 1 && Lv.a2 === 'backup.restore' && Lv.r2 === undefined, 'log: older JSON backups without activity_log still import', Lv);
+  // CSV export: formula guard, ';', BOM
+  Lv = await p.evaluate(() => { const e = logAct('binder.edit', null, '=HYPERLINK("http://x")', {x:'+1'}); const c = logCSV([e]); return {bom:c.charCodeAt(0) === 0xFEFF, hdr:c.slice(1).split('\r\n')[0], guard:c.includes("'=HYPERLINK") && !/;=HYPERLINK/.test(c)}; });
+  ok(Lv.bom && Lv.hdr.startsWith('date;who;action;operation;') && Lv.guard, 'log: CSV export uses ";" + BOM and escapes formulas', Lv);
+  // the view: render, filters, click → editor, CSV download, English, no h-scroll
+  await p.evaluate(() => { S.settings.operator = ''; S.view = 'log'; renderAll(); });
+  Lv = await p.evaluate(() => ({rows:document.querySelectorAll('#lg-results tbody tr').length, ask:!!document.querySelector('#lg-op-ask'), menu:!!document.querySelector('#nav-more [data-v="log"]'), w:[document.documentElement.scrollWidth, innerWidth]}));
+  ok(Lv.rows > 5 && Lv.ask && Lv.menu && Lv.w[0] <= Lv.w[1] + 1, 'log view: in the ⚙ menu, renders newest first, asks for a name when none is set, no h-scroll', Lv);
+  await p.screenshot({path:'shots/l_log.png'});
+  await p.selectOption('[data-lg="act"]', 'info'); await p.waitForTimeout(100);
+  Lv = await p.evaluate(() => Array.from(document.querySelectorAll('#lg-results tbody tr .lg-b')).map(x => x.className));
+  ok(Lv.length >= 1 && Lv.every(c => c.includes('lg-info')), 'log view: filter by operation type', Lv);
+  await p.evaluate(() => ACTIONS['log-reset']());
+  await p.selectOption('[data-lg="who"]', 'Dave Test'); await p.waitForTimeout(100);
+  Lv = await p.evaluate(() => Array.from(document.querySelectorAll('#lg-results tbody tr td:nth-child(2)')).map(x => x.textContent));
+  ok(Lv.length >= 3 && Lv.every(x => x === 'Dave Test'), 'log view: filter by operator', Lv.length);
+  await p.evaluate(() => ACTIONS['log-reset']());
+  await p.fill('[data-lg="q"]', 'LGT1'); await p.waitForTimeout(100);
+  Lv = await p.evaluate(() => ({n:document.querySelectorAll('#lg-results tbody tr').length, all:Array.from(document.querySelectorAll('#lg-results tbody tr')).every(r => r.textContent.includes('LGT1'))}));
+  ok(Lv.n >= 3 && Lv.all, 'log view: text filter', Lv);
+  const Ltoday = await p.evaluate(() => logDay(nowISO()));
+  await p.evaluate(() => ACTIONS['log-reset']());
+  await p.fill('[data-lg="from"]', '2001-01-01'); await p.fill('[data-lg="to"]', '2001-12-31'); await p.waitForTimeout(100);
+  Lv = await p.evaluate(() => ({none:!!document.querySelector('#lg-results .empty'), f:LOGV.from + '|' + LOGV.to}));
+  await p.fill('[data-lg="from"]', '2001-01-01'); await p.fill('[data-lg="to"]', Ltoday); await p.waitForTimeout(100);
+  const Lv2 = await p.evaluate(() => document.querySelectorAll('#lg-results tbody tr').length);
+  ok(Lv.none && Lv.f === '2001-01-01|2001-12-31' && Lv2 > 5, 'log view: date range filter', [Lv, Lv2]);
+  await p.evaluate(() => ACTIONS['log-reset']());
+  await p.fill('#lg-op', 'Anna'); await p.press('#lg-op', 'Tab'); await p.waitForTimeout(100);
+  Lv = await p.evaluate(() => ({op:S.settings.operator, ask:!!document.querySelector('#lg-op-ask'), first:(document.querySelector('#lg-results tbody tr td:nth-child(2)') || {}).textContent}));
+  ok(Lv.op === 'Anna' && !Lv.ask && Lv.first === 'Anna', 'log view: inline operator field, change shown at the top', Lv);
+  Lv = await p.evaluate(() => { const b = S.binders.find(x => x.speaking_code === 'LGI1'); logAct('binder.edit', logBT(b), 'Prova apertura', {}); renderView(); document.querySelector('#lg-results [data-a="log-open"][data-id="' + b.id + '"]').click(); const r = {open:!!(UI.ed && UI.ed.d.id === b.id)}; while (topModal()) closeModal(true); return r; });
+  ok(Lv.open, 'log view: clicking a binder entry opens that binder', Lv);
+  const LcsvF = await dl('[data-a="log-csv"]');
+  const Lcsv = fs.readFileSync(LcsvF, 'utf8');
+  ok(/^docmap_registro_attivita_\d{8}_\d{4}\.csv$/.test(require('path').basename(LcsvF)) && Lcsv.split('\r\n').length > 6 && Lcsv.includes(';binder.delete_bulk;'), 'log view: CSV download', LcsvF);
+  await p.evaluate(() => { S.lang = 'en'; renderAll(); });
+  Lv = await p.evaluate(() => ({h:document.querySelector('.page-h h1').textContent, th:document.querySelector('#lg-results thead').textContent, menu:document.querySelector('#nav-more [data-v="log"]').textContent, help:!!helpTopic('log'), lbl:VIEW_LABEL.log, se:I18N.en.lg_operator}));
+  ok(/Activity log/.test(Lv.h) && /When/.test(Lv.th) && /Activity log/.test(Lv.menu) && Lv.help && Lv.lbl === 'nav_log' && !!Lv.se, 'log view: English UI + help topic "log"', Lv);
+  await p.setViewportSize({width:390, height:800}); await p.waitForTimeout(150);
+  Lv = await p.evaluate(() => [document.documentElement.scrollWidth, innerWidth]);
+  ok(Lv[0] <= Lv[1] + 1, 'log view: no horizontal scroll at phone width', Lv);
+  await p.setViewportSize({width:1366, height:768});
+  // clean up: test binders/clients, operator, log entries written by this block
+  await p.evaluate(async (start) => {
+    while (topModal()) closeModal(true);
+    S.lang = 'it'; S.settings.operator = ''; Object.assign(LOGV, {q:'', act:'', who:'', from:'', to:'', limit:100});
+    S.binders = S.binders.filter(b => !/^LG[TBI]\d$/.test(b.speaking_code)); S.clients = (S.clients || []).filter(c => c.name !== 'Cliente Log');
+    S.binders.forEach(b => b.selected_for_print = true);
+    DB.db.run('DELETE FROM activity_log WHERE at >= ?', [start]); LOG.entries = LOG.entries.filter(e => e.at < start); LOG.pending = []; logSavePending();
+    commit(); S.view = 'archive'; renderAll(); dbSyncFromState('t'); await dbPersist();
+  }, Lstart);
 
   // ----------------------------------------------------------------------
 
