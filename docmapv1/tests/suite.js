@@ -861,6 +861,121 @@ const sec = (n) => console.log('\n== ' + n);
   // @@STREAM-T@@
 
   // @@STREAM-P@@
+  // ===== v9 stream P ("Scarica PDF": vector A4 PDF written in the browser) =====
+  sec('Scarica PDF');
+  {
+    const cp = require('child_process');
+    fs.writeFileSync('shots/p_pdf.py', [
+      'import sys, json, pypdfium2 as pd',
+      'src, pre, dpi = sys.argv[1], sys.argv[2], int(sys.argv[3])',
+      'd = pd.PdfDocument(src); out = {"pages": len(d), "sizes": [], "text": []}',
+      'for i in range(len(d)):',
+      '    pg = d[i]; out["sizes"].append(list(pg.get_size())); out["text"].append(pg.get_textpage().get_text_range())',
+      '    if dpi: pg.render(scale=dpi / 72).to_pil().convert("RGBA").save("%s_%d.png" % (pre, i))',
+      'print(json.dumps(out))'].join('\n'));
+    const pdfInfo = (file, pre, dpi) => JSON.parse(cp.execSync('python3 shots/p_pdf.py ' + file + ' ' + pre + ' ' + (dpi || 0), {maxBuffer:1 << 26}).toString());
+    const K = 300 / 25.4;   // px per mm at 300 dpi (both PDFs are rendered at the same scale, independent of their page box)
+    // decode the QR inside each slot rectangle; returns {data, cx, cy} with the QR centre in mm
+    const pDecode = (png, slots, w, h) => slots.map(s => {
+      const x0 = Math.floor(s.x * K), y0 = Math.floor(s.y * K), W = Math.min(Math.floor(w * K), png.width - x0), H = Math.min(Math.floor(h * K), png.height - y0);
+      const d = new Uint8ClampedArray(W * H * 4);
+      for (let j = 0; j < H; j++){ const st = ((y0 + j) * png.width + x0) * 4; d.set(png.data.subarray(st, st + W * 4), j * W * 4); }
+      for (const f of [1, 2, 4]){
+        let e = d, w2 = W, h2 = H;
+        if (f > 1){ w2 = Math.floor(W / f); h2 = Math.floor(H / f); e = new Uint8ClampedArray(w2 * h2 * 4);
+          for (let j = 0; j < h2; j++) for (let i = 0; i < w2; i++){ const a = ((j * f) * W + i * f) * 4, b = (j * w2 + i) * 4; e[b] = d[a]; e[b+1] = d[a+1]; e[b+2] = d[a+2]; e[b+3] = 255; } }
+        const r = jsQR(e, w2, h2);
+        if (r && r.data){ const L = r.location, c = [L.topLeftCorner, L.topRightCorner, L.bottomLeftCorner, L.bottomRightCorner];
+          return {data:r.data, cx:s.x + c.reduce((a, q) => a + q.x, 0) / 4 * f / K, cy:s.y + c.reduce((a, q) => a + q.y, 0) / 4 * f / K}; }
+      }
+      return {data:null};
+    });
+    const pSetup = (pr, m, extra) => p.evaluate(([pr, m, extra]) => {
+      closeModal(true); const P = findPreset(pr); S.print.presetId = pr; S.print.geometry = geoFromPreset(P); S.print.geometryModified = false; S.print.contentMode = m; S.print.qrMode = 'live';
+      Object.assign(S.print, extra || {}); S.view = 'print'; renderAll();
+    }, [pr, m, extra]);
+    const pLayout = () => p.evaluate(() => { const g = S.print.geometry; return {w:g.w, h:g.h, pages:layoutLabels().pages.map(pg => pg.map(x => Object.assign(slotRect(x.s), {s:x.s, url:x.item.b.short_url, x:slotRect(x.s).x + (+S.print.offsetX || 0), y:slotRect(x.s).y + (+S.print.offsetY || 0)})))}; });
+    const pDownload = async (file) => {
+      const [dl] = await Promise.all([p.waitForEvent('download', {timeout:60000}), p.click('#btn-pdf')]);
+      await dl.saveAs(file); await p.waitForTimeout(150); return dl.suggestedFilename();
+    };
+    const pBrowserPrint = async (file) => {
+      await p.evaluate(() => { document.getElementById('page-style').textContent = '@page{size:210mm 297mm;margin:0mm}'; document.getElementById('print-root').innerHTML = buildLabelSheets(false).join(''); });
+      await p.emulateMedia({media:'print'}); fs.writeFileSync(file, await p.pdf({width:'210mm', height:'297mm', printBackground:true, preferCSSPageSize:true})); await p.emulateMedia({media:'screen'});
+      await p.evaluate(() => { document.getElementById('print-root').innerHTML = ''; });
+    };
+    const pPrev = await p.evaluate(() => ({print:JSON.parse(JSON.stringify(S.print)), used:JSON.parse(JSON.stringify(S.usedSlots)), sel:S.binders.filter(b => b.selected_for_print).map(b => b.id), n:S.binders.length}));
+    await p.evaluate(() => { S.binders.forEach(b => { b.selected_for_print = !isDemo(b) || !S.settings.hideDemo; }); });
+    const pCases = [
+      ['mrink143', 'split', {offsetX:1.2, offsetY:-0.6}, {mrink143:[0, 1]}],   // turned labels, calibration offsets, partial sheet
+      ['l7160', 'a', {offsetX:0, offsetY:0}, {}],
+      ['l7165', 'u', {offsetX:0, offsetY:0}, {}],
+      ['l7159', 'qr', {offsetX:0, offsetY:0}, {}]
+    ];
+    for (const [pr, m, off, used] of pCases){
+      await pSetup(pr, m, off); await p.evaluate((u) => { S.usedSlots = u; renderAll(); }, used);
+      const lay = await pLayout();
+      const name = await pDownload('shots/p_' + pr + '.pdf');
+      ok(/^DocMap_etichette_[A-Za-z0-9_-]+_\d{4}-\d{2}-\d{2}\.pdf$/.test(name) && name.includes(pr), `PDF ${pr}: file name ${name}`);
+      const after = await p.evaluate(() => ({modal:!!(topModal() && topModal().textContent.includes(t('pdf_after_t'))), toast:[...document.querySelectorAll('.toast')].some(x => x.textContent.includes('100%')), last:PDF.last}));
+      ok(after.modal && after.toast, `PDF ${pr}: toast "stampa al 100%" + question about used slots`, after);
+      await p.evaluate(() => closeModal(true));
+      ok(fs.readFileSync('shots/p_' + pr + '.pdf').subarray(0, 8).toString() === '%PDF-1.7', `PDF ${pr}: PDF header`);
+      const inf = pdfInfo('shots/p_' + pr + '.pdf', 'shots/p_' + pr, 300);
+      ok(inf.pages === lay.pages.length && inf.sizes.every(s => Math.abs(s[0] - 595.276) < 0.01 && Math.abs(s[1] - 841.89) < 0.01), `PDF ${pr}: ${inf.pages} page(s), exact A4 in points`, inf.sizes);
+      await pBrowserPrint('shots/p_' + pr + '_print.pdf');
+      pdfInfo('shots/p_' + pr + '_print.pdf', 'shots/p_' + pr + '_print', 300);
+      const mine = pDecode(PNG.sync.read(fs.readFileSync('shots/p_' + pr + '_0.png')), lay.pages[0], lay.w, lay.h);
+      const ref = pDecode(PNG.sync.read(fs.readFileSync('shots/p_' + pr + '_print_0.png')), lay.pages[0], lay.w, lay.h);
+      const good = mine.filter((q, i) => q.data === lay.pages[0][i].url).length;
+      ok(good === lay.pages[0].length && good > 0, `PDF ${pr}/${m}: every QR decodes in slot order ${good}/${lay.pages[0].length}`, mine.map(q => q.data));
+      const dmax = Math.max(...mine.map((q, i) => q.data && ref[i].data ? Math.hypot(q.cx - ref[i].cx, q.cy - ref[i].cy) : 99));
+      console.log(`  PDF ${pr}/${m}: ${after.last.bytes} bytes, ${after.last.ms} ms, QR centre offset vs browser print max ${dmax.toFixed(3)} mm`);
+      ok(dmax < 0.5, `PDF ${pr}: QR centres match the browser print within 0.5 mm (max ${dmax.toFixed(3)} mm)`);
+      if (pr === 'mrink143'){
+        const txt = inf.text.join('\n');
+        ok(txt.includes('Contabilità') && /α/.test(txt) && /β/.test(txt) && txt.includes('Barbieri Luigi S.r.l.'), 'PDF text is real, extractable text (accents, Greek shelf letters, company names)', txt.slice(0, 200));
+        ok(!lay.pages[0].some(s => s.s === 0 || s.s === 1), 'PDF skips the used slots of the partial sheet like the print does');
+        const raw = fs.readFileSync('shots/p_' + pr + '.pdf').toString('latin1');
+        ok(/\/FontFile2/.test(raw) && /\/ToUnicode/.test(raw) && /\/CIDFontType2/.test(raw) && /\/Identity-H/.test(raw) && /\/Producer \(DocMap 2026\)/.test(raw) && /\/CreationDate \(D:\d{14}/.test(raw) && /\/FlateDecode/.test(raw), 'PDF embeds subset TrueType fonts (Identity-H + ToUnicode), metadata and compressed streams');
+        ok(after.last.bytes < 200000, `PDF size for one MRINK143 sheet: ${after.last.bytes} bytes`);
+        try { cp.execSync('qpdf --check shots/p_' + pr + '.pdf', {stdio:'pipe'}); ok(true, 'qpdf --check'); } catch(e){ if (e.status === 127 || /not found|ENOENT/.test(String(e.message))) console.log('  (qpdf not installed: skipped)'); else ok(false, 'qpdf --check', String(e.stdout || e.message).slice(0, 300)); }
+      }
+    }
+    // used-slot question: "yes" records the consumed slots exactly like the print path
+    await pSetup('mrink143', 'split', {offsetX:0, offsetY:0}); await p.evaluate(() => { S.usedSlots = {}; renderAll(); });
+    const pExp = await p.evaluate(() => { const L = layoutLabels(), last = L.pages[L.pages.length - 1].map(x => x.s); return last.length >= slotCount() ? '' : last.sort((a, b) => a - b).join(); });
+    await pDownload('shots/p_used.pdf');
+    await p.locator('.modal-f .btn-primary').last().click(); await p.waitForTimeout(150);
+    let pv = await p.evaluate(() => (S.usedSlots.mrink143 || []).join());
+    ok(pv === pExp, 'after the PDF, "Sì, aggiorna mappa" marks the slots consumed on the last sheet', [pv, pExp]);
+    // 200 binders: fast, with progress, every QR on the first and last sheet decodes
+    pv = await p.evaluate(() => { S.usedSlots = {}; const base = S.binders.filter(b => !isDemo(b) || !S.settings.hideDemo);
+      for (let i = 0; S.binders.filter(b => b.selected_for_print).length < 200; i++){ const x = normalizeBinder(clone(base[i % base.length])); x.id = uuid(); x.speaking_code = 'PZ' + i; x.short_code = newShortCode(); x.short_url = shortUrl(x.short_code); x.selected_for_print = true; x.tags = 'ptest'; S.binders.push(x); }
+      ensureIntegrity(); renderAll(); return printQueueBinders().length; });
+    const lay200 = await pLayout();
+    let seenProgress = false;
+    const pWatch = setInterval(async () => { try { if (await p.evaluate(() => !!document.getElementById('pdf-progress'))) seenProgress = true; } catch(e){} }, 100);
+    await pDownload('shots/p_200.pdf'); clearInterval(pWatch);
+    await p.evaluate(() => closeModal(true));
+    const last200 = await p.evaluate(() => PDF.last);
+    ok(pv === 200 && last200.pages === 25 && last200.ms < 8000, `200 binders → 25 sheets in ${last200.ms} ms, ${last200.bytes} bytes`, last200);
+    console.log(`  PDF 200 binders: ${last200.pages} pages, ${last200.bytes} bytes, ${last200.ms} ms`);
+    ok(seenProgress, 'progress shown for a big PDF');
+    const inf200 = pdfInfo('shots/p_200.pdf', 'shots/p_200', 0);
+    ok(inf200.pages === 25, 'PDF with 200 binders opens with 25 pages');
+    cp.execSync('python3 -c "import pypdfium2 as pd;d=pd.PdfDocument(\'shots/p_200.pdf\');[d[i].render(scale=300/72).to_pil().convert(\'RGBA\').save(\'shots/p_200_%d.png\' % i) for i in (0, 24)]"');
+    let good200 = 0, tot200 = 0;
+    for (const i of [0, 24]){ const q = pDecode(PNG.sync.read(fs.readFileSync('shots/p_200_' + i + '.png')), lay200.pages[i], lay200.w, lay200.h); tot200 += q.length; good200 += q.filter((x, j) => x.data === lay200.pages[i][j].url).length; }
+    ok(good200 === tot200 && tot200 === 16, `200 binders: QR on the first and last sheet decode in order ${good200}/${tot200}`);
+    // help + English + restore
+    ok(await p.evaluate(() => { const h = helpTopic('pdf'); return !!(h && h.body.it.includes('100%') && h.body.en.includes('Actual size')); }) && (await p.innerText('#btn-pdf')).includes('Scarica PDF'), 'help topic "pdf" (IT + EN) and the Scarica PDF button');
+    await p.evaluate(() => { S.lang = 'en'; renderAll(); });
+    ok((await p.innerText('#btn-pdf')).includes('Download PDF'), 'Download PDF button in English');
+    await p.evaluate((prev) => { S.lang = 'it'; S.binders = S.binders.filter(b => b.tags !== 'ptest'); S.binders.forEach(b => { b.selected_for_print = prev.sel.includes(b.id); });
+      S.print = prev.print; S.usedSlots = prev.used; savePrefs(); commit(); S.view = 'archive'; renderAll(); }, pPrev);
+    ok(await p.evaluate((n) => S.binders.length === n, pPrev.n), 'PDF tests leave the archive and print settings as they were');
+  }
 
   // @@STREAM-L@@
   sec('v9 L: activity log');

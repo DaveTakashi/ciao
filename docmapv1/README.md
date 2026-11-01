@@ -69,6 +69,10 @@ Il **codice parlante** c'è sempre. Si possono accendere o spegnere: categoria, 
 
 La colonna di sinistra mostra solo coda di stampa, foglio (con il consigliato in evidenza), contenuto, campi, QR e qualità. **Opzioni avanzate** (riquadro richiudibile, resta come l'hai lasciato) contiene geometria del foglio, offset e margine interno, verso di lettura e linea di taglio, recupero dei fogli parziali e calibrazione. Le guide lo aprono da sole quando serve.
 
+### Scarica PDF (stampare da un altro PC o da una chiavetta)
+
+In **Stampa etichette**, accanto a "Stampa Etichette", il pulsante **Scarica PDF** crea un file PDF pulito e già pronto per la stampa, senza passare dal dialogo di stampa e senza Internet. Contiene esattamente le stesse etichette della stampa diretta: foglio A4 esatto, misure al millimetro, offset di calibrazione, etichette girate di MRINK143, linee di taglio e caselle già usate del foglio parziale lasciate vuote. Testi e QR sono vettoriali (nitidi a qualsiasi risoluzione) e il testo si può cercare e copiare. Il file si chiama ad esempio `DocMap_etichette_mrink143_2026-11-01.pdf`: copialo su una chiavetta o mandalo per e-mail e stampalo da qualsiasi PC scegliendo **Scala 100% / Dimensioni effettive** (mai "Adatta alla pagina"). Dopo il download DocMap chiede, come dopo una stampa, se segnare come usate le caselle dell'ultimo foglio.
+
 ## Importazione da Excel
 
 In **⚙ › Importa** puoi trascinare direttamente un file Excel **.xlsx** (non serve più salvarlo in CSV): DocMap lo legge offline, anche aperto con doppio clic. Se il file ha più fogli scegli quello giusto; titoli e righe vuote sopra la tabella vengono saltati. Prima dell'anteprima compare il passo **Abbina le colonne**: per ogni colonna del file vedi l'intestazione, alcuni valori di esempio e il campo DocMap proposto (dai nomi delle colonne, anche simili, e dai valori: codici dm26, colori #RRGGBB, anni, CAP, province). Correggi i menu se serve, scegli se importare **Faldoni** o **Anagrafica clienti** e premi **Conferma abbinamento**. L'abbinamento viene ricordato, quindi reimportare lo stesso file richiede un solo clic. Lo stesso passo vale per i CSV e per le celle copiate da Excel e incollate; i CSV di DocMap e i JSON vanno diretti all'anteprima, con il link «Modifica abbinamento colonne». Testi e caratteri speciali restano identici (apostrofi come LESIGNANO DE' BAGNI, virgolette, punto e virgola, accenti, zeri iniziali come 007, a capo nelle celle); le date diventano AAAA-MM-GG e nella colonna Contenuti ogni riga o ogni «|» diventa una voce. I vecchi file .xls vanno prima salvati come .xlsx o CSV. Limiti: le celle unite non vengono espanse, le formule senza valore salvato arrivano vuote, serve Chrome/Edge 103 o successivo.
@@ -204,6 +208,7 @@ assets/fonts/         Inter e JetBrains Mono (licenza OFL)
 assets/js/01..09-*.js QR, dati, stampa, interfaccia, SQLite, foto (06b), clienti (06c), Informazioni (06d),
                       suggerimenti dell'editor (04b), import Excel (05b), guida
 vendor/sql-wasm.js    sql.js 1.10.3 con WASM incluso
+vendor/pdf-fonts.js   caratteri per "Scarica PDF" (Inter e JetBrains Mono statici, OFL; rigenerabili con tools/make_pdf_fonts.py)
 tests/suite.js        test automatici (solo sviluppo)
 tests/fixtures/       piccolo elenco clienti di prova e generatore .xlsx (dati inventati)
 AGENTS.md, docs/      documentazione tecnica per sviluppatori e agenti AI
