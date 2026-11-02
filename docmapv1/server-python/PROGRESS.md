@@ -21,3 +21,9 @@ Newest entries last. Resume from the last "Next step".
 - Lessons: php -S (cli-server SAPI) has opcache ON: config.php rewrites are seen only after ~2 s (test sleeps 2.2 s and
   bumps mtime). Tombstone restore hash includes server time → registered as volatile in the test.
 - Next step: tests/validate_python.py (reuse docs/python/tools/validate_schemas.py against the Python server).
+
+## 2026-11-02 — validator + docs
+- tests/validate_python.py: `NODE_PATH=/opt/node22/lib/node_modules python3 docmapv1/server-python/tests/validate_python.py`
+  → "RESULT: all checks passed" (262 OK; validate_schemas.py imported unchanged, step 4 swapped for the Python server).
+- Added requirements.txt, README.md (IT), run_windows.bat (CRLF), run_unix.sh, .gitattributes.
+- Next step: review leftovers (Windows path edge cases in static_response, robustness), final commit.
