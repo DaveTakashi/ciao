@@ -127,7 +127,22 @@ async def _read_body(request: SRequest, cap: int) -> bytes:
     return b"".join(chunks)[:cap]
 
 
-def create_app(config_path: str, root: str | None = None, api_paths=DEFAULT_API_PATHS) -> FastAPI:
+def php_layout_config(root: str, path: str):
+    """--php-layout: like php -S + php-router.php, a request for <dir>/api.php that exists under `root` (and is not
+    denied by the .htaccess rules) runs the API with <dir>/config.php, i.e. the config next to the api.php requested
+    (several deploys under one root each keep their own config). Returns that config path, or None."""
+    if not path.endswith("/api.php") or ".." in path or "\x00" in path:
+        return None
+    root = os.path.abspath(root)
+    f = os.path.normpath(os.path.join(root, path.replace("\\", "/").lstrip("/")))
+    if not os.path.isfile(f) or os.path.commonpath([f, root]) != root:
+        return None
+    if static_response(root, path).status_code in (400, 403):
+        return None
+    return os.path.join(os.path.dirname(f), "config.php")
+
+
+def create_app(config_path: str, root: str | None = None, api_paths=DEFAULT_API_PATHS, php_layout: bool = False) -> FastAPI:
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, title="DocMap server (Python)")
     paths = {p if p.startswith("/") else "/" + p for p in api_paths}
 
@@ -135,14 +150,17 @@ def create_app(config_path: str, root: str | None = None, api_paths=DEFAULT_API_
     async def everything(request: SRequest, full_path: str):
         raw_path = request.scope.get("raw_path") or request.scope["path"].encode("utf-8")
         path = unquote_to_bytes(raw_path.split(b"?", 1)[0]).decode("utf-8", "surrogateescape")
-        if path in paths:
-            body = await _read_body(request, _body_cap(config_path))
+        cfg = config_path
+        if php_layout and root and path not in paths:
+            cfg = await run_in_threadpool(php_layout_config, root, path) or None
+        if path in paths or (php_layout and root and cfg):
+            body = await _read_body(request, _body_cap(cfg))
             headers = {}
             for k, v in request.headers.raw:
                 headers[k.decode("latin-1").lower()] = v.decode("utf-8", "surrogateescape")
             req = Request(request.method.upper(), parse_query(request.scope.get("query_string", b"")), headers, body,
                           request.client.host if request.client else None)
-            res = await run_in_threadpool(handle, req, config_path)
+            res = await run_in_threadpool(handle, req, cfg)
             return SResponse(res.body, status_code=res.status, headers=dict(res.headers))
         if root:
             return await run_in_threadpool(static_response, root, path)

@@ -49,3 +49,13 @@ Newest entries last. Resume from the last "Next step".
   object in me (detailed) / ping (short) only when required. CLI `python -m docmap_server licence install|status`.
 - `python3 docmapv1/server-python/tests/test_licence.py` → Ran 9 tests OK; diff_test → 5 OK; validate_python → all checks passed.
 - Next step: F2 — tests/php-shim/php + tests/run_suite_python.sh, run suite W/X/J with Python vs PHP.
+
+## 2026-11-02 — F2 shim written
+- Server: `--php-layout` (web.create_app(php_layout=True)): with --root, every existing, non-denied <dir>/api.php is the
+  API with <dir>/config.php (config next to the api.php requested, as php -S does). Proofs still green.
+- tests/php-shim/php: `-S h:p -t root router` → Python server (api.php = current server-php/api.php → Python; legacy
+  api.php content (X/J v10.1 from git 68ae170) and other .php (setup.php) → real php -S on an internal port; static →
+  Python); anything else → exec real php (first php on PATH outside the shim dir). DOCMAP_SHIM_LEGACY_PHP=0 = all api.php to Python.
+- tests/run_suite_python.sh: PATH=shim:..., runs node suite.js in docmapv1/tests, log in _trash/suite-python.log.
+- jsqr/pngjs not installed globally: npm i'd them in the session scratchpad and added to NODE_PATH.
+- Next step: run PHP baseline + Python suite, compare W/X/J, write SUITE-RESULTS.md.

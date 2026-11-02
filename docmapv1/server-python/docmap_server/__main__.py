@@ -28,6 +28,7 @@ def main(argv=None):
     s.add_argument("--port", type=int, default=int(os.environ.get("DOCMAP_PORT", "8080")))
     s.add_argument("--root", default=os.environ.get("DOCMAP_ROOT"), help="deploy folder served as static files from the same origin")
     s.add_argument("--api-path", action="append", help="URL path of the API (repeatable; default /studio-de/server-php/api.php and /api)")
+    s.add_argument("--php-layout", action="store_true", help="with --root: every existing <dir>/api.php under the root is the API, with <dir>/config.php (as php -S does)")
     s.add_argument("--log-level", default="info")
     u = sub.add_parser("setup", help="create key, tokens and the configuration (like setup.php)")
     u.add_argument("--config", default=None, help="file to write (default: $DOCMAP_CONFIG or ./config.json); *.php = setup.php format")
@@ -57,7 +58,7 @@ def main(argv=None):
     import uvicorn
     from .web import DEFAULT_API_PATHS, create_app
     cfg = _config_path(a.config)
-    app = create_app(cfg, a.root, a.api_path or DEFAULT_API_PATHS)
+    app = create_app(cfg, a.root, a.api_path or DEFAULT_API_PATHS, php_layout=a.php_layout and bool(a.root))
     print("DocMap server (Python) — config %s — http://%s:%d%s" % (cfg, a.host, a.port, (a.api_path or DEFAULT_API_PATHS)[0]), flush=True)
     uvicorn.run(app, host=a.host, port=a.port, log_level=a.log_level.lower(), server_header=False, access_log=a.log_level.lower() == "debug")
     return 0
