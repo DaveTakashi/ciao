@@ -697,8 +697,10 @@ class DiffTest(unittest.TestCase):
         self.assertEqual((r["php"][1]["recorded"], r["php"][1]["skipped"]), (5, 9))
         r = d.both("seen re-sent → all skipped", "seen", 200, token=V, headers=PHONE, body={"items": items})
         self.assertEqual((r["php"][1]["recorded"], r["php"][1]["skipped"]), (0, 14))
-        d.both("seen at +60 s → deduped, +200 s → recorded", "seen", 200, token=V, headers=PHONE, body={"items": [
-            {"id": "j-x", "at": iso(-3600 + 60)}, {"id": "j-x", "at": iso(-3600 + 200)}]})
+        r = d.both("seen at +60 s → deduped, +200 s → recorded, ±120 s exactly → deduped (inclusive window)", "seen", 200, token=V, headers=PHONE, body={"items": [
+            {"id": "j-x", "at": iso(-3600 + 60)}, {"id": "j-x", "at": iso(-3600 + 200)}, {"id": "j-x", "at": iso(-3600 - 120)}, {"id": "j-x", "at": iso(-1800 + 120)},
+            {"id": "j-x", "at": iso(-1800 + 121)}]})
+        self.assertEqual((r["php"][1]["recorded"], r["php"][1]["skipped"]), (2, 3))
         d.both("seen same item, other device → recorded", "seen", 200, token=V, headers=DEV, body={"items": [{"id": "j-x", "at": iso(-3600)}]})
         d.both("seen items as object, _device in body", "seen", 200, token=E, body={"items": {"a": {"id": "j-y", "at": iso(-120)}}, "_device": {"id": "pc-x", "name": "PC X", "app": "26.12.0"}})
         d.both("seen type array → 500 (rolled back)", "seen", 500, token=E, body={"items": [{"id": "j-y", "at": iso(-130)}, {"type": ["x"], "id": "j-y", "at": iso(-60)}]})

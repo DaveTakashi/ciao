@@ -182,10 +182,25 @@ class LicenceTests(unittest.TestCase):
                             ("token_revoke", {"id": "db:00"}), ("journal_restore", {"jid": 1})):
             s, b = srv.call(route, body)
             self.assertEqual((s, b["error"]["code"]), (403, "licence_read_only"), (route, b))
-        # reads, pull and exports keep working
-        for route in ("me", "pull", "tokens", "journal"):
+        # v12 record types go through push: blocked like every other record
+        for rec in ({"type": "status_event", "id": "se-ro", "updated_at": iso(NOW), "data": {"id": "se-ro", "at": iso(NOW), "target_type": "binder", "target_id": "b-x"}},
+                    {"type": "archive", "id": "ar-ro", "updated_at": iso(NOW), "data": {"id": "ar-ro", "name": "Storico"}}):
+            s, b = srv.call("push", {"records": [rec]}, tok="mario")
+            self.assertEqual((s, b["error"]["code"]), (403, "licence_read_only"), (rec["type"], b))
+        # reads, pull and exports keep working (v12: access, last_seen too)
+        for route in ("me", "pull", "tokens", "journal", "access"):
             s, b = srv.call(route)
             self.assertEqual(s, 200, (route, b))
+        s, b = srv.call("last_seen", tok="mario", id="b-x")
+        self.assertEqual(s, 200, b)
+        # v12 `seen` is an audit record of a read (POST, but not a data write): it keeps working in read_only
+        at = iso(datetime.now(timezone.utc) - timedelta(minutes=5))
+        sid = "b-seen-" + os.urandom(4).hex()
+        s, b = srv.call("seen", {"items": [{"type": "binder", "id": sid, "at": at}]}, tok="mario")
+        self.assertEqual((s, b.get("recorded")), (200, 1), b)
+        s, b = srv.call("access", limit=200)
+        self.assertEqual(s, 200, b)
+        self.assertIn((sid, "seen"), [(it["target"]["id"], it["route"]) for it in b["items"]])
         s, b = srv.call("me")
         self.assertEqual((b["licence"]["mode"], b["licence"]["writable"]), (mode, False))
         s, b = srv.call("ping", tok=None)
@@ -208,7 +223,7 @@ class LicenceTests(unittest.TestCase):
         s, b = srv.call("me")
         self.assertEqual(s, 200)
         self.assertNotIn("licence", b)
-        self.assertEqual(sorted(b), ["role", "server_time", "studio_name", "token_id", "user"])
+        self.assertEqual(sorted(b), ["remember_minutes", "role", "server_time", "studio_name", "token_id", "user"])
         s, b = srv.call("ping", tok=None)
         self.assertNotIn("licence", b)
         r = self.cli("status", config=srv.config)
