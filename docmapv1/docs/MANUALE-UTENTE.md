@@ -185,6 +185,53 @@ Il QR stampato contiene `https://qr7.it/dm26XXXXXXXX`. Il sistema qr7.it deve sa
 2. Premi **Ubicazione…**, scegli la scatola e premi **Assegna**.
 3. Il filtro **Tutte le ubicazioni** / **Senza ubicazione** mostra cosa manca.
 
+### 6.6 Più archivi (v12)
+Lo stesso studio può tenere **archivi separati**: per esempio l'archivio corrente, lo storico, un Comune, un secondo
+magazzino. Faldoni, ubicazioni, stampa ed esportazioni restano divisi.
+1. **Informazioni** › **Archivi** › **Nuovo archivio**: nome, codice breve (es. `ST`) e colore. Premi **Avanti**: parte
+   **Configura archivio** (§6.7).
+2. I dati di prima stanno tutti in **Archivio principale** (puoi rinominarlo con la matita).
+3. Con due o più archivi compare in alto il **selettore**: scegli un archivio oppure **Tutti gli archivi**. Archivio,
+   coda di stampa, **Ubicazioni** ed **Esporta e Salva** mostrano solo l'archivio scelto. I faldoni nuovi e le righe
+   importate senza archivio finiscono nell'archivio scelto.
+4. Spostare faldoni: in **Archivio** spuntali e premi **Archivio…**. Mettere un faldone in una scatola di un altro
+   archivio lo sposta anche di archivio.
+5. **Unisci in…** sposta tutti i faldoni e le ubicazioni di un archivio in un altro e lo elimina. Un archivio vuoto si
+   elimina con il cestino. **Annulla** rimette tutto com'era.
+6. CSV ed Excel: la colonna `archive_id` (o `archivio`) accetta il codice (`ST`), il nome o l'id; un nome nuovo crea
+   l'archivio. **Esporta e Salva** › **Archivio da esportare** limita manifest, CSV completo e registro a un archivio
+   (il backup JSON contiene sempre tutto).
+
+### 6.7 Configura archivio (procedura guidata)
+1. **Informazioni** › **Archivi** › **Configura archivio** sulla scheda dell'archivio (oppure il pulsante in
+   **Ubicazioni**).
+2. Scegli il **modello** più vicino: **Studio** (Stanza › Armadio › Ripiano › Scatola), **Magazzino** (Magazzino ›
+   Corsia › Scaffale › Ripiano › Scatola), **Ente / Comune** (Deposito › Scaffale › Palchetto › Faldone-scatola) o
+   **Personalizzato** (parti dai livelli attuali).
+3. Per ogni livello: nome, prefisso, **quanti** dentro ciascuno del livello sopra e se riceve un **QR** (davanti
+   all'armadio, su ogni scansia, sulle scatole). In basso vedi subito quante ubicazioni ed etichette verranno create.
+4. **Anteprima**: primo e ultimo codice (es. `DEP1-S1-P1-F01 … DEP1-S2-P2-F03`), il primo ramo e i totali.
+5. **Crea l'archivio**, poi **Stampa N etichette QR**: si stampano solo i livelli con il QR. I livelli valgono per
+   quell'archivio (**Ubicazioni** › **Livelli…** li cambia; nell'Archivio principale restano i livelli dello studio).
+
+### 6.8 QR annidati: mappare il magazzino con lo scanner
+Per dire "questa scansia sta dentro quell'armadio" senza digitare:
+1. **Ubicazioni** › **Modalità associazione** e spunta **Annida ubicazioni**.
+2. Scansiona il QR dell'armadio (diventa il **contenitore**), poi il QR di una scansia che non è ancora dentro.
+3. DocMap chiede *"Sposta S2 dentro A1?"*: premi **Sì, sposta** oppure scansiona di nuovo la scansia. **No** apre
+   soltanto la scansia. **Annulla spostamento** rimette tutto com'era.
+4. I faldoni scansionati dopo vanno nell'ubicazione più precisa attiva. Senza la spunta la modalità associazione
+   funziona come prima.
+
+### 6.9 Tag NFC (Android) e iPhone
+Un tag NFC adesivo può sostituire o affiancare il QR: contiene **lo stesso indirizzo** del QR.
+1. **Scrivere il tag** (telefono Android con Chrome, utente che può modificare): apri la pagina del faldone o della
+   scatola scansionando il QR, premi **Scrivi su tag NFC** e avvicina il tag al retro del telefono.
+2. **Leggere**: su Android premi **Leggi tag NFC**; ogni tag avvicinato apre la sua scheda, e in **Scansiona in
+   sequenza** finisce nella scatola attiva come un QR. Su **iPhone** non serve nulla: avvicinando il telefono al tag
+   iOS apre l'indirizzo come quando inquadri un QR (Safari non può scrivere i tag).
+3. Su PC e iPhone i pulsanti NFC non compaiono. Progetto per varchi RFID futuri: [RFID-NFC.md](RFID-NFC.md).
+
 ## 7. Server online su SiteGround (una volta sola, chi gestisce il sito)
 
 1. **Prepara i file sul PC**: `python3 docmapv1/tools/build_deploy.py`. Crea la cartella `deploy/studio-de/`.

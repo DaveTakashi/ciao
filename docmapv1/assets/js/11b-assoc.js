@@ -370,7 +370,7 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
     }
     async function saCamToggle(){
       if (SA.cam){ saCamStop(); return scRender(); }
-      const cam = new DMCamScanner({onCode:(txt) => saHandle(txt, 'phone-camera')});
+      const cam = new DMCamScanner({onCode:(txt) => (typeof onTagScanned === 'function' && onTagScanned(txt, 'qr')) || saHandle(txt, 'phone-camera')});   // v12: one pipeline (11e-nfc.js)
       SA.cam = cam;
       try { await cam.start(); scRender(); }
       catch(e){ SA.cam = null; try { cam.stop(); } catch(x){} SA.msg = {kind:'err', text:t('sa_cam_err', {m:e && e.message || e})}; scRender(); }
@@ -413,7 +413,7 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       const f = e.target; if (f.dataset.s !== 'sa-typed-form') return;
       e.preventDefault(); e.stopImmediatePropagation();
       const i = document.getElementById('sa-typed'), v = i ? i.value : ''; if (i) i.value = '';
-      if (String(v).trim()) saHandle(v, 'phone-typed');
+      if (String(v).trim()) (typeof onTagScanned === 'function' && onTagScanned(v, 'keyboard')) || saHandle(v, 'phone-typed');
     }, true);
     window.addEventListener('popstate', () => { SC.params = scParams(); SA.msg = null; scRoute(); });
     window.addEventListener('pagehide', saCamStop);

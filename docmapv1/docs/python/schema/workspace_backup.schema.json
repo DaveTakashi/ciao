@@ -3,7 +3,7 @@
   "title": "DocMap workspace JSON (backup)",
   "description": "The file written by 'Salva backup' (docmap_workspace_AAAAMMGG_HHMM.json) and by Esporta e Salva › Sessione completa JSON (docmap_workspace.json): workspaceJSON(true) in assets/js/04-ui.js, plus the key sync_journal added by 06i-journal.js when the local journal is not empty. Sessions stored in SQLite (sessions.workspace_json) use the same format without activity_log and sync_journal. No photos: they live only in the .sqlite. Contract: docs/MODELLO-DATI.md §8.",
   "type": "object",
-  "required": ["app", "format", "version", "exported_at", "settings", "lang", "print", "customPresets", "usedSlots", "binders", "clients", "locations"],
+  "required": ["app", "format", "version", "exported_at", "settings", "lang", "print", "customPresets", "usedSlots", "binders", "clients", "locations", "archives"],
   "properties": {
     "app": {"const": "DocMap26"},
     "format": {"const": "docmap_workspace"},
@@ -23,6 +23,7 @@
     "binders": {"type": "array", "items": {"$ref": "binder.schema.json"}},
     "clients": {"type": "array", "items": {"$ref": "client.schema.json"}},
     "locations": {"type": "array", "items": {"$ref": "location.schema.json"}, "description": "v11 (absent in older files = no change to the tree)."},
+    "archives": {"type": "array", "items": {"$ref": "archive.schema.json"}, "description": "v12 (absent in older files = only the default archive). The default archive appears only once edited."},
     "activity_log": {"type": "array", "items": {"$ref": "activity_log_entry.schema.json"}, "description": "v9, backups only: merged by id on restore, never replaced."},
     "sync_journal": {"type": "array", "items": {"$ref": "sync_journal_entry.schema.json"}, "description": "v11, backups only, present when the local journal is not empty: merged by id on 'ripristina tutto' + Sostituisci."}
   },

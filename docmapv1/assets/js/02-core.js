@@ -12,7 +12,7 @@ const GREEK = ['α','β','γ','δ','ε','ζ','η','θ'];
 const CATEGORIES = ['Ordinaria','Semplificata','Societario','Lavoro','Dichiarativi','Contenzioso','Privati'];
 const CAT_COLOR = {Ordinaria:'#2563EB',Semplificata:'#059669',Societario:'#7C3AED',Lavoro:'#D97706',Dichiarativi:'#DC2626'};
 const STATES = ['CURRENT','HISTORICAL','CHECKED_OUT'];
-const CSV_COLUMNS = ['speaking_code','multi_code','company_name','company_city','category','binder_title','ref_year','room_code','cabinet_code','shelf_code','sector_code','location_code','archive_state','contents','tags','color_hex','short_code','short_url','final_destination','extra_codes','shelf_color','contacts','notes','selected_for_print','id','created_at','updated_at','color_locked','location_id'];   // v10: color_locked appended · v11: location_id (02c-locations.js) appended (never reorder)
+const CSV_COLUMNS = ['speaking_code','multi_code','company_name','company_city','category','binder_title','ref_year','room_code','cabinet_code','shelf_code','sector_code','location_code','archive_state','contents','tags','color_hex','short_code','short_url','final_destination','extra_codes','shelf_color','contacts','notes','selected_for_print','id','created_at','updated_at','color_locked','location_id','archive_id'];   // v10: color_locked appended · v11: location_id (02c-locations.js) appended · v12: archive_id (02e-archives.js) appended (never reorder)
 /* Shelf naming styles: the quick-pick buttons in the binder form follow the chosen style. */
 const SHELF_TYPES = {
   number:['1','2','3','4','5','6','7','8'], letter:['A','B','C','D','E','F','G','H'], greek:GREEK,
@@ -349,10 +349,11 @@ function manifestTags(b){ return ['docmap26', b.speaking_code, b.multi_code ? 'm
 function normalizeBinder(b){
   const o = Object.assign({
     id:uuid(), speaking_code:'', multi_code:'', company_name:'', company_city:'', ref_year:'', extra_codes:'', shelf_color:'', category:'', color_hex:'#2563EB', binder_title:'', room_code:'', cabinet_code:'', shelf_code:'', sector_code:'',
-    location_code:'', archive_state:'CURRENT', contents_items:[], tags:'', short_code:'', short_url:'', final_destination:'', contacts:'', notes:'', selected_for_print:false, color_locked:false, location_id:'',
+    location_code:'', archive_state:'CURRENT', contents_items:[], tags:'', short_code:'', short_url:'', final_destination:'', contacts:'', notes:'', selected_for_print:false, color_locked:false, location_id:'', archive_id:'',
     created_at:nowISO(), updated_at:nowISO()
   }, b || {});
-  ['speaking_code','multi_code','company_name','company_city','ref_year','extra_codes','shelf_color','category','binder_title','room_code','cabinet_code','shelf_code','sector_code','tags','short_code','final_destination','contacts','notes','location_id'].forEach(k => o[k] = String(o[k] == null ? '' : o[k]).trim());
+  ['speaking_code','multi_code','company_name','company_city','ref_year','extra_codes','shelf_color','category','binder_title','room_code','cabinet_code','shelf_code','sector_code','tags','short_code','final_destination','contacts','notes','location_id','archive_id'].forEach(k => o[k] = String(o[k] == null ? '' : o[k]).trim());
+  if (typeof archKey === 'function') o.archive_id = archKey(o.archive_id);   // v12: '' = default archive (02e-archives.js)
   o.speaking_code = o.speaking_code.toUpperCase().replace(/\s+/g, '');
   if (/^[a-z]{1,2}$/i.test(o.room_code)) o.room_code = o.room_code.toUpperCase();   // short room letters (a → A); names like "Ufficio 1" stay as typed
   o.shelf_color = normHex(o.shelf_color);
@@ -429,6 +430,7 @@ function defaultState(){
             contentMode:'info', template:'classic', showMulti:true, fields:{}, split:{ratio:0.5, rotate:-90, guides:true}, advanced:false, qrMode:'live', showQrUrl:true, copies:1, previewMode:'labels',
             info:{items:2, pair:false}, edge:{outer:4, cut:1, byPreset:{}} },
     customPresets:[], usedSlots:{}, clients:[], locations:[],   // v11: location tree (02c-locations.js)
+    archives:[], archiveSel:'',   // v12: archives / clusters (02e-archives.js); archiveSel = archive shown by the top-bar switcher ('' = all), a preference of this device
    
     hasUnexportedChanges:true, onboarded:false, lastExportAt:null, lastExportFile:null, lastSavedAt:null, archiveView:'table',
     syncJournal:[]   // v11: local push/sync journal (06i-journal.js)
@@ -462,6 +464,7 @@ function migrate(st){
   if (!(st && st.schema >= 26.9) && o.print.presetId === 'mrink143' && o.print.contentMode === 'split') o.print.contentMode = 'info';
   o.schema = 26.9;
   // v11: the location tree is normalised before the binders, so their location_code can follow it (02c-locations.js)
+  o.archives = typeof archNormalizeList === 'function' ? archNormalizeList(o.archives) : Array.isArray(o.archives) ? o.archives : [];   // v12 (02e-archives.js): absent before v12 = only the default archive
   o.locations = Array.isArray(o.locations) && typeof normalizeLocation === 'function' ? o.locations.map(normalizeLocation) : Array.isArray(o.locations) ? o.locations : [];
   if (typeof locIndexUse === 'function') locIndexUse(o.locations);
   o.binders = Array.isArray(o.binders) ? o.binders.map(normalizeBinder) : [];

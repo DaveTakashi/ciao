@@ -2824,9 +2824,9 @@ const sec = (n) => console.log('\n== ' + n);
     let Xv, Xv2;
     const Xsel = await p.evaluate(() => S.binders.filter(b => b.selected_for_print).map(b => b.id));
     await p.evaluate(() => { while (topModal()) closeModal(true); S.lang = 'it'; S.view = 'info'; S.infoTab = 'loc'; renderAll(); });
-    Xv = await p.evaluate(() => ({n:(S.locations || []).length, empty:!!document.getElementById('lo-empty-bulk'), tab:!!document.querySelector('.info-tabs [data-v="loc"]'), csv:CSV_COLUMNS[CSV_COLUMNS.length - 1], db:DB_SCHEMA_VERSION,
+    Xv = await p.evaluate(() => ({n:(S.locations || []).length, empty:!!document.getElementById('lo-empty-bulk'), tab:!!document.querySelector('.info-tabs [data-v="loc"]'), csv:CSV_COLUMNS[28], db:DB_SCHEMA_VERSION,   /* v12: archive_id appended after location_id */
       w:document.documentElement.scrollWidth <= innerWidth + 1}));
-    ok(Xv.n === 0 && Xv.empty && Xv.tab && Xv.csv === 'location_id' && Xv.db >= 7 && Xv.w, 'X: Informazioni › Ubicazioni starts empty (no invented locations); CSV ends with location_id; local DB schema 7', Xv);
+    ok(Xv.n === 0 && Xv.empty && Xv.tab && Xv.csv === 'location_id' && Xv.db >= 7 && Xv.w, 'X: Informazioni › Ubicazioni starts empty (no invented locations); CSV column 29 is location_id; local DB schema 7', Xv);
 
     // ---- bulk create: 1 warehouse › 2 cabinets › 1 shelving unit › 1 shelf › 4 boxes ----
     await p.click('#lo-empty-bulk'); await p.waitForTimeout(150);
@@ -2913,7 +2913,7 @@ const sec = (n) => console.log('\n== ' + n);
       const after = S.binders.filter(b => /^XL\d$/.test(b.speaking_code)).map(b => b.location_id + '|' + b.location_code).join(',');
       const room = S.binders.filter(b => /^XL\d$/.test(b.speaking_code)).every(b => b.room_code === 'A' && b.cabinet_code === '1' && b.shelf_code === 'β' && b.sector_code === '');
       const hdr = csv.split(/\r?\n/)[0].split(';'), idx = hdr.indexOf('location_id');
-      return {keep, after, room, idx, last:hdr[hdr.length - 1], alias:mapRecord({'ID ubicazione':'abc'}).location_id};
+      return {keep, after, room, idx, last:hdr[28], alias:mapRecord({'ID ubicazione':'abc'}).location_id};   /* v12: archive_id follows location_id */
     });
     ok(Xv.keep === Xv.after && /\|MAG1-A1-S1-R1-B01/.test(Xv.after) && Xv.room && Xv.last === 'location_id' && Xv.alias === 'abc', 'X: CSV round trip keeps location_id (last column) and does not turn the location path into room/cabinet/shelf', Xv);
     Xv = await p.evaluate(() => {
@@ -3541,7 +3541,7 @@ const sec = (n) => console.log('\n== ' + n);
         o.srv = $('#hx-m-srv').textContent; o.warn = $('#hx-about-body').textContent.includes(t('hx_srv_old')); o.card = ($('#hx-srv') || {}).textContent; o.cardWarn = !!$('#hx-srv-warn');
         o.url = calls[0] && calls[0].u; o.noTok = calls.every(c => !String(c.body).includes('SECRET'));
         schema = 2; await hxPing(); o.warn2 = $('#hx-about-body').textContent.includes(t('hx_srv_old'));
-        const txt = hxSupportText(); o.txt = /26\.11/.test(txt) && txt.includes(syncDeviceId()) && txt.includes('schema 2') && txt.includes('srv.example.test'); o.leak = /SECRET|PASSWORD-H/.test(txt);
+        const txt = hxSupportText(); o.txt = txt.includes(APP_VERSION) && txt.includes(syncDeviceId()) && txt.includes('schema 2') && txt.includes('srv.example.test'); o.leak = /SECRET|PASSWORD-H/.test(txt);
       } finally { window.fetch = f0; if (keep == null) localStorage.removeItem(SRV_LS); else localStorage.setItem(SRV_LS, keep); HX.ping = null; HX.pingErr = ''; while (topModal()) closeModal(true); renderAll(); }
       return o; });
     ok(Hv.cfg === await p.evaluate(() => t('hx_srv_cfg')) && Hv.btn && /schema 1/.test(Hv.srv) && /API 1\.2/.test(Hv.srv) && Hv.warn && Hv.cardWarn && /schema 1/.test(Hv.card) && /srv\.example\.test\/studio-de\/server-php\/api\.php\?r=ping/.test(Hv.url) && Hv.noTok && !Hv.warn2 && Hv.txt && !Hv.leak,
@@ -3636,12 +3636,469 @@ const sec = (n) => console.log('\n== ' + n);
       S.clients = keep; dbSyncFromState('t');
       return {ver, col:c1 && c1.color_hex, tags:c1 && c1.tags, up:c1 && c1.updated_at, multi:c1 && c1.multi_code, ex2, old:W3.clients.map(c => c.name + '/' + c.multi_code).join(','), oldCol:col};
     });
-    ok(+Vv.ver === 8 && Vv.col === '#9C051E' && Vv.tags === 'aps,proloco' && Vv.up === '2026-11-01T10:00:00.000Z' && Vv.multi === 'V111' && Vv.ex2 == null && Vv.old === 'Vecchio Cliente/777' && Vv.oldCol,
+    ok(+Vv.ver >= 8 && Vv.col === '#9C051E' && Vv.tags === 'aps,proloco' && Vv.up === '2026-11-01T10:00:00.000Z' && Vv.multi === 'V111' && Vv.ex2 == null && Vv.old === 'Vecchio Cliente/777' && Vv.oldCol,
       'v11.1: client colour / tags / updated_at round-trip through SQLite (clients.extra_json); a schema-7 file migrates and keeps its clients', Vv);
   }
   // @@STREAM-Q@@
   // @@STREAM-A@@
   // @@STREAM-C@@
+  sec('v12 C: several archives, "Configura archivio", per-archive levels, nested association, NFC, v10.0 → v12 upgrade');
+  {
+    const Cpath = require('path'), Ccp = require('child_process');
+    let Cv, Cv2;
+    const ARCH_DEFAULT_ID_C = '00000000-0000-4000-8000-0000000a0001';
+    const CPRE_LEVELS_C = await p.evaluate(() => JSON.stringify(S.settings.locLevels || [])), APP_VERSION_C = await p.evaluate(() => APP_VERSION);
+    const Cprint = await p.evaluate(() => JSON.stringify(S.print));
+    await p.evaluate(() => { while (topModal()) closeModal(true); S.lang = 'it'; S.archiveSel = ''; S.settings.hideDemo = false; S.binders.forEach(b => { b.selected_for_print = false; }); S.view = 'info'; S.infoTab = 'arch'; renderAll(); });
+    Cv = await p.evaluate(() => ({list:archList().map(a => a.id + '|' + a.code + '|' + archName(a)), rec:(S.archives || []).length, multi:archMulti(), sw:!!document.getElementById('ar-sw'), tab:!!document.querySelector('.info-tabs [data-v="arch"]'),
+      cards:document.querySelectorAll('#ar-grid .ar-card').length, csv:CSV_COLUMNS[CSV_COLUMNS.length - 1], alias:HEADER_ALIASES.archive_id.includes('archivio'), db:DB_SCHEMA_VERSION,
+      dflt:S.binders.every(b => binderArchiveId(b) === ''), help:!!helpTopic('archives') && !!helpTopic('nfc') && !!GUIDES.archives, w:document.documentElement.scrollWidth <= innerWidth + 1}));
+    ok(Cv.list.length === 1 && Cv.list[0] === ARCH_DEFAULT_ID_C + '|AP|Archivio principale' && Cv.rec === 0 && !Cv.multi && !Cv.sw && Cv.tab && Cv.cards === 1 && Cv.dflt && Cv.w,
+      'C: existing data sits in the virtual "Archivio principale" (no record, no switcher), Informazioni › Archivi shows one card', Cv);
+    ok(Cv.csv === 'archive_id' && Cv.alias && Cv.db === 9 && Cv.help, 'C: CSV ends with archive_id (alias archivio), local DB schema 9, help topics archives + nfc and the tour', Cv);
+
+    // ---- new archive (UI) → "Configura archivio" wizard with the Ente / Comune template ----
+    await p.click('#ar-new'); await p.waitForTimeout(120);
+    await p.fill('#ar-f-name', 'Archivio storico'); await p.waitForTimeout(30);
+    Cv = await p.evaluate(() => document.getElementById('ar-f-code').value);
+    await p.fill('#ar-f-code', 'st'); await p.click('#ar-f-color [data-c="#059669"]');
+    await p.click('.modal-f .btn-primary'); await p.waitForTimeout(150);
+    Cv2 = await p.evaluate(() => ({wz:!!document.getElementById('wz'), step:WZ.st && WZ.st.step, rec:(S.archives || []).length, tpls:[...document.querySelectorAll('.wz-tpl')].map(x => x.id), studio:archTemplate('studio').levels.map(x => x.it).join('›'),
+      wh:archTemplate('warehouse').levels.map(x => x.it).join('›'), pub:archTemplate('public').levels.map(x => x.it).join('›')}));
+    ok(Cv === 'AS' && Cv2.wz && Cv2.step === 1 && Cv2.rec === 0 && Cv2.tpls.join() === 'wz-tpl-studio,wz-tpl-warehouse,wz-tpl-public,wz-tpl-custom', 'C: "Nuovo archivio" suggests a code from the name, then opens the wizard (nothing saved before "Crea")', {Cv, Cv2});
+    ok(Cv2.studio === 'Stanza›Armadio›Ripiano›Scatola' && Cv2.wh === 'Magazzino›Corsia›Scaffale›Ripiano›Scatola' && Cv2.pub === 'Deposito›Scaffale›Palchetto›Faldone-scatola', 'C: wizard templates Studio, Magazzino, Ente/Comune (+ Personalizzato)', Cv2);
+    await p.click('#wz-tpl-public'); await p.click('#wz-next'); await p.waitForTimeout(80);
+    for (const [i, n] of [[1, 2], [2, 2], [3, 3]]) await p.fill('[data-wz="n"][data-i="' + i + '"]', String(n));
+    await p.click('[data-wz="qr"][data-i="1"]'); await p.click('[data-wz="qr"][data-i="1"]');   // off and on again
+    Cv = await p.evaluate(() => document.getElementById('wz-live').innerText);
+    await p.screenshot({path:'shots/c_wizard_levels.png'});
+    await p.click('#wz-next'); await p.waitForTimeout(80);
+    Cv2 = await p.evaluate(() => ({total:+document.getElementById('wz-total').textContent, qr:+document.getElementById('wz-qr').textContent, codes:document.getElementById('wz-codes').innerText, tree:document.getElementById('wz-tree').innerText.replace(/\s+/g, ' ')}));
+    await p.screenshot({path:'shots/c_wizard_preview.png'});
+    ok(/19 ubicazioni/.test(Cv) && /14 etichette/.test(Cv) && Cv2.total === 19 && Cv2.qr === 14 && /DEP1-S1-P1-F01/.test(Cv2.codes) && /DEP1-S2-P2-F03/.test(Cv2.codes) && /Palchetto/.test(Cv2.tree),
+      'C: wizard levels step counts live; preview shows 19 locations, 14 QR labels and the first / last code', {Cv, Cv2});
+    await p.click('#wz-create'); await p.waitForTimeout(250);
+    const CST = await p.evaluate(() => (S.archives.find(a => a.code === 'ST') || {}).id);
+    Cv = await p.evaluate((id) => { const a = archById(id), L = S.locations.filter(l => locArchiveId(l) === id);
+      return {name:a.name, color:a.color, levels:a.levels.map(x => x.name + '/' + x.prefix).join(','), qr:a.qr_levels.join(','), n:L.length, kinds:[...new Set(L.map(l => l.kind))].join(','), own:L.every(l => l.archive_id === id),
+        office:JSON.stringify(S.settings.locLevels || []), sel:S.archiveSel, sw:!!document.getElementById('ar-sw'), step:WZ.st && WZ.st.step, print:(document.getElementById('wz-print') || {}).textContent || '',
+        log:['archive.create', 'archive.setup'].every(k => LOG.entries.some(e => e.action === k && e.target && e.target.id === id)), labelKind:locKind(L.find(l => l.level === 3)), leafCode:L.filter(l => l.level === 3).map(l => l.code).sort(naturalCmp)[0]}; }, CST);
+    await p.screenshot({path:'shots/c_wizard_done.png'});
+    ok(CST && Cv.name === 'Archivio storico' && Cv.color === '#059669' && Cv.levels === 'Deposito/DEP,Scaffale/S,Palchetto/P,Faldone-scatola/F' && Cv.qr === '1,3' && Cv.n === 19 && Cv.own && Cv.kinds === 'Deposito,Scaffale,Palchetto,Faldone-scatola' && Cv.labelKind === 'Faldone-scatola' && Cv.leafCode === 'DEP1-S1-P1-F01',
+      'C: "Crea l\'archivio" creates the archive, its levels (per archive) and QR levels, and the tree with the level name on every node', Cv);
+    ok(Cv.sel === CST && Cv.sw && Cv.step === 4 && /14/.test(Cv.print) && Cv.log && Cv.office === CPRE_LEVELS_C, 'C: archive selected at the top (switcher appears), offer to print 14 QR labels, logged; office levels untouched', Cv);
+    await p.click('#wz-print'); await p.waitForTimeout(250);
+    Cv = await p.evaluate((id) => ({view:S.view, mode:S.print.contentMode, n:(S.print.locIds || []).length, lv:(S.print.locIds || []).map(x => locById(x).level).sort().join('')}), CST);
+    ok(Cv.view === 'print' && Cv.mode === 'loc' && Cv.n === 14 && Cv.lv === '11' + '3'.repeat(12), 'C: "Stampa etichette QR" opens the location labels of the QR levels (2 racks + 12 box files)', Cv);
+    await p.evaluate((pr) => { S.print = JSON.parse(pr); savePrefs(); }, Cprint);
+
+    // ---- switcher + filters: archive table, print queue, location tree, exports ----
+    const CB = await p.evaluate(() => S.binders.filter(b => !isDemo(b)).slice(0, 4).map(b => b.id));
+    await p.evaluate(() => { S.view = 'archive'; UI.q = ''; UI.fLoc = ''; renderAll(); });
+    await p.selectOption('#ar-sw-sel', ''); await p.waitForTimeout(150);
+    Cv = await p.evaluate(() => ({sel:S.archiveSel, n:filteredBinders().length, all:S.binders.filter(b => !(S.settings.hideDemo && isDemo(b))).length, opts:[...document.querySelectorAll('#ar-sw-sel option')].map(o => o.textContent)}));
+    ok(Cv.sel === '' && Cv.opts[0] === 'Tutti gli archivi' && Cv.opts.length === 3 && /ST · Archivio storico/.test(Cv.opts.join('|')), 'C: switcher lists "Tutti gli archivi" + every archive', Cv);
+    // move 2 binders to the new archive (Archive table → "Archivio…")
+    await p.evaluate((ids) => { S.binders.forEach(b => { b.selected_for_print = ids.slice(0, 2).includes(b.id); }); renderAll(); }, CB);
+    await p.click('#ar-move-btn'); await p.waitForTimeout(120);
+    await p.check('#ar-pick input[value="' + CST + '"]'); await p.click('.modal-f .btn-primary'); await p.waitForTimeout(150);
+    Cv = await p.evaluate(([ids, id]) => ({moved:S.binders.filter(b => ids.slice(0, 2).includes(b.id)).every(b => b.archive_id === id && binderArchiveId(b) === id), others:S.binders.filter(b => ids.slice(2).includes(b.id)).every(b => binderArchiveId(b) === ''),
+      log:LOG.entries.some(e => e.action === 'binder.archive' && e.details.to.id === id && e.details.binders.length === 2)}), [CB, CST]);
+    ok(Cv.moved && Cv.others && Cv.log, 'C: "Archivio…" moves the ticked binders to another archive (logged)', Cv);
+    await p.evaluate(() => { const W = UNDO; if (W){ UNDO = null; applyWorkspaceObject(W); commit(); renderAll(); } });
+    Cv = await p.evaluate(([ids, id]) => ({back:S.binders.filter(b => ids.includes(b.id)).every(b => binderArchiveId(b) === ''), arch:!!archById(id), sel:S.archiveSel}), [CB, CST]);
+    ok(Cv.back && Cv.arch, 'C: undo puts the binders back (the archive stays)', Cv);
+    await p.evaluate(([ids, id]) => { archMoveBinders(S.binders.filter(b => ids.slice(0, 2).includes(b.id)), id); commit(); }, [CB, CST]);
+    await p.selectOption('#ar-sw-sel', CST); await p.waitForTimeout(150);
+    Cv = await p.evaluate(([ids, id]) => { S.binders.forEach(b => { b.selected_for_print = ids.includes(b.id); });
+      const tbl = filteredBinders().map(b => b.id), q = printQueueBinders().map(b => b.id);
+      return {sel:S.archiveSel, tbl:tbl.length === 2 && tbl.every(x => ids.slice(0, 2).includes(x)), q:q.length === 2 && q.every(x => ids.slice(0, 2).includes(x)), chip:(document.getElementById('ar-sw') || {}).innerText || ''}; }, [CB, CST]);
+    await p.evaluate(() => { S.view = 'print'; renderAll(); }); await p.waitForTimeout(150);
+    Cv2 = await p.evaluate(() => ({only:(document.querySelector('#pr-summary .ar-only') || {}).innerText || ''}));
+    ok(Cv.sel === CST && Cv.tbl && Cv.q && /ST/.test(Cv.chip) && /Archivio storico/.test(Cv2.only), 'C: with an archive chosen, the Archive table and the print queue show only its binders (print says so)', {Cv, Cv2});
+    await p.evaluate(() => { S.view = 'info'; S.infoTab = 'loc'; renderAll(); }); await p.waitForTimeout(120);
+    Cv = await p.evaluate(() => ({tree:document.getElementById('lo-tree').innerText, scope:(document.querySelector('.ar-scope') || {}).innerText || '', setup:!!document.getElementById('lo-setup'), qr:!!document.getElementById('ar-sel-qr'), filt:archScoped(() => locArr().length)}));
+    await p.screenshot({path:'shots/c_loc_scoped.png'});
+    await p.selectOption('#ar-sw-sel', ARCH_DEFAULT_ID_C); await p.waitForTimeout(150);
+    Cv2 = await p.evaluate(() => ({tree:document.getElementById('lo-tree') ? document.getElementById('lo-tree').innerText : '', tbl:filteredBinders().every(b => binderArchiveId(b) === '')}));
+    ok(/DEP1/.test(Cv.tree) && /Archivio storico/.test(Cv.scope) && Cv.setup && Cv.qr && Cv.filt === 19 && !/DEP1/.test(Cv2.tree) && Cv2.tbl, 'C: Ubicazioni shows the tree of the chosen archive only ("Configura archivio", "Seleziona livelli con QR")', {Cv, Cv2});
+    await p.selectOption('#ar-sw-sel', CST); await p.waitForTimeout(120);
+    await p.click('#ar-sel-qr'); await p.waitForTimeout(80);
+    Cv = await p.evaluate(() => ({n:LUI.checked.size, lv:[...LUI.checked].map(x => locById(x).level).sort().join('')}));
+    ok(Cv.n === 14 && Cv.lv === '11' + '3'.repeat(12), 'C: "Seleziona livelli con QR" ticks exactly the QR levels of the archive', Cv);
+    // exports limited to one archive
+    Cv = await p.evaluate(([id, ids]) => {
+      const got = {}; const orig = window.download; window.download = (n, txt) => { got[n] = String(txt); };
+      try { S.view = 'export'; renderAll(); const box = !!document.getElementById('ar-ex');
+        AR.exArch = ''; exportFullCSV(); const csvAll = got['docmap_full_backup.csv'];
+        AR.exArch = id; exportFullCSV(); exportManifest(); const csvSt = got['docmap_full_backup.csv']; AR.exArch = '';
+        const lines = (t) => t.replace(/^﻿/, '').trim().split(/\r?\n/);
+        const man = lines(got['manifest_qr7_dm26.csv']);
+        return {box, st:lines(csvSt).length - 1, all:lines(csvAll).length - 1, col:lines(csvSt)[1].split(';').pop(), man:man.length - 1, manLoc:man.filter(l => /dm26L/.test(l)).length};
+      } finally { window.download = orig; AR.exArch = ''; } }, [CST, CB]);
+    ok(Cv.box && Cv.st === 2 && Cv.all > 2 && Cv.col === CST && Cv.man === 2 + 19 && Cv.manLoc === 19, 'C: Esporta e Salva: full CSV and qr7 manifest limited to the chosen archive (binders + its locations)', Cv);
+
+    // ---- per-archive levels (Ubicazioni › Livelli…) ----
+    await p.evaluate(() => { S.view = 'info'; S.infoTab = 'loc'; renderAll(); });
+    await p.click('#lo-levels'); await p.waitForTimeout(120);
+    Cv = await p.evaluate(() => ({names:[...document.querySelectorAll('#ar-lv [data-ar-lv="name"]')].map(i => i.value).join(','), qr:[...document.querySelectorAll('#ar-lv [data-ar-lv="qr"]')].map(i => i.checked ? 1 : 0).join('')}));
+    await p.fill('#ar-lv [data-ar-lv="name"][data-i="2"]', 'Ripiano'); await p.check('#ar-lv [data-ar-lv="qr"][data-i="2"]');
+    await p.click('.modal-f .btn-primary'); await p.waitForTimeout(120);
+    Cv2 = await p.evaluate((id) => { const a = archById(id), l = S.locations.find(x => locArchiveId(x) === id && x.level === 2 && !x.kind.includes('Palchetto'));
+      return {levels:a.levels.map(x => x.name).join(','), qr:a.qr_levels.join(','), office:JSON.stringify(S.settings.locLevels || []), log:LOG.entries.some(e => e.action === 'location.levels' && e.details.archive === id),
+        ctx:archWithCtx(id, () => locLevels().map(x => x.name).join(',')), dflt:archWithCtx('', () => locLevels().map(x => x.name).join(',')), v11:locLevels(S.settings).map(x => x.name).join(','), sel:archQrLevelSet(id).size, l:!!l}; }, CST);
+    ok(Cv.names === 'Deposito,Scaffale,Palchetto,Faldone-scatola' && Cv.qr === '0101' && Cv2.levels === 'Deposito,Scaffale,Ripiano,Faldone-scatola' && Cv2.qr === '1,2,3' && Cv2.office === CPRE_LEVELS_C && Cv2.log && Cv2.ctx === Cv2.levels && Cv2.dflt === Cv2.v11 && Cv2.dflt !== Cv2.levels,
+      'C: "Livelli…" edits the levels and QR levels of the chosen archive only; the office levels (settings.locLevels, default archive) stay', {Cv, Cv2});
+    await p.selectOption('#ar-sw-sel', ARCH_DEFAULT_ID_C); await p.waitForTimeout(120);
+    await p.click('#lo-levels'); await p.waitForTimeout(120);
+    Cv = await p.evaluate(() => [...document.querySelectorAll('#ar-lv [data-ar-lv="name"]')].map(i => i.value).join(','));
+    await p.evaluate(() => closeModal(true));
+    Cv2 = await p.evaluate(() => locLevels(S.settings).map(x => x.name).join(','));
+    ok(Cv === Cv2, 'C: the default archive edits the office levels (v11 setting, still read by older versions)', Cv);
+
+    // ---- binder in a box of another archive; editor archive field ----
+    Cv = await p.evaluate(([ids, id]) => { const b = S.binders.find(x => x.id === ids[2]), box = S.locations.find(l => locArchiveId(l) === id && l.code === 'DEP1-S1-P1-F02');
+      locAssign([b], box.id, {via:'manual'}); commit(); return {arch:b.archive_id, eff:binderArchiveId(b), csv:binderToCsvRow(b).pop(), code:b.location_code}; }, [CB, CST]);
+    ok(Cv.arch === CST && Cv.eff === CST && Cv.csv === CST && Cv.code === 'DEP1-S1-P1-F02', 'C: putting a binder in a box of another archive moves it to that archive (CSV writes the effective archive)', Cv);
+    await p.evaluate((ids) => openEditor(ids[2]), CB); await p.waitForTimeout(200);
+    Cv = await p.evaluate(() => ({sel:(document.getElementById('ed-archive_id') || {}).value, opts:document.querySelectorAll('#ed-archive_id option').length}));
+    await p.selectOption('#ed-archive_id', ARCH_DEFAULT_ID_C);
+    await p.evaluate(() => saveEditor()); await p.waitForTimeout(150);
+    Cv2 = await p.evaluate((ids) => { const b = S.binders.find(x => x.id === ids[2]); return {arch:b.archive_id, loc:b.location_id, eff:binderArchiveId(b)}; }, CB);
+    ok(Cv.sel === CST && Cv.opts === 2 && Cv2.arch === '' && Cv2.loc === '' && Cv2.eff === '', 'C: binder editor: archive field; moving the binder to another archive by hand takes it out of the box', {Cv, Cv2});
+
+    // ---- CSV round trip with the archive column (id, code, name, new name) ----
+    Cv = await p.evaluate(([ids, id]) => {
+      const row = (b) => binderToCsvRow(b).map(safeCell);
+      const csv = toCSV([CSV_COLUMNS].concat(S.binders.filter(b => ids.includes(b.id)).map(row)), ';');
+      const keep = clone(S.binders.filter(b => ids.includes(b.id)));
+      S.binders.filter(b => ids.includes(b.id)).forEach(b => { b.archive_id = ''; b.location_id = ''; });
+      analyzeImport(csv); applyImport('merge');
+      const back = ids.map(x => binderArchiveId(S.binders.find(b => b.id === x)));
+      // a hand-made file with the Italian header "archivio": code, name, a new name, empty
+      analyzeImport('speaking_code;company_name;categoria;archivio\nCV1;Csv Archivi Uno Srl;IVA;st\nCV2;Csv Archivi Due Srl;IVA;Archivio storico\nCV3;Csv Archivi Tre Srl;IVA;Deposito Comune\nCV4;Csv Archivi Quattro Srl;IVA;');
+      const prev = UI.importParsed.rows.map(r => r.status + ':' + (r.p.archive_id || '') + ':' + (r.p._archive_new || '')); applyImport('merge');
+      const g = (c) => S.binders.find(b => b.speaking_code === c), dep = S.archives.find(a => a.name === 'Deposito Comune');
+      return {back:back.join(','), want:keep.map(b => binderArchiveId(b) || '').join(','), prev, cv1:binderArchiveId(g('CV1')), cv2:binderArchiveId(g('CV2')), cv3:dep && binderArchiveId(g('CV3')) === dep.id, cv4:binderArchiveId(g('CV4')),
+        dep:dep && dep.code, log:LOG.entries.some(e => e.action === 'archive.create' && dep && e.target.id === dep.id)}; }, [CB, CST]);
+    ok(Cv.back === Cv.want && Cv.cv1 === CST && Cv.cv2 === CST && Cv.cv3 && Cv.dep === 'DC' && Cv.log && Cv.cv4 === '', 'C: CSV round trip keeps the archive; import accepts code / name, a new name creates the archive, an empty cell = the default archive', Cv);
+    await p.evaluate(() => { const W = UNDO; if (W){ UNDO = null; applyWorkspaceObject(W); commit(); } });
+    Cv = await p.evaluate(() => ({dep:S.archives.some(a => a.name === 'Deposito Comune'), cv:S.binders.some(b => /^CV\d$/.test(b.speaking_code))}));
+    ok(!Cv.dep && !Cv.cv, 'C: undo of that import also removes the archive it created', Cv);
+    // a CSV without the column: new rows go into the archive chosen at the top
+    Cv = await p.evaluate((id) => { S.archiveSel = id; analyzeImport('speaking_code;company_name;categoria\nCW1;Senza Colonna Srl;IVA'); applyImport('merge'); const b = S.binders.find(x => x.speaking_code === 'CW1'); const r = binderArchiveId(b);
+      S.binders = S.binders.filter(x => x !== b); commit(); return r; }, CST);
+    ok(Cv === CST, 'C: rows without an archive column go into the archive chosen in the switcher', Cv);
+
+    // ---- merge, delete, undo ----
+    const CTMP = await p.evaluate(() => { const a = archCreate({name:'Archivio temporaneo', code:'TMP'}); S.archiveSel = a.id; locBulkCreate('', [{n:1, prefix:'T'}, {n:2, prefix:'B', pad:2}]); commit(); return a.id; });
+    const CTL = await p.evaluate((id) => S.locations.filter(l => locArchiveId(l) === id).map(l => l.id), CTMP);
+    await p.evaluate(([ids, id]) => { archMoveBinders(S.binders.filter(b => b.id === ids[3]), id); commit(); S.view = 'info'; S.infoTab = 'arch'; renderAll(); }, [CB, CTMP]);
+    Cv = await p.evaluate((id) => ({roots:S.locations.filter(l => !l.parent_id && l.archive_id === id).map(l => l.code), cards:document.querySelectorAll('#ar-grid .ar-card').length}), CTMP);
+    await p.screenshot({path:'shots/c_archives.png'});
+    await p.click('#ar-grid [data-a="ar-merge"][data-id="' + CTMP + '"]'); await p.waitForTimeout(120);
+    await p.selectOption('#ar-merge-to', CST); await p.waitForTimeout(30);
+    Cv2 = await p.evaluate(() => document.getElementById('ar-merge-d').innerText);
+    await p.click('.modal-f .btn-primary'); await p.waitForTimeout(150);
+    const Cm = await p.evaluate(([ids, tmp, st, tl]) => ({gone:!archById(tmp), tomb:(S.tombstones || []).some(t => t.type === 'archive' && t.id === tmp && t.code === 'TMP'), b:binderArchiveId(S.binders.find(b => b.id === ids[3])) === st,
+      locs:tl.length === 3 && tl.every(x => locArchiveId(locById(x)) === st && archKey(locById(x).archive_id) === st), log:LOG.entries.some(e => e.action === 'archive.merge' && e.details.from.id === tmp && e.details.to.id === st),
+      sel:S.archiveSel}), [CB, CTMP, CST, CTL]);
+    ok(Cv.roots.length === 1 && Cv.cards === 3 && /1 faldoni e 3 ubicazioni/.test(Cv2) && Cm.gone && Cm.tomb && Cm.b && Cm.locs && Cm.log && Cm.sel === CST, 'C: "Unisci in…" moves binders and location trees to the other archive, deletes the source (tombstone), logged', {Cv, Cv2, Cm});
+    await p.evaluate(() => { const W = UNDO; if (W){ UNDO = null; applyWorkspaceObject(W); commit(); renderAll(); } });
+    Cv = await p.evaluate(([ids, tmp]) => ({back:!!archById(tmp), b:binderArchiveId(S.binders.find(b => b.id === ids[3])) === tmp}), [CB, CTMP]);
+    ok(Cv.back && Cv.b, 'C: undo brings the merged archive back with its binder', Cv);
+    await p.evaluate(([tmp, st]) => { archMerge(tmp, st); commit(); const e = archCreate({name:'Vuoto'}); commit(); S.view = 'info'; S.infoTab = 'arch'; renderAll(); }, [CTMP, CST]);
+    const CEMPTY = await p.evaluate(() => S.archives.find(a => a.name === 'Vuoto').id);
+    await p.click('#ar-grid [data-a="ar-del"][data-id="' + CEMPTY + '"]'); await p.waitForTimeout(100);
+    await p.click('.modal-f .btn-danger-solid'); await p.waitForTimeout(120);
+    Cv = await p.evaluate((id) => ({gone:!archById(id), dflt:!document.querySelector('#ar-grid [data-a="ar-del"][data-id="' + ARCH_DEFAULT_ID + '"]') && !document.querySelector('#ar-grid [data-a="ar-merge"][data-id="' + ARCH_DEFAULT_ID + '"]'),
+      log:LOG.entries.some(e => e.action === 'archive.delete' && e.target.id === id)}), CEMPTY);
+    ok(Cv.gone && Cv.dflt && Cv.log, 'C: an empty archive can be deleted; the default archive can be neither merged away nor deleted', Cv);
+    // edit the default archive: it becomes a record with the fixed id
+    Cv = await p.evaluate(() => { archSaveFields(ARCH_DEFAULT_ID, {name:'Archivio corrente', color:'#7C3AED'}); commit(); const a = S.archives.find(x => x.id === ARCH_DEFAULT_ID);
+      return {rec:!!a, name:a && a.name, key:archKey(ARCH_DEFAULT_ID), dflt:S.binders.filter(b => !b.archive_id && !b.location_id).every(b => binderArchiveId(b) === ''), list:archList()[0].name}; });
+    ok(Cv.rec && Cv.name === 'Archivio corrente' && Cv.key === '' && Cv.dflt && Cv.list === 'Archivio corrente', 'C: editing the default archive stores it (fixed id) without touching any binder', Cv);
+    // layout: Informazioni › Archivi and the wizard at phone width
+    await p.setViewportSize({width:390, height:844}); await p.evaluate(() => { S.view = 'info'; S.infoTab = 'arch'; renderAll(); }); await p.waitForTimeout(150);
+    Cv = await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
+    await p.screenshot({path:'shots/c_archives_390.png'});
+    await p.evaluate((id) => archWizardOpen(id), CST); await p.click('#wz-next'); await p.waitForTimeout(100);
+    Cv2 = await p.evaluate(() => { const m = document.querySelector('.modal'); return document.documentElement.scrollWidth <= innerWidth + 1 && (!m || m.scrollWidth <= m.clientWidth + 1); });
+    await p.screenshot({path:'shots/c_wizard_390.png'});
+    await p.evaluate(() => { while (topModal()) closeModal(true); });
+    await p.setViewportSize({width:1366, height:768}); await p.evaluate(() => renderAll()); await p.waitForTimeout(100);
+    Cv = [Cv, Cv2, await p.evaluate(() => { const n = document.querySelector('.nav'); return n.scrollWidth <= n.clientWidth + 1 && document.documentElement.scrollWidth <= innerWidth + 1; })];
+    ok(Cv.every(Boolean), 'C: no horizontal scroll at 390 px (Archivi, wizard) and the top bar with the switcher fits at 1366 px', Cv);
+
+    // ---- nested association (desktop association mode) ----
+    await p.evaluate((id) => { S.archiveSel = id; S.view = 'info'; S.infoTab = 'loc'; renderAll(); }, CST);
+    const CN = await p.evaluate((id) => { const g = (c) => S.locations.find(l => l.code === c && locArchiveId(l) === id); return {s1:g('DEP1-S1'), s2:g('DEP1-S2'), p1:g('DEP1-S2-P1'), f01:g('DEP1-S1-P1-F01')}; }, CST);
+    await p.evaluate(() => locAssocStart('')); await p.waitForTimeout(80);
+    Cv = await p.evaluate(([n]) => { const r1 = locAssocInput(n.s1.short_url, 'scanner'), r2 = locAssocInput(n.p1.short_url, 'scanner'); return {r1:r1.kind, r2:r2.kind, loc:LUI.assoc.loc === n.p1.id, nest:!!document.getElementById('an-nest'), ask:!!document.getElementById('an-ask'), parent:locById(n.p1.id).parent_id === n.s2.id}; }, [CN]);
+    ok(Cv.r1 === 'switch' && Cv.r2 === 'switch' && Cv.loc && Cv.nest && !Cv.ask && Cv.parent, 'C: association mode without "Annida ubicazioni" works as in v11 (a location QR just switches)', Cv);
+    await p.check('#an-nest'); await p.waitForTimeout(50);
+    Cv = await p.evaluate(([n]) => { const r1 = locAssocInput(n.s1.short_url, 'scanner'), r2 = locAssocInput(n.p1.short_url, 'scanner');
+      return {r1:r1.kind, r2:r2.kind, anchor:(document.getElementById('an-anchor') || {}).innerText || '', ask:(document.getElementById('an-ask') || {}).innerText || '', parent:locById(n.p1.id).parent_id === n.s2.id}; }, [CN]);
+    await p.screenshot({path:'shots/c_nest_ask.png'});
+    ok(Cv.r1 === 'switch' && Cv.r2 === 'ask' && /DEP1-S1/.test(Cv.anchor) && /Sposta DEP1-S2-P1 dentro DEP1-S1\?/.test(Cv.ask) && Cv.parent, 'C: nested: rack S1 is the container; scanning shelf board P1 of rack S2 asks "Sposta … dentro …?"', Cv);
+    await p.click('#an-yes'); await p.waitForTimeout(120);
+    Cv = await p.evaluate(([n]) => { const l = locById(n.p1.id); return {parent:l.parent_id === n.s1.id, code:l.code, active:LUI.assoc.loc === n.p1.id, undo:!!document.getElementById('an-undo'), log:LOG.entries.some(e => e.action === 'location.move' && e.target.id === n.p1.id),
+      kids:locDescendants(n.p1.id).map(x => locById(x).code).every(c => c.startsWith(l.code + '-'))}; }, [CN]);
+    ok(Cv.parent && /^DEP1-S1-P[\d.]+$/.test(Cv.code) && Cv.active && Cv.undo && Cv.log && Cv.kids, 'C: "Sì, sposta" nests the shelf board inside the rack (codes of its subtree follow) and makes it the active location', Cv);
+    if (Cv.undo){ await p.click('#an-undo'); await p.waitForTimeout(80); }
+    Cv = await p.evaluate(([n]) => ({parent:locById(n.p1.id).parent_id}), [CN]);
+    Cv2 = await p.evaluate(([n]) => { locAssocInput(n.s1.short_url, 'scanner'); const r2 = locAssocInput(n.p1.short_url, 'scanner'), r3 = locAssocInput(n.p1.short_url, 'scanner');
+      return {r2:r2.kind, r3:r3.kind, parent:locById(n.p1.id).parent_id === n.s1.id}; }, [CN]);
+    ok(Cv.parent === CN.s2.id && Cv2.r2 === 'ask' && Cv2.r3 === 'nest' && Cv2.parent, 'C: "Annulla spostamento" puts it back; scanning the same QR again confirms the move', {Cv, Cv2});
+    Cv = await p.evaluate(([n, ids]) => { const b = S.binders.find(x => x.id === ids[1]), r = locAssocInput(b.short_url, 'scanner'); return {k:r.kind, at:b.location_id === n.p1.id}; }, [CN, CB]);
+    ok(Cv.k === 'ok' && Cv.at, 'C: a binder scanned next goes into the most specific active location', Cv);
+    await p.evaluate(([n]) => { locMove(n.p1.id, n.s2.id); locAssocInput(n.s1.short_url, 'scanner'); locAssocInput(n.p1.short_url, 'scanner'); }, [CN]);
+    await p.click('#an-no'); await p.waitForTimeout(80);
+    Cv = await p.evaluate(([n]) => ({parent:locById(n.p1.id).parent_id === n.s2.id, active:LUI.assoc.loc === n.p1.id, ask:!LUI.assoc.nestAsk,
+      same:(() => { const r = locAssocInput(n.f01.short_url, 'scanner'); return r.kind; })(), up:(() => { const r = locAssocInput(n.s2.short_url, 'scanner'); return r.kind; })()}), [CN]);
+    ok(Cv.parent && Cv.active && Cv.ask && Cv.same === 'ask' && Cv.up === 'switch', 'C: "No" opens the scanned location instead; a location of a higher level never asks (it becomes the container)', Cv);
+    await p.evaluate(() => { LUI.assoc.nestAsk = null; locAssocStop(); });
+
+    // ---- one pipeline: onTagScanned(text, via) ----
+    Cv = await p.evaluate(([n, ids]) => { const out = {none:onTagScanned('dm26LAbCdEfGh', 'qr')}; locAssocStart(''); const b = S.binders.find(x => x.id === ids[0]);
+      out.box = onTagScanned(n.f01.short_url, 'nfc'); out.bin = onTagScanned(b.short_url, 'keyboard');
+      out.at = b.location_id === n.f01.id; out.reg = Array.isArray(TAG_SCAN_HANDLERS) && TAG_SCAN_HANDLERS.some(h => h.id === 'assoc'); out.via = (LOG.entries.filter(e => e.action === 'binder.locate' && e.target.id === b.id).pop() || {details:{}}).details.via; locAssocStop(); return out; }, [CN, CB]);
+    ok(Cv.none === '' && Cv.box === 'assoc' && Cv.bin === 'assoc' && Cv.at && Cv.via === 'scanner' && Cv.reg, 'C: onTagScanned dispatches QR / NFC / keyboard tags to the active handler (desktop association mode)', Cv);
+
+    // ---- SQLite schema 9: archives table, archive_id columns, round trip, idempotent migration ----
+    Cv = await p.evaluate(async (st) => {
+      dbSyncFromState('t'); await dbPersist();
+      const d = new DB.SQL.Database(DB.db.export()); const W = dbReadWorkspace(d);
+      const r = {ver:dbScalar("SELECT value FROM meta WHERE key='schema_version'", null, d), rows:dbQuery('SELECT id, code, levels_json, qr_levels_json FROM archives ORDER BY sort', null, d).map(x => x.code),
+        bcol:dbScalar('SELECT COUNT(*) FROM binders WHERE archive_id = ?', [st], d), lcol:dbScalar('SELECT COUNT(*) FROM locations WHERE archive_id = ?', [st], d),
+        wa:(W.archives || []).map(a => a.code).sort().join(','), wl:(W.locations || []).filter(l => l.archive_id === st).length, wb:(W.binders || []).filter(b => b.archive_id === st).length,
+        lv:JSON.parse(dbScalar('SELECT levels_json FROM archives WHERE id = ?', [st], d) || '[]').length};
+      d.close();
+      // a schema-8 database (no archives table, no archive_id columns) migrates additively, twice in a row
+      const d8 = new DB.SQL.Database(); d8.exec(DB_DDL); const bc = dbQuery('PRAGMA table_info(binders)', null, d8).map(x => x.name);
+      d8.exec('DROP INDEX IF EXISTS ix_binders_archive; DROP INDEX IF EXISTS ix_locations_archive; DROP TABLE IF EXISTS archives');
+      if (bc.includes('archive_id')){ const keep = bc.filter(c => c !== 'archive_id'); d8.exec('ALTER TABLE binders RENAME TO ob; CREATE TABLE binders AS SELECT ' + keep.join(', ') + ' FROM ob; DROP TABLE ob'); }
+      d8.exec("INSERT INTO binders(id, speaking_code, company_name) VALUES ('old8', 'OLD8', 'Vecchio Otto')");
+      dbMigrate(d8); dbMigrate(d8);
+      r.m = {b:dbQuery('PRAGMA table_info(binders)', null, d8).filter(x => x.name === 'archive_id').length, l:dbQuery('PRAGMA table_info(locations)', null, d8).filter(x => x.name === 'archive_id').length,
+        t:dbScalar("SELECT COUNT(*) FROM sqlite_master WHERE name = 'archives'", null, d8), row:dbScalar("SELECT speaking_code FROM binders WHERE id = 'old8'", null, d8), ver:dbScalar("SELECT value FROM meta WHERE key='schema_version'", null, d8)};
+      d8.run('INSERT INTO archives(id, name, code, color, sort, created_at, updated_at) VALUES (?,?,?,?,?,?,?)', [ARCH_DEFAULT_ID, '', 'AP', '#475569', -1, ARCH_DEFAULT_AT, ARCH_DEFAULT_AT]);
+      const W8 = dbReadWorkspace(d8); r.m.w = W8.archives ? W8.archives.length : -1; d8.close();
+      return r; }, CST);
+    ok(+Cv.ver === 9 && Cv.rows[0] === 'AP' && Cv.rows.includes('ST') && Cv.bcol >= 2 && Cv.lcol === 22 && Cv.wa === 'AP,ST' && Cv.wl === 22 && Cv.wb >= 2 && Cv.lv === 4,
+      'C: SQLite schema 9: table archives (default row included for Python readers), binders/locations.archive_id; the .sqlite round trip keeps archives and archive_id', Cv);
+    ok(Cv.m.b === 1 && Cv.m.l === 1 && Cv.m.t === 1 && Cv.m.row === 'OLD8' && +Cv.m.ver === 9 && Cv.m.w === 0, 'C: a schema-8 database migrates additively (table + columns, existing rows kept), running the migration again changes nothing; the virtual default row is not read back as data', Cv.m);
+
+    // ---- search facet for the search engine (when present) ----
+    Cv = await p.evaluate((st) => { const f = archFacetProvider(), v = f.values(S.binders); return {id:f.id, vis:f.visible(), n:v.length === archList().length, st:(v.find(x => x.value === st) || {}).count, m:S.binders.filter(b => f.match(b, st)).length, reg:typeof searchFacetProviders === 'undefined' || searchFacetProviders.some(x => x.id === 'archive')}; }, CST);
+    ok(Cv.id === 'archive' && Cv.vis && Cv.n && Cv.st === Cv.m && Cv.reg, 'C: search facet "Archivio" (registered on searchFacetProviders when the search engine is there)', Cv);
+
+    // ---- sync of archives through a package (second app page, own browser profile) ----
+    {
+      const Cc2 = await b.newContext({viewport:{width:1366, height:768}}), Cq = await Cc2.newPage();
+      Cq.on('pageerror', e => errs.push('C2 PAGEERR ' + e.message)); Cq.on('dialog', d => d.accept());
+      await Cq.goto(URL_); await Cq.evaluate(() => localStorage.clear()); await Cq.reload(); await Cq.waitForTimeout(1500);
+      const Cpkg = await p.evaluate(() => JSON.parse(JSON.stringify(syncBuildPackage({}))));
+      Cv = await Cq.evaluate((pkg) => { S.onboarded = true; while (topModal()) closeModal(true); const plan = syncAnalyze(pkg); syncApply(plan, {quiet:true}); commit();
+        const st = S.archives.find(a => a.code === 'ST');
+        return {n:pkg.counts.archives, kinds:plan.items.filter(i => i.type === 'archive').map(i => i.kind).join(','), st:!!st, lv:st && st.levels.length, qr:st && st.qr_levels.join(','), multi:archMulti(), locs:st && S.locations.filter(l => locArchiveId(l) === st.id).length,
+          b:st && S.binders.filter(b => binderArchiveId(b) === st.id).length, dflt:(S.archives.find(a => a.id === ARCH_DEFAULT_ID) || {}).name}; }, Cpkg);
+      ok(Cv.n === 2 && Cv.st && Cv.lv === 4 && Cv.qr === '1,2,3' && Cv.multi && Cv.locs >= 19 && Cv.b >= 2 && Cv.dflt === 'Archivio corrente', 'C: sync package carries archives (levels, QR levels, the edited default archive); the other PC gets the archive, its tree and its binders', Cv);
+      // merge on the first PC → the tombstone travels and the second PC follows
+      await p.evaluate(() => { const a = archCreate({name:'Da unire', code:'DU'}); commit(); });
+      const Cpkg2 = await p.evaluate(() => JSON.parse(JSON.stringify(syncBuildPackage({}))));
+      await Cq.evaluate((pkg) => { syncApply(syncAnalyze(pkg), {quiet:true}); commit(); }, Cpkg2);
+      await p.evaluate((st) => { const a = S.archives.find(x => x.code === 'DU'); archMerge(a.id, st); commit(); }, CST);
+      const Cpkg3 = await p.evaluate(() => JSON.parse(JSON.stringify(syncBuildPackage({}))));
+      Cv = await Cq.evaluate((pkg) => { const had = S.archives.some(a => a.code === 'DU'); const plan = syncAnalyze(pkg); syncApply(plan, {quiet:true}); commit();
+        return {had, now:S.archives.some(a => a.code === 'DU'), kind:plan.items.filter(i => i.type === 'archive' && i.code === 'DU').map(i => i.kind).join(','), tomb:(S.tombstones || []).some(t => t.type === 'archive' && t.code === 'DU')}; }, Cpkg3);
+      ok(Cv.had && !Cv.now && Cv.kind === 'delete' && Cv.tomb, 'C: a merged (deleted) archive reaches the other PC as a tombstone', Cv);
+      await Cc2.close();
+    }
+
+    // ---- NFC on the phone page (mock Web NFC) ----
+    {
+      await p.evaluate(async () => { const A = dmProviders().auth; if (!A.listUsers().some(u => u.username === 'nfctest')) await A.addUser({username:'nfctest', display_name:'NFC Test', role:'editor', secret:'135790'}); });
+      const Cbin = await p.evaluate(() => { const b = normalizeBinder({speaking_code:'NFC1', company_name:'Tag Nfc Srl', category:'IVA', short_code:newShortCode()}); S.binders.push(b); commit(); return {id:b.id, sc:b.short_code, url:b.short_url}; });
+      const Cbox = await p.evaluate((st) => { const l = S.locations.find(x => locArchiveId(x) === st && x.code === 'DEP1-S1-P1-F03'); return {id:l.id, sc:l.short_code, url:l.short_url, code:l.code}; }, CST);
+      await p.evaluate(async () => { dbSyncFromState('t'); await dbPersist(); });
+      const MSCAN_C = 'file://' + Cpath.resolve(__dirname, '..', 'scan.html').replace(/\\/g, '/');
+      const Cn = await ctx.newPage(); await Cn.setViewportSize({width:390, height:844});
+      Cn.on('pageerror', e => errs.push('NFC PAGEERR ' + e.message)); Cn.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errs.push('NFC CONSOLE ' + m.text()); });
+      await Cn.addInitScript(() => {
+        window.__nfc = {writes:[], readers:[], scans:0};
+        window.NDEFReader = class { constructor(){ this.onreading = null; this.onreadingerror = null; window.__nfc.readers.push(this); }
+          async write(msg, opts){ window.__nfc.writes.push(JSON.parse(JSON.stringify(msg))); }
+          async scan(opts){ this.signal = opts && opts.signal; window.__nfc.scans++; } };
+        window.__nfcTap = (text, serial) => { const r = window.__nfc.readers.filter(x => x.onreading && !(x.signal && x.signal.aborted)).pop(); if (!r) return false;
+          r.onreading({serialNumber:serial || '04:a2:11', message:{records:text == null ? [] : [{recordType:'url', data:new TextEncoder().encode(text)}]}}); return true; };
+      });
+      await Cn.goto(MSCAN_C + '?lang=it&q=' + Cbin.sc); await Cn.waitForTimeout(600);
+      await Cn.fill('#sc-user', 'nfctest'); await Cn.fill('#sc-pin', '135790'); await Cn.click('#sc-enter'); await Cn.waitForTimeout(1500);
+      Cv = await Cn.evaluate(() => ({view:SC.view, write:!!document.getElementById('nfc-write'), read:!!document.getElementById('nfc-read'), hint:(document.getElementById('nfc-box') || {}).innerText || '', w:document.documentElement.scrollWidth <= innerWidth + 1}));
+      await Cn.click('#nfc-write'); await Cn.waitForTimeout(200);
+      Cv2 = await Cn.evaluate(() => ({w:window.__nfc.writes, msg:(document.getElementById('nfc-msg') || {}).innerText || ''}));
+      await Cn.screenshot({path:'shots/c_nfc_card.png'});
+      ok(Cv.view === 'card' && Cv.write && Cv.read && /iPhone/.test(Cv.hint) && Cv.w && Cv2.w.length === 1 && Cv2.w[0].records.length === 1 && Cv2.w[0].records[0].recordType === 'url' && Cv2.w[0].records[0].data === Cbin.url && /NFC1/.test(Cv2.msg),
+        'C NFC: binder page (editor): "Scrivi su tag NFC" writes one NDEF URL record = the QR short_url', {Cv, Cv2});
+      await Cn.goto(MSCAN_C + '?lang=it&q=' + Cbox.sc); await Cn.waitForTimeout(900);
+      await Cn.click('#nfc-write'); await Cn.waitForTimeout(200);
+      Cv = await Cn.evaluate(() => ({view:SC.view, w:window.__nfc.writes.slice(-1)[0]}));
+      ok(Cv.view === 'location' && Cv.w.records[0].data === Cbox.url, 'C NFC: location page: the tag gets the location short_url', Cv);
+      // association: start on the box, sequence view, "Leggi tag NFC", tap the binder tag
+      await Cn.click('#sa-start'); await Cn.waitForTimeout(100); await Cn.click('#sa-seq'); await Cn.waitForTimeout(150);
+      await Cn.click('#nfc-read'); await Cn.waitForTimeout(100);
+      Cv = await Cn.evaluate(() => ({scans:window.__nfc.scans, on:(document.getElementById('nfc-read') || {}).getAttribute && document.getElementById('nfc-read').getAttribute('aria-pressed')}));
+      await Cn.evaluate((u) => window.__nfcTap(u), Cbin.url); await Cn.waitForTimeout(700);
+      await Cn.evaluate((u) => window.__nfcTap(u), Cbin.url); await Cn.waitForTimeout(300);   // same tag again within 1.5 s: ignored
+      Cv2 = await Cn.evaluate(() => ({list:SA.st.list.map(x => x.code + '>' + x.to.code), msg:(document.getElementById('sa-msg') || {}).innerText || ''}));
+      await Cn.screenshot({path:'shots/c_nfc_seq.png'});
+      await Cn.evaluate(() => window.__nfcTap(null, '04:ff')); await Cn.waitForTimeout(150);
+      const Cblank = await Cn.evaluate(() => (document.getElementById('nfc-msg') || {}).innerText || '');
+      await p.waitForTimeout(400);
+      const Cdesk = await p.evaluate((id) => { const st = JSON.parse(localStorage.getItem('docmap_v26_state') || '{}'); const b = (st.binders || []).find(x => x.id === id) || {};
+        const lsj = (k) => { try { const v = JSON.parse(localStorage.getItem(k) || '[]'); return Array.isArray(v) ? v : (v && Array.isArray(v.entries) ? v.entries : []); } catch(e){ return []; } };
+        const lg = (typeof LOG !== 'undefined' ? LOG.entries : []).concat(lsj('docmap_v26_log'), lsj('docmap_v26_log_pending')).filter(e => e && e.action === 'binder.locate' && e.target && e.target.id === id);
+        return {loc:b.location_id, via:lg.map(e => e.details && e.details.via)}; }, Cbin.id);
+      ok(Cv.scans === 1 && Cv.on === 'true' && Cv2.list.length === 1 && Cv2.list[0] === 'NFC1>' + Cbox.code && /NFC1/.test(Cv2.msg) && Cdesk.loc === Cbox.id, 'C NFC: "Leggi tag NFC" feeds the association sequence like the camera (one assignment, a repeated tap is ignored)', {Cv, Cv2, Cdesk});
+      ok(/vuoto/.test(Cblank), 'C NFC: a blank tag shows a clear message', Cblank);
+      ok(!Cdesk.via.length || Cdesk.via.includes('phone-nfc'), 'C NFC: the assignment is logged with via phone-nfc', Cdesk.via);
+      // outside the sequence view a tag opens its page
+      await Cn.click('[data-s="sa-stop"]'); await Cn.waitForTimeout(100);
+      await Cn.goto(MSCAN_C + '?lang=it&q=' + Cbox.sc); await Cn.waitForTimeout(700);
+      await Cn.click('#nfc-read'); await Cn.waitForTimeout(80);
+      await Cn.evaluate((u) => window.__nfcTap(u, '04:b0'), Cbin.url); await Cn.waitForTimeout(800);
+      Cv = await Cn.evaluate(() => ({view:SC.view, code:(document.getElementById('sc-code') || {}).textContent, url:location.search}));
+      ok(Cv.view === 'card' && Cv.code === 'NFC1' && /q=dm26/.test(Cv.url), 'C NFC: outside association a tag opens the binder page (same as scanning its QR)', Cv);
+      await Cn.close();
+      // without Web NFC (iPhone, desktop browsers): no NFC buttons
+      const Cn2 = await ctx.newPage(); await Cn2.setViewportSize({width:390, height:844});
+      Cn2.on('pageerror', e => errs.push('NFC2 PAGEERR ' + e.message));
+      await Cn2.goto(MSCAN_C + '?lang=it&q=' + Cbin.sc); await Cn2.waitForTimeout(600);
+      await Cn2.fill('#sc-user', 'nfctest'); await Cn2.fill('#sc-pin', '135790'); await Cn2.click('#sc-enter'); await Cn2.waitForTimeout(1500);
+      Cv = await Cn2.evaluate(() => ({view:SC.view, box:!!document.getElementById('nfc-box'), nfc:typeof NDEFReader}));
+      ok(Cv.view === 'card' && !Cv.box && Cv.nfc === 'undefined', 'C NFC: without Web NFC the NFC buttons are hidden', Cv);
+      await Cn2.close();
+      await p.evaluate((id) => { S.binders = S.binders.filter(b => b.id !== id); commit(); }, Cbin.id);
+    }
+
+    // ---- server: archives as records of type 'archive' between two app pages ----
+    let Cphp = ''; try { Cphp = Ccp.execFileSync('php', ['-r', 'echo extension_loaded("pdo_sqlite") && extension_loaded("openssl") ? "ok" : "no";']).toString(); } catch(e){}
+    if (Cphp !== 'ok') console.log('  (stream C server test skipped: php CLI with pdo_sqlite + openssl not installed)');
+    else {
+      const CR = Cpath.resolve(__dirname, 'shots', 'srvc'), CDp = Cpath.join(CR, 'studio-de'), CSP = Cpath.join(CDp, 'server-php');
+      Ccp.execFileSync('python3', [Cpath.resolve(__dirname, '..', 'tools', 'build_deploy.py'), CDp, '--studio-name', 'Studio Archivi']);
+      ['config.php', 'setup.php.disabled'].forEach(f => { const x = Cpath.join(CSP, f); if (fs.existsSync(x)) fs.renameSync(x, x + '.prev-run-' + Date.now()); });
+      const CDATA = Cpath.resolve(__dirname, 'shots', 'srvc-data', String(Date.now()));
+      const CPORT = 19400 + (process.pid % 300), CO = 'http://127.0.0.1:' + CPORT, CAPI = CO + '/studio-de/server-php/api.php';
+      const Csrv = Ccp.spawn('php', ['-S', '127.0.0.1:' + CPORT, '-t', CR, Cpath.resolve(__dirname, 'php-router.php')], {stdio:'ignore'});
+      const Csleep = (ms) => new Promise(r => setTimeout(r, ms));
+      const Cq_ = async (route, o) => { o = o || {}; const h = {}; if (o.token) h['X-DocMap-Token'] = o.token; if (o.body !== undefined) h['Content-Type'] = 'application/json';
+        const r = await fetch(CAPI + '?r=' + route + (o.q ? '&' + new URLSearchParams(o.q).toString() : ''), {method:o.body !== undefined ? 'POST' : 'GET', headers:h, body:o.body === undefined ? undefined : JSON.stringify(o.body)});
+        let j = null; try { j = await r.json(); } catch(e){} return {s:r.status, j}; };
+      let Cup = false; for (let i = 0; i < 50 && !Cup; i++){ try { Cup = (await Cq_('ping')).s === 200; } catch(e){ await Csleep(100); } }
+      try {
+        fs.mkdirSync(CDATA, {recursive:true});
+        const r = await fetch(CO + '/studio-de/server-php/setup.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+          body:new URLSearchParams({data_dir:CDATA, users:'dave,admin\nlucia,viewer', allow_file:'1', studio_name:'Studio Archivi'}).toString()});
+        const CT = {}; for (const m of (await r.text()).matchAll(/data-user="([^"]+)" data-role="([^"]+)"><td>[^<]*<\/td><td>[^<]*<\/td><td class="tok">([^<]+)</g)) CT[m[1]] = m[3];
+        Cv = await Cq_('ping');
+        // the server already holds data (no first-upload dialog)
+        await Cq_('push', {token:CT.dave, body:{records:[{type:'binder', id:'c-srv-b1', updated_at:'2026-10-20T10:00:00.000Z', data:{id:'c-srv-b1', speaking_code:'CS1', company_name:'Server Archivi Srl', category:'IVA', short_code:'dm26CsrvBnd1', contents_items:[], updated_at:'2026-10-20T10:00:00.000Z'}}], deviceId:'dev-c-seed'}});
+        ok(Cup && CT.dave && (Cv.j.features || []).includes('archives'), 'C server: ping advertises the feature "archives"', Cv.j);
+        const CA = await b.newContext({viewport:{width:1366, height:768}}), CAp = await CA.newPage();
+        CAp.on('pageerror', e => errs.push('CA PAGEERR ' + e.message)); CAp.on('dialog', d => d.accept());
+        await CAp.goto(URL_); await CAp.evaluate(([url, tok]) => { localStorage.clear(); localStorage.setItem('docmap_v26_srv', JSON.stringify({url, token:tok, basic:''})); }, [CAPI, CT.dave]);
+        await CAp.reload(); await CAp.waitForTimeout(1500);
+        const CSA = await CAp.evaluate(async () => { S.onboarded = true; while (topModal()) closeModal(true); S.settings.operator = 'Dave PC';
+          const a = archCreate({name:'Magazzino Comune', code:'MC'}); a.levels = [{name:'Corsia', prefix:'C'}, {name:'Scatola', prefix:'B'}]; a.qr_levels = [1]; S.archiveSel = a.id;
+          locBulkCreate('', [{n:1, prefix:'C'}, {n:2, prefix:'B', pad:2}]);
+          const bb = normalizeBinder({speaking_code:'CMC1', company_name:'Comune Srl', category:'IVA', short_code:newShortCode()}); S.binders.push(bb); locAssign([bb], S.locations.find(l => l.code === 'C1-B01').id);
+          commit(); await srvSync({}); return {id:a.id, bid:bb.id}; });
+        Cv = await Cq_('pull', {token:CT.lucia, q:{since:0}});
+        const Crec = (Cv.j.records || []).filter(x => x.type === 'archive');
+        ok(Crec.length === 1 && Crec[0].id === CSA.id && Crec[0].data.code === 'MC' && Crec[0].data.levels.length === 2 && (Cv.j.records || []).filter(x => x.type === 'location' && x.data.archive_id === CSA.id).length === 3,
+          'C server: "Sincronizza con il server" pushes the archive as a record of type archive (with levels) and its tree with archive_id', {n:Crec.length});
+        const CB2 = await b.newContext({viewport:{width:1366, height:768}}), CB2p = await CB2.newPage();
+        CB2p.on('pageerror', e => errs.push('CB PAGEERR ' + e.message)); CB2p.on('dialog', d => d.accept());
+        await CB2p.goto(URL_); await CB2p.evaluate(([url, tok]) => { localStorage.clear(); localStorage.setItem('docmap_v26_srv', JSON.stringify({url, token:tok, basic:''})); }, [CAPI, CT.dave]);
+        await CB2p.reload(); await CB2p.waitForTimeout(1500);
+        Cv = await CB2p.evaluate(async ([id, bid]) => { S.onboarded = true; while (topModal()) closeModal(true); await srvSync({}); const a = archById(id), b = S.binders.find(x => x.id === bid);
+          return {a:!!a && a.code, multi:archMulti(), locs:S.locations.filter(l => locArchiveId(l) === id).length, b:b && binderArchiveId(b) === id, lv:a && archWithCtx(id, () => locLevels().map(x => x.name).join('›')), kind:locKind(S.locations.find(l => l.code === 'C1-B02'))}; }, [CSA.id, CSA.bid]);
+        ok(Cv.a === 'MC' && Cv.multi && Cv.locs === 3 && Cv.b && Cv.lv === 'Corsia›Scatola' && Cv.kind === 'Scatola', 'C server: a second app page gets the archive, its levels, its tree and its binders', Cv);
+        // rename on B, merge on A: both travel through the server
+        await CB2p.evaluate(async (id) => { archSaveFields(id, {name:'Magazzino del Comune'}); commit(); await srvSync({}); }, CSA.id);
+        Cv = await CAp.evaluate(async (id) => { await srvSync({}); return archName(archById(id)); }, CSA.id);
+        await CAp.evaluate(async (id) => { archMerge(id, ''); commit(); await srvSync({}); }, CSA.id);
+        Cv2 = await CB2p.evaluate(async ([id, bid]) => { await srvSync({}); return {gone:!archById(id), b:binderArchiveId(S.binders.find(x => x.id === bid)), multi:archMulti()}; }, [CSA.id, CSA.bid]);
+        const Ctomb = await Cq_('pull', {token:CT.lucia, q:{since:0}});
+        ok(Cv === 'Magazzino del Comune' && Cv2.gone && Cv2.b === '' && !Cv2.multi && (Ctomb.j.tombstones || []).some(t => t.type === 'archive' && t.id === CSA.id), 'C server: rename and merge of an archive travel between the two pages (tombstone on the server)', {Cv, Cv2});
+        await CB2.close(); await CA.close();
+      } finally { Csrv.kill(); }
+    }
+
+    // ---- real upgrade: data created by DocMap v10.0 (git 34ff0d1) opened by this version in the same browser profile ----
+    let Cold = ''; try { Cold = Ccp.execFileSync('git', ['cat-file', '-t', '34ff0d1'], {cwd:__dirname, stdio:['ignore', 'pipe', 'ignore']}).toString().trim(); } catch(e){}
+    if (Cold !== 'commit') console.log('  (stream C v10.0 upgrade test skipped: git history not available)');
+    else {
+      const CV10 = Cpath.resolve(__dirname, 'shots', 'v100-app');
+      fs.mkdirSync(CV10, {recursive:true});
+      Ccp.execFileSync('tar', ['-x', '-C', CV10], {input:Ccp.execFileSync('git', ['archive', '--format=tar', '34ff0d1:docmapv1'], {cwd:Cpath.resolve(__dirname, '..', '..'), maxBuffer:256 * 1024 * 1024})});   // the v10.0 app as released
+      const CURL10 = 'file://' + Cpath.join(CV10, 'index.html').replace(/\\/g, '/');
+      const Cu = await b.newContext({viewport:{width:1366, height:768}}), Cup_ = await Cu.newPage();
+      const Cerr10 = []; Cup_.on('pageerror', e => Cerr10.push(e.message)); Cup_.on('dialog', d => d.accept());
+      await Cup_.goto(CURL10); await Cup_.waitForTimeout(2000);
+      const Cbefore = await Cup_.evaluate(async () => {
+        S.onboarded = true; try { while (topModal()) closeModal(true); } catch(e){}
+        S.settings.studioName = 'Studio Dave v10'; S.settings.operator = 'Dave'; S.settings.destTemplate = 'https://docmap.pr-it.it/studio-de/q/{short_code}';
+        S.clients.push(normalizeClient({multi_code:'D-0001', name:'Cliente Dieci S.r.l.', city:'PARMA', province:'PR', category:'Ordinaria'}));
+        const mk = (i, extra) => normalizeBinder(Object.assign({speaking_code:'DV' + i, multi_code:'D-0001', company_name:'Cliente Dieci S.r.l.', category:i % 2 ? 'IVA' : 'Bilanci', binder_title:'Faldone ' + i, ref_year:'2025',
+          room_code:'A', cabinet_code:String(i), shelf_code:'β', tags:'dieci,anno' + i, contents_items:'2025: Fatture|2024: Registri [in uso]', short_code:newShortCode(), notes:'nota ' + i}, extra || {}));
+        const bs = [mk(1), mk(2, {color_hex:'#9C051E'}), mk(3)];
+        bs[1].color_locked = true;
+        bs.forEach(x => S.binders.push(x));
+        ensureIntegrity();
+        logAct('binder.create', {type:'binder', id:bs[0].id, code:'DV1'}, 'Creato il faldone DV1 (v10)', {});
+        commit();
+        // one photo of a binder in the SQLite database (as the v10 photo picker stores it)
+        const png = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='), c => c.charCodeAt(0));
+        DB.db.run('INSERT INTO photos(id, owner_type, owner_key, mime, data, width, height, caption, marks_json, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)', ['ph-v10-1', 'binder', bs[0].id, 'image/png', png, 1, 1, 'foto v10', '{}', nowISO()]);
+        dbSyncFromState('t'); await dbPersist();
+        await new Promise(r => setTimeout(r, 600));
+        const pick = (x) => [x.id, x.speaking_code, x.company_name, x.category, x.color_hex, !!x.color_locked, x.tags, x.location_code, x.updated_at, x.created_at, x.notes, contentsToPipe(x.contents_items)].join('|');
+        return {app:APP_VERSION, db:DB_SCHEMA_VERSION, n:S.binders.length, binders:S.binders.map(pick).sort(), clients:S.clients.map(c => c.id + '|' + c.name + '|' + c.multi_code).sort(), log:LOG.entries.map(e => e.id),
+          settings:[S.settings.studioName, S.settings.operator, S.settings.destTemplate, JSON.stringify(S.settings.catColors || {})].join('§'), photo:bs[0].id, ids:bs.map(x => x.id)};
+      });
+      ok(Cbefore.app === '26.10.0' && Cbefore.db === 6 && !Cerr10.length, 'C upgrade: the real DocMap v10.0 (git 34ff0d1) runs from file:// and creates binders, a client, colours, tags, a photo and a log line', {app:Cbefore.app, db:Cbefore.db, err:Cerr10.slice(0, 3)});
+      await Cup_.goto(URL_); await Cup_.waitForTimeout(2200);
+      const Cafter = await Cup_.evaluate((photoOwner) => {
+        try { while (topModal()) closeModal(true); } catch(e){}
+        const pick = (x) => [x.id, x.speaking_code, x.company_name, x.category, x.color_hex, !!x.color_locked, x.tags, x.location_code, x.updated_at, x.created_at, x.notes, contentsToPipe(x.contents_items)].join('|');
+        const cols = (tb) => dbQuery('PRAGMA table_info(' + tb + ')').map(r => r.name);
+        return {app:APP_VERSION, n:S.binders.length, binders:S.binders.map(pick).sort(), clients:S.clients.map(c => c.id + '|' + c.name + '|' + c.multi_code).sort(), log:LOG.entries.map(e => e.id),
+          settings:[S.settings.studioName, S.settings.operator, S.settings.destTemplate, JSON.stringify(S.settings.catColors || {})].join('§'),
+          photos:phList('binder', photoOwner).map(x => x.caption), url:!!phUrl('ph-v10-1'),
+          ver:dbScalar("SELECT value FROM meta WHERE key = 'schema_version'"), bcols:['location_id', 'archive_id', 'color_locked'].every(c => cols('binders').includes(c)), lcols:cols('locations').includes('archive_id'), ccols:cols('clients').includes('extra_json'),
+          tables:['archives', 'locations', 'photos', 'activity_log'].map(tb => dbScalar("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?", [tb])).join(''), nb:dbScalar('SELECT COUNT(*) FROM binders'),
+          arch:archList().map(a => a.code).join(','), rec:(S.archives || []).length, multi:archMulti(), eff:S.binders.every(b => binderArchiveId(b) === '' && b.archive_id === ''), csv:binderToCsvRow(S.binders[0]).length === CSV_COLUMNS.length && binderToCsvRow(S.binders[0]).pop() === '',
+          locs:Array.isArray(S.locations) && S.locations.length === 0, status:typeof S.statusEvents === 'undefined' || (Array.isArray(S.statusEvents) && S.statusEvents.length === 0), sw:!!document.getElementById('ar-sw')};
+      }, Cbefore.photo);
+      ok(Cafter.app === APP_VERSION_C && Cafter.n === Cbefore.n && JSON.stringify(Cafter.binders) === JSON.stringify(Cbefore.binders) && JSON.stringify(Cafter.clients) === JSON.stringify(Cbefore.clients) && Cafter.settings === Cbefore.settings && Cbefore.log.every(id => Cafter.log.includes(id)),
+        'C upgrade v10.0 → v12: binders (colours, locked colour, tags, contents, timestamps), clients, settings and the activity log are kept exactly', {before:Cbefore.binders.slice(0, 1), after:Cafter.binders.slice(0, 1), log:Cbefore.log.length + '/' + Cafter.log.length});
+      ok(Cafter.photos.join() === 'foto v10' && Cafter.url && +Cafter.ver === 9 && Cafter.bcols && Cafter.lcols && Cafter.ccols && Cafter.tables === '1111' && Cafter.nb === Cbefore.n,
+        'C upgrade v10.0 → v12: the photo is still there; the SQLite file (schema 6) migrated additively to schema 9', Cafter);
+      ok(Cafter.arch === 'AP' && Cafter.rec === 0 && !Cafter.multi && Cafter.eff && Cafter.csv && !Cafter.sw, 'C upgrade v10.0 → v12: everything lands in the default archive (nothing stamped, no switcher)', Cafter);
+      // locations / status features: empty but working
+      Cv = await Cup_.evaluate(async () => { S.view = 'info'; S.infoTab = 'loc'; renderAll(); const empty = !!document.getElementById('lo-empty-setup');
+        locBulkCreate('', [{n:1, prefix:'MAG'}, {n:2, prefix:'B', pad:2}]); const box = S.locations.find(l => l.code === 'MAG1-B02'); const bb = S.binders.find(x => x.speaking_code === 'DV2'); locAssign([bb], box.id); commit();
+        const st = typeof S.statusEvents !== 'undefined' ? 'present' : 'absent';
+        return {empty, n:S.locations.length, at:bb.location_code, keep:bb.color_hex === '#9C051E' && bb.color_locked, st}; });
+      ok(Cv.empty && Cv.n === 3 && Cv.at === 'MAG1-B02' && Cv.keep, 'C upgrade v10.0 → v12: the location features start empty and work (tree, assignment), the binder keeps its colour', Cv);
+      ok(!Cerr10.length, 'C upgrade: no page errors in the old or the new app', Cerr10.slice(0, 3));
+      await Cu.close();
+    }
+    await p.evaluate(() => { S.archiveSel = ''; S.view = 'archive'; savePrefs(); renderAll(); });
+  }
   console.log('\nerrors:', errs.length ? errs.join('\n') : 'none');
   if (errs.length) fails += errs.length;
   console.log(`\nRESULT: ${passes} passed, ${fails} failed`);

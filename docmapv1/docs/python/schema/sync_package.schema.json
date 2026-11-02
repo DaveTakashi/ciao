@@ -26,7 +26,8 @@
           "properties": {
             "binders": {"type": "array", "items": {"$ref": "binder.schema.json"}},
             "clients": {"type": "array", "items": {"$ref": "client.schema.json"}},
-            "locations": {"type": "array", "items": {"$ref": "location.schema.json"}, "description": "v11; older readers ignore the key."}
+            "locations": {"type": "array", "items": {"$ref": "location.schema.json"}, "description": "v11; older readers ignore the key."},
+            "archives": {"type": "array", "items": {"$ref": "archive.schema.json"}, "description": "v12; older readers ignore the key."}
           },
           "additionalProperties": {"type": "array"}
         },
@@ -42,7 +43,7 @@
           "additionalProperties": true
         },
         "activity_log": {"type": "array", "items": {"$ref": "activity_log_entry.schema.json"}},
-        "counts": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}, "description": "binders, clients, locations, tombstones, log"}
+        "counts": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}, "description": "binders, clients, locations, archives, tombstones, log"}
       },
       "additionalProperties": true
     },
@@ -66,7 +67,7 @@
     "tombstone": {
       "type": "object", "required": ["type", "id", "code", "deletedAt"],
       "properties": {
-        "type": {"enum": ["binder", "client", "location"]},
+        "type": {"enum": ["binder", "client", "location", "archive"]},
         "id": {"type": "string"},
         "code": {"type": "string", "description": "Human code at deletion time (speaking code, Multi code / name, location code)."},
         "deletedAt": {"type": "string", "format": "date-time"},

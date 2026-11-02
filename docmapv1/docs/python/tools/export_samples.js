@@ -7,7 +7,7 @@
      workspace_backup.json     workspaceJSON(true)          = "Salva backup" (with activity_log and sync_journal)
      sync_package.json         syncBuildPackage({})         = full sync package (plain)
      sync_package_enc.json     syncEncrypt(...)             = the same package with a passphrase
-     records.json              {binder, client, location, activity_log_entry, sync_journal_entry} single samples
+     records.json              {binder, client, location, archive, activity_log_entry, sync_journal_entry} single samples
 
    Usage:  node export_samples.js <output folder>
    Needs the npm package "playwright" with Chromium (the test suite uses the same: see docs/python/PORTING.md §8).
@@ -43,6 +43,11 @@ const APP = path.resolve(__dirname, '..', '..', '..', 'index.html');
     const b01 = normalizeLocation({ seg: 'B01', parent_id: rip.id, created_at: now, notes: 'scatola 1' });
     const b02 = normalizeLocation({ seg: 'B02', parent_id: rip.id, created_at: now });
     S.locations = [mag, arm, sca, rip, b01, b02];
+    // v12: a second archive with its own levels and QR levels; the tree belongs to it (archive_id on the root)
+    const ar = archCreate({ name: 'Archivio storico', code: 'ST', description: 'archivio di prova' });
+    ar.levels = [{ name: 'Magazzino', prefix: 'MAG' }, { name: 'Armadio', prefix: 'A' }, { name: 'Scansia', prefix: 'S' }, { name: 'Scaffale', prefix: 'R' }, { name: 'Scatola', prefix: 'B' }];
+    ar.qr_levels = [1, 4];
+    mag.archive_id = ar.id;
     locIntegrity();
     // a client and a binder placed in box B01 (invented data)
     S.clients.push(normalizeClient({ multi_code: 'T-0001', name: 'Prova Schemi S.r.l.', address: 'Via Inventata 1', cap: '43100', city: 'PARMA', province: 'PR', type: 'SRL', category: 'Ordinaria' }));
@@ -77,10 +82,11 @@ const APP = path.resolve(__dirname, '..', '..', '..', 'index.html');
         binder: S.binders.find(x => x.speaking_code === 'PS1'),
         client: S.clients.find(x => x.multi_code === 'T-0001'),
         location: S.locations.find(x => x.seg === 'B01'),
+        archive: S.archives.find(x => x.code === 'ST'),
         activity_log_entry: one(LOG.entries),
         sync_journal_entry: one(S.syncJournal)
       },
-      info: { app: APP_VERSION, binders: S.binders.length, locations: S.locations.length, journal: S.syncJournal.length, log: LOG.entries.length, planKinds: plan.items.map(i => i.kind) }
+      info: { app: APP_VERSION, binders: S.binders.length, locations: S.locations.length, archives: S.archives.length, journal: S.syncJournal.length, log: LOG.entries.length, planKinds: plan.items.map(i => i.kind) }
     };
   });
   fs.writeFileSync(path.join(OUT, 'workspace_backup.json'), JSON.stringify(res.workspace, null, 2));

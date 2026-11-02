@@ -39,6 +39,7 @@ function filteredBinders(){
     if (UI.fRoom && b.room_code !== UI.fRoom) return false;
     if (UI.fCat && b.category !== UI.fCat) return false;
     if (UI.fLoc && typeof locBinderIn === 'function' && !locBinderIn(b, UI.fLoc)) return false;   // v11: location filter (06h-locations.js)
+    if (typeof archBinderVisible === 'function' && !archBinderVisible(b)) return false;   // v12: archive chosen in the top-bar switcher (06l-archives.js)
     if (UI.fInfo && !infoMatch(b, UI.fInfo)) return false;   // filter set from Informazioni
     if (!q) return true;
     const hay = [b.speaking_code, b.multi_code, b.company_name, b.company_city, b.ref_year, b.extra_codes, b.category, b.binder_title, b.location_code, b.tags, b.short_code, contentsToPipe(b.contents_items), t('s_' + b.archive_state), b.contacts, b.notes, ciSearchWords(b), typeof locBinderSearchText === 'function' ? locBinderSearchText(b) : ''].join(' ').toLowerCase();

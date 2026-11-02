@@ -172,6 +172,25 @@ quindi senza codice in più.
 - Telefono: la modalità associazione scrive con `patch` (`API-CONTRACT.md` §5); il PC riceve i faldoni aggiornati e
   le righe `binder.locate` al pull successivo.
 
+## 7c. v12 — archivi (tipo di record `archive`)
+
+Gli archivi (`S.archives`, `MODELLO-DATI.md` §15) seguono gli stessi percorsi generici: `syncTrack` (tombstone quando
+un archivio sparisce: unione "Unisci in…" o eliminazione), `syncChangedSince`, pacchetto (`records.archives`,
+`counts.archives`), `syncAnalyze` / `syncApply` (LWW per record; gli archivi si applicano **prima** di ubicazioni e
+faldoni), `srvChanges` / `srvPush` (`type:'archive'`), pull dal server e registro sincronizzazioni.
+
+- Escluso dal confronto: solo `updated_at` (`SYNC_A_SKIP`). `levels` e `qr_levels` sono contenuto.
+- L'**Archivio principale** non viaggia finché non viene modificato (è virtuale, `MODELLO-DATI.md` §15.1): due PC
+  appena aggiornati non si scambiano nulla di nuovo. I suoi livelli restano `settings.locLevels` (sottoinsieme
+  impostazioni, come in v11).
+- `binder.archive_id` e `location.archive_id` sono contenuto (LWW del faldone / dell'ubicazione). `archive_id` dei
+  nodi non radice è derivato dalla radice: quando la radice cambia archivio, `syncTrack` vede il sottoalbero cambiato e
+  ne aggiorna `updated_at`, quindi i figli viaggiano insieme alla radice.
+- Un record di un archivio che questo PC non conosce ancora (ordine di arrivo) resta valido: il faldone mostra un
+  archivio "non ancora sincronizzato" finché arriva il record.
+- **Server v11 e app v12**: un `api.php` vecchio rifiuta i record `archive` come `invalid` (gli altri passano).
+  Aggiornare `server-php/api.php` insieme all'app (`ping` → `features` contiene `archives`).
+
 ## 8. Per il back-end Python
 
 Il formato è pensato per diventare l'API di sync: `POST /sync/push` = un pacchetto `docmap-sync` (anche cifrato end-to-end), `GET /sync/pull?since=` = un pacchetto con i record successivi. Il server può applicare la stessa regola (record-level LWW su `updated_at`, tombstone con `deletedAt`) o fare solo da casella postale cifrata. Campi da conservare lato server: `updated_at` dei record, tabella `tombstones(type, id, code, deleted_at, who)`, `device(id, label, mode)` e, per ogni coppia di dispositivi, l'ultima conferma (`ack`).

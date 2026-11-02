@@ -21,7 +21,7 @@
      S.settings.deviceId     stable id of this installation (also kept in localStorage SYNC_DEV_LS so a
                              restored backup from another device cannot clone it)
      S.settings.deviceLabel  human name ("PC studio", "Web app")
-     S.tombstones            [{type:'binder'|'client'|'location', id, code, deletedAt, who}]   (v11: + locations) — newest SYNC_TOMB_CAP,
+     S.tombstones            [{type:'binder'|'client'|'location'|'archive', id, code, deletedAt, who}]   (v11: + locations · v12: + archives) — newest SYNC_TOMB_CAP,
                              pruned after SYNC_TOMB_DAYS days
      S.sync                  {peers:{[deviceId]:{id, label, mode, lastImportAt, lastSeenRemoteExportAt,
                              lastExportAt, ackedAt}}, lastExportAt, lastImportAt, lastPeer, history:[…50]}
@@ -41,6 +41,9 @@ const SYNC_DEV_LS = 'docmap_v26_device';
 const SYNC_B_SKIP = ['updated_at', 'short_url', 'location_code', 'selected_for_print'];   // not "content"
 const SYNC_C_SKIP = ['updated_at'];
 const SYNC_L_SKIP = ['updated_at', 'short_url', 'code', 'level'];   // v11 locations: code / level are derived from the tree (02c-locations.js)
+const SYNC_A_SKIP = ['updated_at'];   // v12 archives (02e-archives.js)
+const sySkip = (type) => type === 'client' ? SYNC_C_SKIP : type === 'location' ? SYNC_L_SKIP : type === 'archive' ? SYNC_A_SKIP : SYNC_B_SKIP;
+const syRecCode = (type, r) => type === 'binder' ? r.speaking_code : type === 'location' ? (r.code || r.seg || r.name) : type === 'archive' ? (r.code || r.name) : (r.name || r.multi_code);
 const SYNC = { base:null, quiet:false, plan:null, modeOverride:'' };
 
 Object.assign(ICONS, {
@@ -157,7 +160,7 @@ function syncEnsure(){
 function syncDeviceLabel(){ return String((S.settings && S.settings.deviceLabel) || '').trim() || t('sy_mode_' + syncMode()); }
 /** Canonical content string of a record (keys sorted, meta fields left out): equal string = same content. */
 function syncCanon(r, type){
-  const skip = type === 'client' ? SYNC_C_SKIP : type === 'location' ? SYNC_L_SKIP : SYNC_B_SKIP, o = {};
+  const skip = sySkip(type), o = {};
   Object.keys(r || {}).sort().forEach(k => {
     if (skip.includes(k) || k.charAt(0) === '_') return;
     let v = r[k];
@@ -191,10 +194,10 @@ function syncPrune(){
 function syncTrack(){
   if (!S || !Array.isArray(S.binders)) return;
   syncEnsure();
-  const prev = SYNC.base, quiet = SYNC.quiet, now = nowISO(), cur = {binder:new Map(), client:new Map(), location:new Map()};
+  const prev = SYNC.base, quiet = SYNC.quiet, now = nowISO(), cur = {binder:new Map(), client:new Map(), location:new Map(), archive:new Map()};
   const tombs = prev && !quiet ? syncTombMap() : null;
-  const lists = {binder:S.binders, client:S.clients || [], location:S.locations || []};   // v11: + location tree
-  ['binder', 'client', 'location'].forEach(type => {
+  const lists = {binder:S.binders, client:S.clients || [], location:S.locations || [], archive:S.archives || []};   // v11: + location tree · v12: + archives
+  ['binder', 'client', 'location', 'archive'].forEach(type => {
     if (prev && !prev[type]) prev[type] = new Map(lists[type].map(r => [r.id, {h:syncCanon(r, type), u:String(r.updated_at || ''), code:''}]));   // base taken before this type existed
     lists[type].forEach(r => {
       if (!r || !r.id) return;
@@ -206,7 +209,7 @@ function syncTrack(){
           if (tombs.has(syTombKey(type, r.id))){ S.tombstones = S.tombstones.filter(x => !(x.type === type && x.id === r.id)); tombs.delete(syTombKey(type, r.id)); }
         }
       }
-      cur[type].set(r.id, {h, u:String(r.updated_at || ''), code:type === 'binder' ? r.speaking_code : type === 'location' ? r.code : (r.multi_code || r.name)});
+      cur[type].set(r.id, {h, u:String(r.updated_at || ''), code:type === 'binder' ? r.speaking_code : type === 'location' ? r.code : type === 'archive' ? (r.code || r.name) : (r.multi_code || r.name)});
     });
     if (prev && !quiet) prev[type].forEach((p, id) => { if (!cur[type].has(id) && !tombs.has(syTombKey(type, id))) syncAddTomb({type, id, code:p.code, deletedAt:syNext(p.u, now)}); });
   });
@@ -271,7 +274,7 @@ function syncIsNew(type, id, ts, since, exclude){
 }
 function syncChangedSince(since, exclude){
   const nw = (type, id, ts) => syncIsNew(type, id, ts, since, exclude || '');
-  return { binders:S.binders.filter(b => nw('binder', b.id, b.updated_at)), clients:(S.clients || []).filter(c => nw('client', c.id, c.updated_at)), locations:(S.locations || []).filter(l => nw('location', l.id, l.updated_at)), tombstones:(S.tombstones || []).filter(x => nw(x.type, x.id, x.deletedAt)) };
+  return { binders:S.binders.filter(b => nw('binder', b.id, b.updated_at)), clients:(S.clients || []).filter(c => nw('client', c.id, c.updated_at)), locations:(S.locations || []).filter(l => nw('location', l.id, l.updated_at)), archives:(S.archives || []).filter(a => nw('archive', a.id, a.updated_at)), tombstones:(S.tombstones || []).filter(x => nw(x.type, x.id, x.deletedAt)) };
 }
 /** opts: {incremental:bool, target:deviceId|''} → package object (plain). */
 function syncBuildPackage(opts){
@@ -285,10 +288,10 @@ function syncBuildPackage(opts){
     format:SYNC_FORMAT, version:SYNC_VERSION, app:'DocMap26', appVersion:APP_VERSION, exportedAt:nowISO(),
     source:{deviceId:syncDeviceId(), deviceLabel:syncDeviceLabel(), mode:syncMode(), operator:String(S.settings.operator || '')},
     since:since || null, target:opts.target || '', ack,
-    records:{binders:clone(ch.binders), clients:clone(ch.clients), locations:clone(ch.locations)}, tombstones:clone(ch.tombstones),   // v11: locations (older readers ignore the key)
+    records:{binders:clone(ch.binders), clients:clone(ch.clients), locations:clone(ch.locations), archives:clone(ch.archives)}, tombstones:clone(ch.tombstones),   // v11: locations · v12: archives (older readers ignore the keys)
     settingsSubset:{studioName:S.settings.studioName || '', destTemplate:S.settings.destTemplate || '', catColors:clone(S.settings.catColors || {}), ...colorSyncSubset(), ...(typeof locSyncSubset === 'function' ? locSyncSubset() : {})},   // colour block: 02b-colors.js · location levels: 06h-locations.js
     activity_log:log.map(e => ({id:e.id, at:e.at, who:e.who, action:e.action, target:e.target, summary:e.summary, details:e.details, source:e.source})),
-    counts:{binders:ch.binders.length, clients:ch.clients.length, locations:ch.locations.length, tombstones:ch.tombstones.length, log:log.length}
+    counts:{binders:ch.binders.length, clients:ch.clients.length, locations:ch.locations.length, archives:ch.archives.length, tombstones:ch.tombstones.length, log:log.length}
   };
 }
 function syncFileName(){
@@ -327,11 +330,12 @@ function syncNormRemote(r, type){
   const c = syncClean(r);
   if (type === 'client'){ const n = normalizeClient(c); n.updated_at = String(c.updated_at || ''); return n; }
   if (type === 'location'){ const n = normalizeLocation(c); n.updated_at = String(c.updated_at || ''); return n; }
+  if (type === 'archive'){ const n = normalizeArchive(c); n.updated_at = String(c.updated_at || ''); return n; }   // v12
   const n = normalizeBinder(c); n.updated_at = String(c.updated_at || ''); if (c.created_at) n.created_at = String(c.created_at);
   return n;
 }
 function syncFieldDiff(l, r, type){
-  const skip = (type === 'client' ? SYNC_C_SKIP : type === 'location' ? SYNC_L_SKIP : SYNC_B_SKIP).concat(['id']), out = [];
+  const skip = sySkip(type).concat(['id']), out = [];
   Object.keys(Object.assign({}, l || {}, r || {})).forEach(k => {
     if (skip.includes(k) || k.charAt(0) === '_') return;
     const v = (o) => { const x = o ? o[k] : ''; return k === 'contents_items' ? contentsToPipe(x || []) : x == null ? '' : typeof x === 'object' ? JSON.stringify(x) : String(x); };
@@ -350,14 +354,14 @@ function syncAnalyze(pkg){
   const tombs = syncTombMap(), items = [], warnings = [];
   const newer = (a, b) => syTs(a) > syTs(b);
   const seen = new Set();
-  [['binder', 'binders', S.binders], ['client', 'clients', S.clients || []], ['location', 'locations', S.locations || []]].forEach(([type, key, list]) => {
+  [['binder', 'binders', S.binders], ['client', 'clients', S.clients || []], ['location', 'locations', S.locations || []], ['archive', 'archives', S.archives || []]].forEach(([type, key, list]) => {
     const loc = new Map(list.map(x => [x.id, x]));
     const recs = Array.isArray(pkg.records[key]) ? pkg.records[key] : [];
     recs.forEach(raw => {
       if (!raw || typeof raw !== 'object' || !raw.id || seen.has(type + raw.id)) return;
       seen.add(type + raw.id);
       const r = syncNormRemote(raw, type), l = loc.get(r.id) || null, tb = tombs.get(syTombKey(type, r.id));
-      const it = {type, id:r.id, code:type === 'binder' ? r.speaking_code : type === 'location' ? (r.code || r.seg || r.name) : (r.name || r.multi_code), local:l, remote:r, tomb:null, choice:'remote', fields:[]};
+      const it = {type, id:r.id, code:syRecCode(type, r), local:l, remote:r, tomb:null, choice:'remote', fields:[]};
       if (!l){
         if (tb){
           it.tomb = tb;
@@ -380,7 +384,7 @@ function syncAnalyze(pkg){
       seen.add(type + x.id);
       const tb = {type, id:String(x.id), code:String(x.code || ''), deletedAt:String(x.deletedAt || ''), who:String(x.who || '')};
       const l = loc.get(tb.id);
-      const it = {type, id:tb.id, code:l ? (type === 'binder' ? l.speaking_code : type === 'location' ? l.code : l.name) : tb.code, local:l || null, remote:null, tomb:tb, choice:'remote', fields:[]};
+      const it = {type, id:tb.id, code:l ? (type === 'binder' ? l.speaking_code : type === 'location' ? l.code : type === 'archive' ? (l.code || l.name) : l.name) : tb.code, local:l || null, remote:null, tomb:tb, choice:'remote', fields:[]};
       if (!l) it.kind = 'propagate';   // already gone here: only remember the tombstone
       else if (newer(l.updated_at, tb.deletedAt)){ it.kind = 'conflict'; it.reason = 'deleted_remote'; it.choice = 'local'; }
       else it.kind = 'delete';
@@ -419,11 +423,12 @@ function syncApply(plan, opts){
   syncEnsure();
   if (!opts.quiet) undoPoint();
   const now = nowISO(), done = {new:0, updated:0, delete:0, conflict:0}, codes = {new:[], updated:[], delete:[]};
-  const lists = {binder:S.binders.slice(), client:(S.clients || []).slice(), location:(S.locations || []).slice()};
+  const lists = {binder:S.binders.slice(), client:(S.clients || []).slice(), location:(S.locations || []).slice(), archive:(S.archives || []).slice()};
   const idx = (type, id) => lists[type].findIndex(x => x.id === id);
   const put = (it) => {   // remote version replaces / joins the local list
     const r = clone(it.remote), k = idx(it.type, it.id);
-    if (it.type === 'location'){ const l = normalizeLocation(r); l.updated_at = it.remote.updated_at || now; if (k >= 0) lists.location[k] = l; else lists.location.push(l); }
+    if (it.type === 'archive'){ const a = normalizeArchive(r); a.updated_at = it.remote.updated_at || now; if (k >= 0) lists.archive[k] = a; else lists.archive.push(a); }   // v12
+    else if (it.type === 'location'){ const l = normalizeLocation(r); l.updated_at = it.remote.updated_at || now; if (k >= 0) lists.location[k] = l; else lists.location.push(l); }
     else if (it.type === 'binder'){ const b = normalizeBinder(r); b.updated_at = it.remote.updated_at || now; if (k >= 0){ b.selected_for_print = !!lists.binder[k].selected_for_print; lists.binder[k] = b; } else lists.binder.push(b); }
     else { const c = normalizeClient(r); c.updated_at = it.remote.updated_at || now; if (k >= 0) lists.client[k] = c; else lists.client.push(c); }
     S.tombstones = S.tombstones.filter(x => !(x.type === it.type && x.id === it.id));
@@ -446,6 +451,7 @@ function syncApply(plan, opts){
       confLog.push(it);
     }
   });
+  S.archives = lists.archive;   // v12: archives first (the tree and the binders refer to them)
   S.locations = lists.location; if (typeof locIntegrity === 'function') locIntegrity();   // v11: tree first, then the binders follow its codes
   S.binders = lists.binder.map(b => { const c = typeof binderLocCode === 'function' ? binderLocCode(b) : b.location_code; if (c !== b.location_code) b.location_code = c; return b; }); S.clients = lists.client;
   ensureIntegrity();
@@ -503,7 +509,7 @@ const SYV = { text:'', fileName:'', incr:false, target:null, busy:false };
 const syFieldLabel = (k) => S.lang === 'en' ? k.replace(/_/g, ' ') : (LOG_FIELD_IT[k] || k);
 const syDate = (iso) => iso ? fmtDate(iso, true) : '—';
 const syDateS = (iso) => { const d = new Date(iso || ''); return isNaN(d) ? '—' : d.toLocaleString(S.lang === 'en' ? 'en-GB' : 'it-IT', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit'}); };
-function syncPendingCount(since, exclude){ const c = syncChangedSince(since, exclude); return c.binders.length + c.clients.length + c.locations.length + c.tombstones.length; }
+function syncPendingCount(since, exclude){ const c = syncChangedSince(since, exclude); return c.binders.length + c.clients.length + c.locations.length + (c.archives || []).length + c.tombstones.length; }
 function syncPeersList(){ return Object.keys(S.sync.peers).map(id => S.sync.peers[id]).sort((a, b) => syTs(syMax(b.lastImportAt, b.lastExportAt)) - syTs(syMax(a.lastImportAt, a.lastExportAt))); }
 function syncTarget(){ if (SYV.target === null) SYV.target = S.sync.lastPeer && syncPeer(S.sync.lastPeer) ? S.sync.lastPeer : ''; return SYV.target; }
 function syncExportInfoHTML(){

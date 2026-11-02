@@ -33,7 +33,7 @@
 
 | Rotta | Metodo | Ruolo | Richiesta | Risposta 200 |
 |---|---|---|---|---|
-| `ping` | GET | nessuno | – | `{"ok":true,"api":"docmap-php","version":1,"schema":2,"features":["journal","device_info","locations"],"server_time":"…","php":"8.3"}` (funziona anche senza `config.php`; serve all'avviso di orologio sfasato) |
+| `ping` | GET | nessuno | – | `{"ok":true,"api":"docmap-php","version":1,"schema":2,"features":["journal","device_info","locations","archives"],"server_time":"…","php":"8.3"}` (funziona anche senza `config.php`; serve all'avviso di orologio sfasato) |
 | `me` | GET | viewer | – | `{"user":"mario","role":"editor","token_id":"cfg:1","studio_name":"…","server_time":"…"}` |
 | `pull` | GET | viewer | `since=<seq>` (0 = tutto) · `log_since=<seq>` | vedi §3 |
 | `push` | POST | editor | vedi §4 | `{"applied":n,"same":n,"rejected":[…],"settings_applied":bool,"logged":n,"seq":n,"server_time":"…"}` |
@@ -47,7 +47,7 @@
 | `journal` (v11) | GET | editor (solo le proprie voci) · admin (tutte) | filtri, vedi §10 | `{"items":[Entry],"more":bool,"next_before":jid|null,"server_time":"…"}` · viewer → 403 |
 | `journal_restore` (v11) | POST | admin | `{"jid":n,"n":n,"version":"prev"|"new"}` | `{"ok":true,"type","id","updated_at","deleted":bool,"journal_id":n,"seq":n}` |
 
-Campi aggiunti in v11 (un client v10.1 li ignora): `ping` → `"schema":2,"features":["journal","device_info","locations"]`;
+Campi aggiunti in v11 (un client v10.1 li ignora): `ping` → `"schema":2,"features":[…]` (v11: `journal`, `device_info`, `locations`; v12: `archives`);
 `push` e `pull` → `"journal_id":n|null` (voce del registro scritta da quella chiamata); `patch` → `"journal_id"` e
 `"hash"` (SHA-256 canonico della versione salvata).
 

@@ -21,6 +21,8 @@
      short_url   https://qr7.it/<short_code> (derived)
      notes       free text
      sort        integer order among siblings (0 = natural order by seg)
+     archive_id  v12: archive (cluster) of the node, '' = default archive. Set on the roots; children follow their root
+                 (derived by locIntegrity, see 02e-archives.js)
      created_at / updated_at   ISO times (updated_at drives last-write-wins sync, like binders)
 
    Binder: location_id ('' = not in a location). When set and known, normalizeBinder writes the location's
@@ -57,10 +59,11 @@ function locLevelPrefix(level, settings){ const L = locLevels(settings); return 
 function locSegClean(v){ return String(v == null ? '' : v).normalize('NFKC').trim().toUpperCase().replace(/\s+/g, '').replace(/-+/g, '.').replace(/[^\p{L}\p{N}._/]/gu, '').slice(0, 16); }
 
 function normalizeLocation(l){
-  const o = Object.assign({ id:'', parent_id:'', level:0, kind:'', name:'', seg:'', code:'', short_code:'', short_url:'', notes:'', sort:0, created_at:'', updated_at:'' }, l || {});
-  ['id', 'parent_id', 'kind', 'name', 'code', 'short_code', 'notes', 'created_at', 'updated_at'].forEach(k => { o[k] = String(o[k] == null ? '' : o[k]).replace(k === 'notes' ? /[ \t]+/g : /\s+/g, ' ').trim(); });
+  const o = Object.assign({ id:'', parent_id:'', level:0, kind:'', name:'', seg:'', code:'', short_code:'', short_url:'', notes:'', sort:0, archive_id:'', created_at:'', updated_at:'' }, l || {});
+  ['id', 'parent_id', 'kind', 'name', 'code', 'short_code', 'notes', 'archive_id', 'created_at', 'updated_at'].forEach(k => { o[k] = String(o[k] == null ? '' : o[k]).replace(k === 'notes' ? /[ \t]+/g : /\s+/g, ' ').trim(); });
   if (!o.id) o.id = uuid();
   if (o.parent_id === o.id) o.parent_id = '';
+  if (typeof archKey === 'function') o.archive_id = archKey(o.archive_id);   // v12: '' = default archive (02e-archives.js)
   o.level = Math.max(0, Math.min(LOC_MAX_DEPTH - 1, parseInt(o.level, 10) || 0));
   o.sort = parseInt(o.sort, 10) || 0;
   o.seg = locSegClean(o.seg);

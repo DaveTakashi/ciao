@@ -2,10 +2,10 @@
 
 **Questo documento è il contratto tra l'MVP e il sistema Python dello studio.** In caso di dubbio vincono il modello dati e la UX dell'MVP: il sistema Python si allinea a questi nomi, tipi e regole.
 
-Versione attuale: **26.11.1** (v11.1) — schema stato `26.9` (invariato dalla v9), `DB_SCHEMA_VERSION 8`, server
-`DM_SCHEMA 2`. La v11.1 non cambia nessun formato. I §1–§9 descrivono i formati di oggi; i campi aggiunti dopo la v7
+Versione attuale: **26.12.0** (v12) — schema stato `26.9` (invariato dalla v9), `DB_SCHEMA_VERSION 9`, server
+`DM_SCHEMA 2`. La v12 aggiunge gli archivi (§15: `archive_id` su faldoni e ubicazioni, colonna CSV in coda). I §1–§9 descrivono i formati di oggi; i campi aggiunti dopo la v7
 sono segnati con la versione (**(v8)**, **(v10)**, **(v11)**); i §10–§14 raccontano versione per versione cosa è
-cambiato (v8 §10, v9 §11, v10 §12–§13, v10.1 e v11 §13, ubicazioni v11 §14).
+cambiato (v8 §10, v9 §11, v10 §12–§13, v10.1 e v11 §13, ubicazioni v11 §14, archivi v12 §15).
 **Schemi macchina** (JSON Schema 2020-12, controllati sui file veri): `python/SCHEMI.md` e `python/schema/`.
 
 Fonti nel codice: `assets/js/02-core.js` (`normalizeBinder`, `normalizeClient`, `CSV_COLUMNS`, `CI_STATUSES`, `normCiStatus`, `pipeToContents`, `defaultState`, `migrate`), `04-ui.js` (`HEADER_ALIASES`, `binderToCsvRow`, `workspaceJSON`, `csvTemplateHeader`), `06-db.js` (`DB_DDL`, `dbMigrate`, `dbReadWorkspace`), `06b-photos.js`, `06c-clients.js`, `06d-info.js` (`catColors`, `qrPreset`, `printPrev`), `05b-import-map.js` (`importMappings`).
@@ -203,11 +203,13 @@ Testo libero; spazi multipli ridotti a uno; maiuscole/minuscole, trattini, barre
 Regole comuni in **export**: delimitatore `;`, a capo `\r\n` (manifest `\n`), campi con `;` `"` o a capo tra virgolette con `""`. Backup e clienti hanno BOM UTF-8 (per Excel) e **protezione formule**: una cella che inizia con `= + - @ TAB CR` riceve un apostrofo iniziale, tolto di nuovo in import.
 In **import**: delimitatore rilevato (`;` `,` TAB) o riga `sep=;`; codifica UTF-8 (con/senza BOM), UTF-16 o Windows-1252; intestazioni confrontate dopo `normHeader` (minuscolo, senza accenti, non alfanumerici → `_`) con gli alias di `HEADER_ALIASES` (es. `cliente → company_name`, `codice_multi → multi_code`, `stanza → room_code`, `contenuti → contents_items`, `stato → archive_state`; v8: `contatti`, `contatto`, `persone`, `persone_coinvolte`, `referenti`, `referente`, `contact`, `people → contacts`; `note`, `nota`, `annotazioni`, `annotazione → notes`). Le intestazioni non riconosciute aprono il passo di abbinamento colonne (§6.5).
 
-### 6.1 Backup completo `docmap_full_backup.csv` (29 colonne, in quest'ordine)
+### 6.1 Backup completo `docmap_full_backup.csv` (30 colonne, in quest'ordine)
 
 ```
-speaking_code;multi_code;company_name;company_city;category;binder_title;ref_year;room_code;cabinet_code;shelf_code;sector_code;location_code;archive_state;contents;tags;color_hex;short_code;short_url;final_destination;extra_codes;shelf_color;contacts;notes;selected_for_print;id;created_at;updated_at;color_locked;location_id
+speaking_code;multi_code;company_name;company_city;category;binder_title;ref_year;room_code;cabinet_code;shelf_code;sector_code;location_code;archive_state;contents;tags;color_hex;short_code;short_url;final_destination;extra_codes;shelf_color;contacts;notes;selected_for_print;id;created_at;updated_at;color_locked;location_id;archive_id
 ```
+
+**v12:** `archive_id` (archivio del faldone, §15) è aggiunta **in coda**, dopo `location_id`. In export contiene l'id dell'archivio **effettivo** (quello dell'albero dell'ubicazione, se il faldone è in una scatola nota; vuoto = Archivio principale). In import accetta l'id, il **codice** (`ST`) o il **nome** (`Archivio storico`); un nome sconosciuto crea l'archivio al momento dell'importazione. Alias: `archivio`, `id_archivio`, `archivio_id`, `cluster`, `archive`. Un CSV senza la colonna mette le righe nuove nell'archivio scelto in alto (Archivio principale con "Tutti gli archivi").
 
 **v11:** `location_id` (id dell'ubicazione, §14) è aggiunta **in coda**, dopo `color_locked`. Alias in import: `id_ubicazione`, `ubicazione_id`, `id_luogo`. Con `location_id` valorizzato, `location_code` è il percorso dell'ubicazione e in import **non** viene scomposto in stanza/armadio/ripiano (resta com'è se l'ubicazione non è nota su quel PC).
 
@@ -540,7 +542,7 @@ configurabili, da 1 a 8 livelli). Il QR attaccato al contenitore (di solito la s
 | `id` | testo (uuid) | mai cambiato |
 | `parent_id` | testo | id del genitore; `''` = livello più alto (in SQLite `NULL`) |
 | `level` | intero | profondità 0-based, **derivata** dalla catena dei genitori |
-| `kind` | testo | nome del livello per questo nodo; `''` = nome configurato (`settings.locLevels[level]`) |
+| `kind` | testo | nome del livello per questo nodo; `''` = nome configurato (v12: `archive.levels[level]` del suo archivio, altrimenti `settings.locLevels[level]`). "Configura archivio" lo scrive su ogni nodo creato |
 | `name` | testo | nome libero (es. "Archivio seminterrato"); vuoto = mostrato come `<kind> <seg>` |
 | `seg` | testo | segmento del codice (`MAG1`, `A2`, `B04`): maiuscolo, senza spazi né `-`, max 16, **unico tra fratelli** (un doppione diventa `B04.2`) |
 | `code` | testo | codice percorso = segmenti uniti da `-` (`MAG1-A2-S3-R1-B04`); **derivato** dai `seg` (si modifica cambiando i segmenti); salvato per SQLite/CSV/Python, non è "contenuto" per la sincronizzazione |
@@ -548,6 +550,7 @@ configurabili, da 1 a 8 livelli). Il QR attaccato al contenitore (di solito la s
 | `short_url` | testo | `https://qr7.it/<short_code>` (derivato) |
 | `notes` | testo | note libere |
 | `sort` | intero | ordine tra fratelli (0 = ordine naturale per `seg`) |
+| `archive_id` | testo | **(v12)** archivio dell'albero (§15); `''` = Archivio principale. Si imposta sul nodo radice; per gli altri nodi è **derivato** (sempre quello della radice, `locIntegrity`) |
 | `created_at`, `updated_at` | ISO | `updated_at` guida il last-write-wins come per i faldoni |
 
 **Faldone o ubicazione?** Il codice dei faldoni è `dm26` + 8 (12 caratteri, `SC_RE`); quello delle ubicazioni
@@ -595,7 +598,7 @@ Un database v6 (v10.1) si apre e riceve tabella e colonna; `dbReadWorkspace` di 
 | Azione | Dettagli |
 |---|---|
 | `location.create` / `location.bulk_create` / `location.edit` / `location.move` / `location.delete` / `location.levels` | codice, genitore, campi cambiati, conteggi |
-| `binder.locate` | `{from:{id, code}, to:{id, code}, via, device, user}`; `via` = `scanner` · `camera` · `manual` · `editor` · `bulk` · `undo` (PC) oppure `phone` · `phone-camera` · `phone-typed` · `undo` (telefono, `source: 'mobile'`) |
+| `binder.locate` | `{from:{id, code}, to:{id, code}, via, device, user}`; `via` = `scanner` · `camera` · `manual` · `editor` · `bulk` · `undo` (PC) oppure `phone` · `phone-camera` · `phone-typed` · `phone-nfc` (v12) · `undo` (telefono, `source: 'mobile'`); v12 sul PC anche `nfc` |
 | `binder.locate_bulk` | più faldoni nella stessa ubicazione (`codes`, `to`, `via`) |
 
 ### 14.7 Memoria del telefono (scan.html)
@@ -604,3 +607,85 @@ Un database v6 (v10.1) si apre e riceve tabella e colonna; `dbReadWorkspace` di 
 `{v:1, user, box:{id, code, title, path, short_code}, startedAt, at, n, list:[…]}` (scade dopo 30 minuti senza
 scansioni); `localStorage 'docmap_v26_scan_device'` = id del telefono per il registro (`phone-xxxxxxxx`).
 
+
+## 15. Archivi (v12, stream C — `assets/js/02e-archives.js`, `06l-archives.js`, `11e-nfc.js`)
+
+Uno studio può tenere **più archivi separati** (cluster): archivio corrente, storico, un ente/Comune, un secondo
+magazzino. Ogni faldone e ogni albero di ubicazioni appartiene a **un** archivio. I dati precedenti alla v12 non
+hanno nessun `archive_id` e stanno tutti nell'**Archivio principale**: niente da migrare, niente da timbrare.
+
+### 15.1 Archivio (`archive`) — `S.archives[]`, tabella SQLite `archives`, record server di tipo `archive`
+
+| Campo | Tipo | Regole |
+|---|---|---|
+| `id` | testo (uuid) | mai cambiato. L'**Archivio principale** ha l'id fisso `00000000-0000-4000-8000-0000000a0001` |
+| `name` | testo | nome mostrato; `''` solo per l'archivio principale (= "Archivio principale" / "Main archive") |
+| `code` | testo | codice breve `A-Z0-9`, max 8, unico tra gli archivi (`AP` per il principale); accettato dalla colonna CSV `archive_id` |
+| `color` | `#RRGGBB` | colore dell'archivio (selettore, schede, pallini) |
+| `description` | testo | facoltativa |
+| `sort` | intero | ordine negli elenchi (il principale è sempre primo) |
+| `levels` | `[{name, prefix}]` | livelli **di questo archivio** (1–8, dal più grande al più piccolo); `[]` = livelli dello studio `settings.locLevels` |
+| `qr_levels` | `[intero]` | livelli 0-based che ricevono un'etichetta QR (davanti all'armadio, sulle scansie, sulle scatole); `[]` = solo l'ultimo livello |
+| `created_at`, `updated_at` | ISO | `updated_at` guida il last-write-wins |
+
+**Archivio principale virtuale.** Finché nessuno lo modifica, l'archivio principale **non** è un record
+(`S.archives` resta `[]`, nessun pacchetto o server riceve nulla): `archList()` lo aggiunge in memoria con
+`updated_at = 2000-01-01T00:00:00.000Z`. Diventa un record (stesso id fisso) alla prima modifica (nome, colore,
+livelli QR). I suoi livelli restano **sempre** `settings.locLevels` + `settings.locLevelsAt` (v11), così un PC v11
+continua a leggerli.
+
+### 15.2 Faldone e ubicazione
+
+- `binder.archive_id` (`''` = principale). **Archivio effettivo** (`binderArchiveId`): se il faldone è in
+  un'ubicazione nota vince l'archivio di quell'albero; altrimenti `archive_id`. Mettere un faldone in una scatola
+  aggiorna anche `archive_id`; spostarlo in un altro archivio lo toglie da una scatola dell'archivio vecchio.
+- `location.archive_id`: impostato sulla radice, derivato sui figli. Gli alberi sono **per archivio**: il selettore
+  mostra solo l'albero dell'archivio scelto. I `seg` delle radici restano unici **tra tutti** gli archivi (i codici
+  percorso, e quindi `location_code`, non si confondono mai).
+- Livelli per archivio: `locLevels()` senza argomenti restituisce i livelli dell'archivio "di contesto"
+  (l'archivio del nodo, o quello scelto in alto); `locLevels(S.settings)` resta il comportamento v11.
+
+### 15.3 Stato e preferenze
+
+`S.archives` (array, dati) e `S.archiveSel` (preferenza del PC: `''` = "Tutti gli archivi", altrimenti l'id;
+non viaggia in pacchetti né sul server).
+
+### 15.4 SQLite (`DB_SCHEMA_VERSION 9`, migrazione solo additiva, basata sull'esistenza di tabelle e colonne)
+
+```sql
+CREATE TABLE IF NOT EXISTS archives(id TEXT PRIMARY KEY, name TEXT, code TEXT, color TEXT, description TEXT,
+  sort INTEGER DEFAULT 0, levels_json TEXT, qr_levels_json TEXT, created_at TEXT, updated_at TEXT);
+ALTER TABLE binders ADD COLUMN archive_id TEXT;     -- se manca · NULL = Archivio principale · INDEX ix_binders_archive
+ALTER TABLE locations ADD COLUMN archive_id TEXT;   -- se manca · INDEX ix_locations_archive
+```
+
+`binders.archive_id` contiene l'archivio effettivo. La tabella `archives` contiene anche la riga dell'archivio
+principale (virtuale o no): chi legge con Python trova sempre tutti gli archivi, con nome e codice.
+`dbReadWorkspace` ignora la riga virtuale (`updated_at` = 2000-01-01).
+
+### 15.5 Workspace JSON, pacchetti, server
+
+- Workspace JSON: chiave `archives` (array; assente nei file vecchi = solo l'archivio principale). Ripristino completo
+  → sostituisce; unione → per `id`, il più recente vince.
+- Pacchetto `docmap-sync`: `records.archives` + `counts.archives`, tombstone `{type:'archive', id, code, deletedAt}`
+  (unione o eliminazione di un archivio).
+- Server: record `{type:'archive', …, data:<archivio>}` nella tabella generica `records` (nessuna migrazione del
+  server; `ping` → `features` contiene `archives`). Un server v11 rifiuta i record `archive` come tipo sconosciuto
+  (il resto della sincronizzazione continua): aggiornare `api.php` insieme all'app.
+
+### 15.6 Registro attività
+
+| Azione | Dettagli |
+|---|---|
+| `archive.create` / `archive.edit` / `archive.delete` | `{name, code, color}` / `{changed:{campo:[prima, dopo]}}` |
+| `archive.merge` | `{from:{id, code, name}, to:{…}, binders, locations}` |
+| `archive.setup` | "Configura archivio": `{archive, template, rows:[{level, name, prefix, n, qr}], count, qr_labels, codes}` |
+| `binder.archive` | faldoni spostati di archivio: `{to:{id, code}, binders:[{id, code, from}], unplaced:[codici tolti dalla scatola]}` |
+| `location.levels` | v12 anche per archivio: `{archive, levels, qr_levels}` |
+
+### 15.7 Tag NFC e RFID
+
+Un tag NFC contiene **lo stesso URL** del QR (`short_url`, record NDEF `url`): nessun id nuovo, `short_code` resta
+l'unica identità di faldoni e ubicazioni. Lettura e scrittura in `11e-nfc.js` (Web NFC, Chrome Android); ogni tag
+letto passa da `onTagScanned(testo, via)` con `via` = `qr` · `nfc` · `keyboard`. Progetto per varchi RFID:
+[`RFID-NFC.md`](RFID-NFC.md).

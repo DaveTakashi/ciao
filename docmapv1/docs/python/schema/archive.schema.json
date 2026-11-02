@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DocMap archive (archivio / cluster)",
+  "description": "One of the separate archives of a studio, as written by DocMap v12 (normalizeArchive in assets/js/02e-archives.js): S.archives, workspace JSON, sync packages, server records of type 'archive'. Binders and locations point to it with archive_id ('' = the default archive 'Archivio principale', id 00000000-0000-4000-8000-0000000a0001, which exists as a record only once it has been edited). Contract: docs/MODELLO-DATI.md §15.",
+  "type": "object",
+  "required": ["id", "name", "code", "color", "description", "sort", "levels", "qr_levels", "created_at", "updated_at"],
+  "properties": {
+    "id": {"type": "string", "minLength": 1, "description": "Stable id (UUID v4), never changed. The default archive has the fixed id 00000000-0000-4000-8000-0000000a0001."},
+    "name": {"type": "string", "description": "Display name (Archivio storico, Comune di …). '' only for the default archive = shown as 'Archivio principale' / 'Main archive'."},
+    "code": {"type": "string", "pattern": "^[A-Z0-9]{0,8}$", "description": "Short code (ST, COM): uppercase letters and digits, max 8, unique among archives. Accepted by the CSV column archive_id."},
+    "color": {"type": "string", "pattern": "^(#[0-9A-F]{6})?$", "description": "Colour of the archive (dot in the switcher, cards, chips)."},
+    "description": {"type": "string"},
+    "sort": {"type": "integer", "description": "Order in lists (the default archive comes first)."},
+    "levels": {
+      "type": "array", "maxItems": 8,
+      "items": {"type": "object", "required": ["name", "prefix"], "properties": {"name": {"type": "string"}, "prefix": {"type": "string"}}, "additionalProperties": false},
+      "description": "Level names and code prefixes of this archive's location tree, from the largest to the smallest. [] = the office levels settings.locLevels (always the case for the default archive, which keeps using the v11 setting)."
+    },
+    "qr_levels": {"type": "array", "items": {"type": "integer", "minimum": 0, "maximum": 7}, "description": "0-based levels that get a QR label (cabinet front, shelving unit, box). [] = only the deepest level."},
+    "created_at": {"type": "string"},
+    "updated_at": {"type": "string", "description": "Drives last-write-wins like binders and locations."}
+  },
+  "additionalProperties": true
+}

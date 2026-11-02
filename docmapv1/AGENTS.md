@@ -39,6 +39,7 @@ What changed from v7 is summarised in §10.
 | 1 | `assets/js/01-qr.js` | `DMQR` — pure-JS QR encoder → SVG (ISO/IEC 18004, byte mode, ECC L/M/Q/H) |
 | 2 | `assets/js/02-core.js` | constants, `I18N` + `t()`, utils (`$`, `esc`, `uuid`, `randChars`…), binder helpers (`normalizeBinder`, `computeLocation`, `pipeToContents`, `suggestSpeakingCode`, `newShortCode`, `ensureIntegrity`, `normalizeClient`, `destFor`/`renderDest`, `manifestTags`), `CSV_COLUMNS`, `BUILTIN_PRESETS`, demo data, `defaultState()`, `migrate()`, `loadState()`, `persist()`, `commit()`, `savePrefs()`, `markExported()` |
 | 2c | `assets/js/02c-locations.js` | **v11** location tree pure model (shared with scan.html): `LOC_SC_RE`, `locLevels`, `normalizeLocation`, cached index (`locIndex`, `locById`, `locChildren`, `locCodeFor`, `locPath`, `locPathText`), `newLocShortCode`, `locNextSeg`, `locIntegrity`, `assocParseCode`, `locDest`, `locManifestTags` |
+| 2e | `assets/js/02e-archives.js` | **v12** archives pure model (desktop; scan.html does not load it — the wizard stamps `kind` on every node): `ARCH_DEFAULT_ID` (virtual default archive), `normalizeArchive`, `archList`/`archById`/`archMulti`/`archSelected`/`archCurrentId`, `binderArchiveId` (effective archive), `locArchiveId`, `archResolveRef` (CSV id/code/name), `ARCH_TEMPLATES`; overrides `locLevels` / `locKind` / `locNextSeg` / `locIntegrity` for per-archive levels (`ARCH_CTX`, `archWithCtx`) |
 | 2b | `assets/js/02b-colors.js` | v10 smart spine colours: `COLOR_FAMILIES`, `COLOR_CAT_RULES`, colour math (`colorContrast`, `colorDeltaE` CIEDE2000, `colorHash` FNV-1a), `colorFamilyId`, `colorShades`, `colorCategoryHex`, `colorAssign`, `applyAutoColor`, `colorPlan`, `recolorAll`, `colorLockLegacy`, editor hooks `edAutoColor`/`edColorLock`/`colorSwatchesHTML`, Settings card `colorSettingsHTML`, `COLOR_ACTIONS`, help topic `colors` (see §12) |
 | 3 | `assets/js/03-print.js` | label engine: `renderLabel` (A/B/U), `renderFull` (S, complete label), `renderSlotLabel` (turned sheets), `slotSeq`, `layoutLabels`, `buildLabelSheets`, `buildCalibSheet`, `buildRegisterHTML`, `doPrint`, `printLabels` |
 | 4 | `assets/js/04-ui.js` | `ICONS`/`ic()`, `toast`, undo (`undoPoint`/`undoToast`), modal stack (`openModal`/`closeModal`/`confirmAction`), `download`, `copyText`, `readFileText`, CSV (`detectDelim`, `parseCSV`, `toCSV`, `safeCell`/`unsafeCell`), `HEADER_ALIASES`, `mapRecord`, export builders (`binderToCsvRow`, `exportManifest`, `mergeManifest`, `exportFullCSV`, `workspaceJSON`, `quickBackup`), AI prompt (`csvTemplateHeader`, `buildAIPrompt`) |
@@ -56,11 +57,13 @@ What changed from v7 is summarised in §10.
 | 6g | `assets/js/06g-server.js` | **v10.1** sync with the shared online database (`server-php/api.php`): the server is the 06f peer `server:<url>`; `srvSync({interactive})` (pull → `syncAnalyze`/`syncApply` → push, seed confirmation on an empty server, review modal on conflicts), automatic mode in web+apiBase (`srvBoot`, debounced push from a `persist` wrapper, 60 s pull, backoff), top-bar status `#srv-status`, "Server online" card appended to `viewSync`, admin token management, `SRV_ACTIONS` — §14 |
 | 6h | `assets/js/06h-locations.js` | **v11** Informazioni › Ubicazioni (tree editor, bulk create, levels, move, delete+undo), assignment (`locAssign`) from archive/editor, archive filter `UI.fLoc`, "Dov'è?" path, label template `loc` (kind `L`), manifest rows, desktop association mode (`LUI.assoc`, keyboard scanner `#la-scan`, webcam), `LOC_ACTIONS`, help topic `locations` + guide |
 | 6i | `assets/js/06i-journal.js` | **v11** push / sync journal "Registro sincronizzazioni" (docs/SYNC.md §9): `S.syncJournal` (`jrAdd`, `jrPrune`, `jrMerge`), canonical hash `jrCanon`/`jrRecHash` (= server `canon()`), client identity `jrClientInfo()` (sent by `DMServer.call`), observation wrappers (`jrWrapSync`, `jrWrapProviders`), card appended to `viewSync` (filters, detail + diff, restore, CSV/JSON), phone list in `scan.html`, `JR_ACTIONS`, help topic `journal`; CSS `assets/css-journal.css` — §15. Also loaded by `scan.html` after `10-auth.js` |
+| 6l | `assets/js/06l-archives.js` | **v12** top-bar archive switcher (`S.archiveSel`), Informazioni › Archivi (create/edit/merge/delete, move binders), "Configura archivio" wizard (`WZ`), per-archive levels dialog, nested association (`LUI.assoc.nest`), archive-scoped tree/print/exports, SQLite hooks `archDbMigrate`/`archDbSync`/`archDbRead`, search facet `archFacetProvider`, `ARCH_ACTIONS`, help topic `archives` + guide |
 | 7 | `assets/js/07-help.js` | extra i18n keys, `HELP_TAGS`, `HELP_ACTS`, `HELP_TOPICS`, `HELP_META`, help drawer (popularity, favourites, filters, search `helpQueryTerms`/`helpMatch`), `helpStore()`, `helpDot(id)`, onboarding |
 | 8 | `assets/js/08-guide.js` | guided-action engine, `GUIDES` (18 tours: 14 here + `locations` added by 06h and `firstrun`, `server`, `journal` added by 07b at load time), exit question, keyboard, resume (`guideResume`) |
 | 7b | `assets/js/07b-helpx.js`, `assets/css-helpx.css` | **v11.1** knowledge base: extra help topics (`first-run`, `server`, `multi-device`, `upgrade`, `scanner`, `troubleshoot` FAQ, `about`), tags `start`/`online`, hidden keywords `kw`, tours `firstrun`/`server`/`journal`, "Informazioni su DocMap" panel in Impostazioni (`hxAboutHTML`), contextual "?" (`INFO_TAB_HELP`), screen-reader region `#hx-live` |
 | 8b | `assets/js/10-auth.js` | v10 provider seams (`dmProviders()`, `DataProvider`/`AuthProvider`/`CryptoProvider`/`BlobStore`, local + remote stubs), `DocMapVault` (web-mode encrypted storage, boot gate), Impostazioni › Utenti e accesso, "Anteprima mobile", live merge of mobile edits, help topic `mobile` — §12 |
 | 8c | `assets/js/11b-assoc.js` | **v11** `DMCamScanner` (BarcodeDetector or lazy `vendor/jsqr.js`), `dmDecodeQRCanvas`, `dmScanFeedback`; on scan.html (when `SC` exists) location page + phone association mode (`SA`, `docmap_v26_assoc`) |
+| 8e | `assets/js/11e-nfc.js` | **v12** `onTagScanned(text, via)` dispatcher (`TAG_SCAN_HANDLERS`: desktop association; on scan.html association sequence + open page); Web NFC on scan.html (`NFC`, write URL record / continuous read), help topic `nfc` |
 | 9 | `assets/js/09-actions.js` | `ACTIONS` map, global event delegation (click/input/change/keydown/drag-drop), file inputs, **boot** (`loadState` → `ensureIntegrity` → `persist` → `renderAll` → `maybeOnboard` → `dbInit`), `window.DocMap` test hook |
 
 CSS: `assets/docmap.css` (main) + `css-info.css` (top bar, Informazioni), `css-editor.css` (typeahead, editor), `css-import.css` (column mapping), … `css-help.css` (v10 help panel and tour additions), loaded in that order.
@@ -334,6 +337,27 @@ Field-level details and file formats: `docs/MODELLO-DATI.md`.
 - **Tests**: `// @@STREAM-X@@` (desktop tree, labels + PDF decode, manifest, keyboard association, v10.1 local data,
   then a php -S server started with the v10.1 `api.php` from git `68ae170` and switched to the current one; phone
   association on scan.html; two desktop pages syncing locations).
+
+## 16b. v12: several archives, "Configura archivio", nested association, NFC (stream C)
+
+- **Files**: `02e-archives.js` (model), `06l-archives.js` (desktop), `11e-nfc.js` (both pages), `css-archives.css`
+  (both pages). scan.html loads `02-core → 02c → 10-auth → 06i → 11-scan → 11b → 11e` (no archive model needed there:
+  the phone shows `kind`, which "Configura archivio" writes on every node).
+- **Data**: `S.archives[]` (`docs/MODELLO-DATI.md` §15), `S.archiveSel` (preference), `binder.archive_id`,
+  `location.archive_id` (root only; derived for children by `locIntegrity`). `''` = the default archive, which is
+  **virtual** (not in `S.archives`) until edited, then stored with the fixed id `ARCH_DEFAULT_ID`. Never stamp old data.
+  The effective archive of a binder is `binderArchiveId(b)` (its box wins). CSV column `archive_id` appended at the end.
+- **Levels**: `locLevels()` without arguments = levels of the context archive (`archWithCtx(id, fn)` or the switcher);
+  `locLevels(S.settings)` = the v11 office levels, which stay the levels of the default archive.
+- **Hooks into shared files** are all feature-detected (`typeof archX === 'function'`): 02-core (normalizeBinder,
+  migrate), 02c (normalizeLocation), 04-ui (undo, CSV, workspace), 05-views (`filteredBinders`), 06-db (migration,
+  sync, read), 06f/06g (record type `archive`). The rest is done by wrapping globals at load time in 06l (`archWrap`).
+- **Scanning**: every tag goes through `onTagScanned(text, via)` (`via` = `qr` · `nfc` · `keyboard`). Another mode
+  (e.g. a status mode) registers `TAG_SCAN_HANDLERS.unshift({id, active:() => bool, handle:(text, via) => …})`.
+- **SQLite**: `DB_SCHEMA_VERSION 9` (table `archives`, columns `binders.archive_id`, `locations.archive_id`; keyed on
+  existence). **Server**: record type `archive` in `DM_TYPES`, ping feature `archives`, no server migration.
+- **Tests**: last `// @@STREAM-C@@` (wizard, switcher/filters, merge/move/undo, CSV, levels, nested association,
+  onTagScanned, SQLite 9, package + server sync, NFC with a mock `NDEFReader`, real v10.0 → v12 upgrade from git `34ff0d1`).
 
 ## 17. v11.1: documentation layout (stream D, docs only)
 

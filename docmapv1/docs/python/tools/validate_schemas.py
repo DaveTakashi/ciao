@@ -191,7 +191,7 @@ def step_samples(registry, samples_dir, run_browser):
     except Exception as e:  # noqa: BLE001
         bad(f"sync_package_enc.json: decryption failed: {e}")
     rec = f("records.json")
-    for k in ["binder", "client", "location", "activity_log_entry", "sync_journal_entry"]:
+    for k in ["binder", "client", "location", "archive", "activity_log_entry", "sync_journal_entry"]:
         if not check(rec.get(k) is not None, f"records.json has a {k}"):
             continue
         validate(registry, schema_uri(k + ".schema.json"), rec[k], f"records.json {k}")
@@ -202,6 +202,9 @@ def step_samples(registry, samples_dir, run_browser):
     props = json.loads((SCHEMA_DIR / "location.schema.json").read_text())["properties"].keys()
     extra = sorted({k for b in ws["locations"] for k in b} - set(props))
     check(not extra, f"location keys written by the app are all described in location.schema.json {extra or ''}")
+    props = json.loads((SCHEMA_DIR / "archive.schema.json").read_text())["properties"].keys()
+    extra = sorted({k for b in ws.get("archives", []) for k in b} - set(props))
+    check(len(ws.get("archives", [])) >= 1 and not extra, f"archive keys written by the app are all described in archive.schema.json {extra or ''}")
     props = json.loads((SCHEMA_DIR / "workspace_backup.schema.json").read_text())["properties"].keys()
     extra = sorted(set(ws) - set(props))
     check(not extra, f"workspace top-level keys are all described {extra or ''}")
@@ -400,7 +403,7 @@ def run_routes(api, registry, a, toks, ws, key, data_dir):
     A, E, V = toks["admin"], toks["editor"], toks["viewer"]
     dev = {"X-DocMap-Device": "dev-validator", "X-DocMap-Device-Name": "PC%20validatore", "X-DocMap-App": "26.11.1"}
     p = expect(api, registry, a.call("ping"), "ping", 200, "no token")
-    check(p.get("features") == ["journal", "device_info", "locations"] and p.get("schema") == 2, f"ping features/schema {p.get('features')} {p.get('schema')}")
+    check(p.get("features") == ["journal", "device_info", "locations", "archives"] and p.get("schema") == 2, f"ping features/schema {p.get('features')} {p.get('schema')}")
     expect(api, registry, a.call("me", token=E, headers=dev), "me", 200, "editor")
     expect(api, registry, a.call("me"), "me", 401, "no token", "token_missing")
     st, b, _ = a.call("nope", token=E)
@@ -413,7 +416,7 @@ def run_routes(api, registry, a, toks, ws, key, data_dir):
     # push the real records of the sample backup (the PC's first upload)
     now = iso_now()
     recs = []
-    for t, arr in (("binder", ws["binders"]), ("client", ws["clients"]), ("location", ws["locations"])):
+    for t, arr in (("binder", ws["binders"]), ("client", ws["clients"]), ("location", ws["locations"]), ("archive", ws.get("archives", []))):
         for r in arr:
             d = dict(r)
             d["updated_at"] = d.get("updated_at") or now
@@ -439,7 +442,7 @@ def run_routes(api, registry, a, toks, ws, key, data_dir):
     r = expect(api, registry, a.call("pull", token=V, query={"since": 0, "log_since": 0}, headers=dev), "pull", 200, "since=0 after push")
     check(len(r.get("records", [])) == len(recs) and len(r.get("tombstones", [])) == 1 and r.get("counts") is not None, "pull returns records, tombstone, counts")
     for rec in r.get("records", [])[:400]:
-        sch = {"binder": "binder.schema.json", "client": "client.schema.json", "location": "location.schema.json"}[rec["type"]]
+        sch = {"binder": "binder.schema.json", "client": "client.schema.json", "location": "location.schema.json", "archive": "archive.schema.json"}[rec["type"]]
         errs = list(validator_for(registry, schema_uri(sch)).iter_errors(rec["data"]))
         if errs:
             bad(f"pull record {rec['type']}/{rec['id']} vs {sch}: {errs[0].message[:200]}")

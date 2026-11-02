@@ -58,7 +58,7 @@ function toast(msg, kind, ms, action){
 }
 /* One-level undo for every bulk change (delete, import, session restore, .sqlite open). */
 let UNDO = null;
-function undoPoint(){ UNDO = clone({binders:S.binders, clients:S.clients || [], locations:S.locations || [], settings:S.settings, print:S.print, customPresets:S.customPresets, usedSlots:S.usedSlots, lang:S.lang}); }
+function undoPoint(){ UNDO = clone({binders:S.binders, clients:S.clients || [], locations:S.locations || [], archives:S.archives || [], settings:S.settings, print:S.print, customPresets:S.customPresets, usedSlots:S.usedSlots, lang:S.lang}); }
 function undoToast(msg, kind){
   toast(msg, kind || 'ok', 9000, {label:t('undo'), fn: () => {
     if (!UNDO) return; const W = UNDO; UNDO = null;
@@ -215,6 +215,7 @@ const HEADER_ALIASES = {
   selected_for_print:['selected_for_print','stampa','print','selezionato'],
   color_locked:['color_locked','colore_bloccato','colore_manuale','color_manual','colour_locked'],
   location_id:['location_id','id_ubicazione','ubicazione_id','id_luogo'],   // v11: box of the location tree (02c-locations.js)
+  archive_id:['archive_id','archivio','id_archivio','archivio_id','cluster','archive'],   // v12: archive id, code or name (resolved by 06l-archives.js)
   id:['id','uuid'],
   created_at:['created_at','creato','data_creazione'],
   updated_at:['updated_at','aggiornato','data_aggiornamento']
@@ -263,7 +264,7 @@ function mapRecord(raw){
 /* ---------------- Export builders ---------------- */
 function binderToCsvRow(b){
   return [b.speaking_code, b.multi_code, b.company_name, b.company_city, b.category, b.binder_title, b.ref_year, b.room_code, b.cabinet_code, b.shelf_code, b.sector_code, b.location_code, b.archive_state,
-    contentsToPipe(b.contents_items), b.tags, b.color_hex, b.short_code, b.short_url, destFor(b), b.extra_codes, b.shelf_color, b.contacts || '', b.notes || '', b.selected_for_print ? '1' : '0', b.id, b.created_at, b.updated_at, b.color_locked ? '1' : '0', b.location_id || ''];
+    contentsToPipe(b.contents_items), b.tags, b.color_hex, b.short_code, b.short_url, destFor(b), b.extra_codes, b.shelf_color, b.contacts || '', b.notes || '', b.selected_for_print ? '1' : '0', b.id, b.created_at, b.updated_at, b.color_locked ? '1' : '0', b.location_id || '', typeof binderArchiveId === 'function' ? binderArchiveId(b) : (b.archive_id || '')];
 }
 function sortedBinders(){ return S.binders.slice().sort((a, b) => naturalCmp(a.speaking_code, b.speaking_code)); }
 function manifestRow(b){ return [b.short_code, b.short_url, destFor(b), manifestTags(b)]; }
@@ -322,7 +323,7 @@ function exportFullCSV(){
 }
 function workspaceJSON(withLog){   // withLog: backups carry the activity log (optional key, 06e-log.js); sessions do not
   return JSON.stringify({ app:'DocMap26', format:'docmap_workspace', version:APP_VERSION, exported_at:nowISO(),
-    settings:S.settings, lang:S.lang, print:S.print, customPresets:S.customPresets, usedSlots:S.usedSlots, binders:S.binders, clients:S.clients || [], locations:S.locations || [], activity_log:withLog ? logEntriesForBackup() : undefined }, null, 2);
+    settings:S.settings, lang:S.lang, print:S.print, customPresets:S.customPresets, usedSlots:S.usedSlots, binders:S.binders, clients:S.clients || [], locations:S.locations || [], archives:S.archives || [], activity_log:withLog ? logEntriesForBackup() : undefined }, null, 2);
 }
 function exportJSON(){
   const name = 'docmap_workspace.json';

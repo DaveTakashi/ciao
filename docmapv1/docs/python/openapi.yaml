@@ -472,7 +472,7 @@ components:
         api: {const: docmap-php, description: "Un server Python può rispondere con un altro nome: il client non lo controlla."}
         version: {const: 1}
         schema: {type: integer, minimum: 1, description: "Schema del database del server: 1 = v10.1, 2 = v11"}
-        features: {type: array, items: {type: string}, description: "Oggi [journal, device_info, locations]"}
+        features: {type: array, items: {type: string}, description: "Oggi [journal, device_info, locations, archives] (archives = v12: record di tipo archive)"}
         server_time: {$ref: "#/components/schemas/Iso"}
         php: {type: string, description: "Versione di PHP (un server Python può mettere la sua)."}
     MeResponse:
@@ -487,8 +487,8 @@ components:
     Role:
       enum: [viewer, editor, admin]
     RecordType:
-      enum: [binder, client, location]
-      description: "DM_TYPES. settings non è un record: viaggia nel blocco settings."
+      enum: [binder, client, location, archive]
+      description: "DM_TYPES. archive = v12 (archivi separati dello studio, schema/archive.schema.json). settings non è un record: viaggia nel blocco settings."
     Record:
       type: object
       required: [type, id, updated_at, who, data]
@@ -499,7 +499,7 @@ components:
         who: {type: string, description: "Operatore del push (o utente del token)"}
         data:
           type: object
-          description: "Il record come l'ha inviato il client, più id e updated_at: schema/binder.schema.json, client.schema.json, location.schema.json secondo type."
+          description: "Il record come l'ha inviato il client, più id e updated_at: schema/binder.schema.json, client.schema.json, location.schema.json, archive.schema.json secondo type."
     PushRecord:
       type: object
       required: [type, id, data]
@@ -702,7 +702,7 @@ components:
       required: [n, type, id, code, action, reason, client_updated_at, prev_updated_at, new_updated_at, prev_hash, new_hash]
       properties:
         n: {type: integer, minimum: 1}
-        type: {type: string, description: "binder · client · location · settings (id subset)"}
+        type: {type: string, description: "binder · client · location · archive · settings (id subset)"}
         id: {type: string}
         code: {type: string}
         action: {enum: [create, update, delete, conflict, rejected-older, rejected-invalid, pull, pull-delete, restore]}
