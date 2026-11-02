@@ -462,7 +462,10 @@ def _sqlite_backup(src_path: str, dst_path: str) -> dict:
     try:
         dst = sqlite3.connect(dst_path)
         try:
-            src.backup(dst, pages=256, sleep=0.05)
+            # un solo passo (pages=-1): copia un'istantanea coerente con un blocco di lettura; in WAL chi scrive non
+            # si ferma. A piccoli passi invece la copia ricomincia a ogni scrittura di un altro processo e con un server
+            # sempre occupato non finirebbe mai (visto nei test).
+            src.backup(dst, pages=-1)
             dst.execute("PRAGMA journal_mode=DELETE")
             res = dst.execute("PRAGMA integrity_check").fetchone()[0]
             tables = [r[0] for r in dst.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")]
