@@ -27,7 +27,8 @@
             "binders": {"type": "array", "items": {"$ref": "binder.schema.json"}},
             "clients": {"type": "array", "items": {"$ref": "client.schema.json"}},
             "locations": {"type": "array", "items": {"$ref": "location.schema.json"}, "description": "v11; older readers ignore the key."},
-            "archives": {"type": "array", "items": {"$ref": "archive.schema.json"}, "description": "v12; older readers ignore the key."}
+            "archives": {"type": "array", "items": {"$ref": "archive.schema.json"}, "description": "v12; older readers ignore the key."},
+            "status_events": {"type": "array", "items": {"$ref": "status_event.schema.json"}, "description": "v12: status events recorded (or received from another peer) after `since`; merged by id, never LWW. Older readers ignore the key."}
           },
           "additionalProperties": {"type": "array"}
         },
@@ -39,7 +40,8 @@
             "studioName": {"type": "string"}, "destTemplate": {"type": "string"}, "catColors": {"type": "object"},
             "colorMode": {"type": "string"}, "catFamilies": {"type": "object"}, "colorRules": {"type": "object"}, "colorUpdatedAt": {"type": "string"},
             "locLevels": {"type": "array"}, "locLevelsAt": {"type": "string"},
-            "savedSearches": {"type": "array"}, "savedSearchesAt": {"type": "string"}
+            "savedSearches": {"type": "array"}, "savedSearchesAt": {"type": "string"},
+                        "statusTypes": {"type": "array"}, "statusTypesAt": {"type": "string"}
           },
           "additionalProperties": true
         },

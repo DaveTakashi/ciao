@@ -542,6 +542,7 @@ function applyImport(mode){
     S.binders = rows.map(r => {
       const [p, keep] = strip(r.p);
       const base = r.match ? {id:r.match, short_code:keep || old.get(r.match).short_code, created_at:old.get(r.match).created_at} : {};
+      if (r.match && p.contents_items != null) p.contents_items = ciCarryIds(old.get(r.match).contents_items, pipeToContents(p.contents_items));   // v12: documents keep their id (status history)
       const b = normalizeBinder(Object.assign({updated_at:now}, base, p));
       if (!b.short_code) b.short_code = keep || newShortCode();
       b.short_url = shortUrl(b.short_code);
@@ -566,6 +567,7 @@ function applyImport(mode){
         const i = S.binders.findIndex(b => b.id === r.match);
         const cur = S.binders[i];
         delete p.id;
+        if (p.contents_items != null) p.contents_items = ciCarryIds(cur.contents_items, pipeToContents(p.contents_items));   // v12: documents keep their id (status history)
         const merged = Object.assign({}, cur, p, {updated_at: p.updated_at || now});
         if (!p.short_code) merged.short_code = keep || cur.short_code;
         const nb = normalizeBinder(merged);

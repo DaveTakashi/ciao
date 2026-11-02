@@ -54,7 +54,7 @@ Preparazione: 2 fogli MRINK143 e 3 fogli di carta normale. Faldoni di prova: i 5
 - [ ] Confronta 3 file a caso con gli sha256 di `DEPLOY-MANIFEST.txt` (o la dimensione in byte).
 - [ ] `setup.php` eseguito una volta: token copiati, `config.php` scaricato e conservato fuori dal sito; riaprendo
       `setup.php` risponde che non è disponibile.
-- [ ] `…/server-php/api.php?r=ping` → `"ok":true`, `"schema":2`, `"features"` con `locations`.
+- [ ] `…/server-php/api.php?r=ping` → `"ok":true`, `"schema":2`, `"features"` con `locations` e (v12) `status_events`.
 - [ ] Non raggiungibili (403/404): `…/server-php/config.php`, `…/server-php/data/`, la cartella dati, `…/.htaccess`.
 - [ ] `https://docmap.pr-it.it/studio-de/q/<short_code di un faldone>` apre la pagina mobile (dopo il login).
 - [ ] Da PC con il programma `file://`: **Prova connessione** dice "Connesso come … (admin)"; se la cartella è

@@ -231,6 +231,34 @@ Un tag NFC adesivo può sostituire o affiancare il QR: contiene **lo stesso indi
    sequenza** finisce nella scatola attiva come un QR. Su **iPhone** non serve nulla: avvicinando il telefono al tag
    iOS apre l'indirizzo come quando inquadri un QR (Safari non può scrivere i tag).
 3. Su PC e iPhone i pulsanti NFC non compaiono. Progetto per varchi RFID futuri: [RFID-NFC.md](RFID-NFC.md).
+### 6.10 Stati: preso, reinserito, dato al Comune…
+Ogni faldone, ogni singolo documento e ogni scatola può avere uno **stato**: Preso, Reinserito, Dato al cliente,
+Restituito dal cliente, Fuori per pratica, Dato al Comune / ente, Restituito dal Comune / ente, Mancante / non trovato,
+Ritrovato, Da verificare. DocMap ricorda chi lo ha fatto, quando e da dove.
+
+**La regola per tutto lo studio**: quando prendi un faldone scansiona il QR e premi **Preso**; quando lo rimetti a posto
+scansionalo e premi **Reinserito**. Chi lo scansiona dopo vede subito "Preso da Mario · da 2 giorni".
+
+1. **Dal telefono** (già entrato con il tuo utente): inquadra il QR del faldone. In cima c'è il riquadro **Stato** con i
+   pulsanti grandi: un tocco per **Preso** o **Reinserito**; per gli stati che chiedono chi lo ha, una data o una nota si
+   apre un secondo passo con i dati già pronti → **Conferma**. Per un solo documento tocca il documento nell'elenco
+   **Contenuto**. Hai 10 secondi per **Annulla**. Senza rete lo stato resta sul telefono e parte da solo appena torna la
+   connessione.
+2. **Scatola che esce**: inquadra il QR della scatola → **Applica a tutta la scatola** → per esempio **Dato al Comune /
+   ente**, scrivi l'ente, la data di rientro e una nota → **Conferma**. Lo stato va alla scatola e a ogni faldone dentro.
+3. **Scatola che torna**: inquadra il QR della scatola → **Verifica rientro** → scansiona (fotocamera o codice scritto) il
+   QR di ogni faldone. Vedi **Trovati**, **Mancano**, **In più**. Premi **Salva la verifica**: i trovati diventano
+   restituiti, i mancanti (se lasci la spunta) **Mancante / non trovato**. Poi **Scarica il report (CSV)**.
+4. **Dal PC**: nella scheda del faldone c'è il riquadro **Stato del faldone** (pulsanti, documenti, **Storico**). In
+   **Archivio**: il filtro **Movimenti: tutti** (Fuori archivio, In ritardo, Mancanti…), il badge nella colonna Stato e
+   il pulsante **Stato…** per i faldoni spuntati. In **Informazioni › Ubicazioni** il pulsante **Stato della scatola…**.
+5. **Fuori archivio**: quando qualcosa è fuori, in Archivio compare la striscia "N fuori archivio" → **Apri "Fuori
+   archivio"**: chi ha cosa, da quando, chi è in ritardo; un tocco per farlo rientrare; **Esporta fuori archivio (CSV)**
+   ed **Esporta tutti i movimenti (CSV)**; l'elenco delle **Verifiche di rientro** con il loro CSV.
+6. **Lettore USB**: in Fuori archivio premi **Modalità stato (lettore QR)**, scegli lo stato e scansiona un faldone dopo
+   l'altro (il QR di una scatola vale per tutta la scatola).
+7. **Personalizzare**: **Impostazioni › Stati rapidi**: **Aggiungi stato**, **Modifica** (nome, colore, cosa chiedere,
+   pulsante rapido, attivo), frecce per l'ordine. Uno stato già usato non si elimina: si disattiva.
 
 ## 7. Server online su SiteGround (una volta sola, chi gestisce il sito)
 

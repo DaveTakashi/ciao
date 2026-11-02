@@ -423,7 +423,7 @@ function edLinesOpen(){ const ed = UI.ed; if (!ed) return; ed.linesDraft = conte
 function edLinesApply(){
   const ed = UI.ed; if (!ed || !ed.pipeMode) return;
   const ta = $('#ed-lines'), txt = ta ? ta.value : (ed.linesDraft || '');
-  ed.d.contents_items = String(txt).split('\n').map(l => l.trim()).filter(Boolean).map(l => pipeToContents(l.replace(/\|/g, '/'))[0]).filter(Boolean);
+  ed.d.contents_items = ciCarryIds(ed.d.contents_items, String(txt).split('\n').map(l => l.trim()).filter(Boolean).map(l => pipeToContents(l.replace(/\|/g, '/'))[0]).filter(Boolean));   // v12: unchanged lines keep their document id
   ed.pipeMode = false; ed.linesDraft = '';
   renderEdContents(); edRefreshDerived();
 }

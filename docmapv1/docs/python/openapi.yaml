@@ -557,7 +557,7 @@ components:
         api: {const: docmap-php, description: "Un server Python può rispondere con un altro nome: il client non lo controlla."}
         version: {const: 1}
         schema: {type: integer, minimum: 1, description: "Schema del database del server: 1 = v10.1, 2 = v11, 3 = v12 (access_log)"}
-        features: {type: array, items: {type: string}, description: "Oggi [journal, device_info, locations, archives, access_log] (archives = v12: record di tipo archive; access_log = v12: registro accessi)"}
+        features: {type: array, items: {type: string}, description: "Oggi [journal, device_info, locations, archives, access_log, status_events] (archives = v12: record di tipo archive; access_log = v12: registro accessi; status_events = v12: record di tipo status_event e campi status_events/status_types in binder e location)"}
         server_time: {$ref: "#/components/schemas/Iso"}
         php: {type: string, description: "Versione di PHP (un server Python può mettere la sua)."}
     MeResponse:
@@ -573,8 +573,8 @@ components:
     Role:
       enum: [viewer, editor, admin]
     RecordType:
-      enum: [binder, client, location, archive]
-      description: "DM_TYPES. archive = v12 (archivi separati dello studio, schema/archive.schema.json). settings non è un record: viaggia nel blocco settings."
+      enum: [binder, client, location, archive, status_event]
+      description: "DM_TYPES. archive = v12 (archivi separati dello studio, schema/archive.schema.json); status_event = v12, movimento di stato append-only (schema/status_event.schema.json). settings non è un record: viaggia nel blocco settings."
     Record:
       type: object
       required: [type, id, updated_at, who, data]
@@ -585,7 +585,7 @@ components:
         who: {type: string, description: "Operatore del push (o utente del token)"}
         data:
           type: object
-          description: "Il record come l'ha inviato il client, più id e updated_at: schema/binder.schema.json, client.schema.json, location.schema.json, archive.schema.json secondo type."
+          description: "Il record come l'ha inviato il client, più id e updated_at: schema/binder.schema.json, client.schema.json, location.schema.json, archive.schema.json, status_event.schema.json secondo type."
     PushRecord:
       type: object
       required: [type, id, data]
@@ -687,6 +687,8 @@ components:
         binder: {$ref: "schema/binder.schema.json"}
         etag: {$ref: "#/components/schemas/Iso"}
         siblings: {type: array, maxItems: 400, items: {$ref: "#/components/schemas/Sibling"}, description: "Altri faldoni dello stesso armadio (stanza + armadio)"}
+        status_events: {type: array, maxItems: 200, items: {$ref: "schema/status_event.schema.json"}, description: "v12: movimenti di stato del faldone e dei suoi documenti, in ordine cronologico (gli ultimi 200). Assente su un server precedente."}
+        status_types: {type: [array, "null"], items: {type: object}, description: "v12: stati personalizzati dello studio (settings condivise, chiave statusTypes); null = quelli predefiniti."}
     Brief:
       type: object
       required: [id, code, name, kind, seg, level]
@@ -717,6 +719,8 @@ components:
         children: {type: array, items: {$ref: "#/components/schemas/Brief"}, description: "Figli diretti, ordine naturale per seg"}
         binders: {type: array, maxItems: 500, items: {$ref: "#/components/schemas/BinderBrief"}, description: "Faldoni con location_id = questa ubicazione, per codice parlante"}
         count: {type: integer, description: "Totale dei faldoni (anche oltre i 500 elencati)"}
+        status_events: {type: array, maxItems: 2000, items: {$ref: "schema/status_event.schema.json"}, description: "v12: movimenti della scatola, dei faldoni che contiene e di quelli usciti con lei (box_id), in ordine cronologico: servono alla Verifica rientro del telefono."}
+        status_types: {type: [array, "null"], items: {type: object}, description: "v12: come in BinderResponse."}
     ResolveResponse:
       oneOf:
         - allOf:

@@ -151,6 +151,8 @@ def hidx(key: bytes, v: str) -> str | None:
 |---|---|
 | `records.k_short` | binder e location: `short_code` così com'è |
 | `records.k_code` | binder: `upper(trim(speaking_code))` · location: `upper(trim(code))` |
+| `records.k_short` (v12) | status_event: `"st/b/" + target_id` (faldone o documento) oppure `"st/l/" + target_id` (scatola) |
+| `records.k_code` (v12) | status_event: `"stbox/" + box_id`, `NULL` se vuoto |
 | `records.k_cab` | solo binder: `room_code + "\x1f" + cabinet_code` (separatore unit separator, byte 0x1F); `NULL` se entrambi vuoti |
 | `sync_journal.k_user` | `"user/" + lower(user)` (utente del token) |
 | `sync_journal.k_device` | `"device/" + device_id` |
@@ -350,7 +352,7 @@ Le forme esatte delle risposte sono in `openapi.yaml`; qui le regole di comporta
 Corpo: `records[]`, `tombstones[]`, `settings?`, `activity_log?`, `deviceId`, `operator`. `who` dei record = `operator`
 (max 80 caratteri) o, se vuoto, l'utente del token. Per **ogni record**, nell'ordine:
 
-1. `type` non in `binder|client|location`, `id` non conforme a `^[A-Za-z0-9._:@-]{1,100}$`, `data` non oggetto, o
+1. `type` non in `binder|client|location|status_event`, `id` non conforme a `^[A-Za-z0-9._:@-]{1,100}$`, `data` non oggetto, o
    `updated_at` (del record o di `data`) non valido → `rejected` `invalid` (elemento `rejected-invalid` nel registro).
 2. `len(jenc(data)) > 262144` → `rejected` `too_large`.
 3. `data.id = id`. Se il server ha già la riga: stessa ora **e** viva **e** `jenc(canon(attuale)) == jenc(canon(data))`
@@ -383,6 +385,10 @@ l'upsert di `records` con quel `seq`, gli indici HMAC e il payload cifrato **sen
   500 elencati, `count` = totale), entrambi in ordine naturale senza maiuscole (`strnatcasecmp`: in Python per esempio
   `natsort.natsort_keygen(alg=ns.IGNORECASE)`). I figli e i faldoni si trovano **decifrando** tutte le righe del tipo
   (nessun indice su `parent_id` / `location_id`: va bene per l'archivio di uno studio; in Python puoi aggiungere una cache).
+- v12: `binder` aggiunge `status_events` (record `status_event` con `k_short = hidx('st/b/'+id)`, vivi, ordine `at` poi `id`, gli
+  ultimi 200) e `status_types` (`statusTypes` del sottoinsieme `settings_shared`, `null` se assente); `location` aggiunge
+  `status_events` della scatola (`st/l/`), dei suoi faldoni e di quelli trovati con `k_code = hidx('stbox/'+id)` (più gli
+  altri eventi di quei faldoni), al massimo 2000, e `status_types`.
 - `resolve`: `qr` obbligatorio; se corrisponde a `^dm26L[A-Za-z0-9]{8}$` è un'ubicazione, altrimenti un faldone (`k_short`).
   Risposta = `{type: 'location'|'binder'} + ` la risposta della rotta corrispondente.
 

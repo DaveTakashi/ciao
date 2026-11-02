@@ -282,7 +282,7 @@ function normCiStatus(v){
 function ciText(i){ return (i.year ? i.year + ': ' : '') + (i.description || '') + (CI_SUFFIX[i.status] ? ' [' + CI_SUFFIX[i.status] + ']' : ''); }
 function contentsToPipe(items){ return (items || []).filter(i => String(i.year || '').trim() || String(i.description || '').trim()).map(ciText).join('|'); }
 function pipeToContents(str){
-  if (Array.isArray(str)) return str.map(x => typeof x === 'string' ? pipeToContents(x)[0] : {year:String(x.year || '').trim(), description:String(x.description || x.desc || '').trim(), status:normCiStatus(x.status)}).filter(x => x && (x.year || x.description));
+  if (Array.isArray(str)) return str.map(x => typeof x === 'string' ? pipeToContents(x)[0] : ciKeepId({year:String(x.year || '').trim(), description:String(x.description || x.desc || '').trim(), status:normCiStatus(x.status)}, x)).filter(x => x && (x.year || x.description));
   return String(str || '').split(/\||\n/).map(p => p.trim()).filter(Boolean).map(p => {
     let status = 'archive';
     const sm = p.match(CI_SUFFIX_RE);
@@ -290,6 +290,40 @@ function pipeToContents(str){
     const m = p.match(/^(\d{4}(?:\s*[-\/]\s*\d{2,4})?)\s*[:\-–—]\s*(.+)$/);
     return m ? {year:m[1].replace(/\s+/g, ''), description:m[2].trim(), status} : {year:'', description:p, status};
   }).filter(x => x.year || x.description);
+}
+/* v12 (stream Q): every contents item has a stable `id`, so a single document can carry its own status history
+   (02d-status.js). Rules: an id, once assigned, never changes (kept by JSON / SQLite contents_items.item_id / sync);
+   an item without one (CSV, AI, pipe text, data from v10–v11.1) gets a DETERMINISTIC id derived from the binder id,
+   its text and its occurrence (ciEnsureIds), so two devices upgrading the same data agree without talking to each other;
+   when items are re-parsed from text for a binder that already has ids (CSV merge, "one line per item", phone patch),
+   ciCarryIds() gives them back the ids of the matching old items (same year + description, else same position). */
+const CI_ID_RE = /^[A-Za-z0-9._:-]{1,64}$/;
+function ciKeepId(o, src){ if (src && typeof src.id === 'string' && CI_ID_RE.test(src.id)) o.id = src.id; return o; }
+function ciHash(s){ let h1 = 0x811c9dc5, h2 = 0x01000193 ^ s.length; for (let i = 0; i < s.length; i++){ const c = s.charCodeAt(i); h1 = Math.imul(h1 ^ c, 16777619) >>> 0; h2 = Math.imul(h2 ^ c, 2246822519) >>> 0; h2 = (h2 ^ (h2 >>> 13)) >>> 0; } return h1.toString(16).padStart(8, '0') + h2.toString(16).padStart(8, '0'); }
+const ciKey = (i) => String(i.year || '').trim().toLowerCase() + '\u001f' + String(i.description || '').trim().replace(/\s+/g, ' ').toLowerCase();
+/** Gives every item a unique id (in place). Missing / duplicate ids → 'ci-' + hash(binder id, text, occurrence). */
+function ciEnsureIds(binderId, items){
+  const used = new Set(), seen = {};
+  (items || []).forEach(it => { if (it.id && CI_ID_RE.test(it.id) && !used.has(it.id)) used.add(it.id); else it._ciNew = 1; });
+  (items || []).forEach(it => {
+    const k = ciKey(it); seen[k] = (seen[k] || 0) + 1;
+    if (!it._ciNew) return;
+    delete it._ciNew;
+    let n = seen[k] - 1, id;
+    do { id = 'ci-' + ciHash(String(binderId || '') + '\u001e' + k + '\u001e' + n); n++; } while (used.has(id));
+    it.id = id; used.add(id);
+  });
+  return items;
+}
+/** Re-attach the ids of `prev` items to re-parsed `items` without ids (in place): same year + description first,
+    then — only when the number of items did not change — the item at the same position. */
+function ciCarryIds(prev, items){
+  if (!Array.isArray(prev) || !Array.isArray(items) || !prev.length) return items;
+  const free = prev.filter(p => p && p.id), taken = new Set(items.map(i => i && i.id).filter(Boolean));
+  const pool = free.filter(p => !taken.has(p.id));
+  items.forEach(it => { if (!it || it.id) return; const k = ciKey(it), j = pool.findIndex(p => ciKey(p) === k); if (j >= 0){ it.id = pool[j].id; taken.add(it.id); pool.splice(j, 1); } });
+  if (prev.length === items.length) items.forEach((it, i) => { const p = prev[i]; if (it && !it.id && p && p.id && !taken.has(p.id)){ it.id = p.id; taken.add(p.id); } });
+  return items;
 }
 const STOP = new Set(['il','lo','la','i','gli','le','aps','ets','odv','onlus','asd','ssd','coop','srl','s','r','l','spa','p','a','snc','n','c','sas','di','de','del','della','dei','e','ed','&','the','and','of','studio','dott','dr','sig','geom','ing','avv','rag']);
 function initialsOf(name){
@@ -358,7 +392,7 @@ function normalizeBinder(b){
   if (/^[a-z]{1,2}$/i.test(o.room_code)) o.room_code = o.room_code.toUpperCase();   // short room letters (a → A); names like "Ufficio 1" stay as typed
   o.shelf_color = normHex(o.shelf_color);
   o.multi_code = o.multi_code.replace(/\s+/g, ' ');
-  o.contents_items = pipeToContents(o.contents_items);
+  o.contents_items = ciEnsureIds(o.id, pipeToContents(o.contents_items));   // v12: stable item ids (see ciEnsureIds)
   o.color_hex = normHex(o.color_hex) || CAT_COLOR[o.category] || '#2563EB';
   if (!STATES.includes(o.archive_state)) o.archive_state = 'CURRENT';
   o.location_code = binderLocCode(o);   // v11: path code of the location tree when location_id is set
@@ -433,7 +467,8 @@ function defaultState(){
     archives:[], archiveSel:'',   // v12: archives / clusters (02e-archives.js); archiveSel = archive shown by the top-bar switcher ('' = all), a preference of this device
    
     hasUnexportedChanges:true, onboarded:false, lastExportAt:null, lastExportFile:null, lastSavedAt:null, archiveView:'table',
-    syncJournal:[]   // v11: local push/sync journal (06i-journal.js)
+    syncJournal:[],   // v11: local push/sync journal (06i-journal.js)
+    statusEvents:[]   // v12: status / check-out events, append-only (02d-status.js)
   };
 }
 let S = null;
@@ -474,6 +509,7 @@ function migrate(st){
   if (!['it','en'].includes(o.lang)) o.lang = 'it';
   if (o.view === 'clients'){ o.view = 'info'; o.infoTab = 'clients'; }   // v8: the client register lives in Informazioni
   o.syncJournal = Array.isArray(o.syncJournal) ? o.syncJournal.filter(e => e && typeof e === 'object' && e.id) : [];   // v11 (06i-journal.js): absent in v10.1 states
+  o.statusEvents = typeof sqNormEvents === 'function' ? sqNormEvents(o.statusEvents) : Array.isArray(o.statusEvents) ? o.statusEvents : [];   // v12 (02d-status.js): absent before v12
   return o;
 }
 function loadState(){

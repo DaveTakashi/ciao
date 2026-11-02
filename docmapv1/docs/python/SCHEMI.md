@@ -15,6 +15,7 @@
 | [`binder.schema.json`](schema/binder.schema.json) | un faldone (29 campi) | `normalizeBinder()` in `assets/js/02-core.js` | `S.binders`, tabella `binders`, `records.binders` del pacchetto, `data` dei record `binder` del server |
 | [`client.schema.json`](schema/client.schema.json) | un cliente dell'anagrafica | `normalizeClient()` in `assets/js/02-core.js` (import: `06c-clients.js`) | `S.clients`, tabella `clients`, record `client` |
 | [`location.schema.json`](schema/location.schema.json) | un'ubicazione (nodo dell'albero: magazzino › … › scatola) | `normalizeLocation()` in `assets/js/02c-locations.js` | `S.locations`, tabella `locations`, record `location` |
+| [`status_event.schema.json`](schema/status_event.schema.json) | v12: un movimento di stato (preso, reinserito, dato al Comune…) di un faldone, di un documento o di una scatola | `sqNormEvent()` in `assets/js/02d-status.js` | `S.statusEvents`, tabella `status_events`, record `status_event`, `status_events` di backup e pacchetti |
 | [`activity_log_entry.schema.json`](schema/activity_log_entry.schema.json) | una riga del Registro attività | `logAct()` / normalizzatore in `assets/js/06e-log.js` | tabella `activity_log`, `activity_log` del backup e del pacchetto, `pull` |
 | [`sync_journal_entry.schema.json`](schema/sync_journal_entry.schema.json) | una voce del Registro sincronizzazioni **del dispositivo** | `jrNewEntry()` / `jrAdd()` in `assets/js/06i-journal.js` | `S.syncJournal`, chiave `sync_journal` del backup |
 | [`workspace_backup.schema.json`](schema/workspace_backup.schema.json) | il backup completo (`Salva backup`, `docmap_workspace.json`) | `workspaceJSON(true)` in `assets/js/04-ui.js` (+ `sync_journal` da 06i) | file `docmap_workspace_AAAAMMGG_HHMM.json` |
@@ -115,7 +116,7 @@ cd docmapv1/tests && npm i playwright && npx playwright install chromium   # se 
 NODE_PATH=docmapv1/tests/node_modules python3 docmapv1/docs/python/tools/validate_schemas.py
 ```
 
-1. Controlla che i 7 schemi e `openapi.yaml` siano validi e che ogni `$ref` si risolva.
+1. Controlla che gli 8 schemi e `openapi.yaml` siano validi e che ogni `$ref` si risolva.
 2. Lancia [`tools/export_samples.js`](tools/export_samples.js): apre `index.html` in Chromium headless, crea con le
    funzioni dell'app un piccolo archivio inventato (albero di 6 ubicazioni, un cliente, un faldone in una scatola,
    un'eliminazione, un export e un import di pacchetto da un finto secondo PC) e salva `workspace_backup.json`,

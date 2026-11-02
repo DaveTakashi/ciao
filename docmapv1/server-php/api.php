@@ -12,8 +12,8 @@
      pull   &since=<seq>&log_since=<seq>  viewer   {seq, more, records[], tombstones[], settings, activity_log[], log_seq, server_time}
      push   {records, tombstones, settings?, activity_log?, deviceId, operator}   editor
                                          per-record LAST-WRITE-WINS by updated_at → {applied, same, rejected[], seq, server_time}
-     binder &qr=<short_code> | &code=<speaking_code>   viewer   {binder, etag, siblings[]}
-     location &qr=<dm26L…> | &id= | &code=<path code>   viewer   {location, etag, path[], children[], binders[], count}   (v11)
+     binder &qr=<short_code> | &code=<speaking_code>   viewer   {binder, etag, siblings[], status_events[], status_types}
+     location &qr=<dm26L…> | &id= | &code=<path code>   viewer   {location, etag, path[], children[], binders[], count, status_events[], status_types}   (v11; v12 status_*)
      resolve &qr=<short code>                         viewer   {type:'binder'|'location', …}: one QR, either kind (v11)
      patch  {id, patch, base_updated_at, force?, log?}  editor  → {binder, etag} · 409 {error, current, current_etag}
                                          v11: patch may carry location_id (+ location_code, recomputed here from the location)
@@ -27,6 +27,9 @@
      last_seen &type=binder|location&id=<record id> | &code=<code> &limit<=20   viewer   {items:[{at, user, via, route, device_name}], total}
      seen   {items:[{type, id, code, at, via}]} (max 500)   viewer   views served from the client's own copy → {recorded, skipped}
      me also returns remember_minutes (config.php: how long a phone stays signed in; null = device setting)
+
+   v12 statuses: record type 'status_event' (append-only movements: taken, returned, given to the council…) written by push
+   like any record; HMAC k_short = 'st/b|l/<target id>', k_code = 'stbox/<box id>'; ping feature 'status_events'. No schema change.
 
    v11 client identity (optional, v10.1 clients send nothing → 'unknown'): headers X-DocMap-Device,
    X-DocMap-Device-Name (URI-encoded), X-DocMap-App, or "_device": {id, name, app} in the JSON body.
@@ -44,7 +47,7 @@ declare(strict_types=1);
 
 const DM_API = 'docmap-php';
 const DM_API_VERSION = 1;
-const DM_TYPES = ['binder', 'client', 'location', 'archive'];   // v11: + location (tree of boxes, docs/API-CONTRACT.md §location) · v12: + archive (clusters, generic record, no schema change)
+const DM_TYPES = ['binder', 'client', 'location', 'archive', 'status_event'];   // v11: + location (tree of boxes) · v12: + archive (clusters) + status_event (append-only status log); generic records, no schema change
 const DM_ROLES = ['viewer' => 1, 'editor' => 2, 'admin' => 3];
 const DM_MOBILE_FIELDS = ['archive_state', 'contents_items', 'room_code', 'cabinet_code', 'shelf_code', 'sector_code', 'notes', 'tags', 'location_id', 'location_code'];   // v11: + location (association mode)
 const DM_LOC_SC = '/^dm26L[A-Za-z0-9]{8}$/';   // location short codes; binders are dm26 + 8 chars
@@ -57,6 +60,7 @@ const DM_JOURNAL_PAGE = 50, DM_JOURNAL_PAGE_MAX = 200, DM_JOURNAL_ITEMS_LIST = 5
 const DM_ACCESS_VIA = ['qr', 'search', 'nav', 'nfc'];   // v12: how a binder / location was reached (access_log.via)
 const DM_ACCESS_TYPES = ['binder', 'location'];
 const DM_ACCESS_PAGE = 50, DM_ACCESS_PAGE_MAX = 200, DM_SEEN_MAX = 500, DM_LAST_SEEN_MAX = 20;
+const DM_STATUS_PER_TARGET = 200;   // v12: newest status events returned with a binder / location
 
 define('DOCMAP_API', true);
 ini_set('display_errors', '0');
@@ -285,6 +289,9 @@ function rec_write(PDO $db, array $c, string $type, string $id, string $updated,
   } elseif ($type === 'location' && !$deleted) {   // v11: same HMAC index columns (k_short = QR, k_code = path code); type keeps them apart
     $ks = hidx($c, (string)($data['short_code'] ?? ''));
     $kc = hidx($c, strtoupper(trim((string)($data['code'] ?? ''))));
+  } elseif ($type === 'status_event' && !$deleted) {   // v12: k_short = its binder (documents too) or location, k_code = the box it went through
+    $ks = st_key($c, (string)($data['target_type'] ?? ''), (string)($data['target_id'] ?? ''));
+    $kc = ($data['box_id'] ?? '') !== '' ? hidx($c, 'stbox/' . (string)$data['box_id']) : null;
   }
   unset($data['updated_at']);
   $st = $db->prepare('INSERT INTO records (type, id, updated_at, deleted, who, payload, seq, k_short, k_code, k_cab) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -387,7 +394,7 @@ function jr_meta(array $c, array $row): array { $m = $row['meta'] ? json_decode(
 function jr_payload(array $c, array $it): array { $p = $it['payload'] ? json_decode(dec($c, $it['payload'], 'journal/' . $it['jid'] . '/' . $it['n']), true) : null; return is_array($p) ? $p : []; }
 
 /* ---------------- routes ---------------- */
-function r_ping(array $c): array { return ['ok' => true, 'api' => DM_API, 'version' => DM_API_VERSION, 'schema' => DM_SCHEMA, 'features' => ['journal', 'device_info', 'locations', 'archives', 'access_log'], 'server_time' => now_iso(), 'php' => PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION]; }
+function r_ping(array $c): array { return ['ok' => true, 'api' => DM_API, 'version' => DM_API_VERSION, 'schema' => DM_SCHEMA, 'features' => ['journal', 'device_info', 'locations', 'archives', 'access_log', 'status_events'], 'server_time' => now_iso(), 'php' => PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION]; }
 
 function r_pull(PDO $db, array $c, ?array $who = null): array {
   $since = max(0, (int)param($c, 'since', 0)); $logSince = max(0, (int)param($c, 'log_since', 0));
@@ -501,13 +508,32 @@ function r_push(PDO $db, array $c, array $who): array {
   return ['applied' => $applied, 'same' => $same, 'rejected' => $rejected, 'settings_applied' => $settingsApplied, 'logged' => $logged, 'seq' => max_seq($db), 'server_time' => now_iso(), 'journal_id' => $jid];
 }
 
+/* ---------------- v12: status events (records of type status_event, written by push like any record) ---------------- */
+function st_key(array $c, string $tt, string $id): ?string { return $id === '' ? null : hidx($c, 'st/' . ($tt === 'location' ? 'l' : 'b') . '/' . $id); }
+/** Status events found through the HMAC index columns (k_short IN keys, or k_code = box key), chronological, newest $cap kept. */
+function st_events(PDO $db, array $c, array $keys, ?string $boxKey, int $cap): array {
+  $out = []; $seen = [];
+  $keys = array_values(array_filter(array_unique($keys)));
+  $add = function (array $rows) use ($c, &$out, &$seen) { foreach ($rows as $r) { if (isset($seen[$r['id']]) || (int)$r['deleted']) continue; $seen[$r['id']] = 1; $d = rec_data($c, $r); $d['id'] = $r['id']; $out[] = $d; } };
+  foreach (array_chunk($keys, 400) as $ch) { $q = $db->prepare("SELECT * FROM records WHERE type = 'status_event' AND k_short IN (" . implode(',', array_fill(0, count($ch), '?')) . ')'); $q->execute($ch); $add($q->fetchAll()); }
+  if ($boxKey !== null) { $q = $db->prepare("SELECT * FROM records WHERE type = 'status_event' AND k_code = ?"); $q->execute([$boxKey]); $add($q->fetchAll()); }
+  usort($out, fn($a, $b) => strcmp((string)($a['at'] ?? ''), (string)($b['at'] ?? '')) ?: strcmp((string)$a['id'], (string)$b['id']));
+  return count($out) > $cap ? array_slice($out, -$cap) : $out;
+}
+/** Status types of the studio (shared settings subset, key statusTypes), or null: the phone then uses the built-in ones. */
+function st_types(PDO $db, array $c): ?array {
+  $r = $db->query("SELECT json FROM settings_shared WHERE key = 'subset'")->fetch(); if (!$r) return null;
+  $d = json_decode(dec($c, $r['json'], 'settings/subset'), true);
+  return is_array($d) && is_array($d['statusTypes'] ?? null) && $d['statusTypes'] ? $d['statusTypes'] : null;
+}
 function binder_pack(PDO $db, array $c, array $row): array {
   $p = rec_public($c, $row); $b = $p['data']; $sib = [];
   if ($row['k_cab']) {
     $q = $db->prepare("SELECT * FROM records WHERE type = 'binder' AND deleted = 0 AND k_cab = ? AND id <> ? LIMIT 400"); $q->execute([$row['k_cab'], $row['id']]);
     foreach ($q->fetchAll() as $r) { $d = rec_data($c, $r); $sib[] = ['speaking_code' => (string)($d['speaking_code'] ?? ''), 'shelf_code' => (string)($d['shelf_code'] ?? ''), 'sector_code' => (string)($d['sector_code'] ?? ''), 'location_code' => (string)($d['location_code'] ?? '')]; }
   }
-  return ['binder' => $b, 'etag' => $row['updated_at'], 'siblings' => $sib];
+  return ['binder' => $b, 'etag' => $row['updated_at'], 'siblings' => $sib,
+    'status_events' => st_events($db, $c, [st_key($c, 'binder', $row['id'])], null, DM_STATUS_PER_TARGET), 'status_types' => st_types($db, $c)];   // v12
 }
 function r_binder(PDO $db, array $c): array {
   $qr = trim((string)param($c, 'qr', '')); $code = strtoupper(trim((string)param($c, 'code', '')));
@@ -537,7 +563,12 @@ function loc_pack(PDO $db, array $c, array $row): array {
   }
   usort($kids, fn($a, $b) => strnatcasecmp($a['seg'], $b['seg']));
   usort($binders, fn($a, $b) => strnatcasecmp($a['speaking_code'], $b['speaking_code']));
-  return ['location' => $l, 'etag' => $row['updated_at'], 'path' => $path, 'children' => $kids, 'binders' => $binders, 'count' => $n];
+  // v12: statuses of the box, of the binders in it and of the binders that left with it (return check on the phone)
+  $bk = hidx($c, 'stbox/' . $row['id']);
+  $sk = [st_key($c, 'location', $row['id'])]; foreach ($binders as $x) $sk[] = st_key($c, 'binder', $x['id']);
+  foreach (st_events($db, $c, [], $bk, DM_STATUS_PER_TARGET * 10) as $e) if (($e['target_type'] ?? '') !== 'location') $sk[] = st_key($c, 'binder', (string)($e['target_id'] ?? ''));   // binders that left with the box: their later events too
+  $sev = st_events($db, $c, $sk, $bk, DM_STATUS_PER_TARGET * 10);
+  return ['location' => $l, 'etag' => $row['updated_at'], 'path' => $path, 'children' => $kids, 'binders' => $binders, 'count' => $n, 'status_events' => $sev, 'status_types' => st_types($db, $c)];
 }
 function loc_find(PDO $db, array $c, string $qr, string $id, string $code): ?array {
   if ($id !== '') { if (!valid_id($id)) fail(400, 'invalid', 'id'); $r = rec_load($db, 'location', $id); return $r && !(int)$r['deleted'] ? $r : null; }
