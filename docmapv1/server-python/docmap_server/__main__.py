@@ -1,6 +1,8 @@
 """python -m docmap_server [serve] [--config PATH] [--host H] [--port N] [--root DIR] [--api-path P …]
 python -m docmap_server setup --data-dir DIR --user "davide,admin" --user "mario,editor" [--config config.json] …
 python -m docmap_server licence install FILE [--config PATH]   |   python -m docmap_server licence status [--config PATH]
+python -m docmap_server sync-remote PROFILO.json [--dry-run] [--json] [--direction both|a-to-b|b-to-a]   (ponte server ⇄ server)
+python -m docmap_server sync-remote --example PROFILO.json                                             (scrive un profilo di esempio)
 """
 from __future__ import annotations
 
@@ -18,7 +20,7 @@ def _config_path(arg):
 
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
-    if not argv or argv[0] not in ("serve", "setup", "licence"):
+    if not argv or argv[0] not in ("serve", "setup", "licence", "sync-remote"):
         argv.insert(0, "serve")
     ap = argparse.ArgumentParser(prog="python -m docmap_server", description="DocMap shared online database (Python port of server-php/api.php)")
     sub = ap.add_subparsers(dest="cmd")
@@ -46,7 +48,16 @@ def main(argv=None):
     lin.add_argument("--config", default=None)
     lst = lsub.add_parser("status", help="show the installed licence")
     lst.add_argument("--config", default=None)
+    sr = sub.add_parser("sync-remote", help="sync two DocMap servers (web <-> local) through their API")
+    sr.add_argument("profile", help="JSON profile with sides a and b (url, token, ...); state and sync-log/ are kept next to it")
+    sr.add_argument("--dry-run", action="store_true", help="only compute and print the plan: nothing is written on either side")
+    sr.add_argument("--json", action="store_true", help="print the report as JSON instead of the Italian summary")
+    sr.add_argument("--direction", choices=("both", "a-to-b", "b-to-a"), default=None, help="default: the profile's, else both")
+    sr.add_argument("--example", action="store_true", help="write an example profile at PROFILE and exit")
     a = ap.parse_args(argv)
+    if a.cmd == "sync-remote":
+        from .sync_remote import cli as sync_cli
+        return sync_cli(a)
     if a.cmd == "licence":
         from .licence import cli
         return cli(a, _config_path(a.config))
