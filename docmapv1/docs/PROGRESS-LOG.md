@@ -35,3 +35,21 @@
 - Differenze note: `ping` risponde `"php": "Python 3.x"`; date relative PHP (`now`, `@123`) rifiutate; nomi troncati a
   metà lettera accentata salvati con U+FFFD (JSON identico).
 - Prossimo passo: integrazione licenze (F3) e suite Playwright W/X/J contro Python (F2) senza modificare `tests/suite.js`.
+
+## 2026-11-02 01:30 · F3 + F2 · Licenze nel server e suite contro Python
+
+- Fatto (F3): `server-python/docmap_server/licence_verify.py` = copia identica di `hub/docmap_hub/licence.py` (un test lo
+  controlla); `licence.py` applica la licenza **solo se** la config ha `"licence_required": true` (le installazioni
+  esistenti non cambiano comportamento). In sola lettura le scritture rispondono 403 `licence_read_only`; oltre i limiti
+  403 `licence_limit` (faldoni nuovi nel push, utenti in `token_create`); stato in `me` e `ping`; comandi
+  `python -m docmap_server licence install <file>` e `licence status`. Chiavi fidate: costante `TRUSTED_LICENCE_KEYS`
+  (vuota finché Dave non esporta la sua chiave pubblica dall'hub).
+- Fatto (F2): opzione `--php-layout`, shim `server-python/tests/php-shim/php` e `tests/run_suite_python.sh`: la suite
+  intera gira contro Python senza toccare `tests/suite.js`. Risultati in `server-python/SUITE-RESULTS.md`.
+- Commit: 20574fd, 9fe919d, 4d02363.
+- Prove: `test_licence.py` 9 OK e `diff_test.py` 5 OK (rifatte dal coordinatore); validatore "all checks passed";
+  suite: PHP 1093/1093, Python 1093/1093 (W, X, J verdi; solo `setup.php` e l'api.php v10.1 storico passano ancora dal
+  PHP vero). Tutto-Python: 1092/1093, l'unico errore è atteso (la prova "server v10.1 crea schema 1" non ha senso se il
+  "vecchio server" è Python v11).
+- Prossimo passo: F4 installazione in sede su Windows (provare `run_windows.bat` di `hub/` e `server-python/` su un PC
+  vero, servizio Windows, backup automatico), poi F5 quando la v12 cambia `api.php`.
