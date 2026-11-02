@@ -1,7 +1,7 @@
 # DocMap — sicurezza: cosa protegge l'MVP e cosa no
 
-> Valido per la 26.11.1 (v11.1): §1–§5 descrivono il client (dalla v10), §5b il database online (v10.1), §5c il
-> registro sincronizzazioni (v11). La v11.1 non cambia nulla di quanto descritto qui.
+> Valido per la 26.12.0 (v12): §1–§5 descrivono il client (dalla v10), §5b il database online (v10.1), §5c il
+> registro sincronizzazioni (v11), §5d l'accesso senza PIN e il registro accessi (v12).
 
 > Sintesi onesta. L'MVP crea **le basi** (interfacce, formati, cifratura nel browser); il **sistema di sicurezza vero**
 > (login centralizzato, revoca, sincronizzazione, cifratura lato server, audit centrale) lo costruisce il back-end Python
@@ -153,6 +153,66 @@ Il registro esiste per risolvere le contestazioni, quindi contiene **dati person
 - **Dispositivo dichiarato**: id, nome e versione arrivano dal client (header `X-DocMap-Device*` o `_device`) e **non**
   sono una prova: chi ha il token può dichiarare un altro nome. L'identità certa resta il **token** (`token_id`, utente
   del token), che il server decide da solo.
+
+## 5d. v12 — accesso senza PIN ("Ricordami su questo dispositivo") e registro accessi
+
+**Perché.** La fotocamera del telefono apre ogni QR in una **scheda nuova**: la chiave della cassaforte sbloccata
+vive solo in `sessionStorage` (§3), quindi fino alla v11.1 ogni QR chiedeva il PIN. Con «Ricordami su questo
+dispositivo» (casella sotto il PIN, **attiva di predefinito**, solo in modalità `web`) l'accesso vale per il
+dispositivo, non per la scheda.
+
+**Come è fatto** (`assets/js/06k-access.js`):
+
+| Dove | Cosa | Protezione |
+|---|---|---|
+| IndexedDB `docmap_v26_keys` › `keys` › `remember:<rid>` | `{kw, mk}`: una chiave AES-KW 256 e una HMAC-SHA256 | **non estraibili** (`extractable:false`): il browser non le fa uscire, nemmeno verso lo script della pagina |
+| localStorage `docmap_v26_remember` | `{v:1, rid, user_id, created_at, last_at, pwfp, wrapped, mac}`: la DEK avvolta con `kw`, l'impronta del PIN (`pwfp` = primi 128 bit di SHA-256 dell'hash del PIN), la data dell'ultimo uso | `mac` = HMAC con `mk` di tutti i campi: un `last_at` spostato in avanti a mano non vale |
+| localStorage `docmap_v26_remember_policy` | minuti di inattività ammessi, l'ultimo letto dal server (`me.remember_minutes`) | — (solo una preferenza) |
+
+Il PIN **non** viene mai salvato, né in chiaro né avvolto; nemmeno il token del server esce dalla cassaforte cifrata.
+Una scheda nuova legge il record, verifica il `mac`, controlla l'inattività e l'utente (esiste, è attivo, `pwfp`
+uguale), svolge la DEK e apre la cassaforte come dopo il PIN. Ogni uso aggiorna `last_at` (al massimo una volta al
+minuto).
+
+**Quando si torna al PIN.** Inattività oltre la politica (predefinito **30 giorni**; `remember_minutes` in
+`config.php` vince su quella del dispositivo: `0` = PIN a ogni apertura, `480` = 8 ore, `43200` = 30 giorni, `-1` =
+mai); «Esci»; «Dimentica questo dispositivo» in Utenti e accesso; utente disattivato o eliminato, PIN cambiato;
+**token revocato**: qualsiasi 401 del server con il token di questo dispositivo cancella record e chiave.
+
+**Modello delle minacce (onesto).**
+
+- **Telefono perso o rubato sbloccato** (o lasciato sul tavolo): chi lo prende vede i faldoni **fino alla scadenza
+  per inattività o alla revoca**. Rimedio: l'admin revoca il token di quel dispositivo (⚙ Sincronizzazione › Server
+  online › token): al primo contatto col server il telefono dimentica l'accesso. Senza rete il telefono mostra la
+  copia salvata (cifrata con la stessa DEK) finché la politica non scade. Per i dispositivi condivisi: politica
+  `0` (PIN sempre) oppure togliere la spunta.
+- **Telefono bloccato** (codice / impronta del sistema): DocMap non aggiunge protezione oltre a quella del sistema; i
+  dati restano cifrati sul disco come in §3.
+- **Copia dei file del browser** (backup, malware senza accesso alla pagina): il record in `localStorage` da solo non
+  serve; la chiave `kw` sta nell'archivio chiavi del browser come oggetto non estraibile. Chi riesce a eseguire codice
+  **nella pagina** (XSS) può però usarla mentre la pagina è aperta: per questo la CSP del `.htaccess` resta stretta e
+  l'app non carica script esterni.
+- **Più persone sullo stesso telefono**: il record è di un utente solo; un login diverso lo sostituisce.
+- **Il programma sul PC da `file://`** non ha login e non cambia.
+- **iPhone / Safari**: Safari cancella localStorage e IndexedDB di un sito non aperto per 7 giorni (salvo app aggiunta
+  alla schermata Home). Su iPhone quindi, dopo una settimana senza usare DocMap, si rifà il **primo accesso** (nome,
+  PIN e codice di accesso), qualunque sia la politica. Da verificare sul telefono vero (`CHECKLIST-COLLAUDO.md`).
+
+**Registro accessi.** Il server scrive chi ha aperto quale faldone / ubicazione, quando e come (`via`: `qr`, `search`,
+`nav`, `nfc`) nella tabella `access_log` (schema 3, `API-CONTRACT.md` §11):
+
+| Dove | Contenuto | Protezione |
+|---|---|---|
+| server `access_log` | ora, rotta, `via`, id del token, ruolo, tipo e id del record **in chiaro**; utente, id/nome del dispositivo, versione dell'app, codice, IP **cifrati** (AES-256-GCM, AAD `access/<aid>`) | `k_user` / `k_device` / `k_code` = indici HMAC |
+| PC: registro attività | `view.binder` (gruppo Visite): codice, `via`, dispositivo; al massimo una voce per faldone per operatore ogni 10 minuti | come il resto del registro |
+| PC / telefono: coda `docmap_v26_seen_queue` | id, codice, ora delle visite da mandare con `seen` | in chiaro nel browser (solo id e codici, nessun dato del faldone) |
+
+- **Chi legge**: `access` solo `editor` (le proprie righe) e `admin` (tutte, con IP); `last_seen` qualsiasi ruolo, ma
+  senza IP né id del token (è ciò che mostra la scheda: «Visto di recente», «Chi l'ha visto»).
+- **Conservazione**: `access_keep_days` (predefinito 365, potatura al massimo una volta al giorno). L'IP è un dato
+  personale (GDPR): informare i collaboratori che le aperture dei faldoni sono registrate.
+- **Dichiarato dal client**: `via`, dispositivo e (per `seen`) l'ora della visita arrivano dal client e non sono una
+  prova; certi restano il token e l'ora di ricezione (`received_at`), che il server decide da solo.
 
 ## 6. Cosa deve fare il back-end Python
 

@@ -1,6 +1,6 @@
 # DocMap 2026 — manuale d'uso (passo passo)
 
-> Per chi usa DocMap ogni giorno nello studio. Versione **26.11.1**. Ogni capitolo è una cosa da fare, in passi brevi.
+> Per chi usa DocMap ogni giorno nello studio. Versione **26.12.0**. Ogni capitolo è una cosa da fare, in passi brevi.
 > I nomi tra **grassetto** sono scritti esattamente come sui pulsanti (interfaccia in italiano).
 > Descrizione completa di ogni funzione: [`RIFERIMENTO-FUNZIONI.md`](RIFERIMENTO-FUNZIONI.md) · parole: [`GLOSSARIO.md`](GLOSSARIO.md) ·
 > prove da fare a mano: [`CHECKLIST-COLLAUDO.md`](CHECKLIST-COLLAUDO.md).
@@ -11,7 +11,7 @@ Dove si trovano le cose:
 - Il menu **⚙ Funzioni avanzate** (in alto a destra) ha due gruppi:
   - *Dati*: **Importa**, **Esporta e Salva**, **Database**, **Registro attività**, **Sincronizzazione**;
   - *Strumenti*: **Genera con AI**, **Impostazioni**.
-- Il pulsante **?** (o il tasto F1) apre la guida con le 18 azioni guidate. Ogni azione guidata ti accompagna sullo schermo vero.
+- Il pulsante **?** (o il tasto F1) apre la guida con le azioni guidate. Ogni azione guidata ti accompagna sullo schermo vero.
 
 ---
 
@@ -224,7 +224,7 @@ Dettagli tecnici: [`DEPLOY-WEB.md`](DEPLOY-WEB.md) e il `README-DEPLOY.md` dentr
 2. Compare **Primo accesso su questo telefono** se hai aperto un QR, oppure **Primo accesso su questo dispositivo** se hai aperto l'indirizzo dell'app. Inserisci:
    - un nome utente e un PIN di questo dispositivo;
    - il **codice di accesso** ricevuto dall'amministratore.
-3. Da quel momento basta il PIN. Lo stato si vede in alto:
+3. Da quel momento basta il PIN; con **Ricordami su questo dispositivo** (già spuntato) i QR si aprono senza PIN (§15). Lo stato si vede in alto:
    - "Online · sincronizzato";
    - "In attesa (N)": modifiche da inviare;
    - "Offline · in attesa (N)";
@@ -337,3 +337,75 @@ Segui sempre la guida della versione (`docs/AGGIORNAMENTO-vX-vY.md`) e le regole
 | Ho l'indirizzo di un QR (`https://qr7.it/dm26…` o `…/q/dm26…`) e voglio il faldone | Incollalo o scansionalo nella ricerca dell'**Archivio**: trova il suo faldone. |
 
 Altri problemi di stampa e import: [`RIFERIMENTO-FUNZIONI.md`](RIFERIMENTO-FUNZIONI.md) › "Problemi comuni".
+
+## 14. Cercare un faldone
+
+Sul PC c'è **una sola casella di ricerca**, in cima all'**Archivio**. Scrivi come ti viene: maiuscole, accenti e un
+errore di battitura non contano.
+
+1. Scrivi una parte del nome del cliente, del codice, della città, di un tag o di un anno: `barbieri`, `BL2`,
+   `castello 2024`. Devono esserci **tutte** le parole. Le parole trovate sono evidenziate in giallo nella tabella.
+2. Hai sbagliato a scrivere? DocMap trova lo stesso il faldone e mostra **Forse cercavi: …**: tocca la parola giusta
+   per correggere la ricerca.
+3. Per restringere usa le **parole chiave** (compaiono come etichette sotto la casella; la ✕ di un'etichetta la toglie):
+
+   | Scrivi | Trova |
+   |---|---|
+   | `tag:iva` · `-tag:2019` | con il tag iva · senza il tag 2019 |
+   | `anno:2024` · `anno:2020..2022` · `anno:>2023` | quell'anno · un intervallo · dopo il 2023 |
+   | `cat:aps` · `cliente:"rossi mario"` · `citta:perugia` | categoria · cliente · città |
+   | `luogo:B04` · `colore:rosso` · `codice:bl2` · `multi:M-77001` | posizione · colore del dorso · codice · Codice Multi |
+   | `stato:fuori` · `stato:storico` · `stato:cliente` | prelevati · storici · con documenti dal cliente |
+   | `contenuto:bilancio` · `note:geometra` | dentro i contenuti · nelle note e nei contatti |
+   | `-parola` · `"frase esatta"` | esclude una parola · cerca le parole in quell'ordine |
+
+   Puoi anche incollare il link di un QR (`https://qr7.it/dm26…` o `…/q/dm26…`) o leggerlo con il lettore: compare
+   subito quel faldone.
+4. **Filtri**: apre i gruppi (tag, categoria, anno, ubicazione, colore, stato) con il numero di faldoni di ogni
+   voce. Tocca le voci che ti servono: dentro un gruppo vale una qualsiasi, tra gruppi diversi valgono tutte.
+5. **☆ Salva ricerca**: dai un nome (es. "IVA 2024 da archiviare"). Le ricerche salvate compaiono sotto la casella e
+   arrivano agli altri PC con la sincronizzazione (impostazioni condivise). Le **ricerche recenti** sono nel pannello
+   Filtri e restano su questo PC.
+6. Nel pannello Filtri puoi togliere le note e i contatti dalla ricerca (**Cerca anche in note e contatti**).
+
+Sul **telefono** (versione online): tocca la lente 🔍 in alto, oppure **Cerca un faldone** se non hai inquadrato un QR.
+
+1. Scrivi o tocca il microfono 🎤 per dettare. Le scorciatoie sotto la casella (**Fuori archivio**, ricerche recenti,
+   tag più usati) fanno la ricerca con un tocco.
+2. I risultati sono schede grandi con codice, cliente e posizione; tocca una scheda per aprire il faldone.
+   **Torna ai risultati** riporta alla ricerca.
+3. Senza rete la ricerca funziona lo stesso sulla copia salvata (cifrata) nel telefono; compare "Senza rete".
+
+L'azione guidata **Cerca con operatori, filtri e ricerche salvate** (pulsante **?**) mostra tutto questo sullo schermo vero.
+
+## 15. Accesso senza PIN sul telefono ("Ricordami su questo dispositivo")
+
+1. Al primo accesso (e a ogni accesso con il PIN) sotto il PIN c'è **Ricordami su questo dispositivo**, già spuntato.
+2. Con la spunta, i QR inquadrati dopo aprono il faldone **subito, senza PIN**.
+3. Il PIN viene chiesto di nuovo:
+   - dopo **30 giorni** senza usare DocMap su quel telefono (o il tempo scelto dall'amministratore);
+   - se tocchi **Esci**;
+   - se l'amministratore revoca il codice di accesso di quel telefono o cambia il tuo PIN.
+4. Telefono condiviso o che resta in giro? Togli la spunta: il PIN servirà a ogni QR.
+5. **Telefono perso o rubato**: avvisa subito l'amministratore, che revoca il codice di accesso di quel telefono
+   (⚙ › **Sincronizzazione** › **Server online** › codici di accesso). Al primo contatto con il server il telefono
+   dimentica l'accesso. Fino ad allora chi ha il telefono **sbloccato** può vedere i faldoni.
+6. Amministratore: in ⚙ › **Impostazioni** › **Utenti e accesso** › **Accesso senza PIN su questo dispositivo** scegli
+   dopo quanto tempo chiedere di nuovo il PIN (**Chiedi sempre il PIN**, **8 ore**, **30 giorni**, **Mai**) e
+   **Dimentica questo dispositivo**. Per tutti i telefoni insieme: `remember_minutes` in `config.php` sul server
+   (`0` = sempre il PIN, `480` = 8 ore, `43200` = 30 giorni, `-1` = mai); vince su quella del dispositivo.
+
+## 16. Chi l'ha visto (registro accessi)
+
+Serve a rispondere a "chi ha preso in mano il faldone BL4?" o "quando l'ha guardato il collega?".
+
+1. **Sul PC**: apri la scheda di un faldone. In fondo c'è **Chi l'ha visto**: le aperture fatte su questo PC e, con il
+   server online, **Carica dal server** mostra chi lo ha aperto da telefoni e altri PC (persona, quando, come: QR,
+   Ricerca, Scheda, NFC).
+2. **Sul telefono**: la scheda del faldone mostra **Visto di recente** (le ultime aperture).
+3. **Tutti gli accessi**: ⚙ › **Sincronizzazione** › riquadro **Accessi**. Scegli **Questo PC**, **Server (tutti)**
+   (amministratore, con l'IP) o **Server (le mie)** (editor) e filtra per date, persona, faldone e modo. **Altri**
+   carica le righe più vecchie.
+4. Le aperture dal PC sono anche nel **Registro attività** (gruppo **Visite**, una riga per faldone ogni 10 minuti).
+5. Il server tiene il registro per 365 giorni (`access_keep_days` in `config.php`). È un dato personale: informa i
+   collaboratori che le aperture dei faldoni vengono registrate.

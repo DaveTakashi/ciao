@@ -3230,7 +3230,7 @@ const sec = (n) => console.log('\n== ' + n);
         Jv = await Jq('pull', {token:JT.lucia, q:{since:0}});
         const Jtables = Jsql("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").map(r => r[0]);
         ok(Jv.s === 200 && Jv.j.records.length === 5 && Jv.j.tombstones.length === 1 && Jv.j.records.find(r => r.id === 'j-z').updated_at === '2026-10-12T09:00:00.000Z' && Jv.j.records.find(r => r.id === 'j-x').data.company_name === 'Ornitorinco Riservato JRX Srl' &&
-          Jsql("SELECT v FROM meta WHERE k='schema'")[0][0] === '2' && Jtables.includes('sync_journal') && Jtables.includes('sync_journal_items') && Jtables.includes('records') && Jtables.includes('tokens') && (await Jq('ping')).j.schema === 2,
+          +Jsql("SELECT v FROM meta WHERE k='schema'")[0][0] >= 2 && Jtables.includes('sync_journal') && Jtables.includes('sync_journal_items') && Jtables.includes('records') && Jtables.includes('tokens') && (await Jq('ping')).j.schema >= 2,   // v12: one request goes on to schema 3 (access_log)
           'J: the new api.php upgrades the v10.1 database IN PLACE on the first request (schema 1 → 2, additive tables), every record / tombstone / time stamp kept', {n:Jv.j.records.length, t:Jtables});
         // a v10.1 client (no device info) keeps working: push + patch, journaled as device "unknown"
         Jv = await Jq('push', {token:JT.mario, body:{records:[{type:'binder', id:'j-old', updated_at:'2026-10-20T09:00:00.000Z', data:JB('j-old', 'JRO', '2026-10-20T09:00:00.000Z')}], tombstones:[], deviceId:'dev-v101-pc'}});
@@ -3540,8 +3540,8 @@ const sec = (n) => console.log('\n== ' + n);
         hxAboutOpen(); o.btn = !!$('#hx-ping'); await hxPing();
         o.srv = $('#hx-m-srv').textContent; o.warn = $('#hx-about-body').textContent.includes(t('hx_srv_old')); o.card = ($('#hx-srv') || {}).textContent; o.cardWarn = !!$('#hx-srv-warn');
         o.url = calls[0] && calls[0].u; o.noTok = calls.every(c => !String(c.body).includes('SECRET'));
-        schema = 2; await hxPing(); o.warn2 = $('#hx-about-body').textContent.includes(t('hx_srv_old'));
-        const txt = hxSupportText(); o.txt = /26\.11/.test(txt) && txt.includes(syncDeviceId()) && txt.includes('schema 2') && txt.includes('srv.example.test'); o.leak = /SECRET|PASSWORD-H/.test(txt);
+        schema = 3; await hxPing(); o.warn2 = $('#hx-about-body').textContent.includes(t('hx_srv_old'));
+        const txt = hxSupportText(); o.txt = txt.includes(APP_VERSION) && txt.includes(syncDeviceId()) && txt.includes('schema 3') && txt.includes('srv.example.test'); o.leak = /SECRET|PASSWORD-H/.test(txt);
       } finally { window.fetch = f0; if (keep == null) localStorage.removeItem(SRV_LS); else localStorage.setItem(SRV_LS, keep); HX.ping = null; HX.pingErr = ''; while (topModal()) closeModal(true); renderAll(); }
       return o; });
     ok(Hv.cfg === await p.evaluate(() => t('hx_srv_cfg')) && Hv.btn && /schema 1/.test(Hv.srv) && /API 1\.2/.test(Hv.srv) && Hv.warn && Hv.cardWarn && /schema 1/.test(Hv.card) && /srv\.example\.test\/studio-de\/server-php\/api\.php\?r=ping/.test(Hv.url) && Hv.noTok && !Hv.warn2 && Hv.txt && !Hv.leak,
@@ -3617,7 +3617,7 @@ const sec = (n) => console.log('\n== ' + n);
     const Doa = {};
     Dyaml.split(/\n(?=  \/\w)/).slice(1).forEach(blk => { const r = blk.match(/^  \/(\w+):/); if (!r || !/^\s+x-docmap-route:/m.test(blk)) return; const role = blk.match(/x-docmap-role: (\w+)/); Doa[r[1]] = {role:role ? role[1] : 'none', post:/^    post:/m.test(blk), get:/^    get:/m.test(blk)}; });
     const Ddiff = Object.keys(Object.assign({}, Dphp, Doa)).filter(k => !Doa[k] || !Dphp[k] || Doa[k].role !== Dphp[k] || (k in Dwrites ? Doa[k].get || !Doa[k].post : !Doa[k].get));
-    ok(Object.keys(Dphp).length === 13 && !Ddiff.length, 'D: openapi.yaml has exactly the routes of api.php, with the same role (writes POST only, reads GET)', {php:Object.keys(Dphp), diff:Ddiff});
+    ok(Object.keys(Dphp).length === 16 && !Ddiff.length, 'D: openapi.yaml has exactly the routes of api.php, with the same role (writes POST only, reads GET)', {php:Object.keys(Dphp), diff:Ddiff});
     const Dping = (Dapi.match(/'features' => \[([^\]]*)\]/) || [, ''])[1].replace(/'/g, '"').replace(/\s/g, '');
     ok(Dping && Dread('docs/API-CONTRACT.md').includes('"features":[' + Dping + ']') && Dread('docs/HANDOFF_PROMPT.md').includes('"features":[' + Dping + ']'), 'D: API-CONTRACT and HANDOFF_PROMPT show the ping features of api.php', Dping);
   }
@@ -3641,6 +3641,343 @@ const sec = (n) => console.log('\n== ' + n);
   }
   // @@STREAM-Q@@
   // @@STREAM-A@@
+  sec('v12 A: one search box (operators, typos, ranking, facets, saved searches), access log, remembered phone sign-in');
+  {
+    const Acp = require('child_process'), Apath = require('path'), Acrypto = require('crypto');
+    let Av, Av2;
+    await p.evaluate(() => { while (topModal()) closeModal(true); S.view = 'archive'; UI.q = ''; renderAll(); });
+    // ---- 1. engine (04c-search.js), on a private set of binders ----
+    Av = await p.evaluate(() => {
+      const mk = (o) => { const b = normalizeBinder(Object.assign({room_code:'', cabinet_code:'', shelf_code:''}, o)); b.id = o.id; return b; };
+      const L = [
+        mk({id:'sa1', speaking_code:'BL1', company_name:'Barbieri Luigi S.r.l.', company_city:'Città di Castello', tags:'iva,fatture', category:'Ordinaria', ref_year:'2024', room_code:'B', cabinet_code:'04', shelf_code:'β', color_hex:'#DC2626', short_code:'dm26SaAaaaa1', contents_items:[{year:'2024', description:'Fatture acquisto', status:'archive'}], notes:'chiamare il geometra'}),
+        mk({id:'sa2', speaking_code:'BL2', company_name:'Barbieri Luigi S.r.l.', tags:'iva', category:'APS', ref_year:'2020-2022', archive_state:'CHECKED_OUT', color_hex:'#2563EB', short_code:'dm26SaAaaaa2', contents_items:[{year:'2021', description:'Bilancio', status:'client'}]}),
+        mk({id:'sa3', speaking_code:'RS1', multi_code:'M-77001', company_name:'Rossi Mario', tags:'demo,iva', category:'APS', ref_year:'2019', archive_state:'HISTORICAL', color_hex:'#16A34A', short_code:'dm26SaAaaaa3', contacts:'geometra Bianchi'}),
+        mk({id:'sa4', speaking_code:'ZZ9', company_name:'Zeta Costruzioni', tags:'cantiere', category:'Ordinaria', ref_year:'2025', short_code:'dm26SaAaaaa4', binder_title:'Contratti BL1'})];
+      const ids = (q, o) => srchRun(L, q, o).list.map(b => b.id).join(',');
+      const r = {};
+      r.accent = ids('citta di castello'); r.case = ids('BARBIERI'); r.fuzzy = srchRun(L, 'barbiery'); r.fuzzyIds = r.fuzzy.list.map(b => b.id).join(','); r.fz = r.fuzzy.fuzzy;
+      r.trans = ids('barbeiri');   // transposition (Damerau)
+      r.rank = ids('bl1');         // exact code first, then the binder whose title mentions it
+      r.multi = ids('M-77001'); r.multiC = ids('m77001');
+      r.short = ids('dm26SaAaaaa2'); r.url = ids('https://qr7.it/dm26SaAaaaa3'); r.path = ids('https://docmap.pr-it.it/studio-de/q/dm26SaAaaaa4');
+      r.tag = ids('tag:iva'); r.notag = ids('tag:iva -tag:demo'); r.neg = ids('barbieri -fatture');
+      r.anno = ids('anno:2024'); r.range = ids('anno:2020..2021'); r.gt = ids('anno:>2023'); r.lt = ids('year:<2020');
+      r.cat = ids('cat:aps'); r.luogo = ids('luogo:B04'); r.out = ids('stato:fuori'); r.hist = ids('stato:storico'); r.cli = ids('stato:cliente');
+      r.cliente = ids('cliente:"rossi mario"'); r.colore = ids('colore:rosso'); r.multiOp = ids('multi:m-77001'); r.code = ids('codice:bl2');
+      r.notes = ids('geometra'); r.noNotes = ids('geometra', {notes:false}); r.contents = ids('contenuto:bilancio'); r.unknown = ids('a:b');
+      r.phrase = ids('"luigi s.r.l"'); r.and = ids('barbieri 2021');
+      const F = srchRun(L, '', {facets:{tag:['iva'], cat:['aps']}}).facets;
+      r.facTagIva = (F.tag.find(x => x.k === 'iva') || {}).n; r.facCatAps = (F.cat.find(x => x.k === 'aps') || {}).n; r.facCatOrd = (F.cat.find(x => x.k === 'ordinaria') || {}).n;
+      r.facDemo = F.tag.some(x => x.k === 'demo'); r.facN = srchRun(L, '', {facets:{tag:['iva'], cat:['aps']}}).total;
+      r.facOr = srchRun(L, '', {facets:{cat:['aps', 'ordinaria']}}).total;
+      r.mark = srchMark('Città di Castello <b>', srchRun(L, 'citta').marks);
+      // hooks of streams Q (status) and C (archive): feature-detected
+      window.statusSearchHook = {match:(b, v) => v === 'prestato' ? b.id === 'sa4' : null, statusOf:(b) => b.id === 'sa4' ? {id:'loan', label:'Prestato a Mario'} : null, words:(b) => b.id === 'sa4' ? 'prestato mario' : ''};
+      window.archiveSearchHook = {archiveOf:(b) => ({id:b.id === 'sa1' ? 'arc-a' : 'arc-b', label:b.id === 'sa1' ? 'Archivio A' : 'Archivio B'}), match:(b, v) => v === 'a' ? b.id === 'sa1' : null};
+      r.hookStato = ids('stato:prestato'); r.hookOut = ids('stato:fuori'); r.hookWords = ids('prestato'); r.hookArc = ids('archivio:a'); r.hookArcLabel = ids('archivio:"archivio b"');
+      const HF = srchRun(L, '').facets; r.hookFacet = (HF.status || []).map(x => x.label).join('|') + '/' + (HF.archive || []).map(x => x.k + ':' + x.n).join('|');
+      r.hookCard = srchStateOf(L[3]).label;
+      delete window.statusSearchHook; delete window.archiveSearchHook; SRCH.cache.clear();
+      return r;
+    });
+    ok(Av.accent === 'sa1' && Av.case === 'sa1,sa2' && Av.fuzzyIds === 'sa1,sa2' && Av.fz.length === 1 && Av.fz[0].words[0] === 'barbieri' && Av.trans === 'sa1,sa2', 'A search: accent / case insensitive, a typo or a transposition finds the word ("Forse cercavi" barbieri)', Av);
+    ok(Av.rank === 'sa1,sa4' && Av.multi === 'sa3' && Av.multiC === 'sa3' && Av.short === 'sa2' && Av.url === 'sa3' && Av.path === 'sa4', 'A search: exact code ranks first; Codice Multi with or without dash; short code, qr7.it URL and …/q/ URL → that binder', {rank:Av.rank, multi:Av.multi, multiC:Av.multiC, short:Av.short, url:Av.url, path:Av.path});
+    ok(Av.tag === 'sa1,sa2,sa3' && Av.notag === 'sa1,sa2' && Av.neg === 'sa2' && Av.anno === 'sa1' && Av.range === 'sa2' && Av.gt === 'sa1,sa4' && Av.lt === 'sa3', 'A search: tag:, -tag:, -word, anno: (exact, range, > <)', Av);
+    ok(Av.cat === 'sa2,sa3' && Av.luogo === 'sa1' && Av.out === 'sa2' && Av.hist === 'sa3' && Av.cli === 'sa2' && Av.cliente === 'sa3' && Av.colore === 'sa1' && Av.multiOp === 'sa3' && Av.code === 'sa2', 'A search: cat:, luogo:, stato:fuori / storico / cliente (documents at the client), cliente:"…", colore:rosso, multi:, codice:', Av);
+    ok(Av.notes === 'sa1,sa3' && Av.noNotes === '' && Av.contents === 'sa2' && Av.unknown === '' && Av.phrase === 'sa1,sa2' && Av.and === 'sa2', 'A search: notes / contacts only when enabled; contenuto:; unknown key = text; phrase; every word must match', Av);
+    ok(Av.facTagIva === 2 && Av.facCatAps === 2 && Av.facCatOrd === 1 && !Av.facDemo && Av.facN === 2 && Av.facOr === 4, 'A facets: AND between groups, OR inside a group, each group counted without its own selection, tag "demo" never listed', Av);
+    ok(Av.mark === '<mark class="sr-hl">Città</mark> di Castello &lt;b&gt;', 'A search: highlight is accent-insensitive and escapes HTML', Av.mark);
+    ok(Av.hookStato === 'sa4' && Av.hookOut === 'sa2' && Av.hookWords === 'sa4' && Av.hookArc === 'sa1' && Av.hookArcLabel === 'sa2,sa3,sa4' && Av.hookFacet === 'Prestato a Mario/arc-b:3|arc-a:1' && Av.hookCard === 'Prestato a Mario',
+      'A hooks: statusSearchHook (stream Q) and archiveSearchHook (stream C) are feature-detected: stato:/archivio:, extra words, facets, card badge', {stato:Av.hookStato, out:Av.hookOut, words:Av.hookWords, arc:Av.hookArc, arcLabel:Av.hookArcLabel, facet:Av.hookFacet, card:Av.hookCard});
+
+    // ---- 2. desktop archive: chips, facets, did-you-mean, highlight, saved + recent searches, sync of saved searches ----
+    await p.evaluate(() => { S.binders.push(normalizeBinder({id:'sa-d1', speaking_code:'SQ1', company_name:'Quarzo Ricerca S.r.l.', tags:'iva,quarzo', category:'APS', ref_year:'2024', short_code:newShortCode()})); S.binders[S.binders.length - 1].id = 'sa-d1'; commit(); S.view = 'archive'; renderAll(); });
+    await p.fill('.card .toolbar input[data-bind="q"]', 'quarzo tag:iva'); await p.waitForTimeout(150);
+    Av = await p.evaluate(() => ({n:filteredBinders().length, chips:Array.from(document.querySelectorAll('#sr-chips .sr-chip')).map(x => x.textContent.trim()), count:($('#sr-count') || {}).textContent, hl:Array.from(document.querySelectorAll('#arch-results mark.sr-hl')).map(x => x.textContent)}));
+    ok(Av.n === 1 && Av.chips.length === 1 && /tag:\s*iva/.test(Av.chips[0]) && /1 faldone/.test(Av.count) && Av.hl.some(x => /quarzo/i.test(x)), 'A desktop: operator chip, count, matches highlighted in the table', Av);
+    await p.click('#sr-chips .sr-chip-x'); await p.waitForTimeout(100);
+    ok(await p.evaluate(() => UI.q === 'quarzo' && $('.card .toolbar input[data-bind="q"]').value === 'quarzo'), 'A desktop: the ✕ of a chip removes the operator from the query');
+    await p.fill('.card .toolbar input[data-bind="q"]', 'quarso'); await p.waitForTimeout(150);
+    Av = await p.evaluate(() => ({n:filteredBinders().length, sugg:Array.from(document.querySelectorAll('#sr-fuzzy .sr-sugg')).map(x => x.textContent)}));
+    ok(Av.n === 1 && Av.sugg.includes('quarzo'), 'A desktop: a typo still finds the binder and offers "Forse cercavi: quarzo"', Av);
+    await p.click('#sr-fuzzy .sr-sugg'); await p.waitForTimeout(100);
+    ok(await p.evaluate(() => UI.q === 'quarzo'), 'A desktop: clicking the suggestion fixes the query');
+    await p.fill('.card .toolbar input[data-bind="q"]', ''); await p.click('#sr-filters-btn'); await p.waitForTimeout(150);
+    Av = await p.evaluate(() => ({panel:!!$('#sr-panel'), groups:Array.from(document.querySelectorAll('#sr-panel .sr-fg')).map(x => x.dataset.g), demo:!!document.querySelector('#sr-panel .sr-fv[data-g="tag"][data-k="demo"]'), w:document.documentElement.scrollWidth <= innerWidth + 1}));
+    ok(Av.panel && ['tag', 'cat', 'year', 'state'].every(g => Av.groups.includes(g)) && !Av.demo && Av.w, 'A desktop: "Filtri" opens the facets (tag, categoria, anno, stato…) without the demo tag, no horizontal scroll at 1366', Av);
+    await p.screenshot({path:'shots/a_search_facets.png'});
+    if (!(await p.$('#sr-panel .sr-fv[data-g="tag"][data-k="quarzo"]'))) await p.click('#sr-panel .sr-more[data-g="tag"]');   // more than 10 tags: "Mostra tutti"
+    await p.click('#sr-panel .sr-fv[data-g="tag"][data-k="quarzo"]'); await p.waitForTimeout(100);
+    Av = await p.evaluate(() => ({n:filteredBinders().length, fac:JSON.stringify(SR.facets), chip:!!document.querySelector('#sr-chips .sr-chip.fac')}));
+    ok(Av.n === 1 && Av.fac === '{"tag":["quarzo"]}' && Av.chip, 'A desktop: clicking a facet filters (and shows a chip)', Av);
+    await p.fill('.card .toolbar input[data-bind="q"]', 'anno:2024'); await p.waitForTimeout(100);
+    await p.click('#sr-save-btn'); await p.waitForTimeout(100); await p.fill('#sr-name', 'Quarzo 2024'); await p.click('.overlay .modal-f .btn-primary'); await p.waitForTimeout(150);
+    Av = await p.evaluate(() => ({saved:S.settings.savedSearches, at:S.settings.savedSearchesAt, row:Array.from(document.querySelectorAll('#sr-saved-row .sr-saved-chip')).map(x => x.textContent), sub:locSyncSubset()}));
+    ok(Av.saved.length === 1 && Av.saved[0].name === 'Quarzo 2024' && Av.saved[0].q === 'anno:2024' && Av.saved[0].facets.tag[0] === 'quarzo' && Av.at && Av.row.join() === 'Quarzo 2024' && Av.sub.savedSearches.length === 1 && Av.sub.savedSearchesAt === Av.at,
+      'A desktop: "Salva ricerca" stores name + query + facets in S.settings.savedSearches and the shared settings subset (sync)', Av);
+    await p.evaluate(() => { SR.facets = {}; UI.q = ''; renderArchiveResults(); });
+    await p.click('#sr-saved-row .sr-saved-chip'); await p.waitForTimeout(100);
+    Av = await p.evaluate(() => ({q:UI.q, fac:JSON.stringify(SR.facets), n:filteredBinders().length, rec:srRecent()}));
+    ok(Av.q === 'anno:2024' && Av.fac === '{"tag":["quarzo"]}' && Av.n === 1 && Av.rec[0] === 'anno:2024', 'A desktop: a saved search applies query + facets again; it goes into the recent searches (this device)', Av);
+    Av = await p.evaluate(() => {
+      const keep = JSON.stringify(S.settings.savedSearches), at = S.settings.savedSearchesAt;
+      locSyncApply({locLevels:[], locLevelsAt:'', savedSearches:[{id:'x', name:'Vecchia', q:'old'}], savedSearchesAt:'2001-01-01T00:00:00.000Z'});
+      const older = S.settings.savedSearches.map(x => x.name).join();
+      locSyncApply({savedSearches:[{id:'y', name:'Dal server', q:'tag:iva', facets:{tag:['iva'], bogus:['x']}}, null, {q:5}], savedSearchesAt:'2099-01-01T00:00:00.000Z'});
+      const newer = S.settings.savedSearches.map(x => x.name + ':' + JSON.stringify(x.facets)).join();
+      S.settings.savedSearches = JSON.parse(keep); S.settings.savedSearchesAt = at; commit({dirty:false});
+      return {older, newer};
+    });
+    ok(Av.older === 'Quarzo 2024' && Av.newer === 'Dal server:{"tag":["iva"]}', 'A sync: incoming saved searches apply only when savedSearchesAt is newer, cleaned', Av);
+    await p.evaluate(() => { SR.facets = {}; UI.q = ''; SR.panel = false; try { localStorage.removeItem('docmap_v26_srch_panel'); } catch(e){} renderArchiveResults(); });
+
+    // ---- 3. performance: 5 000 binders, one keystroke at a time ----
+    Av = await p.evaluate(() => {
+      const words = ['rossi', 'bianchi', 'verdi', 'neri', 'gialli', 'ferrari', 'russo', 'romano', 'colombo', 'ricci', 'marino', 'greco', 'bruno', 'gallo', 'conti'];
+      const arr = []; for (let i = 0; i < 5000; i++){ const x = normalizeBinder({speaking_code:'PX' + i, company_name:words[i % 15] + ' ' + words[(i * 7) % 15] + ' S.r.l. ' + i, binder_title:'Titolo ' + i, tags:'iva,' + words[i % 4], category:i % 3 ? 'Ordinaria' : 'APS', ref_year:String(2000 + i % 25),
+        room_code:'P', cabinet_code:String(i % 9), shelf_code:'α', contents_items:[{year:'2024', description:'Fatture ' + words[i % 15], status:'archive'}, {year:'2023', description:'Registri IVA', status:'archive'}], notes:i % 10 ? '' : 'nota ' + words[i % 15], short_code:'dm26Pf' + String(i).padStart(6, '0')}); x.id = 'pf' + i; arr.push(x); }
+      const keep = S.binders; S.binders = keep.concat(arr);
+      const seq = ['r', 'ro', 'ros', 'ross', 'rossi', 'rossi ', 'rossi f', 'rossi fa', 'rossi fat', 'rossi fatt', 'tag:iva anno:2024', 'bianchy', 'PX4242', '-tag:rossi verdi'];
+      UI.q = 'warm'; filteredBinders();
+      const ms = seq.map(q => { UI.q = q; const t0 = performance.now(); const n = filteredBinders().length; return [q, n, +(performance.now() - t0).toFixed(1)]; });
+      UI.q = 'rossi fat'; const t1 = performance.now(); renderArchiveResults(); const render = Math.round(performance.now() - t1);
+      UI.q = ''; S.binders = keep; renderArchiveResults();
+      const avg = ms.reduce((a, x) => a + x[2], 0) / ms.length, max = Math.max(...ms.map(x => x[2]));
+      return {avg:+avg.toFixed(1), max, ms, render, px:ms.find(x => x[0] === 'PX4242')[1]};
+    });
+    console.log('  search ms per keystroke (5000 binders): avg', Av.avg, 'max', Av.max, '· full table render', Av.render);
+    ok(Av.avg < 50 && Av.max < 120 && Av.px === 1, 'A performance: 5 000 binders, search per keystroke < 50 ms on average (incl. typos and operators)', Av);
+
+    // ---- 4. desktop views: activity log 'view.binder' (throttled), "Chi l'ha visto", "Accessi" ----
+    Av = await p.evaluate(() => {
+      try { localStorage.removeItem('docmap_v26_view_seen'); } catch(e){}
+      const n0 = LOG.entries.filter(e => e.action === 'view.binder').length;
+      openEditor('sa-d1'); const panel = !!$('#ac-seen'); closeModal(true);
+      openEditor('sa-d1'); const txt = ($('#ac-seen') || {}).innerText || ''; closeModal(true);
+      const v = LOG.entries.filter(e => e.action === 'view.binder');
+      openEditor(); const fresh = !$('#ac-seen'); closeModal(true);
+      S.view = 'sync'; renderAll(); const card = ($('#ac-card') || {}).innerText || '';
+      S.view = 'archive'; renderAll();
+      return {n:v.length - n0, last:v[v.length - 1], panel, txt, fresh, card, grp:LOG_GROUPS.includes('view'), lbl:t('lga_view.binder'), pend:LOG.pending.some(e => e.action === 'view.binder')};
+    });
+    ok(Av.n === 1 && Av.last.target.id === 'sa-d1' && Av.last.target.code === 'SQ1' && Av.last.details.via === 'nav' && Av.pend && Av.grp && Av.lbl === 'Faldone visto', 'A desktop: opening a binder form = activity log "view.binder" (group Visite), once per binder per operator every 10 minutes, pending for sync', Av);
+    ok(Av.panel && /Chi l'ha visto/i.test(Av.txt) && /Scheda/.test(Av.txt) && Av.fresh && /Accessi/.test(Av.card) && /SQ1/.test(Av.card), 'A desktop: "Chi l\'ha visto" in the binder form (not for a new one), "Accessi" in Sincronizzazione lists the view', {panel:Av.panel, fresh:Av.fresh, txt:Av.txt.slice(0, 120), card:Av.card.slice(-200)});
+
+    // ---- 5. server: schema 3 (access_log), upgrades from v11 and from v10.1, routes, retention ----
+    let Aphp = ''; try { Aphp = Acp.execFileSync('php', ['-r', 'echo extension_loaded("pdo_sqlite") && extension_loaded("openssl") ? "ok" : "no";']).toString(); } catch(e){}
+    if (Aphp !== 'ok') console.log('  (stream A server part skipped: php CLI with pdo_sqlite + openssl not installed)');
+    else {
+      const AR = Apath.resolve(__dirname, 'shots', 'asrv'), ADp = Apath.join(AR, 'studio-de'), ASP = Apath.join(ADp, 'server-php');
+      Acp.execFileSync('python3', [Apath.resolve(__dirname, '..', 'tools', 'build_deploy.py'), ADp, '--studio-name', 'Studio Accessi Prova']);
+      const Astamp = String(Date.now()), ADATA = Apath.resolve(__dirname, 'shots', 'asrv-data', Astamp), ADATA10 = Apath.resolve(__dirname, 'shots', 'asrv-data', Astamp + '-v101');
+      fs.mkdirSync(ADATA, {recursive:true}); fs.mkdirSync(ADATA10, {recursive:true});
+      const AT = {dave:'atok-adm-' + Acrypto.randomBytes(9).toString('hex'), mario:'atok-ed-' + Acrypto.randomBytes(9).toString('hex'), lucia:'atok-v-' + Acrypto.randomBytes(9).toString('hex')};
+      const sha = (s) => Acrypto.createHash('sha256').update(s).digest('hex'), AKEY = Acrypto.randomBytes(32).toString('base64');
+      const Acfg = (dir, extra) => "<?php\nif (!defined('DOCMAP_API')) { http_response_code(404); exit; }\nreturn ['data_dir' => " + JSON.stringify(dir) + ", 'aes_key' => '" + AKEY + "',\n  'tokens' => [" +
+        [['dave', 'admin'], ['mario', 'editor'], ['lucia', 'viewer']].map(([u, r]) => "['user' => '" + u + "', 'role' => '" + r + "', 'token_sha256' => '" + sha(AT[u]) + "']").join(', ') + "],\n  'allowed_origins' => ['null'], 'max_fails' => 50, 'studio_name' => 'Studio Accessi Prova'" + (extra || '') + "];\n";
+      const Agit = (rev) => Acp.execFileSync('git', ['show', rev + ':docmapv1/server-php/api.php'], {cwd:Apath.resolve(__dirname, '..')});
+      fs.writeFileSync(Apath.join(ASP, 'config.php'), Acfg(ADATA));
+      fs.writeFileSync(Apath.join(ASP, 'api.php'), Agit('58a53e0'));   // the v11 / v11.1 API first: the server the studio has today
+      const APORT = 19100 + (process.pid % 300), AO = 'http://127.0.0.1:' + APORT, AAPI = AO + '/studio-de/server-php/api.php';
+      const Asrv = Acp.spawn('php', ['-S', '127.0.0.1:' + APORT, '-t', AR, Apath.resolve(__dirname, 'php-router.php')], {stdio:'ignore'});
+      const Asleep = (ms) => new Promise(r => setTimeout(r, ms));
+      const Aq = async (route, o) => {
+        o = o || {}; const h = Object.assign({}, o.headers || {});
+        if (o.token) h['X-DocMap-Token'] = o.token;
+        if (o.body !== undefined) h['Content-Type'] = 'application/json';
+        const r = await fetch(AAPI + '?r=' + route + (o.q ? '&' + new URLSearchParams(o.q).toString() : ''), {method:o.body !== undefined ? 'POST' : 'GET', headers:h, body:o.body === undefined ? undefined : JSON.stringify(o.body)});
+        let j = null; try { j = await r.json(); } catch(e){}
+        return {s:r.status, j};
+      };
+      const Asql = (dir, q) => JSON.parse(Acp.execFileSync('python3', ['-c', 'import sqlite3,json,sys; c=sqlite3.connect(sys.argv[1]); r=[list(x) for x in c.execute(sys.argv[2])]; c.commit(); print(json.dumps(r))', Apath.join(dir, 'docmap.sqlite'), q]).toString());
+      let Aup = false; for (let i = 0; i < 50 && !Aup; i++){ try { Aup = (await Aq('ping')).s === 200; } catch(e){ await Asleep(100); } }
+      const Actxs = [];
+      try {
+        const AB = (id, code, x) => Object.assign({id, speaking_code:code, company_name:'Zanzara Accessi ' + code + ' Srl', category:'IVA', short_code:'dm26Ac' + code.slice(-3) + 'Qx', room_code:'C', cabinet_code:'2', shelf_code:'α', tags:'accessi,iva',
+          contents_items:[{year:'2025', description:'Fatture', status:'archive'}], created_at:'2026-10-01T08:00:00.000Z', updated_at:'2026-10-10T09:00:00.000Z'}, x || {});
+        const Abase = [AB('a-1', 'ZAA'), AB('a-2', 'ZAB', {archive_state:'CHECKED_OUT'}), AB('a-3', 'ZAC', {tags:'accessi,bilanci', company_name:'Zanzara Bilanci Srl'})];
+        Av = await Aq('push', {token:AT.mario, body:{records:Abase.map(x => ({type:'binder', id:x.id, updated_at:x.updated_at, data:x})), tombstones:[], deviceId:'dev-a-pc', operator:'Dave'}});
+        Av2 = await Aq('ping');
+        ok(Aup && Av.s === 200 && Av.j.applied === 3 && Av2.j.schema === 2 && Asql(ADATA, "SELECT v FROM meta WHERE k='schema'")[0][0] === '2', 'A server: the v11 API (git 58a53e0) holds today\'s data, schema 2', {push:Av.j, ping:Av2.j});
+        // upgrade v11 → v12: replace ONLY api.php
+        fs.copyFileSync(Apath.resolve(__dirname, '..', 'server-php', 'api.php'), Apath.join(ASP, 'api.php'));
+        Av = await Aq('pull', {token:AT.lucia, q:{since:0}});
+        const Atables = Asql(ADATA, "SELECT name FROM sqlite_master WHERE type='table'").map(r => r[0]);
+        Av2 = await Aq('ping');
+        ok(Av.s === 200 && Av.j.records.length === 3 && Av.j.records.find(r => r.id === 'a-2').updated_at === '2026-10-10T09:00:00.000Z' && Asql(ADATA, "SELECT v FROM meta WHERE k='schema'")[0][0] === '3' && Atables.includes('access_log') && Atables.includes('sync_journal') &&
+          Av2.j.schema === 3 && JSON.stringify(Av2.j.features) === '["journal","device_info","locations","access_log"]' && Asql(ADATA, 'SELECT COUNT(*) FROM access_log')[0][0] === 0, 'A server: the v12 api.php upgrades a v11 database in place (schema 2 → 3, table access_log), records and time stamps kept, ping features + access_log', {t:Atables, ping:Av2.j});
+        // a v10.1 database (schema 1) straight to v12 (2 and 3 in one go)
+        fs.writeFileSync(Apath.join(ASP, 'config.php'), Acfg(ADATA10)); fs.writeFileSync(Apath.join(ASP, 'api.php'), Agit('68ae170'));
+        Av = await Aq('push', {token:AT.mario, body:{records:Abase.slice(0, 2).map(x => ({type:'binder', id:x.id, updated_at:x.updated_at, data:x})), tombstones:[{type:'binder', id:'a-gone', code:'ZZG', deletedAt:'2026-10-05T10:00:00.000Z'}], deviceId:'dev-v101'}});
+        const A10 = Asql(ADATA10, "SELECT v FROM meta WHERE k='schema'")[0][0];
+        fs.copyFileSync(Apath.resolve(__dirname, '..', 'server-php', 'api.php'), Apath.join(ASP, 'api.php'));
+        Av2 = await Aq('pull', {token:AT.lucia, q:{since:0}});
+        const At10 = Asql(ADATA10, "SELECT name FROM sqlite_master WHERE type='table'").map(r => r[0]);
+        ok(Av.s === 200 && A10 === '1' && Av2.s === 200 && Av2.j.records.length === 2 && Av2.j.tombstones.length === 1 && Asql(ADATA10, "SELECT v FROM meta WHERE k='schema'")[0][0] === '3' && At10.includes('sync_journal') && At10.includes('access_log'),
+          'A server: a v10.1 database (schema 1) upgrades directly to schema 3 (journal + access_log tables), records and tombstones kept', {from:A10, t:At10});
+        fs.writeFileSync(Apath.join(ASP, 'config.php'), Acfg(ADATA));
+        // reads are recorded: via, dedupe, seen, filters, roles, last_seen
+        const Adev = (id, name) => ({'X-DocMap-Device':id, 'X-DocMap-Device-Name':encodeURIComponent(name), 'X-DocMap-App':'26.12.0'});
+        await Aq('binder', {token:AT.lucia, q:{qr:'dm26AcZAAQx'}, headers:Adev('dev-lucia', 'Telefono Lucia')});
+        await Aq('binder', {token:AT.lucia, q:{qr:'dm26AcZAAQx'}, headers:Adev('dev-lucia', 'Telefono Lucia')});   // same reader, same way, a moment later: one row
+        await Aq('binder', {token:AT.lucia, q:{code:'zab', via:'search'}, headers:Adev('dev-lucia', 'Telefono Lucia')});
+        await Aq('binder', {token:AT.mario, q:{qr:'dm26AcZAAQx', via:'nfc'}, headers:Adev('dev-mario', 'Telefono Mario')});
+        await Aq('binder', {token:AT.mario, q:{qr:'dm26AcNOPEQx'}});   // 404: nothing recorded
+        Av = await Aq('seen', {token:AT.mario, headers:Adev('dev-mario-pc', 'PC Mario'), body:{items:[{type:'binder', id:'a-3', code:'ZAC', at:new Date(Date.now() - 3600000).toISOString(), via:'nav'}, {type:'binder', id:'a-3', code:'ZAC', at:'2001-01-01T00:00:00.000Z'}, {type:'binder', id:'bad id!', at:new Date().toISOString()}, {type:'binder', id:'a-3', at:new Date(Date.now() + 86400000).toISOString()}]}});
+        Av2 = await Aq('seen', {token:AT.mario, headers:Adev('dev-mario-pc', 'PC Mario'), body:{items:[{type:'binder', id:'a-3', code:'ZAC', at:new Date(Date.now() - 3600000).toISOString().replace(/\d\dZ$/, '')}]}});
+        ok(Av.s === 200 && Av.j.recorded === 1 && Av.j.skipped === 3 && Av2.s === 200, 'A server: POST seen records valid views, skips too old / future / invalid ones', {a:Av.j, b:Av2.j});
+        const Aall = await Aq('access', {token:AT.dave, q:{limit:200}}), Aown = await Aq('access', {token:AT.mario}), Aviewer = await Aq('access', {token:AT.lucia});
+        const Arow = (x) => [x.user, x.route, x.via, x.target.code, x.device.name].join('|');
+        ok(Aall.s === 200 && Aall.j.items.length === 4 && Aall.j.items.map(Arow).sort().join(',') === ['lucia|binder|qr|ZAA|Telefono Lucia', 'lucia|binder|search|ZAB|Telefono Lucia', 'mario|binder|nfc|ZAA|Telefono Mario', 'mario|seen|nav|ZAC|PC Mario'].join(',') &&
+          Aall.j.items.every(x => 'ip' in x) && Aown.s === 200 && Aown.j.items.length === 2 && Aown.j.items.every(x => x.user === 'mario' && !('ip' in x)) && Aviewer.s === 403,
+          'A server: access lists every read (who, route, via, code, device) once per moment; admin sees all + IP, editor only own rows, viewer 403', {all:Aall.j.items.map(Arow), own:Aown.j.items.length, v:Aviewer.s});
+        const Af = async (q) => ((await Aq('access', {token:AT.dave, q})).j.items || []).map(x => x.target.code + ':' + x.via).sort().join(',');
+        Av = {code:await Af({code:'zaa'}), user:await Af({user:'LUCIA'}), via:await Af({via:'nfc'}), dev:await Af({device:'dev-mario-pc'}), id:await Af({target:'a-2'}), route:await Af({route:'seen'}), to:await Af({to:'2001-01-02'})};
+        const Apg = await Aq('access', {token:AT.dave, q:{limit:3}}), Apg2 = await Aq('access', {token:AT.dave, q:{limit:3, before:Apg.j.next_before}});
+        ok(Av.code === 'ZAA:nfc,ZAA:qr' && Av.user === 'ZAA:qr,ZAB:search' && Av.via === 'ZAA:nfc' && Av.dev === 'ZAC:nav' && Av.id === 'ZAB:search' && Av.route === 'ZAC:nav' && Av.to === '' && Apg.j.more === true && Apg2.j.items.length === 1 && !Apg2.j.more,
+          'A server: access filters (code, user, via, device, record, route, date; HMAC indexes) and paging', Av);
+        Av = await Aq('last_seen', {token:AT.lucia, q:{type:'binder', id:'a-1'}}); Av2 = await Aq('last_seen', {token:AT.lucia, q:{code:'ZAA', limit:1}});
+        ok(Av.s === 200 && Av.j.total === 2 && Av.j.items[0].user === 'mario' && Av.j.items[0].via === 'nfc' && Av.j.items[0].device_name === 'Telefono Mario' && Av2.j.items.length === 1 && (await Aq('last_seen', {token:AT.lucia})).s === 400,
+          'A server: last_seen (any role) gives the latest accesses of one binder by id or code, newest first', Av.j);
+        const Ameta = Asql(ADATA, "SELECT hex(meta), k_user, k_code, target_id FROM access_log");
+        ok(Ameta.every(r => r[0] && r[1] && /^[0-9a-f]{40}$/.test(r[1]) && r[3]) && !JSON.stringify(Ameta).includes('Telefono') && !JSON.stringify(Ameta).includes('lucia') && !JSON.stringify(Ameta).includes('ZAA'), 'A server: user, device name and code are encrypted (meta) or HMAC indexes in access_log, never plaintext');
+        // retention: rows older than access_keep_days are pruned (once a day)
+        Asql(ADATA, "INSERT INTO access_log (at, received_at, route, via, token_id, role, target_type, target_id) VALUES ('2020-01-01T00:00:00.000Z', '2020-01-01T00:00:00.000Z', 'binder', 'qr', 'cfg:1', 'viewer', 'binder', 'a-1')");
+        Asql(ADATA, "DELETE FROM meta WHERE k = 'access_pruned_at'");
+        fs.writeFileSync(Apath.join(ASP, 'config.php'), Acfg(ADATA, ", 'access_keep_days' => 30, 'remember_minutes' => 480"));
+        await Aq('binder', {token:AT.dave, q:{qr:'dm26AcZACQx'}});
+        Av = Asql(ADATA, "SELECT COUNT(*) FROM access_log WHERE at < '2021-01-01'")[0][0];
+        Av2 = await Aq('me', {token:AT.lucia});
+        ok(Av === 0 && Asql(ADATA, "SELECT COUNT(*) FROM access_log")[0][0] === 5 && Av2.j.remember_minutes === 480, 'A server: retention (access_keep_days) prunes old rows; me.remember_minutes from config.php', {old:Av, me:Av2.j});
+        fs.writeFileSync(Apath.join(ASP, 'config.php'), Acfg(ADATA));
+
+        // ---- 6. phone (scan.html, web + server): remembered sign-in ----
+        const Apc = await b.newContext({viewport:{width:390, height:844}, isMobile:true}); Actxs.push(Apc);
+        const Apage = async () => { const pg = await Apc.newPage(); pg.on('pageerror', e => errs.push('A phone PAGEERR ' + e.message)); pg.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errs.push('A phone CONSOLE ' + m.text()); }); return pg; };
+        const Ago = async (pg, q) => { await pg.goto(AO + '/studio-de/scan.html?lang=it&q=' + q); await pg.waitForTimeout(1300); return pg.evaluate(() => ({view:SC.view, code:(document.getElementById('sc-code') || {}).textContent || '', rm:!!localStorage.getItem('docmap_v26_remember'), reason:RM.reason})); };
+        let P1 = await Apage();
+        Av = await Ago(P1, 'dm26AcZAAQx');
+        Av2 = await P1.evaluate(() => ({chk:!!document.getElementById('dm-remember') && document.getElementById('dm-remember').checked, txt:(document.querySelector('.rm-chk') || {}).innerText || ''}));
+        ok(Av.view === 'setup' && Av2.chk && /Ricordami su questo dispositivo/.test(Av2.txt) && /30 giorni/.test(Av2.txt), 'A phone: first use shows "Ricordami su questo dispositivo" (on by default, 30 days)', Av2);
+        await P1.fill('#sc-user', 'lucia.tel'); await P1.fill('#sc-pin', '97531'); await P1.fill('#sc-pin2', '97531'); await P1.fill('#sc-token', AT.lucia); await P1.click('#sc-enter'); await P1.waitForTimeout(2500);
+        Av = await P1.evaluate(() => { const r = localStorage.getItem('docmap_v26_remember') || ''; const all = []; for (let i = 0; i < localStorage.length; i++) all.push(localStorage.getItem(localStorage.key(i)));
+          return {view:SC.view, code:(document.getElementById('sc-code') || {}).textContent, rec:JSON.parse(r || 'null'), leak:/97531/.test(all.join()) || r.includes(DocMapVault.srvToken())}; });
+        ok(Av.view === 'card' && Av.code === 'ZAA' && Av.rec && Av.rec.v === 1 && /^[A-Za-z0-9+\/=]{40,}$/.test(Av.rec.wrapped) && Av.rec.mac && !Av.leak, 'A phone: signed in and remembered (wrapped key + MAC in localStorage, no PIN, no token in clear)', Av);
+        Av = await P1.evaluate(async () => { const db = await idbReq(KEY_IDB, ['keys']); const r = JSON.parse(localStorage.getItem('docmap_v26_remember')); const k = await idbDo(db, 'keys', 'readonly', os => os.get('remember:' + r.rid)); db.close();
+          let exp = 'no'; try { await crypto.subtle.exportKey('raw', k.kw); exp = 'yes'; } catch(e){} return {kw:k.kw.type, ext:k.kw.extractable, mk:k.mk.extractable, exp}; });
+        ok(Av.kw === 'secret' && Av.ext === false && Av.mk === false && Av.exp === 'no', 'A phone: the key that unwraps the vault is a NON-extractable WebCrypto key in IndexedDB', Av);
+        // a new QR opened from the camera = a new tab: straight to the binder, no PIN
+        const P2 = await Apage();
+        Av = await Ago(P2, 'dm26AcZABQx');
+        await P2.waitForTimeout(600);
+        Av2 = await P2.evaluate(() => ({ph:(document.getElementById('ac-ph') || {}).innerText || '', w:document.documentElement.scrollWidth <= innerWidth + 1}));
+        ok(Av.view === 'card' && Av.code === 'ZAB', 'A phone: reopening (new tab, new QR) → the binder directly, no PIN', Av);
+        ok(/Visto di recente/i.test(Av2.ph) && /lucia/.test(Av2.ph) && Av2.w, 'A phone: the card shows "Visto di recente" (last_seen), no horizontal scroll', Av2);
+        await P2.screenshot({path:'shots/a_phone_card.png'});
+        // search screen: header button, chips, big cards, tap → binder (access via 'search'), back to results
+        await P2.click('#sr-hbtn'); await P2.waitForTimeout(1200);
+        Av = await P2.evaluate(() => ({view:SC.view, chips:Array.from(document.querySelectorAll('#sr-ph-chips .sr-pchip')).map(x => x.textContent), hash:location.hash, w:document.documentElement.scrollWidth <= innerWidth + 1}));
+        ok(Av.view === 'search' && Av.chips.includes('Fuori archivio') && Av.chips.includes('#accessi') && Av.hash === '#cerca' && Av.w, 'A phone search: "Cerca" opens the search screen with quick chips (Fuori archivio, frequent tags)', Av);
+        await P2.fill('#sr-ph-q', 'zanzara bilanc'); await P2.waitForTimeout(150);
+        Av = await P2.evaluate(() => ({cards:Array.from(document.querySelectorAll('#sr-ph-list .sr-pc-code')).map(x => x.textContent), hl:document.querySelectorAll('#sr-ph-list mark.sr-hl').length, cnt:(document.getElementById('sr-ph-count') || {}).textContent}));
+        ok(Av.cards.join() === 'ZAC' && Av.hl >= 2 && /1 risultato\b/.test(Av.cnt), 'A phone search: big result cards from the pulled data, matches highlighted', Av);
+        await P2.screenshot({path:'shots/a_phone_search.png'});
+        await P2.click('#sr-ph-chips .sr-pchip.out').catch(() => {});
+        await P2.evaluate(() => { SR.ph.q = 'stato:fuori'; srPhRefresh(); }); await P2.waitForTimeout(100);
+        Av = await P2.evaluate(() => Array.from(document.querySelectorAll('#sr-ph-list .sr-pc')).map(x => x.querySelector('.sr-pc-code').textContent + ':' + ((x.querySelector('.sr-pc-st') || {}).textContent || '')).join());
+        ok(/^ZAB:In uso/.test(Av), 'A phone search: "stato:fuori" with the status badge on the card', Av);
+        await P2.fill('#sr-ph-q', 'ZAC'); await P2.waitForTimeout(100); await P2.click('#sr-ph-list .sr-pc'); await P2.waitForTimeout(1300);
+        Av = await P2.evaluate(() => ({view:SC.view, code:(document.getElementById('sc-code') || {}).textContent, via:SC.via, back:!!document.getElementById('sr-ph-backl')}));
+        Av2 = (await Aq('access', {token:AT.dave, q:{code:'ZAC', user:'lucia'}})).j.items.map(x => x.via);
+        ok(Av.view === 'card' && Av.code === 'ZAC' && Av.via === 'search' && Av.back && Av2.includes('search'), 'A phone search: tapping a card opens the binder; the server records via=search', {ph:Av, srv:Av2});
+        await P2.click('#sr-ph-backl'); await P2.waitForTimeout(500);
+        ok(await P2.evaluate(() => SC.view === 'search' && document.getElementById('sr-ph-q').value === 'ZAC'), 'A phone search: back to the results (history)');
+        // offline: the search keeps working from the encrypted copy; a card from the copy is queued as `seen`
+        await Apc.setOffline(true);
+        Av = await P2.evaluate(async () => { SR.ph.loaded = false; await srPhLoad(true); SR.ph.q = 'zanzara'; srPhRefresh(); return {off:SR.ph.offline, n:document.querySelectorAll('#sr-ph-list .sr-pc').length, msg:(document.getElementById('sr-ph-res') || {}).innerText || ''}; });
+        ok(Av.off && Av.n === 3 && /Senza rete/.test(Av.msg), 'A phone search: offline → results from the copy saved (encrypted) on the phone', Av);
+        await P2.evaluate(() => srPhGo(SR.ph.binders.find(x => x.speaking_code === 'ZAA').id)); await P2.waitForTimeout(1500);
+        Av = await P2.evaluate(() => ({view:SC.view, code:(document.getElementById('sc-code') || {}).textContent, msg:(SC.msg || {}).text || '', q:AC.queue && AC.queue.length}));
+        ok(Av.view === 'card' && Av.code === 'ZAA' && /Senza rete/.test(Av.msg) && Av.q === 1, 'A phone: offline card from the saved copy, view queued for later', Av);
+        await Apc.setOffline(false);
+        Av = await P2.evaluate(async () => { const r = await acFlush(); return {r, q:AC.queue.length}; });
+        Av2 = (await Aq('access', {token:AT.dave, q:{route:'seen', user:'lucia'}})).j.items.map(x => x.target.code + ':' + x.via);
+        ok(Av.r.sent === 1 && Av.q === 0 && Av2.join() === 'ZAA:search', 'A phone: back online the queued view is sent (POST seen)', {ph:Av, srv:Av2});
+        // inactivity timeout → PIN again
+        Av = await P2.evaluate(async () => { sessionStorage.clear(); VAULT.dek = null; RM.now = () => Date.now() + 31 * 86400000; const r = await rmResume(SC.P.auth); RM.now = () => Date.now(); return {r, reason:RM.reason, rec:!!localStorage.getItem('docmap_v26_remember')}; });
+        const P3 = await Apage(); Av2 = await Ago(P3, 'dm26AcZAAQx');
+        ok(Av.r === false && Av.reason === 'timeout' && !Av.rec && Av2.view === 'login' && !Av2.rm, 'A phone: after the inactivity timeout (30 days) the device is forgotten → login with PIN', {a:Av, b:Av2});
+        await P3.fill('#sc-user', 'lucia.tel'); await P3.fill('#sc-pin', '97531'); await P3.click('#sc-enter'); await P3.waitForTimeout(1800);
+        ok(await P3.evaluate(() => SC.view === 'card' && !!localStorage.getItem('docmap_v26_remember')), 'A phone: PIN again → remembered again');
+        // the server policy (config.php remember_minutes = 480) is used once known
+        fs.writeFileSync(Apath.join(ASP, 'config.php'), Acfg(ADATA, ", 'remember_minutes' => 480"));
+        Av = await P3.evaluate(async () => { await rmRefreshPolicy(true); const pol = rmPolicy(); sessionStorage.clear(); VAULT.dek = null; RM.now = () => Date.now() + 9 * 3600000; const r = await rmResume(SC.P.auth); RM.now = () => Date.now(); return {pol, r, reason:RM.reason}; });
+        ok(Av.pol.minutes === 480 && Av.pol.source === 'server' && Av.r === false && Av.reason === 'timeout', 'A phone: the admin policy from config.php (8 h) applies: 9 h without use → PIN', Av);
+        fs.writeFileSync(Apath.join(ASP, 'config.php'), Acfg(ADATA, ", 'remember_minutes' => 0"));
+        await P3.evaluate(async () => { await rmRefreshPolicy(true); });
+        const P4 = await Apage(); Av = await Ago(P4, 'dm26AcZAAQx');
+        ok(Av.view === 'login' && await P4.evaluate(() => !document.getElementById('dm-remember')), 'A phone: policy "Chiedi sempre il PIN" (0) → no checkbox, PIN every time', Av);
+        fs.writeFileSync(Apath.join(ASP, 'config.php'), Acfg(ADATA));
+        await P4.evaluate(async () => { localStorage.removeItem('docmap_v26_remember_policy'); });
+        await P4.reload(); await P4.waitForTimeout(900);
+        await P4.fill('#sc-user', 'lucia.tel'); await P4.fill('#sc-pin', '97531'); await P4.click('#sc-enter'); await P4.waitForTimeout(1800);
+        // "Esci" forgets the device
+        await P4.click('[data-s="logout"]'); await P4.waitForTimeout(400);
+        const P5 = await Apage(); Av = await Ago(P5, 'dm26AcZAAQx');
+        ok(Av.view === 'login' && !Av.rm, 'A phone: "Esci" forgets the device: the next QR asks the PIN', Av);
+        // unchecked → not remembered
+        await P5.uncheck('#dm-remember'); await P5.fill('#sc-user', 'lucia.tel'); await P5.fill('#sc-pin', '97531'); await P5.click('#sc-enter'); await P5.waitForTimeout(1800);
+        const P6 = await Apage(); Av = await Ago(P6, 'dm26AcZAAQx');
+        ok(await P5.evaluate(() => SC.view === 'card') && Av.view === 'login' && !Av.rm, 'A phone: "Ricordami" unticked → signed in for this tab only', Av);
+        // revoked token → 401 → the device is forgotten (next time: login)
+        const Atk = await Aq('token_create', {token:AT.dave, body:{user:'tel-revoca', role:'viewer'}});
+        const Rc = await b.newContext({viewport:{width:390, height:844}, isMobile:true}); Actxs.push(Rc);
+        const R1 = await Rc.newPage(); R1.on('pageerror', e => errs.push('A rev PAGEERR ' + e.message));
+        await R1.goto(AO + '/studio-de/scan.html?lang=it&q=dm26AcZAAQx'); await R1.waitForTimeout(900);
+        await R1.fill('#sc-user', 'rev.tel'); await R1.fill('#sc-pin', '24680'); await R1.fill('#sc-pin2', '24680'); await R1.fill('#sc-token', Atk.j.token); await R1.click('#sc-enter'); await R1.waitForTimeout(2200);
+        Av = await R1.evaluate(() => ({view:SC.view, rm:!!localStorage.getItem('docmap_v26_remember')}));
+        await Aq('token_revoke', {token:AT.dave, body:{id:Atk.j.id}});
+        const R2 = await Rc.newPage(); await R2.goto(AO + '/studio-de/scan.html?lang=it&q=dm26AcZABQx'); await R2.waitForTimeout(1500);
+        Av2 = await R2.evaluate(() => ({view:SC.view, rm:!!localStorage.getItem('docmap_v26_remember'), reason:RM.reason, data:/ZAB|Zanzara/.test(document.getElementById('app').innerHTML)}));
+        const R3 = await Rc.newPage(); await R3.goto(AO + '/studio-de/scan.html?lang=it&q=dm26AcZABQx'); await R3.waitForTimeout(1000);
+        ok(Av.view === 'card' && Av.rm && Av2.view === 'token' && !Av2.rm && Av2.reason === 'revoked' && !Av2.data && await R3.evaluate(() => SC.view === 'login'), 'A phone: admin revokes the device token → 401 → token screen, device forgotten → next QR asks the PIN', {before:Av, after:Av2});
+
+        // ---- 7. desktop (file://) with the server: views sent as `seen`, "Chi l'ha visto" from last_seen, "Accessi" from the server ----
+        Av = await p.evaluate(async ([url, tok]) => {
+          const keep = localStorage.getItem(SRV_LS);
+          localStorage.setItem(SRV_LS, JSON.stringify({url, token:tok, basic:''})); SRV.role = 'admin';
+          try {
+            try { localStorage.removeItem('docmap_v26_view_seen'); } catch(e){}
+            openEditor('sa-d1'); closeModal(true);
+            const q1 = acQueue().length; const f = await acFlush();
+            openEditor('sa-d1'); document.querySelector('#ac-seen [data-a="ac-seen-load"]').click();
+            for (let i = 0; i < 30 && !(AC.seen['sa-d1'] && AC.seen['sa-d1'].items); i++) await new Promise(r => setTimeout(r, 100));
+            const seen = ($('#ac-seen') || {}).innerText || ''; closeModal(true);
+            S.view = 'sync'; renderAll(); document.querySelector('#ac-src [data-v="srv"]').click();
+            for (let i = 0; i < 30 && !AC.srv.loaded; i++) await new Promise(r => setTimeout(r, 100));
+            const list = ($('#ac-list') || {}).innerText || '', w = document.documentElement.scrollWidth <= innerWidth + 1;
+            return {q1, f, seen, list, w, n:AC.srv.items.length};
+          } finally { if (keep == null) localStorage.removeItem(SRV_LS); else localStorage.setItem(SRV_LS, keep); SRV.role = ''; AC.ui.src = 'local'; AC.srv = {items:[], more:false, next:null, loading:false, err:'', loaded:false}; S.view = 'archive'; renderAll(); }
+        }, [AAPI, AT.dave]);
+        ok(Av.q1 === 1 && Av.f.sent === 1 && /Dal server/.test(Av.seen) && /1 accessi in totale|accessi in totale/.test(Av.seen) && /SQ1/.test(Av.list) && /lucia/.test(Av.list) && /IP/.test(Av.list) && Av.w,
+          'A desktop + server: a view is sent with POST seen; "Chi l\'ha visto" loads last_seen; "Accessi" shows the server rows (admin, with IP)', Av);
+        // desktop web mode (index.html + server): the lock screen offers the checkbox too
+        const Wc = await b.newContext({viewport:{width:1366, height:768}}); Actxs.push(Wc);
+        const W1 = await Wc.newPage(); W1.on('pageerror', e => errs.push('A web PAGEERR ' + e.message));
+        await W1.goto(AO + '/studio-de/index.html'); await W1.waitForTimeout(1200);
+        ok(await W1.evaluate(() => !!document.querySelector('#vault-lock form[data-vl="setup"] #dm-remember:checked')), 'A web desktop: the first-use lock screen offers "Ricordami su questo dispositivo"');
+      } finally {
+        for (const c of Actxs) try { await c.close(); } catch(e){}
+        Asrv.kill();
+      }
+    }
+    // ---- 8. help + tour + i18n of this stream ----
+    Av = await p.evaluate(() => ({topics:['search', 'remember', 'access'].every(id => HELP_TOPICS.some(h => h.id === id && h.body.it && h.body.en && h.title.it && h.title.en)), guide:!!(GUIDES.search && GUIDES.search.steps.length >= 4),
+      keys:Object.keys(I18N.it).filter(k => /^(sr|rm|ac)_/.test(k)).filter(k => !(k in I18N.en)), keysEn:Object.keys(I18N.en).filter(k => /^(sr|rm|ac)_/.test(k)).filter(k => !(k in I18N.it))}));
+    ok(Av.topics && Av.guide && !Av.keys.length && !Av.keysEn.length, 'A help: topics search / remember / access and the "search" tour (IT + EN), every string in both languages', Av);
+    await p.evaluate(() => { const i = S.binders.findIndex(x => x.id === 'sa-d1'); if (i >= 0) S.binders.splice(i, 1); commit(); while (topModal()) closeModal(true); S.view = 'archive'; UI.q = ''; renderAll(); });
+  }
   // @@STREAM-C@@
   console.log('\nerrors:', errs.length ? errs.join('\n') : 'none');
   if (errs.length) fails += errs.length;

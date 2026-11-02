@@ -38,4 +38,14 @@ return [
   // journal_pulls: 'changes' = journal pulls that returned something (default) · 'all' · 'none'.
   'journal_keep_days' => 0,
   'journal_pulls' => 'changes',
+
+  // v12 access log ("Accessi": who opened which binder / location, when, with QR / search / NFC). All optional.
+  // access_keep_days: rows older than this are pruned once a day (default 365; 0 = keep everything).
+  // access_dedupe_seconds: the same person + device opening the same record the same way within this time = one row.
+  'access_keep_days' => 365,
+  'access_dedupe_seconds' => 120,
+  // v12 phone sign-in kept on the device ("Ricordami su questo dispositivo"): minutes of INACTIVITY after which the PIN
+  // is asked again. null = each device uses its own setting · 0 = always ask · 480 = 8 hours · 43200 = 30 days · -1 = never
+  // (until "Esci" or until the device's access code is revoked).
+  'remember_minutes' => null,
 ];

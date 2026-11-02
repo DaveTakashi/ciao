@@ -47,7 +47,10 @@
         "deviceId": {"type": "string", "description": "v10 sync: 'dev-' + uuid of this installation (localStorage docmap_v26_device wins over a restored copy)."},
         "deviceLabel": {"type": "string"},
         "locLevels": {"type": "array", "maxItems": 8, "items": {"type": "object", "properties": {"name": {"type": "string"}, "prefix": {"type": "string"}}}},
-        "locLevelsAt": {"type": "string"}
+        "locLevelsAt": {"type": "string"},
+        "savedSearches": {"type": "array", "maxItems": 50, "description": "v12: saved searches (Archivio › Salva ricerca), shared through settingsSubset; the list with the newer savedSearchesAt wins as a whole.", "items": {"type": "object", "required": ["id", "name", "q"], "properties": {"id": {"type": "string"}, "name": {"type": "string", "maxLength": 80}, "q": {"type": "string", "maxLength": 300}, "facets": {"type": "object", "description": "{group: [facet keys]}; groups tag, cat, year, loc, color, state, status, archive", "additionalProperties": {"type": "array", "items": {"type": "string"}}}, "at": {"type": "string"}}}},
+        "savedSearchesAt": {"type": "string"},
+        "srchNotes": {"type": "boolean", "description": "v12: false = free words do not look into notes / contacts (default: they do)."}
       },
       "additionalProperties": true
     }

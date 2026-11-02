@@ -356,3 +356,40 @@ Field-level details and file formats: `docs/MODELLO-DATI.md`.
   CSV column, a field, a route or a ping feature therefore needs the matching doc/schema update.
 - No code, data-model, storage-key, DB-schema or API change in this stream.
 
+## 18. v12: one search box, remembered phone sign-in, access log (stream A)
+
+- **Files**: `04c-search.js` (pure engine, no DOM: `srchRun(binders, q, {facets, notes, counts})` → `{list, total,
+  hits, marks, parsed, fuzzy, facets, ms}`, `srchParse`, `srchMark`, `SRCH_OPS`, document cache `SRCH.cache` keyed by
+  binder id + signature), `11d-search.js` (desktop archive zone + phone search screen), `06k-access.js` (remember me,
+  views, "Chi l'ha visto", "Accessi"), `css-search.css`. index.html: 04c after 04b, 06k after 10-auth (before
+  09-actions boots), 11d after 11b; scan.html: 04c after 02c, 06k + 11d after 11b.
+- **Desktop search** goes through the existing `filteredBinders()`: the wrapper runs the original filters with
+  `UI.q = ''` and then `srchRun` on the result (so state / room / category / location / Informazioni / hideDemo filters
+  keep working). `sortedBinders()` is memoised on the identity + codes of `S.binders` elements. Never call
+  `srchRun` with a query in a loop of 5 000 binders: one call is ~10–30 ms.
+- **Hooks for other streams** (feature-detected at every search, all optional, exceptions swallowed):
+  `window.statusSearchHook = {match(b, v) → true|false|null, statusOf(b) → {id, label}|null, words(b) → string}` (stream
+  Q: `stato:<v>`, facet group `status`, card badge via `srchStateOf(b)`), `window.archiveSearchHook = {match(b, v),
+  archiveOf(b) → {id, label}|null, words(b)}` (stream C: `archivio:<v>`, facet group `archive`). Their answers are part
+  of the document signature, so a changed status re-indexes the binder. `SC.via` (scan.html) is the `via` sent with
+  the next `binder` / `location` read: `''` (= qr), `'search'` (set by 11d), `'nfc'` (stream C, set it right before its `scRoute()` and clear it afterwards); 11d clears it on
+  back / forward navigation and on logout.
+- **Remember me** (`rm*`): only when `DocMapVault.isActive()` (web mode). Wraps `LocalAuthProvider.prototype.login /
+  logout`, `DocMapVault.resume`, `vaultLockRender`, `vaultLockNow`, `authSettingsHTML`, `scLoginHTML`, `scSetupHTML`.
+  The checkbox is `#dm-remember` (`data-rm-want`); its state is read in the login wrapper. Policy:
+  `rmPolicy() → {minutes, source:'server'|'device'|'default'}`.
+- **Views**: `acNoteView(b, via)` (called by the `openEditor` wrapper) logs `view.binder` (throttled 10 min, key
+  `docmap_v26_view_seen`) and queues `{type, id, code, at, via}` for `POST seen` (`docmap_v26_seen_queue`) when a server
+  is configured; `srvSync` / `scRoute` wrappers flush it. A 401 with this device's token (`DMServer.prototype.call`
+  wrapper) forgets the remembered sign-in.
+- **Server** `api.php`: `DM_SCHEMA = 3`, step 3 = table `access_log` (+ 4 indexes); `acc_*` helpers; routes `access`
+  (editor own rows / admin all + IP), `last_seen` (viewer), `seen` (POST, viewer); `via` on `binder` / `location` /
+  `resolve`; `me.remember_minutes`; ping feature `access_log`; config `access_keep_days` (365),
+  `access_dedupe_seconds` (120), `remember_minutes` (null). `HX_SERVER_SCHEMA = 3` in 07b-helpx.js.
+- **State**: `S.settings.savedSearches` / `savedSearchesAt` (in the shared settings subset: `locSyncSubset` /
+  `locSyncApply` wrappers, newer `savedSearchesAt` wins) and `S.settings.srchNotes`. No local DB / CSV change.
+- **i18n** prefixes `sr_*`, `rm_*`, `ac_*`, plus `lg_g_view`, `lga_view.binder`; log group `view`; help topics
+  `search`, `remember`, `access`; tour `GUIDES.search`.
+- **Tests** `// @@STREAM-A@@`: engine, desktop UI, 5 000-binder timing, server upgrade v11 → v12 (API of `58a53e0`) and
+  v10.1 → v12 (API of `68ae170`) under `php -S` (port 19100 + pid % 300, folders `tests/shots/asrv*`), access / seen /
+  last_seen / retention, phone remember / timeout / policy / logout / revoke / search / offline flows.
