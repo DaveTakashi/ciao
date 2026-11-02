@@ -211,7 +211,7 @@ function sqOpenDoc(bid, docId){
 function sqOpenBulk(){
   const list = S.binders.filter(b => b.selected_for_print && !(S.settings.hideDemo && isDemo(b)));
   if (!list.length){ toast(t('sq_nothing_sel'), 'warn'); return; }
-  sqOpenSheet({targets:list.map(sqTargetBinder), kind:'binder', title:t('sq_bulk_t', {n:list.length}), via:'bulk', action:'status.bulk', client:new Set(list.map(b => b.company_name)).size === 1 ? list[0].company_name : ''});
+  dmBulkGuard(list, t('bg_w_status'), () =>  sqOpenSheet({targets:list.map(sqTargetBinder), kind:'binder', title:t('sq_bulk_t', {n:list.length}), via:'bulk', action:'status.bulk', client:new Set(list.map(b => b.company_name)).size === 1 ? list[0].company_name : ''}));
 }
 /** v12.1: the binders of a box INCLUDING the boxes nested in it (shelf › boxes, cabinet › shelves › boxes). */
 function sqBoxBinders(l){

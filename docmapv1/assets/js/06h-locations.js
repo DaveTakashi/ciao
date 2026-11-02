@@ -44,6 +44,9 @@ Object.assign(I18N.it, {
   lo_bulk_t:'Crea in serie dentro {c}', lo_bulk_root_t:'Crea la struttura dell\'archivio', lo_bulk_n:'Quanti', lo_bulk_prefix:'Prefisso', lo_bulk_from:'Da', lo_bulk_pad:'Cifre', lo_bulk_each:'dentro ciascuno',
   lo_bulk_prev:'Verranno create {n} ubicazioni. Esempi: {e}', lo_bulk_ok:'Crea', lo_bulk_max:'Massimo {n} ubicazioni per volta.', lo_bulk_none:'Indica almeno un numero.', lo_bulk_print:'Stampa le etichette',
   lo_bulk_hint:'Per ogni livello: quanti elementi creare dentro ciascuno del livello sopra. Lascia 0 per fermarti a quel livello.',
+  lo_bk_how_h:'Come funziona', lo_bk_how:'Descrivi il magazzino dall\'alto verso il basso. Esempio: 1 magazzino, dentro 3 armadi, in ogni armadio 4 scaffali, su ogni scaffale 10 scatole = 1 + 3 + 12 + 120 = 136 ubicazioni, ognuna con il suo codice (MAG1-A1-S1-B01) e il suo QR.',
+  lo_bk_c_n:'quanti per ogni elemento del livello sopra (0 = ti fermi qui)', lo_bk_c_prefix:'le lettere davanti al numero (A → A1, A2…)', lo_bk_c_from:'il primo numero (di solito 1)', lo_bk_c_pad:'quante cifre (2 → 01, 02…; serve per l\'ordine giusto oltre il 9)',
+  lo_bk_presets:'Esempi pronti:', lo_bk_sum_first:'{n} × {l}', lo_bk_sum_each:'{n} × {l} in ciascuno ({tot} in tutto)',
   lo_lv_t:'Livelli dell\'archivio', lo_lv_p:'Nomi e prefissi dei livelli, dal più grande al più piccolo (1-8 livelli). Il prefisso forma i codici: MAG1-A2-S3-R1-B04. Le etichette QR di solito vanno sull\'ultimo livello.',
   lo_lv_name:'Nome', lo_lv_prefix:'Prefisso', lo_lv_add:'Aggiungi livello', lo_lv_reset:'Ripristina predefiniti', lo_lv_saved:'Livelli salvati', lo_lv_n:'Livello {n}',
   la_h:'Modalità associazione', la_p:'Scansiona il QR di una scatola: si apre. Ogni QR di faldone scansionato dopo finisce dentro quella scatola, finché non scansioni la scatola successiva.',
@@ -71,6 +74,9 @@ Object.assign(I18N.en, {
   lo_bulk_t:'Create in series inside {c}', lo_bulk_root_t:'Create the archive structure', lo_bulk_n:'How many', lo_bulk_prefix:'Prefix', lo_bulk_from:'From', lo_bulk_pad:'Digits', lo_bulk_each:'inside each',
   lo_bulk_prev:'{n} locations will be created. Examples: {e}', lo_bulk_ok:'Create', lo_bulk_max:'At most {n} locations at a time.', lo_bulk_none:'Enter at least one number.', lo_bulk_print:'Print the labels',
   lo_bulk_hint:'For each level: how many to create inside each one of the level above. Leave 0 to stop at that level.',
+  lo_bk_how_h:'How it works', lo_bk_how:'Describe the warehouse from the top down. Example: 1 warehouse, 3 cabinets in it, 4 shelves in each cabinet, 10 boxes on each shelf = 1 + 3 + 12 + 120 = 136 locations, each with its code (MAG1-A1-S1-B01) and its QR.',
+  lo_bk_c_n:'how many for each item of the level above (0 = stop here)', lo_bk_c_prefix:'the letters before the number (A → A1, A2…)', lo_bk_c_from:'the first number (usually 1)', lo_bk_c_pad:'how many digits (2 → 01, 02…; keeps the order right past 9)',
+  lo_bk_presets:'Ready-made:', lo_bk_sum_first:'{n} × {l}', lo_bk_sum_each:'{n} × {l} in each ({tot} in all)',
   lo_lv_t:'Archive levels', lo_lv_p:'Level names and prefixes, from the largest to the smallest (1-8 levels). The prefix builds the codes: MAG1-A2-S3-R1-B04. QR labels usually go on the last level.',
   lo_lv_name:'Name', lo_lv_prefix:'Prefix', lo_lv_add:'Add level', lo_lv_reset:'Restore defaults', lo_lv_saved:'Levels saved', lo_lv_n:'Level {n}',
   la_h:'Association mode', la_p:'Scan a box QR: it opens. Every binder QR scanned next goes into that box, until you scan the next box.',
@@ -348,6 +354,12 @@ function locSelect(id){
 }
 
 /* ---------------- dialogs ---------------- */
+/** "1 Magazzino → 3 Armadio in ciascuno (3 in tutto) → …" */
+function locBulkSummary(rows){
+  const parts = []; let mult = 1;
+  for (let i = 0; i < rows.length; i++){ const r = rows[i]; if (!(r.n > 0)) break; mult *= r.n; parts.push(i ? t('lo_bk_sum_each', {n:r.n, l:r.name, tot:mult}) : t('lo_bk_sum_first', {n:r.n, l:r.name})); }
+  return parts.join(' → ');
+}
 function locBulkRowsFor(parent){
   const L = locLevels(), start = parent ? parent.level + 1 : 0, rows = [];
   for (let lv = start; lv < Math.max(L.length, start + 1) && lv < LOC_MAX_DEPTH; lv++){
@@ -355,6 +367,15 @@ function locBulkRowsFor(parent){
     rows.push({level:lv, name:locLevelName(lv), prefix:locLevelPrefix(lv), n:lv === start ? (leaf ? 10 : 1) : 0, from:1, pad:leaf ? 2 : 1});
   }
   return rows;
+}
+/** Ready-made structures for the rows of the dialog (only the levels that exist from here down). */
+function locBulkPresets(rows){
+  // always down to the deepest level (the boxes): small = one of each level and 10 boxes, then bigger warehouses
+  const L = rows.length, out = []; if (!L) return out;
+  const mk = (top, mid, leaf) => rows.map((r, i) => i === L - 1 ? leaf : i === 0 ? top : mid);
+  const P = L === 1 ? [[10], [20], [50]] : [mk(1, 1, 10), mk(1, 2, 10), mk(1, 3, 20)];
+  P.forEach(ns => { if (locBulkCount(rows.map((r, i) => ({n:ns[i]}))) > LOC_BULK_MAX) return; out.push({ns, label:ns.map((n, i) => n + ' ' + rows[i].name.toLowerCase()).join(' › ')}); });
+  return out;
 }
 function locBulkPreview(){
   const B = LUI.bulk; if (!B) return;
@@ -367,14 +388,19 @@ function locBulkPreview(){
   if (path.length){ const last = B.rows[path.length - 1]; const p2 = path.slice(0, -1).concat(locSegClean(last.prefix) + String((last.from || 1) + Math.max(0, last.n - 1)).padStart(last.pad || 1, '0')); if (p2.join('-') !== path.join('-')) ex.push(pre + p2.join('-')); }
   const el = $('#lo-bulk-prev');
   if (el) el.innerHTML = total > LOC_BULK_MAX ? '<div class="danger-box small">' + ic('alert') + '<div>' + esc(t('lo_bulk_max', {n:LOC_BULK_MAX})) + '</div></div>'
-    : total ? '<div class="info-box small">' + ic('info') + '<div>' + esc(t('lo_bulk_prev', {n:total, e:ex.join(' … ')})) + '</div></div>' : '<div class="hint">' + esc(t('lo_bulk_none')) + '</div>';
+    : total ? '<div class="info-box small">' + ic('info') + '<div>' + esc(t('lo_bulk_prev', {n:total, e:ex.join(' … ')})) + '<div class="lo-bk-sum" id="lo-bk-sum">' + esc(locBulkSummary(B.rows)) + '</div></div></div>' : '<div class="hint">' + esc(t('lo_bulk_none')) + '</div>';
   const ok = topModal() && topModal().querySelector('.modal-f .btn-primary'); if (ok) ok.disabled = !total || total > LOC_BULK_MAX;
 }
 function locOpenBulk(parentId){
   const parent = parentId ? locById(parentId) : null;
   LUI.bulk = {parent:parent ? parent.id : '', rows:locBulkRowsFor(parent)};
   const B = LUI.bulk;
-  const body = '<div class="stack" id="lo-bulk-form"><div class="hint">' + esc(t('lo_bulk_hint')) + '</div><div class="lo-bk">' +
+  // v12.1: a plain explanation with an example, the meaning of each column and ready-made structures (Dave: "deve essere spiegato meglio")
+  const presets = locBulkPresets(B.rows).map((p, k) => '<button type="button" class="btn btn-sm" data-a="lo-bk-preset" data-k="' + k + '">' + esc(p.label) + '</button>').join('');
+  const body = '<div class="stack" id="lo-bulk-form"><div class="info-box small lo-bk-explain">' + ic('info') + '<div><b>' + esc(t('lo_bk_how_h')) + '</b><div>' + esc(t('lo_bk_how')) + '</div>' +
+      '<ul class="lo-bk-cols"><li><b>' + esc(t('lo_bulk_n')) + '</b>: ' + esc(t('lo_bk_c_n')) + '</li><li><b>' + esc(t('lo_bulk_prefix')) + '</b>: ' + esc(t('lo_bk_c_prefix')) + '</li><li><b>' + esc(t('lo_bulk_from')) + '</b>: ' + esc(t('lo_bk_c_from')) + '</li><li><b>' + esc(t('lo_bulk_pad')) + '</b>: ' + esc(t('lo_bk_c_pad')) + '</li></ul></div></div>' +
+    (presets ? '<div class="row lo-bk-presets" style="gap:6px;flex-wrap:wrap"><span class="small muted">' + esc(t('lo_bk_presets')) + '</span>' + presets + '</div>' : '') +
+    '<div class="hint">' + esc(t('lo_bulk_hint')) + '</div><div class="lo-bk">' +
     '<div class="lo-bk-h"><span>' + esc(t('lo_kind')) + '</span><span>' + esc(t('lo_bulk_n')) + '</span><span>' + esc(t('lo_bulk_prefix')) + '</span><span>' + esc(t('lo_bulk_from')) + '</span><span>' + esc(t('lo_bulk_pad')) + '</span></div>' +
     B.rows.map((r, i) => '<div class="lo-bk-r"><b>' + esc(r.name) + (i ? ' <span class="muted tiny">' + esc(t('lo_bulk_each')) + '</span>' : '') + '</b>' +
       '<input class="inp mono" type="number" min="0" max="999" data-lo-bk="n" data-i="' + i + '" value="' + r.n + '" aria-label="' + esc(t('lo_bulk_n') + ' ' + r.name) + '">' +
@@ -428,8 +454,8 @@ function locOpenAssign(ids){
   const pick = {id:''};
   openModal({title:t('lo_assign_t', {n:list.length}), body:'<div class="stack"><div class="field"><label for="lo-as-q">' + esc(t('lo_pick')) + '</label><input class="inp mono" id="lo-as-q" placeholder="' + esc(t('lo_pick_ph')) + '" autocomplete="off"><div class="hint" id="lo-as-path"></div></div>' +
       '<div class="small muted">' + list.slice(0, 12).map(b => esc(b.speaking_code)).join(', ') + (list.length > 12 ? ' …' : '') + '</div></div>',
-    buttons:[{label:t('cancel'), cls:'btn', action:'modal-close'}, {label:t('lo_clear_sel'), cls:'btn', icon:'x', fn:() => { undoPoint(); const m = locAssign(list, '', {via:'bulk'}); closeModal(true); renderView(); undoToast(t('lo_unassigned', {n:m.length})); }},
-      {label:t('lo_assign_go'), cls:'btn btn-primary', icon:'box', fn:() => { const l = locById(pick.id) || locFindTyped(($('#lo-as-q') || {}).value); if (!l){ toast(t('lo_nf'), 'warn'); return; } undoPoint(); const m = locAssign(list, l.id, {via:'bulk'}); closeModal(true); renderView(); undoToast(t('lo_assigned', {n:m.length, c:l.code})); }}],
+    buttons:[{label:t('cancel'), cls:'btn', action:'modal-close'}, {label:t('lo_clear_sel'), cls:'btn', icon:'x', fn:() => dmBulkGuard(list, t('bg_w_unloc'), () => { undoPoint(); const m = locAssign(list, '', {via:'bulk'}); closeModal(true); renderView(); undoToast(t('lo_unassigned', {n:m.length})); })},
+      {label:t('lo_assign_go'), cls:'btn btn-primary', icon:'box', fn:() => { const l = locById(pick.id) || locFindTyped(($('#lo-as-q') || {}).value); if (!l){ toast(t('lo_nf'), 'warn'); return; } dmBulkGuard(list, t('bg_w_loc'), () => { undoPoint(); const m = locAssign(list, l.id, {via:'bulk'}); closeModal(true); renderView(); undoToast(t('lo_assigned', {n:m.length, c:l.code})); }); }}],
     onMount:() => { const i = $('#lo-as-q'); taAttach(i, {source:locTaSource, top:8, max:12, minWidth:360, onPick:(it) => { pick.id = it.id; const p = $('#lo-as-path'); if (p) p.textContent = locPathText(it.id); }}); i.addEventListener('input', () => { const l = locFindTyped(i.value); pick.id = l ? l.id : ''; const p = $('#lo-as-path'); if (p) p.textContent = l ? locPathText(l.id) : ''; }); }});
 }
 
@@ -666,7 +692,13 @@ const LOC_ACTIONS = {
   'lo-print-sel': () => { const ids = Array.from(LUI.checked).filter(id => locById(id)); if (ids.length) locPrintStart(ids); },
   'lo-sel-leaves': () => { LUI.checked = new Set(locArr().filter(l => !locChildren(l.id).length).map(l => l.id)); locRender(); },
   'lo-sel-none': () => { LUI.checked = new Set(); locRender(); },
-  'lo-assign-sel': (el) => { const l = locById(el.dataset.id); if (!l) return; const list = S.binders.filter(b => b.selected_for_print && !(S.settings.hideDemo && isDemo(b))); undoPoint(); const m = locAssign(list, l.id, {via:'bulk'}); locRender(); undoToast(t('lo_assigned', {n:m.length, c:l.code})); },
+  'lo-bk-preset': (el) => {
+    const B = LUI.bulk; if (!B) return; const p = locBulkPresets(B.rows)[+el.dataset.k]; if (!p) return;
+    B.rows.forEach((r, i) => { r.n = i < p.ns.length ? p.ns[i] : 0; r.pad = i === p.ns.length - 1 && p.ns[i] >= 10 ? 2 : 1; });
+    document.querySelectorAll('#lo-bulk-form [data-lo-bk]').forEach(inp => { const r = B.rows[+inp.dataset.i]; if (r) inp.value = r[inp.dataset.loBk]; });
+    locBulkPreview();
+  },
+  'lo-assign-sel': (el) => { const l = locById(el.dataset.id); if (!l) return; const list = S.binders.filter(b => b.selected_for_print && !(S.settings.hideDemo && isDemo(b))); dmBulkGuard(list, t('bg_w_loc'), () => { undoPoint(); const m = locAssign(list, l.id, {via:'bulk'}); locRender(); undoToast(t('lo_assigned', {n:m.length, c:l.code})); }); },
   'lo-unassign': (el) => { const b = S.binders.find(x => x.id === el.dataset.id); if (!b) return; undoPoint(); locAssign([b], '', {via:'manual'}); locRender(); undoToast(t('lo_unassigned', {n:1})); },
   'lo-assoc': () => { if (LUI.assoc.on) locAssocStop(); else locAssocStart(LUI.sel && locById(LUI.sel) && !locChildren(LUI.sel).length ? LUI.sel : ''); },
   'lo-assoc-here': (el) => locAssocStart(el.dataset.id),

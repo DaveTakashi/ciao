@@ -201,3 +201,29 @@
 .co-ov-rules{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
 .co-ov-r{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border:1px solid var(--border-2);border-radius:999px;font-size:12.5px}
 @media (max-width:700px){ .co-specs{grid-template-columns:repeat(2,minmax(0,1fr))} .co-spec .co-strip{display:none} }
+
+/* v12.1: when the top bar does not fit on one line (long status pills, English, server status), the navigation moves to
+   its own row instead of sliding under the pills on the right (class set by dmTopbarFit, 06m-v12-glue.js) */
+.topbar-in.tb-wrap{flex-wrap:wrap;row-gap:8px}
+.topbar-in.tb-wrap .top-right{margin-left:auto}
+.topbar-in.tb-wrap .nav{order:3;flex:1 1 100%}
+.top-right .srv-st{white-space:nowrap;flex:none}
+#srv-card.srv-denied{border-color:#FCA5A5;box-shadow:0 0 0 3px rgba(220,38,38,.10)}
+
+/* v12.1: QR popup of a binder (showQR, 05-views.js) — two columns on the PC, one clean column on phones */
+.qr-pop{display:grid;grid-template-columns:240px minmax(0,1fr);gap:20px;align-items:center}
+.qr-pop-code{width:240px;aspect-ratio:1;border:1px solid var(--border);border-radius:12px;padding:8px;background:#fff}
+.qr-pop-code svg{display:block;width:100%;height:100%}
+.qr-pop-info{display:flex;flex-direction:column;gap:12px;min-width:0}
+.qr-pop-sc{font-size:20px;font-weight:800;overflow-wrap:anywhere}
+.qr-pop-url{display:block;overflow-wrap:anywhere;word-break:break-all;line-height:1.4}
+.qr-pop-acts{gap:8px;flex-wrap:wrap}
+@media (max-width:640px){
+  .qr-pop{grid-template-columns:minmax(0,1fr);gap:16px;justify-items:center;text-align:center}
+  .qr-pop-code{width:min(260px,72vw)}
+  .qr-pop-info{width:100%;align-items:stretch;text-align:left;gap:10px}
+  .qr-pop-info>div:not(.qr-pop-acts){background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:8px 12px}
+  .qr-pop-acts{justify-content:center}
+  .qr-pop-acts .btn{flex:1 1 auto;justify-content:center;min-height:44px}
+}
+.sy-pick ul{margin:4px 0;padding-left:18px} .sy-file-h{margin:22px 0 10px;font-size:18px}

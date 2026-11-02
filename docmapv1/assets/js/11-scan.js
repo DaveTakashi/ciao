@@ -27,7 +27,7 @@ Object.assign(I18N.it, {
   sc_bad:'Nome utente o PIN non corretti.', sc_bad_left:'Nome utente o PIN non corretti. Ancora {n} tentativi prima dell\'attesa.', sc_locked:'Troppi tentativi: riprova tra {s} secondi.',
   sc_nousers_h:'Nessun utente configurato', sc_nousers:'Nessun utente configurato: crea un utente in DocMap › Impostazioni › Utenti e accesso.',
   sc_nocrypto:'Questo browser non permette il login sicuro (WebCrypto non disponibile).', sc_storage:'Impossibile leggere i dati di DocMap in questo browser.',
-  sc_logout:'Esci', sc_hello:'Ciao {n}', sc_role_viewer:'sola lettura', sc_role_editor:'può modificare', sc_role_admin:'amministratore',
+  sc_logout:'Esci', sc_hello:'Ciao {n}', sc_role_viewer:'sola lettura', sc_role_editor:'può modificare', sc_role_admin:'amministratore', sc_full_app:'Gestione completa',
   sc_nf_h:'Faldone non trovato', sc_nf_p:'Questo QR non corrisponde a nessun faldone dell\'archivio. Forse è stato eliminato o l\'etichetta è di un altro archivio.',
   sc_noqr_h:'Scansiona un QR', sc_noqr_p:'Inquadra con la fotocamera il QR sull\'etichetta di un faldone, oppure cerca il codice.',
   sc_find:'Codice del faldone', sc_find_ph:'es. BL1', sc_find_btn:'Cerca',
@@ -56,7 +56,7 @@ Object.assign(I18N.en, {
   sc_bad:'Wrong username or PIN.', sc_bad_left:'Wrong username or PIN. {n} more attempts before a wait.', sc_locked:'Too many attempts: try again in {s} seconds.',
   sc_nousers_h:'No users configured', sc_nousers:'No users configured: create a user in DocMap › Settings › Users & access.',
   sc_nocrypto:'This browser does not allow a secure login (WebCrypto not available).', sc_storage:'Cannot read DocMap data in this browser.',
-  sc_logout:'Sign out', sc_hello:'Hi {n}', sc_role_viewer:'read only', sc_role_editor:'can edit', sc_role_admin:'administrator',
+  sc_logout:'Sign out', sc_hello:'Hi {n}', sc_role_viewer:'read only', sc_role_editor:'can edit', sc_role_admin:'administrator', sc_full_app:'Full management',
   sc_nf_h:'Binder not found', sc_nf_p:'This QR does not match any binder in the archive. It may have been deleted, or the label belongs to another archive.',
   sc_noqr_h:'Scan a QR', sc_noqr_p:'Point the camera at the QR on a binder label, or search the code.',
   sc_find:'Binder code', sc_find_ph:'e.g. BL1', sc_find_btn:'Search',
@@ -88,6 +88,7 @@ const SC_ICONS = {
   search:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>', qr:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/>',
   back:'<path d="m15 18-6-6 6-6"/>', user:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'
 };
+SC_ICONS.gear = SC_ICONS.gear || '<path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/>';   // v12.1: admin link
 const sic = (n, cls) => '<svg class="sc-ic' + (cls ? ' ' + cls : '') + '" viewBox="0 0 24 24" aria-hidden="true">' + (SC_ICONS[n] || '') + '</svg>';
 
 const SC = { P:null, params:{qr:'', code:''}, ctx:{studioName:''}, user:null, hasUsers:null, view:'boot', rec:null, draft:null, msg:null, busy:false,
@@ -245,7 +246,10 @@ function scFindHTML(){
 }
 function scUserBar(){
   const u = SC.user; if (!u) return '';
-  return '<div class="sc-userbar">' + sic('user') + '<span>' + esc(t('sc_hello', {n:u.display_name || u.username})) + '</span><span class="sc-role">' + esc(t('sc_role_' + u.role)) + '</span></div>';
+  // v12.1: admins get a small link to the full app (index.html of the same site); editors and viewers stay on the simple phone page
+  const base = (dmConfig().basePath && dmConfig().basePath !== './') ? dmConfig().basePath : './';
+  const admin = u.role === 'admin' ? '<a class="sc-admin-link" id="sc-admin-link" href="' + esc(base + 'index.html') + '">' + sic('gear') + '<span>' + esc(t('sc_full_app')) + '</span></a>' : '';
+  return '<div class="sc-userbar">' + sic('user') + '<span>' + esc(t('sc_hello', {n:u.display_name || u.username})) + '</span><span class="sc-role">' + esc(t('sc_role_' + u.role)) + '</span>' + admin + '</div>';
 }
 function scCardHTML(){
   const b = SC.rec.binder, canEdit = SC.P.auth.can('edit');

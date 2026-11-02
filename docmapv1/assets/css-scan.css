@@ -174,3 +174,6 @@ button{cursor:pointer;-webkit-tap-highlight-color:transparent}
 .sc-bar .sc-primary{flex:2;min-height:58px;font-size:18px}
 @media (min-width:700px){ .sc-bar{left:50%;right:auto;transform:translateX(-50%);width:640px;border-radius:18px 18px 0 0;border:1px solid var(--border)} }
 @media (prefers-reduced-motion:reduce){ .sc-pinm i,.sc-spin{animation:none} }
+/* v12.1: admin only — small link to the full app */
+.sc-admin-link{display:inline-flex;align-items:center;gap:4px;margin-left:8px;font-size:12px;font-weight:700;color:var(--accent,#2563EB);text-decoration:none;border:1px solid currentColor;border-radius:999px;padding:3px 9px;white-space:nowrap}
+.sc-admin-link .sc-ic{width:14px;height:14px}

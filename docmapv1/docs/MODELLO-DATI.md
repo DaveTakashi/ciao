@@ -2,7 +2,7 @@
 
 **Questo documento è il contratto tra l'MVP e il sistema Python dello studio.** In caso di dubbio vincono il modello dati e la UX dell'MVP: il sistema Python si allinea a questi nomi, tipi e regole.
 
-Versione attuale: **26.12.1** (v12) — schema stato `26.9` (invariato dalla v9), `DB_SCHEMA_VERSION 9`, server
+Versione attuale: **26.12.2** (v12) — schema stato `26.9` (invariato dalla v9), `DB_SCHEMA_VERSION 9`, server
 `DM_SCHEMA 2`. La v12 aggiunge gli archivi (§15: `archive_id` su faldoni e ubicazioni, colonna CSV in coda). I §1–§9 descrivono i formati di oggi; i campi aggiunti dopo la v7
 sono segnati con la versione (**(v8)**, **(v10)**, **(v11)**); i §10–§14 raccontano versione per versione cosa è
 cambiato (v8 §10, v9 §11, v10 §12–§13, v10.1 e v11 §13, ubicazioni v11 §14, archivi v12 §15).
