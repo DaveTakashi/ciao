@@ -21,6 +21,7 @@ HERE = Path(__file__).resolve().parent
 PYROOT = HERE.parent
 TOOLS = PYROOT.parent / "docs" / "python" / "tools"
 sys.path.insert(0, str(TOOLS))
+sys.dont_write_bytecode = True   # never leave a __pycache__ in docs/python/tools (another team's folder)
 
 import validate_schemas as vs  # noqa: E402
 
