@@ -1,6 +1,6 @@
 # Indice della documentazione DocMap
 
-> Mappa di tutti i documenti di `docmapv1/` (versione **26.12.2**): a cosa serve ognuno, chi lo deve leggere e in che
+> Mappa di tutti i documenti di `docmapv1/` (versione **26.12.3**): a cosa serve ognuno, chi lo deve leggere e in che
 > ordine. I percorsi sono relativi a `docmapv1/`.
 
 ## Chi legge cosa
@@ -43,6 +43,7 @@
 | [`AGGIORNAMENTO-v10.1-v11.md`](AGGIORNAMENTO-v10.1-v11.md) | Storia: guida dalla v10.1 alla v11 (ubicazioni, registro sincronizzazioni, schema server 2). |
 | [`AGGIORNAMENTO-v10-v12.md`](AGGIORNAMENTO-v10-v12.md) | **Guida diretta dalla v10.0 alla v12** (salta v10.1, v11, v11.1): backup, server facoltativo, stessa cartella, controlli, rollback. |
 | [`GUIDA-SINCRONIZZAZIONE.md`](GUIDA-SINCRONIZZAZIONE.md) | **Quale sincronizzazione usare** (server o file) e i passi PC locale ⇄ web app ⇄ telefoni in entrambi i sensi. |
+| [`AGGIORNAMENTO-v12.2-v12.3.md`](AGGIORNAMENTO-v12.2-v12.3.md) | **Guida dalla v12.2 alla v12.3**: solo file del programma (etichettatrici, striscia ubicazione, adesivi piccoli). |
 | [`AGGIORNAMENTO-v12.1-v12.2.md`](AGGIORNAMENTO-v12.1-v12.2.md) | **Guida dalla v12.1 alla v12.2**: solo file del programma. |
 | [`AGGIORNAMENTO-v12-v12.1.md`](AGGIORNAMENTO-v12-v12.1.md) | **Guida dalla v12 alla v12.1**: solo file del programma e `api.php`, nessuna migrazione. |
 | [`AGGIORNAMENTO-v11.1-v12.md`](AGGIORNAMENTO-v11.1-v12.md) | **Guida dalla v11.1 alla v12**: schema locale 9, schema server 3, opzioni nuove di `config.php`. |

@@ -1,6 +1,6 @@
 # DocMap 2026 — manuale d'uso (passo passo)
 
-> Per chi usa DocMap ogni giorno nello studio. Versione **26.12.2**. Ogni capitolo è una cosa da fare, in passi brevi.
+> Per chi usa DocMap ogni giorno nello studio. Versione **26.12.3**. Ogni capitolo è una cosa da fare, in passi brevi.
 > I nomi tra **grassetto** sono scritti esattamente come sui pulsanti (interfaccia in italiano).
 > Descrizione completa di ogni funzione: [`RIFERIMENTO-FUNZIONI.md`](RIFERIMENTO-FUNZIONI.md) · parole: [`GLOSSARIO.md`](GLOSSARIO.md) ·
 > prove da fare a mano: [`CHECKLIST-COLLAUDO.md`](CHECKLIST-COLLAUDO.md).
@@ -163,6 +163,11 @@ Il QR stampato contiene `https://qr7.it/dm26XXXXXXXX`. Il sistema qr7.it deve sa
 3. Stampa o **Scarica PDF** come al §4.
 4. Premi **Torna alle etichette dei faldoni** per tornare ai faldoni.
 5. Riesporta il manifest (§5): contiene anche le scatole.
+
+Scorciatoie (v12.3), nella scheda di un'ubicazione:
+- **Stampa QR: questa e quelle dentro** stampa l'ubicazione e tutte quelle che contiene (armadio, scaffali, scatole);
+- **Stampa tutti i QR** (in alto, sopra l'albero) stampa le etichette di tutte le ubicazioni;
+- **Striscia: ubicazione + faldoni** apre l'etichettatrice con la scatola e subito dopo i suoi faldoni (§19).
 
 ### 6.3 Associare i faldoni alle scatole dal PC (lettore USB o webcam)
 1. **Informazioni** › **Ubicazioni** › **Modalità associazione**. In alternativa premi **Avvia associazione qui** su una scatola.
@@ -514,3 +519,40 @@ richiesta, non il telefono.
 Quando un'azione tocca **10 o più faldoni** (stato a una selezione, ubicazione a una selezione, salvataggio della
 modifica in blocco) DocMap chiede conferma e dice quanti sono, i primi codici e se hai selezionato **tutto
 l'archivio**. Sotto i 10 parte subito e resta il pulsante **Annulla** per qualche secondo.
+
+## 19. Etichettatrici a nastro e a rotolo, adesivi piccoli (v12.3)
+
+### 19.1 Etichettatrice (Brother P-touch / QL, Dymo, Zebra, Epson, Niimbot…)
+1. **Stampa Etichette** › in alto **Etichettatrice / rotolo** (per tornare: **Fogli A4**).
+2. **1 · Formato**: scrivi nella ricerca quello che sai del nastro o del rotolo: marca, nome, sigla o misura, per
+   esempio `24 mm`, `62x100`, `dk-11201`, `dymo 99012`, `zebra 4x6`, `niimbot 50x30`. Le misure valgono in tutti e due
+   i sensi (`100x62` = `62x100`) e con la virgola (`38,1x21,2`). Nella stessa ricerca compaiono anche i fogli A4: se ne
+   scegli uno torni alla stampa su fogli con quel formato.
+   - Nastro continuo: **Lunghezza etichetta** 0 = segue il testo, oppure un numero fisso in mm.
+   - **Altezza stampabile**: 0 = quella tipica del nastro; abbassala se la stampante taglia il bordo.
+3. **2 · Cosa stampare**:
+   - **Faldoni selezionati**: quelli spuntati per la stampa in Archivio;
+   - **Ubicazioni**: un'ubicazione e, se vuoi, tutte quelle che contiene;
+   - **Striscia ubicazione**: l'etichetta della scatola (o dello scaffale) e subito dopo tutti i faldoni che contiene, in
+     ordine di codice, poi la scatola successiva. Le etichette delle ubicazioni hanno la barra nera a sinistra.
+4. **3 · Testo accanto al QR**: scegli il campo principale (codice, titolo, ragione sociale, Codice Multi, ubicazione,
+   indirizzo qr7.it/…) e una seconda riga facoltativa. Puoi anche togliere il QR.
+5. **4 · Uscita**: **Una per pagina** (la stampante taglia dopo ogni etichetta) o **Striscia continua** (tutte di
+   seguito, con le linee di taglio; oltre 90 cm continua in una pagina nuova). **Orientamento della pagina**:
+   automatico; se nell'anteprima di stampa del browser l'etichetta esce di traverso o tagliata, prova l'altro.
+6. **Stampa**: nella finestra del browser scegli la stampante e lo stesso formato carta, margini **Nessuno**, scala
+   **100%**. La prima volta stampa una sola etichetta di prova.
+7. Stampanti tascabili Bluetooth (Niimbot, Phomemo): scegli **Salva come PDF** e stampa il PDF dalla loro app.
+
+Il riquadro sopra l'anteprima dice se il QR è leggibile: con i nastri da 6-9 mm il QR è troppo piccolo per il
+telefono, usa almeno 12 mm (meglio 18-24 mm).
+
+### 19.2 Adesivi piccoli per i documenti su fogli A4
+1. **Stampa Etichette** › **1 · Foglio e preset**: nella casella di ricerca scrivi la sigla o la misura (es. `L7651`,
+   `38x21`, `65 etichette`). Fogli nuovi: Avery L7651 (65 da 38,1×21,2), L7658 (189 da 25,4×10), L4732 (80 da
+   35,6×16,9), L7636 (48 da 45,7×21,2), L7654 (40 da 45,7×25,4), L7157 (33 da 64×24,3).
+2. **3 · Contenuto etichette** › **Solo QR** › **Testo accanto al QR**: lascia "Codice + qr7.it/…" oppure scegli un
+   campo (titolo, ragione sociale, Codice Multi…) e una seconda riga.
+3. Con questi fogli nuovi fai prima una **Stampa prova di calibrazione**: le misure vengono dai modelli dei produttori
+   e una stampante può spostarle di 1-2 mm (si corregge con gli offset).
+

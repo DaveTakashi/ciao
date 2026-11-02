@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: DocMap 2026 — API del database online condiviso
-  version: "api 1 · schema server 3 · DocMap 26.12.2"
+  version: "api 1 · schema server 3 · DocMap 26.12.3"
   summary: Contratto di server-php/api.php (v10.1 + v11 + v12), da riprodurre 1:1 in Python.
   description: |
     Descrizione OpenAPI 3.1 di `docmapv1/server-php/api.php` (implementazione di riferimento, `DM_API = 'docmap-php'`,

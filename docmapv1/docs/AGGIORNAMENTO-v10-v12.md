@@ -1,7 +1,7 @@
 # Aggiornare DocMap dalla v10.0 alla v12 in un solo passaggio, senza perdere i dati
 
 Questa guida è per il PC che usa ancora la **v10.0** (26.10.0). Non serve installare prima la v10.1, la v11 e la v11.1:
-la v12 (**26.12.0**, v12.1 **26.12.1**, v12.2 **26.12.2**) apre direttamente i dati della v10.0 e li porta avanti da sola. Tutte le migrazioni sono
+la v12 (**26.12.0**, v12.1 **26.12.1**, v12.2 **26.12.2**, v12.3 **26.12.3**) apre direttamente i dati della v10.0 e li porta avanti da sola. Tutte le migrazioni sono
 **automatiche e additive**: si aggiungono campi e tabelle, niente viene rinominato o cancellato.
 
 | Dove | Cosa si aggiunge da solo alla prima apertura | Cosa resta uguale |
@@ -49,7 +49,7 @@ di SiteGround verrebbe chiesta di nuovo a ogni QR. I dati restano protetti da co
    che Chrome / Edge tengono i dati.
 3. Riapri `index.html` con lo stesso browser.
 4. Controlla:
-   - ⚙ › Impostazioni › Dati e sicurezza › **Informazioni su DocMap**: versione **26.12.2** (o 26.12.0 / 26.12.1 se installi una v12 precedente), database locale schema **9**;
+   - ⚙ › Impostazioni › Dati e sicurezza › **Informazioni su DocMap**: versione **26.12.3** (o 26.12.0 / 26.12.1 / 26.12.2 se installi una v12 precedente), database locale schema **9**;
    - numero di faldoni e clienti uguale a quello annotato; apri un paio di faldoni e una foto;
    - in alto non compare il selettore degli archivi (c'è un solo archivio): è normale.
 5. Fai subito un nuovo **Salva backup**, questa volta della v12.

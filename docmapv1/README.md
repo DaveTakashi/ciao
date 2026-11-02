@@ -1,4 +1,4 @@
-# DocMap 2026 (DM26) — versione 26.12.2
+# DocMap 2026 (DM26) — versione 26.12.3
 
 Archivio fisico-digitale dello studio. Ogni faldone ha:
 
@@ -29,7 +29,9 @@ Sul PC funziona **offline**, con un doppio clic e senza installare niente. Il **
 | la descrizione completa di ogni funzione | [`docs/RIFERIMENTO-FUNZIONI.md`](docs/RIFERIMENTO-FUNZIONI.md) |
 | le prove da fare a mano (stampante, telefoni, SiteGround, ripristino) | [`docs/CHECKLIST-COLLAUDO.md`](docs/CHECKLIST-COLLAUDO.md) |
 | aggiornare dalla **v10.0** direttamente alla v12 | [`docs/AGGIORNAMENTO-v10-v12.md`](docs/AGGIORNAMENTO-v10-v12.md) |
+| aggiornare dalla v12.2 alla v12.3 | [`docs/AGGIORNAMENTO-v12.2-v12.3.md`](docs/AGGIORNAMENTO-v12.2-v12.3.md) |
 | aggiornare dalla v12.1 alla v12.2 | [`docs/AGGIORNAMENTO-v12.1-v12.2.md`](docs/AGGIORNAMENTO-v12.1-v12.2.md) |
+| stampare con etichettatrici a nastro / rotolo | [`docs/MANUALE-UTENTE.md`](docs/MANUALE-UTENTE.md) §19 |
 | sincronizzare PC locale, web app e telefoni | [`docs/GUIDA-SINCRONIZZAZIONE.md`](docs/GUIDA-SINCRONIZZAZIONE.md) |
 | aggiornare dalla v12 alla v12.1 | [`docs/AGGIORNAMENTO-v12-v12.1.md`](docs/AGGIORNAMENTO-v12-v12.1.md) |
 | aggiornare dalla v11.1 alla v12 | [`docs/AGGIORNAMENTO-v11.1-v12.md`](docs/AGGIORNAMENTO-v11.1-v12.md) |

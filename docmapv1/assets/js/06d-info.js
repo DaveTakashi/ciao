@@ -485,6 +485,7 @@ function qrReprint(ids){
   const pid = qrPresetId(), pr = findPreset(pid);
   P.presetId = pr.id; P.geometry = geoFromPreset(pr); P.geometryModified = false; P.contentMode = 'qr'; P.previewMode = 'labels';
   if (P.qrMode !== 'live') P.qrMode = 'live';
+  if (S.print.tape) S.print.tape.on = false;   // v12.3: these labels are printed on A4 sheets
   S.view = 'print'; savePrefs(); renderAll(); window.scrollTo(0, 0);
   toast(t('qr_rp_toast', {n:ids.length, p:qrPresetLabel(pr)}), 'ok', 9000, {label:t('qr_rp_restore'), fn: qrRestorePrint});
 }
