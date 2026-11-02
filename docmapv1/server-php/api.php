@@ -1,6 +1,6 @@
 <?php
 /* =====================================================================
-   DocMap 2026 — shared online database, REST API (v11, reference implementation; v10.1 databases upgrade in place)
+   DocMap 2026 — shared online database, REST API (v12, reference implementation; v10.1 and v11 databases upgrade in place)
 
    One file, PHP 8.0+, no Composer: PDO SQLite + OpenSSL. Built for shared hosting (SiteGround: PHP yes,
    Node / Python no). The contract is docs/API-CONTRACT.md: a Python back-end can replace this file 1:1
@@ -21,6 +21,12 @@
      journal  &from&to&user&device&record&code&before&limit | &entry=<jid>   editor (own entries) / admin (all)
               v11: the push/sync journal — one entry per push / patch / pull (with changes) / restore, one item per record
      journal_restore {jid, n, version:'prev'|'new'}   admin   writes that version again as a NEW write (journaled)
+     v12 access log (table access_log, schema 3): binder / location / resolve reads are recorded (who, device, when, via
+     &via=qr|search|nav|nfc), plus:
+     access &user&device&type&target&code&via&route&from&to&before&limit   editor (own rows) / admin (all, with IP)
+     last_seen &type=binder|location&id=<record id> | &code=<code> &limit<=20   viewer   {items:[{at, user, via, route, device_name}], total}
+     seen   {items:[{type, id, code, at, via}]} (max 500)   viewer   views served from the client's own copy → {recorded, skipped}
+     me also returns remember_minutes (config.php: how long a phone stays signed in; null = device setting)
 
    v11 client identity (optional, v10.1 clients send nothing → 'unknown'): headers X-DocMap-Device,
    X-DocMap-Device-Name (URI-encoded), X-DocMap-App, or "_device": {id, name, app} in the JSON body.
@@ -46,8 +52,11 @@ const DM_CANON_SKIP = ['updated_at', 'short_url', 'location_code', 'selected_for
 const DM_PULL_PAGE = 2000;
 const DM_LOG_PAGE = 1000;
 const DM_MAX_RECORD = 262144;   // bytes of JSON per record
-const DM_SCHEMA = 2;            // server database schema: 1 = v10.1, 2 = v11 (sync_journal + sync_journal_items)
+const DM_SCHEMA = 3;            // server database schema: 1 = v10.1, 2 = v11 (sync_journal + sync_journal_items), 3 = v12 (access_log)
 const DM_JOURNAL_PAGE = 50, DM_JOURNAL_PAGE_MAX = 200, DM_JOURNAL_ITEMS_LIST = 500;
+const DM_ACCESS_VIA = ['qr', 'search', 'nav', 'nfc'];   // v12: how a binder / location was reached (access_log.via)
+const DM_ACCESS_TYPES = ['binder', 'location'];
+const DM_ACCESS_PAGE = 50, DM_ACCESS_PAGE_MAX = 200, DM_SEEN_MAX = 500, DM_LAST_SEEN_MAX = 20;
 
 define('DOCMAP_API', true);
 ini_set('display_errors', '0');
@@ -87,7 +96,8 @@ function load_config(): array {
   $c = require $f;
   if (!is_array($c)) fail(500, 'config', 'config.php must return an array.');
   $c += ['data_dir' => '', 'aes_key' => '', 'tokens' => [], 'allowed_origins' => [], 'max_fails' => 5, 'lock_seconds' => 60, 'max_body_mb' => 20, 'studio_name' => '',
-    'journal_keep_days' => 0, 'journal_pulls' => 'changes'];   // v11 (optional in config.php): 0 = keep the whole journal; pulls: changes | all | none
+    'journal_keep_days' => 0, 'journal_pulls' => 'changes',   // v11 (optional in config.php): 0 = keep the whole journal; pulls: changes | all | none
+    'access_keep_days' => 365, 'access_dedupe_seconds' => 120, 'remember_minutes' => null];   // v12 (optional): access log retention (0 = keep all), repeated reads merged, phone sign-in kept (null = device setting; 0 always ask, 480, 43200, -1 never expires)
   $key = base64_decode((string)$c['aes_key'], true);
   if ($key === false || strlen($key) !== 32) fail(500, 'config', 'Encryption key missing or invalid: aes_key must be 32 random bytes in base64 (setup.php creates it). The API does not run without encryption.');
   if (!in_array('aes-256-gcm', openssl_get_cipher_methods(), true)) fail(500, 'config', 'OpenSSL without aes-256-gcm.');
@@ -160,6 +170,15 @@ function db_migrate(PDO $db): void {
             client_updated_at TEXT, prev_updated_at TEXT, new_updated_at TEXT, prev_hash TEXT, new_hash TEXT, payload BLOB, PRIMARY KEY (jid, n));
           CREATE INDEX IF NOT EXISTS sync_journal_items_rec ON sync_journal_items (type, id);
           CREATE INDEX IF NOT EXISTS sync_journal_items_code ON sync_journal_items (k_code);",
+    // v12: who looked at what and when (binder / location / resolve reads + "seen" reports of views served from a cache)
+    3 => "CREATE TABLE IF NOT EXISTS access_log (aid INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, received_at TEXT NOT NULL, route TEXT NOT NULL,
+            via TEXT NOT NULL DEFAULT '', token_id TEXT NOT NULL DEFAULT '', role TEXT NOT NULL DEFAULT '', k_user TEXT, k_device TEXT,
+            target_type TEXT NOT NULL DEFAULT '', target_id TEXT NOT NULL DEFAULT '', k_code TEXT, meta BLOB);
+          CREATE INDEX IF NOT EXISTS access_log_at ON access_log (at);
+          CREATE INDEX IF NOT EXISTS access_log_target ON access_log (target_type, target_id, at);
+          CREATE INDEX IF NOT EXISTS access_log_user ON access_log (k_user);
+          CREATE INDEX IF NOT EXISTS access_log_device ON access_log (k_device);
+          CREATE INDEX IF NOT EXISTS access_log_code ON access_log (k_code);",
   ];
   $db->exec('BEGIN IMMEDIATE');
   try {
@@ -368,7 +387,7 @@ function jr_meta(array $c, array $row): array { $m = $row['meta'] ? json_decode(
 function jr_payload(array $c, array $it): array { $p = $it['payload'] ? json_decode(dec($c, $it['payload'], 'journal/' . $it['jid'] . '/' . $it['n']), true) : null; return is_array($p) ? $p : []; }
 
 /* ---------------- routes ---------------- */
-function r_ping(array $c): array { return ['ok' => true, 'api' => DM_API, 'version' => DM_API_VERSION, 'schema' => DM_SCHEMA, 'features' => ['journal', 'device_info', 'locations', 'archives'], 'server_time' => now_iso(), 'php' => PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION]; }
+function r_ping(array $c): array { return ['ok' => true, 'api' => DM_API, 'version' => DM_API_VERSION, 'schema' => DM_SCHEMA, 'features' => ['journal', 'device_info', 'locations', 'archives', 'access_log'], 'server_time' => now_iso(), 'php' => PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION]; }
 
 function r_pull(PDO $db, array $c, ?array $who = null): array {
   $since = max(0, (int)param($c, 'since', 0)); $logSince = max(0, (int)param($c, 'log_since', 0));
@@ -705,6 +724,129 @@ function r_token_revoke(PDO $db, array $c): array {
   return ['ok' => true];
 }
 
+/* ---------------- v12: access log (who looked at what, when, how) ----------------
+   One row per read of a binder / location (routes binder, location, resolve) and per view the client reports later with
+   `seen` (a page served from its own copy). Plaintext columns: times, route, via, role, token id, record type and id.
+   User, device and code are HMAC index columns (k_user = hidx('user/'+lower), k_device = hidx('device/'+id),
+   k_code = hidx(upper(code))); everything readable (user, device name, app, code, IP) is in `meta`, AES-256-GCM with
+   AAD access/<aid>. The same token + device reading the same record the same way within access_dedupe_seconds is ONE
+   row (a page that refreshes does not flood the log). Retention: access_keep_days (default 365, 0 = keep everything). */
+function acc_via($v, string $dflt): string { $v = is_string($v) ? strtolower(trim($v)) : ''; return in_array($v, DM_ACCESS_VIA, true) ? $v : $dflt; }
+/** Writes one access row (single INSERT + UPDATE, inside the caller's transaction if any). $at = when it was seen (client time for `seen`). */
+function acc_write(PDO $db, array $c, array $who, array $ci, string $route, string $type, string $id, string $code, string $via, ?string $at = null): ?int {
+  if (!in_array($type, DM_ACCESS_TYPES, true) || !valid_id($id)) return null;
+  $now = now_iso(); $at = $at ?? $now;
+  $kd = hidx($c, 'device/' . $ci['device_id']);
+  $dd = max(0, (int)$c['access_dedupe_seconds']);
+  if ($route !== 'seen' && $dd > 0) {   // same reader, same record, same way, a moment ago: keep the first row
+    $q = $db->prepare('SELECT aid FROM access_log WHERE target_type = ? AND target_id = ? AND token_id = ? AND k_device = ? AND via = ? AND route <> ? AND at >= ? LIMIT 1');
+    $q->execute([$type, $id, (string)$who['token_id'], $kd, $via, 'seen', iso_ms(ts_ms($now) - $dd * 1000)]);
+    if ($q->fetchColumn() !== false) return null;
+  }
+  if ($route === 'seen') {   // a re-sent report (same reader, device and record, same moment ± access_dedupe_seconds) is recorded once
+    $ta = ts_ms($at);
+    $q = $db->prepare('SELECT aid FROM access_log WHERE route = ? AND target_type = ? AND target_id = ? AND token_id = ? AND k_device = ? AND at >= ? AND at <= ? LIMIT 1');
+    $q->execute(['seen', $type, $id, (string)$who['token_id'], $kd, iso_ms($ta - $dd * 1000), iso_ms($ta + $dd * 1000)]);
+    if ($q->fetchColumn() !== false) return null;
+  }
+  $st = $db->prepare('INSERT INTO access_log (at, received_at, route, via, token_id, role, k_user, k_device, target_type, target_id, k_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+  $st->execute([$at, $now, $route, $via, (string)$who['token_id'], (string)$who['role'], hidx($c, 'user/' . strtolower((string)$who['user'])), $kd, $type, $id, $code !== '' ? hidx($c, strtoupper(trim($code))) : null]);
+  $aid = (int)$db->lastInsertId();
+  $meta = ['user' => (string)$who['user'], 'device_id' => $ci['device_id'], 'device_name' => $ci['device_name'], 'app_version' => $ci['app_version'], 'code' => $code, 'ip' => client_ip()];
+  $u = $db->prepare('UPDATE access_log SET meta = ? WHERE aid = ?'); $u->bindValue(1, enc($c, jenc($meta), 'access/' . $aid), PDO::PARAM_LOB); $u->bindValue(2, $aid, PDO::PARAM_INT); $u->execute();
+  return $aid;
+}
+/** After a successful read (binder, location, resolve): log it. Never makes the read fail. */
+function acc_after_read(PDO $db, array $c, array $who, string $route, array $res): void {
+  try {
+    $type = $route === 'resolve' ? (string)($res['type'] ?? '') : $route;
+    $rec = $type === 'binder' ? ($res['binder'] ?? []) : ($res['location'] ?? []);
+    $code = (string)($type === 'binder' ? ($rec['speaking_code'] ?? '') : ($rec['code'] ?? ''));
+    $dflt = $route === 'binder' && trim((string)param($c, 'qr', '')) === '' ? 'search' : 'qr';
+    acc_write($db, $c, $who, client_info($c), $route, $type, (string)($rec['id'] ?? ''), cut_str($code, 100), acc_via(param($c, 'via', ''), $dflt));
+    acc_prune($db, $c);
+  } catch (Throwable $e) { error_log('docmap access_log: ' . $e->getMessage()); }
+}
+function acc_prune(PDO $db, array $c): void {
+  $days = (int)$c['access_keep_days']; if ($days <= 0) return;
+  $last = (string)($db->query("SELECT v FROM meta WHERE k = 'access_pruned_at'")->fetchColumn() ?: '');
+  if ($last !== '' && ts_ms($last) > ts_ms(now_iso()) - 86400000) return;
+  $db->prepare('DELETE FROM access_log WHERE at < ?')->execute([iso_ms(ts_ms(now_iso()) - $days * 86400000)]);
+  $db->prepare("INSERT INTO meta (k, v) VALUES ('access_pruned_at', ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v")->execute([now_iso()]);
+}
+function acc_meta(array $c, array $row): array { $m = $row['meta'] ? json_decode(dec($c, $row['meta'], 'access/' . $row['aid']), true) : null; return is_array($m) ? $m : []; }
+/** Shared target filter: type (binder|location), target or id (record id), code (human code, HMAC index). */
+function acc_target_where(array $c, array &$where, array &$args): bool {
+  $type = trim((string)param($c, 'type', '')); $id = trim((string)param($c, 'target', param($c, 'id', ''))); $code = strtoupper(trim((string)param($c, 'code', '')));
+  if ($type !== '') { if (!in_array($type, DM_ACCESS_TYPES, true)) fail(422, 'invalid', 'type must be binder or location'); $where[] = 'target_type = ?'; $args[] = $type; }
+  if ($id !== '') { if (!valid_id($id)) fail(400, 'invalid', 'target'); $where[] = 'target_id = ?'; $args[] = $id; }
+  if ($code !== '') { $where[] = 'k_code = ?'; $args[] = hidx($c, $code); }
+  return $id !== '' || $code !== '';
+}
+/** List (newest received first, paged with before=<aid>). Filters: user (admin only), device, type, target (record id)
+    or id, code, via, route, from, to (on `at`). Editors only ever see their own rows; viewers get 403 from the dispatcher. */
+function r_access(PDO $db, array $c, array $who): array {
+  $admin = $who['role'] === 'admin';
+  $where = []; $args = [];
+  $user = $admin ? trim((string)param($c, 'user', '')) : (string)$who['user'];
+  if ($user !== '') { $where[] = 'k_user = ?'; $args[] = hidx($c, 'user/' . strtolower($user)); }
+  acc_target_where($c, $where, $args);
+  $dev = trim((string)param($c, 'device', '')); if ($dev !== '') { $where[] = 'k_device = ?'; $args[] = hidx($c, 'device/' . $dev); }
+  $via = trim((string)param($c, 'via', '')); if ($via !== '') { $where[] = 'via = ?'; $args[] = acc_via($via, ''); }
+  $route = trim((string)param($c, 'route', '')); if ($route !== '') { $where[] = 'route = ?'; $args[] = $route; }
+  $from = trim((string)param($c, 'from', '')); $to = trim((string)param($c, 'to', ''));
+  if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) $to .= 'T23:59:59.999Z';
+  if ($from !== '') { $where[] = 'at >= ?'; $args[] = $from; }
+  if ($to !== '') { $where[] = 'at <= ?'; $args[] = $to; }
+  $before = (int)param($c, 'before', 0); if ($before > 0) { $where[] = 'aid < ?'; $args[] = $before; }
+  $limit = max(1, min(DM_ACCESS_PAGE_MAX, (int)param($c, 'limit', DM_ACCESS_PAGE)));
+  $q = $db->prepare('SELECT * FROM access_log' . ($where ? ' WHERE ' . implode(' AND ', $where) : '') . ' ORDER BY aid DESC LIMIT ' . ($limit + 1));
+  $q->execute($args); $rows = $q->fetchAll();
+  $more = count($rows) > $limit; if ($more) array_pop($rows);
+  $items = [];
+  foreach ($rows as $r) {
+    $m = acc_meta($c, $r);
+    $e = ['aid' => (int)$r['aid'], 'at' => $r['at'], 'received_at' => $r['received_at'], 'route' => $r['route'], 'via' => $r['via'], 'role' => $r['role'], 'token_id' => $r['token_id'],
+      'user' => (string)($m['user'] ?? ''), 'device' => ['id' => (string)($m['device_id'] ?? 'unknown'), 'name' => (string)($m['device_name'] ?? 'unknown'), 'app' => (string)($m['app_version'] ?? 'unknown')],
+      'target' => ['type' => $r['target_type'], 'id' => $r['target_id'], 'code' => (string)($m['code'] ?? '')]];
+    if ($admin) $e['ip'] = (string)($m['ip'] ?? '');
+    $items[] = $e;
+  }
+  return ['items' => $items, 'more' => $more, 'next_before' => $more && $rows ? (int)end($rows)['aid'] : null, 'server_time' => now_iso()];
+}
+/** "Who looked at it last": the latest N accesses of ONE binder / location (type + id, or code), for any role. */
+function r_last_seen(PDO $db, array $c): array {
+  $where = []; $args = [];
+  if (!acc_target_where($c, $where, $args)) fail(400, 'invalid', 'id (or code) required');
+  $limit = max(1, min(DM_LAST_SEEN_MAX, (int)param($c, 'limit', 5)));
+  $q = $db->prepare('SELECT * FROM access_log WHERE ' . implode(' AND ', $where) . ' ORDER BY at DESC, aid DESC LIMIT ' . $limit); $q->execute($args);
+  $items = [];
+  foreach ($q->fetchAll() as $r) { $m = acc_meta($c, $r); $items[] = ['at' => $r['at'], 'user' => (string)($m['user'] ?? ''), 'via' => $r['via'], 'route' => $r['route'], 'device_name' => (string)($m['device_name'] ?? 'unknown')]; }
+  $n = $db->prepare('SELECT COUNT(*) FROM access_log WHERE ' . implode(' AND ', $where)); $n->execute($args);
+  return ['items' => $items, 'total' => (int)$n->fetchColumn(), 'server_time' => now_iso()];
+}
+/** POST {items:[{type, id, code, at, via}]} (≤ 500): views the client served from its own copy (offline, cache, desktop).
+    `at` must be within the retention window and not in the future (+5 min tolerance); re-sent items are recorded once. */
+function r_seen(PDO $db, array $c, array $who): array {
+  $list = body($c)['items'] ?? null;
+  if (!is_array($list)) fail(400, 'invalid', 'items required');
+  if (count($list) > DM_SEEN_MAX) fail(413, 'too_large', 'at most ' . DM_SEEN_MAX . ' items per call');
+  $ci = client_info($c); $now = ts_ms(now_iso()); $keep = (int)$c['access_keep_days'];
+  $rec = 0; $skip = 0;
+  $db->exec('BEGIN IMMEDIATE');
+  try {
+    foreach ($list as $it) {
+      $type = is_array($it) ? (string)($it['type'] ?? 'binder') : ''; $id = is_array($it) ? ($it['id'] ?? '') : ''; $t = is_array($it) ? ts_ms($it['at'] ?? '') : 0;
+      if (!in_array($type, DM_ACCESS_TYPES, true) || !valid_id($id) || $t <= 0 || $t > $now + 300000 || ($keep > 0 && $t < $now - $keep * 86400000)) { $skip++; continue; }
+      $aid = acc_write($db, $c, $who, $ci, 'seen', $type, $id, cut_str($it['code'] ?? '', 100), acc_via($it['via'] ?? '', 'nav'), iso_ms($t));
+      if ($aid) $rec++; else $skip++;
+    }
+    $db->exec('COMMIT');
+  } catch (Throwable $e) { try { $db->exec('ROLLBACK'); } catch (Throwable $e2) {} throw $e; }
+  acc_prune($db, $c);
+  return ['recorded' => $rec, 'skipped' => $skip, 'server_time' => now_iso()];
+}
+
 /* ---------------- dispatch ---------------- */
 if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) {
   try {
@@ -718,25 +860,29 @@ if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) {
     $c = load_config();
     cors($c);
     if ($method === 'OPTIONS') { http_response_code(204); exit; }
-    $reads = ['me' => 'viewer', 'pull' => 'viewer', 'binder' => 'viewer', 'location' => 'viewer', 'resolve' => 'viewer', 'tokens' => 'admin', 'journal' => 'editor'];
-    $writes = ['push' => 'editor', 'patch' => 'editor', 'token_create' => 'admin', 'token_revoke' => 'admin', 'journal_restore' => 'admin'];
+    $reads = ['me' => 'viewer', 'pull' => 'viewer', 'binder' => 'viewer', 'location' => 'viewer', 'resolve' => 'viewer', 'tokens' => 'admin', 'journal' => 'editor', 'access' => 'editor', 'last_seen' => 'viewer'];
+    $writes = ['push' => 'editor', 'patch' => 'editor', 'token_create' => 'admin', 'token_revoke' => 'admin', 'journal_restore' => 'admin', 'seen' => 'viewer'];
     if (!isset($reads[$route]) && !isset($writes[$route])) fail(404, 'no_route', 'unknown route');
     if (isset($writes[$route]) && $method !== 'POST') fail(405, 'method', 'use POST');
     if (!in_array($method, ['GET', 'POST'], true)) fail(405, 'method', 'use GET or POST');
     $db = db($c);
     $who = auth($db, $c, $reads[$route] ?? $writes[$route]);
     switch ($route) {
-      case 'me': $res = ['user' => $who['user'], 'role' => $who['role'], 'token_id' => $who['token_id'], 'studio_name' => (string)$c['studio_name'], 'server_time' => now_iso()]; break;
+      case 'me': $res = ['user' => $who['user'], 'role' => $who['role'], 'token_id' => $who['token_id'], 'studio_name' => (string)$c['studio_name'], 'server_time' => now_iso(),
+        'remember_minutes' => is_numeric($c['remember_minutes']) ? (int)$c['remember_minutes'] : null]; break;   // v12: phone sign-in policy (null = device setting)
       case 'pull': $res = r_pull($db, $c, $who); break;
       case 'push': $res = r_push($db, $c, $who); break;
-      case 'binder': $res = r_binder($db, $c); header('ETag: "' . $res['etag'] . '"'); break;
-      case 'location': $res = r_location($db, $c); header('ETag: "' . $res['etag'] . '"'); break;
-      case 'resolve': $res = r_resolve($db, $c); break;
+      case 'binder': $res = r_binder($db, $c); header('ETag: "' . $res['etag'] . '"'); acc_after_read($db, $c, $who, $route, $res); break;   // v12: + access_log
+      case 'location': $res = r_location($db, $c); header('ETag: "' . $res['etag'] . '"'); acc_after_read($db, $c, $who, $route, $res); break;
+      case 'resolve': $res = r_resolve($db, $c); acc_after_read($db, $c, $who, $route, $res); break;
       case 'patch': $res = r_patch($db, $c, $who); header('ETag: "' . $res['etag'] . '"'); break;
       case 'tokens': $res = r_tokens($db, $c); break;
       case 'token_create': $res = r_token_create($db, $c, $who); break;
       case 'journal': $res = r_journal($db, $c, $who); break;
       case 'journal_restore': $res = r_journal_restore($db, $c, $who); break;
+      case 'access': $res = r_access($db, $c, $who); break;   // v12
+      case 'last_seen': $res = r_last_seen($db, $c); break;
+      case 'seen': $res = r_seen($db, $c, $who); break;
       default: $res = r_token_revoke($db, $c);
     }
     out(200, $res);

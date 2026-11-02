@@ -689,3 +689,52 @@ Un tag NFC contiene **lo stesso URL** del QR (`short_url`, record NDEF `url`): n
 l'unica identità di faldoni e ubicazioni. Lettura e scrittura in `11e-nfc.js` (Web NFC, Chrome Android); ogni tag
 letto passa da `onTagScanned(testo, via)` con `via` = `qr` · `nfc` · `keyboard`. Progetto per varchi RFID:
 [`RFID-NFC.md`](RFID-NFC.md).
+
+## 16. Novità v12 (stream A: ricerca, accesso senza PIN, registro accessi)
+
+Nessuna modifica dello schema locale (`DB_SCHEMA_VERSION` invariato) né delle colonne CSV. Server: schema 3,
+tabella `access_log` (`API-CONTRACT.md` §6 e §11).
+
+### 16.1 Impostazioni (`settings`, nel workspace JSON e nella riga SQLite `settings`)
+
+| Chiave | Tipo | Default | Note |
+|---|---|---|---|
+| `savedSearches` | `[{id, name, q, facets:{gruppo:[chiavi]}, at}]` (max 50) | assente = `[]` | ricerche salvate (Archivio › ☆ Salva ricerca); viaggiano nelle impostazioni condivise (`settingsSubset` del pacchetto e del server) |
+| `savedSearchesAt` | ISO | assente | ultima modifica della lista: vince la più recente, tutta intera |
+| `srchNotes` | booleano | assente = `true` | `false` = le parole libere non cercano in note e contatti |
+
+### 16.2 Ricerca (`assets/js/04c-search.js`)
+
+Operatori (alias IT/EN, maiuscole e accenti indifferenti): `tag:` · `anno:` (`2024`, `2020..2022`, `>2023`, `<2020`, `24`) ·
+`cat:` · `luogo:` · `stato:` (`corrente`, `storico`, `fuori`, `cliente`, … più gli stati dello stream Q tramite
+`statusSearchHook`) · `cliente:` · `citta:` · `multi:` · `codice:` · `colore:` (nome o `#hex`) · `archivio:` (stream C,
+`archiveSearchHook`) · `note:` · `contenuto:`; `-parola` / `-tag:x` esclude; `"frase esatta"`. Una chiave sconosciuta
+vale come testo. Un codice breve, un URL `qr7.it/…` o `…/q/…` porta a quel faldone (o ai faldoni di quell'ubicazione).
+Parole con un errore di battitura (distanza di Damerau-Levenshtein 1–2 secondo la lunghezza) → «Forse cercavi».
+Facce (filtri): `tag`, `cat`, `year`, `loc`, `color`, `state`, `status`, `archive` — OR dentro un gruppo, AND tra gruppi.
+
+Ganci per gli altri moduli (facoltativi, cercati a ogni ricerca):
+`window.statusSearchHook = {match(b, v) → true|false|null, statusOf(b) → {id, label}|null, words(b) → stringa}` e
+`window.archiveSearchHook = {match(b, v), archiveOf(b) → {id, label}|null, words(b)}`.
+
+### 16.3 Memoria del browser
+
+| Chiave | Contenuto | Dove |
+|---|---|---|
+| `localStorage 'docmap_v26_srch_recent'` | ultime 8 ricerche (solo `file://`; in modalità web restano in memoria) | PC |
+| `localStorage 'docmap_v26_srch_panel'` | pannello Filtri aperto | PC |
+| IndexedDB `docmap_v26_srch` › `kv` › `cache` | copia dei faldoni per la ricerca sul telefono, **cifrata** con la DEK della cassaforte (AAD `srch-cache`) | telefono (web + server) |
+| `localStorage 'docmap_v26_remember'` | accesso ricordato `{v, rid, user_id, created_at, last_at, pwfp, wrapped, mac}` | web (`SICUREZZA.md` §5d) |
+| IndexedDB `docmap_v26_keys` › `keys` › `remember:<rid>` | `{kw, mk}` chiavi non estraibili | web |
+| `localStorage 'docmap_v26_remember_policy'` | minuti di inattività dal server (`me.remember_minutes`) | web |
+| `localStorage 'docmap_v26_view_seen'` | `{"<id faldone>|<operatore>": ms}`: limita `view.binder` a una voce ogni 10 minuti | PC |
+| `localStorage 'docmap_v26_seen_queue'` | visite da mandare con `POST seen` (max 500) `[{type, id, code, at, via}]` | PC e telefono con server |
+
+Politica del dispositivo (⚙ Utenti e accesso › Accesso senza PIN): `policy.rememberMinutes` (0, 480, 43200, -1;
+predefinito 43200) nell'archivio utenti locale `localStorage 'docmap_v26_auth'`; `remember_minutes` del server vince.
+
+### 16.4 Registro attività
+
+| Azione | Dettagli |
+|---|---|
+| `view.binder` (gruppo `view`, «Visite») | `{via, device}`; `via` = `nav` (scheda aperta dall'elenco) · `search` (aperta da una ricerca); al massimo una voce per faldone per operatore ogni 10 minuti |

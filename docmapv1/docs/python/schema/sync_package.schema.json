@@ -34,11 +34,12 @@
         "tombstones": {"type": "array", "items": {"$ref": "#/$defs/tombstone"}},
         "settingsSubset": {
           "type": "object",
-          "description": "Shared settings, applied only when the user ticks 'Applica anche le impostazioni condivise'. The colour block applies as a whole when colorUpdatedAt is newer; the location levels when locLevelsAt is newer.",
+          "description": "Shared settings, applied only when the user ticks 'Applica anche le impostazioni condivise'. The colour block applies as a whole when colorUpdatedAt is newer; the location levels when locLevelsAt is newer; the saved searches (v12) when savedSearchesAt is newer.",
           "properties": {
             "studioName": {"type": "string"}, "destTemplate": {"type": "string"}, "catColors": {"type": "object"},
             "colorMode": {"type": "string"}, "catFamilies": {"type": "object"}, "colorRules": {"type": "object"}, "colorUpdatedAt": {"type": "string"},
-            "locLevels": {"type": "array"}, "locLevelsAt": {"type": "string"}
+            "locLevels": {"type": "array"}, "locLevelsAt": {"type": "string"},
+            "savedSearches": {"type": "array"}, "savedSearchesAt": {"type": "string"}
           },
           "additionalProperties": true
         },

@@ -65,7 +65,7 @@ Apri anche l'app e provala; avvia `php -S 127.0.0.1:8000` nella cartella `docmap
 
 - **Rotte** (`<apiBase>?r=<rotta>`; letture GET, scritture solo POST): `ping`, `me`, `pull`, `push`, `binder`,
   `location`, `resolve`, `patch`, `tokens`, `token_create`, `token_revoke`, `journal`, `journal_restore`. `ping` risponde
-  `{"ok":true,"api":"docmap-php","version":1,"schema":2,"features":["journal","device_info","locations","archives"],…}`.
+  `{"ok":true,"api":"docmap-php","version":1,"schema":3,"features":["journal","device_info","locations","archives","access_log"],…}`.
 - **Token**: header `X-DocMap-Token` (anche `Authorization: Bearer` o `"_token"` nel corpo `text/plain` del PC aperto da
   `file://`). Non usare `Authorization` come unico canale: la password di cartella di SiteGround (HTTP Basic) lo occupa.
 - **Errori**: sempre `{"error":{"code","message",…}}` con i codici HTTP e i `code` di `openapi.yaml`; 409 con `current`

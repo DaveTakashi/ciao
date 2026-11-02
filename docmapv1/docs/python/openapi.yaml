@@ -1,11 +1,11 @@
 openapi: 3.1.0
 info:
   title: DocMap 2026 — API del database online condiviso
-  version: "api 1 · schema server 2 · DocMap 26.11.1"
-  summary: Contratto di server-php/api.php (v10.1 + v11), da riprodurre 1:1 in Python.
+  version: "api 1 · schema server 3 · DocMap 26.12.0"
+  summary: Contratto di server-php/api.php (v10.1 + v11 + v12), da riprodurre 1:1 in Python.
   description: |
     Descrizione OpenAPI 3.1 di `docmapv1/server-php/api.php` (implementazione di riferimento, `DM_API = 'docmap-php'`,
-    `DM_API_VERSION = 1`, `DM_SCHEMA = 2`). Testo umano del contratto: `docs/API-CONTRACT.md`; guida al porting:
+    `DM_API_VERSION = 1`, `DM_SCHEMA = 3`). Testo umano del contratto: `docs/API-CONTRACT.md`; guida al porting:
     `docs/python/PORTING.md`. I record (`data`) sono gli oggetti di `docs/python/schema/*.schema.json`.
 
     **Instradamento per query.** Il front-end chiama sempre `<apiBase>?r=<rotta>` (es. `server-php/api.php?r=pull&since=42`).
@@ -46,6 +46,7 @@ tags:
   - name: ubicazioni
   - name: token
   - name: registro
+  - name: accessi
 paths:
   /ping:
     get:
@@ -156,6 +157,7 @@ paths:
       parameters:
         - {name: qr, in: query, schema: {type: string, pattern: "^[A-Za-z0-9_-]{1,40}$"}, description: "short_code (esatto)."}
         - {name: code, in: query, schema: {type: string}, description: "Codice parlante, maiuscole/minuscole indifferenti (usato se manca qr)."}
+        - {name: via, in: query, schema: {enum: [qr, search, nav, nfc]}, description: "v12: come il client è arrivato al record, per access_log (predefinito: qr; binder senza qr = search). Un valore sconosciuto vale il predefinito."}
       responses:
         "200":
           description: OK
@@ -179,6 +181,7 @@ paths:
       parameters:
         - {name: qr, in: query, schema: {type: string, pattern: "^[A-Za-z0-9_-]{1,40}$"}, description: "short_code dm26L…"}
         - {name: id, in: query, schema: {type: string}, description: "id dell'ubicazione (prioritario su qr)"}
+        - {name: via, in: query, schema: {enum: [qr, search, nav, nfc]}, description: "v12: come il client è arrivato al record, per access_log (predefinito: qr; binder senza qr = search). Un valore sconosciuto vale il predefinito."}
         - {name: code, in: query, schema: {type: string}, description: "codice percorso, maiuscole indifferenti"}
       responses:
         "200":
@@ -202,6 +205,7 @@ paths:
       x-docmap-role: viewer
       parameters:
         - {name: qr, in: query, required: true, schema: {type: string, pattern: "^[A-Za-z0-9_-]{1,40}$"}}
+        - {name: via, in: query, schema: {enum: [qr, search, nav, nfc]}, description: "v12: come il client è arrivato al record, per access_log (predefinito: qr; binder senza qr = search). Un valore sconosciuto vale il predefinito."}
       responses:
         "200":
           description: OK
@@ -376,6 +380,87 @@ paths:
         "403": {$ref: "#/components/responses/Forbidden"}
         "404": {$ref: "#/components/responses/NotFound"}
         "422": {$ref: "#/components/responses/Unprocessable"}
+  /access:
+    get:
+      tags: [accessi]
+      operationId: access
+      summary: "v12: registro accessi (chi ha aperto quale faldone / ubicazione, quando, come). Editor: solo le proprie righe; admin: tutte, con IP"
+      description: |
+        Dalla riga ricevuta più di recente (`aid` decrescente). Una riga per ogni lettura `binder` / `location` / `resolve`
+        (stesso token + dispositivo + record + `via` entro `access_dedupe_seconds` = una riga sola) e per ogni elemento di
+        `seen`. Utente, dispositivo, codice e IP sono cifrati (`meta`, AAD `access/<aid>`); i filtri `user`, `device` e
+        `code` passano dagli indici HMAC. Per un editor il filtro `user` è sempre il proprio; un viewer riceve 403.
+        Conservazione: `access_keep_days` (predefinito 365).
+      x-docmap-route: access
+      x-docmap-role: editor
+      parameters:
+        - {name: from, in: query, schema: {type: string}, description: "ISO, confronto testuale con at (>=)."}
+        - {name: to, in: query, schema: {type: string}, description: "ISO; una data AAAA-MM-GG vale fino a T23:59:59.999Z."}
+        - {name: user, in: query, schema: {type: string}, description: "Solo admin; utente del token, maiuscole indifferenti (indice HMAC)."}
+        - {name: device, in: query, schema: {type: string}, description: "id dispositivo esatto."}
+        - {name: type, in: query, schema: {enum: [binder, location]}}
+        - {name: target, in: query, schema: {type: string}, description: "id del record (alias: id)."}
+        - {name: code, in: query, schema: {type: string}, description: "codice umano esatto (maiuscole indifferenti, indice HMAC)."}
+        - {name: via, in: query, schema: {enum: [qr, search, nav, nfc]}}
+        - {name: route, in: query, schema: {enum: [binder, location, resolve, seen]}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
+        - {name: before, in: query, schema: {type: integer}, description: "Paginazione: next_before della pagina precedente."}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AccessListResponse"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "422": {$ref: "#/components/responses/Unprocessable"}
+  /last_seen:
+    get:
+      tags: [accessi]
+      operationId: last_seen
+      summary: "v12: gli ultimi accessi a UN faldone / ubicazione (per la scheda: «Visto di recente», «Chi l'ha visto»)"
+      x-docmap-route: last_seen
+      x-docmap-role: viewer
+      parameters:
+        - {name: type, in: query, schema: {enum: [binder, location]}}
+        - {name: id, in: query, schema: {type: string}, description: "id del record (alias: target). Serve id oppure code (400 senza)."}
+        - {name: code, in: query, schema: {type: string}, description: "codice umano (indice HMAC)."}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 20, default: 5}}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/LastSeenResponse"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "422": {$ref: "#/components/responses/Unprocessable"}
+  /seen:
+    post:
+      tags: [accessi]
+      operationId: seen
+      summary: "v12: visite servite dalla copia del client (PC, telefono senza rete), registrate più tardi"
+      description: |
+        Al massimo 500 elementi (413 `too_large` oltre). Ogni elemento con `type` non valido, `id` non valido, `at` nel futuro
+        (oltre 5 minuti) o più vecchio di `access_keep_days` viene saltato (`skipped`); lo stesso elemento rimandato (stesso
+        token, dispositivo e record, `at` entro `access_dedupe_seconds`) è registrato una volta sola.
+      x-docmap-route: seen
+      x-docmap-role: viewer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/SeenRequest"}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/SeenResponse"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "413": {$ref: "#/components/responses/TooLarge"}
 components:
   securitySchemes:
     DocMapToken:
@@ -471,8 +556,8 @@ components:
         ok: {const: true}
         api: {const: docmap-php, description: "Un server Python può rispondere con un altro nome: il client non lo controlla."}
         version: {const: 1}
-        schema: {type: integer, minimum: 1, description: "Schema del database del server: 1 = v10.1, 2 = v11"}
-        features: {type: array, items: {type: string}, description: "Oggi [journal, device_info, locations, archives] (archives = v12: record di tipo archive)"}
+        schema: {type: integer, minimum: 1, description: "Schema del database del server: 1 = v10.1, 2 = v11, 3 = v12 (access_log)"}
+        features: {type: array, items: {type: string}, description: "Oggi [journal, device_info, locations, archives, access_log] (archives = v12: record di tipo archive; access_log = v12: registro accessi)"}
         server_time: {$ref: "#/components/schemas/Iso"}
         php: {type: string, description: "Versione di PHP (un server Python può mettere la sua)."}
     MeResponse:
@@ -484,6 +569,7 @@ components:
         token_id: {type: string, pattern: "^(cfg:\\d+|db:[0-9a-f]{16})$", description: "cfg:<indice in config.php> o db:<id>"}
         studio_name: {type: string}
         server_time: {$ref: "#/components/schemas/Iso"}
+        remember_minutes: {type: [integer, "null"], minimum: -1, description: "v12: config.php remember_minutes — minuti di inattività dopo cui il telefono richiede il PIN (0 = sempre, -1 = mai, null = decide il dispositivo)"}
     Role:
       enum: [viewer, editor, admin]
     RecordType:
@@ -766,3 +852,72 @@ components:
         deleted: {type: boolean}
         journal_id: {type: integer}
         seq: {type: integer}
+    AccessItem:
+      type: object
+      required: [aid, at, received_at, route, via, role, token_id, user, device, target]
+      properties:
+        aid: {type: integer}
+        at: {$ref: "#/components/schemas/Iso"}
+        received_at: {$ref: "#/components/schemas/Iso"}
+        route: {enum: [binder, location, resolve, seen]}
+        via: {enum: [qr, search, nav, nfc]}
+        role: {$ref: "#/components/schemas/Role"}
+        token_id: {type: string}
+        user: {type: string}
+        device:
+          type: object
+          required: [id, name, app]
+          properties: {id: {type: string}, name: {type: string}, app: {type: string}}
+        target:
+          type: object
+          required: [type, id, code]
+          properties: {type: {enum: [binder, location]}, id: {type: string}, code: {type: string}}
+        ip: {type: string, description: "Solo per admin"}
+    AccessListResponse:
+      type: object
+      required: [items, more, next_before, server_time]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/AccessItem"}}
+        more: {type: boolean}
+        next_before: {type: [integer, "null"]}
+        server_time: {$ref: "#/components/schemas/Iso"}
+    LastSeenResponse:
+      type: object
+      required: [items, total, server_time]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [at, user, via, route, device_name]
+            properties:
+              at: {$ref: "#/components/schemas/Iso"}
+              user: {type: string}
+              via: {enum: [qr, search, nav, nfc]}
+              route: {enum: [binder, location, resolve, seen]}
+              device_name: {type: string}
+        total: {type: integer, minimum: 0}
+        server_time: {$ref: "#/components/schemas/Iso"}
+    SeenRequest:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 500
+          items:
+            type: object
+            required: [id, at]
+            properties:
+              type: {enum: [binder, location], default: binder}
+              id: {type: string}
+              code: {type: string}
+              at: {$ref: "#/components/schemas/Iso"}
+              via: {enum: [qr, search, nav, nfc], default: nav}
+    SeenResponse:
+      type: object
+      required: [recorded, skipped, server_time]
+      properties:
+        recorded: {type: integer, minimum: 0}
+        skipped: {type: integer, minimum: 0}
+        server_time: {$ref: "#/components/schemas/Iso"}
