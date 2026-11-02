@@ -1,5 +1,6 @@
 """python -m docmap_server [serve] [--config PATH] [--host H] [--port N] [--root DIR] [--api-path P …]
 python -m docmap_server setup --data-dir DIR --user "davide,admin" --user "mario,editor" [--config config.json] …
+python -m docmap_server licence install FILE [--config PATH]   |   python -m docmap_server licence status [--config PATH]
 """
 from __future__ import annotations
 
@@ -17,7 +18,7 @@ def _config_path(arg):
 
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
-    if not argv or argv[0] not in ("serve", "setup"):
+    if not argv or argv[0] not in ("serve", "setup", "licence"):
         argv.insert(0, "serve")
     ap = argparse.ArgumentParser(prog="python -m docmap_server", description="DocMap shared online database (Python port of server-php/api.php)")
     sub = ap.add_subparsers(dest="cmd")
@@ -37,7 +38,17 @@ def main(argv=None):
     u.add_argument("--allow-file", dest="allow_file", action="store_true", default=True, help="allow the desktop app from file:// (origin null) [default]")
     u.add_argument("--no-allow-file", dest="allow_file", action="store_false")
     u.add_argument("--format", choices=("json", "php"))
+    li = sub.add_parser("licence", help="install or show the licence (only enforced with \"licence_required\": true)")
+    lsub = li.add_subparsers(dest="licence_cmd", required=True)
+    lin = lsub.add_parser("install", help="verify a .docmap-licence file and copy it into <data_dir>/licence/")
+    lin.add_argument("file")
+    lin.add_argument("--config", default=None)
+    lst = lsub.add_parser("status", help="show the installed licence")
+    lst.add_argument("--config", default=None)
     a = ap.parse_args(argv)
+    if a.cmd == "licence":
+        from .licence import cli
+        return cli(a, _config_path(a.config))
     if a.cmd == "setup":
         from .setup_cmd import run_setup
         a.config = a.config or os.environ.get("DOCMAP_CONFIG") or "config.json"

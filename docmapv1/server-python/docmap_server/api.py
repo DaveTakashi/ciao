@@ -700,6 +700,30 @@ def r_pull(ctx, who=None):
             "counts": counts, "server_time": now_iso(), "journal_id": jid}
 
 
+def push_binder_limit(ctx, b):
+    """Licence `binders` (only with licence_required): refuse the whole push if it would create binders beyond the limit.
+    New = valid binder records whose id is not a live binder now (new, or a tombstone the push would resurrect)."""
+    db = ctx.db
+    new = set()
+    for r in php_array_values(pget(b, "records", {})):
+        id_ = pget(r, "id", "")
+        data = pget(r, "data", None)
+        if pget(r, "type", "") != "binder" or not valid_id(id_) or not isinstance(data, dict):
+            continue
+        u = php_str(pget(r, "updated_at", None) if pget(r, "updated_at", None) is not None else pget(data, "updated_at", ""))
+        if ts_ms(u) <= 0:
+            continue
+        cur = rec_load(db, "binder", id_)
+        if cur is None or (php_int(cur["deleted"]) and ts_ms(u) > ts_ms(cur["updated_at"])):
+            new.add(id_)
+    if not new:
+        return
+    used = php_int(db.execute("SELECT COUNT(*) FROM records WHERE type = 'binder' AND deleted = 0").fetchone()[0])
+    blk = licence.limit_block(ctx.c, "binders", used, len(new))
+    if blk:
+        fail(403, "licence_limit", blk[0], blk[1])
+
+
 def r_push(ctx, who):
     db, c = ctx.db, ctx.c
     b = ctx.body()
@@ -717,6 +741,8 @@ def r_push(ctx, who):
 
     db.execute("BEGIN IMMEDIATE")
     try:
+        if licence.required(c):
+            push_binder_limit(ctx, b)
         for r in php_array_values(pget(b, "records", {})):
             jr["n"]["sent"] += 1
             type_ = pget(r, "type", "")
@@ -1195,11 +1221,29 @@ def valid_user_name(user: str) -> bool:
     return all(ch in " ._@-" or unicodedata.category(ch)[0] in "LN" for ch in user)
 
 
+def active_users(ctx):
+    """Licence `users`: distinct names with an enabled config token or a non-revoked database token."""
+    names = set()
+    tokens = ctx.c["tokens"]
+    pairs = tokens.items() if isinstance(tokens, dict) else enumerate(php_array_values(tokens))
+    for i, t in pairs:
+        if isinstance(t, dict) and php_empty(t.get("disabled")):
+            names.add(php_str(pget(t, "user", "user" + str(i))))
+    for r in ctx.db.execute("SELECT DISTINCT user FROM tokens WHERE revoked_at IS NULL").fetchall():
+        names.add(r[0])
+    return names
+
+
 def r_token_create(ctx, who):
     user = php_trim(php_str(ctx.param("user", "")))
     role = php_str(ctx.param("role", "editor"))
     if not valid_user_name(user) or role not in DM_ROLES:
         fail(422, "invalid", "user (1-60 chars) and role viewer|editor|admin required")
+    if licence.required(ctx.c):
+        users = active_users(ctx)
+        blk = licence.limit_block(ctx.c, "users", len(users), 0 if user in users else 1)
+        if blk:
+            fail(403, "licence_limit", blk[0], blk[1])
     tok = base64.b64encode(os.urandom(24)).decode("ascii").translate(str.maketrans("+/", "-_")).rstrip("=")
     id_ = os.urandom(8).hex()
     ctx.db.execute("INSERT INTO tokens (id, token_sha256, user, role, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?)",
@@ -1237,7 +1281,10 @@ def handle(req: Request, config_path: str) -> Response:
                     pass
                 if method == "OPTIONS":
                     return ctx.empty(204)
-                return ctx.out(200, r_ping())
+                res = r_ping()
+                if ctx.c is not None and licence.required(ctx.c):
+                    res["licence"] = licence.summary(licence.status(ctx.c), False)
+                return ctx.out(200, res)
             c = ctx.load_config()
             cors(ctx, c)
             if method == "OPTIONS":
@@ -1250,11 +1297,15 @@ def handle(req: Request, config_path: str) -> Response:
                 fail(405, "method", "use GET or POST")
             open_db(ctx)
             who = auth(ctx, READS.get(route) or WRITES[route])
-            if route in WRITES and licence.current_mode() != "full":
-                fail(403, "licence_read_only", licence.READ_ONLY_MESSAGE)
+            if route in WRITES:
+                blk = licence.write_block(c)   # None unless config licence_required is true (then: licence.py)
+                if blk:
+                    fail(403, "licence_read_only", blk[0], blk[1])
             etag = False
             if route == "me":
                 res = {"user": who["user"], "role": who["role"], "token_id": who["token_id"], "studio_name": php_str(c["studio_name"]), "server_time": now_iso()}
+                if licence.required(c):
+                    res["licence"] = licence.summary(licence.status(c), True)
             elif route == "pull":
                 res = r_pull(ctx, who)
             elif route == "push":

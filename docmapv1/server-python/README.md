@@ -81,16 +81,46 @@ eseguiti (404). `config.php` e `data/` non vengono quindi mai serviti.
 
 In produzione mettilo dietro un proxy HTTPS (IIS, nginx, Caddy…): il token viaggia negli header.
 
-## Gancio per la licenza
+## Licenza
 
-`docmap_server/licence.py` contiene `current_mode()`, che oggi restituisce sempre `'full'`. Viene chiamata dopo
-l'autenticazione per ogni rotta di **scrittura** (`push`, `patch`, `token_create`, `token_revoke`, `journal_restore`):
-se restituisce `'read_only'` la scrittura viene rifiutata con HTTP 403 e `error.code = "licence_read_only"`, mentre
-le letture continuano a funzionare. Il controllo vero della licenza va scritto lì dentro, senza toccare `api.py`.
+Il controllo della licenza è **disattivato** finché la configurazione non contiene `"licence_required": true`
+(`'licence_required' => true` in `config.php`). Così un aggiornamento non mette mai in sola lettura uno studio che già
+usa il server, e senza quella chiave il comportamento resta identico a `api.php`.
+
+Con il controllo attivo:
+
+- la licenza è `<data_dir>/licence/licence.docmap-licence`, l'identità dell'installazione `<data_dir>/instance.json`
+  (`{"instance_id": "…"}`; se manca, il server adotta l'`instance_id` della prima licenza valida e lo scrive);
+- la firma è verificata con `docmap_server/licence_verify.py`, **copia identica** di `hub/docmap_hub/licence.py`
+  (non modificarla qui: si aggiorna ricopiandola; `tests/test_licence.py` controlla che le due copie coincidano);
+- le chiavi pubbliche fidate sono la costante `TRUSTED_LICENCE_KEYS` in `docmap_server/licence.py` (da
+  `export-public-key` del hub). La chiave di configurazione `licence_public_keys` (`{"dmk…": "base64…"}`) serve **solo
+  per test e sviluppo**: non usarla mai da un cliente (chi può modificare la configurazione potrebbe sostituire la chiave);
+- lo stato è tenuto in memoria e ricontrollato al massimo ogni 10 minuti, oppure subito se il file cambia;
+- `full` / `grace` (tolleranza) → tutto funziona; `read_only` / `invalid` → le scritture (`push`, `patch`,
+  `token_create`, `token_revoke`, `journal_restore`) rispondono **403 `licence_read_only`**, mentre letture, `pull` ed
+  esportazioni funzionano sempre (la licenza non blocca mai i dati);
+- limiti: un `push` che creerebbe faldoni oltre `limits.binders` (intero push rifiutato) e un `token_create` per un nuovo
+  utente oltre `limits.users` (utenti = nomi distinti con un token attivo) rispondono **403 `licence_limit`**; modificare
+  o eliminare resta sempre possibile;
+- `me` contiene un oggetto `licence` (modo, messaggio in italiano, giorni rimasti, limiti, funzioni, marchio, cliente,
+  piano, scadenza); `ping` ne contiene uno ridotto, senza dati del cliente. Senza `licence_required` l'oggetto non c'è.
+
+Comandi:
+
+```sh
+python -m docmap_server licence install studio-rossi.docmap-licence --config /srv/docmap/config.json
+python -m docmap_server licence status --config /srv/docmap/config.json
+```
+
+`install` verifica il file (firma e installazione), lo copia nella cartella dati conservando il precedente come
+`licence.prev.docmap-licence` e mostra lo stato; un file non valido viene rifiutato e la licenza attuale resta.
+Il server in esecuzione vede la nuova licenza da solo, senza riavvio.
 
 ## Test
 
 ```sh
+python3 tests/test_licence.py       # licenza: chiavi e licenze create con il hub, server con licence_required
 python3 tests/diff_test.py          # PHP vero e Python fianco a fianco (serve php 8 con pdo_sqlite)
 NODE_PATH=<node_modules con playwright> python3 tests/validate_python.py   # docs/python/tools/validate_schemas.py contro il Python
 ```

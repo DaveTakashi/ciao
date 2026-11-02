@@ -39,3 +39,13 @@ Newest entries last. Resume from the last "Next step".
 - Licence hook: docmap_server/licence.py current_mode() → 'full'; 'read_only' makes write routes answer 403 licence_read_only.
 - Next step (optional): hook DOCMAP_TEST_SERVER_CMD into tests/suite.js (not ours to edit: other team) so the Playwright
   suite W/X/J can run against `python -m docmap_server serve --config {config} --port {port} --root {root}`.
+
+## 2026-11-02 — F3 licence integration done
+- docmap_server/licence_verify.py = byte-identical copy of hub/docmap_hub/licence.py (hub commit 327a7dc); test_0 asserts equality.
+- docmap_server/licence.py rewritten: OFF unless config `licence_required: true`; TRUSTED_LICENCE_KEYS constant (empty)
+  + `licence_public_keys` config override (tests/dev only); cache, re-verify every 600 s or on mtime/size change of
+  licence/instance file; instance_id adopted from first genuine licence. api.py: write_block → 403 licence_read_only
+  (error has mode/reasons/message_it), push binder limit + token_create users limit → 403 licence_limit, `licence`
+  object in me (detailed) / ping (short) only when required. CLI `python -m docmap_server licence install|status`.
+- `python3 docmapv1/server-python/tests/test_licence.py` → Ran 9 tests OK; diff_test → 5 OK; validate_python → all checks passed.
+- Next step: F2 — tests/php-shim/php + tests/run_suite_python.sh, run suite W/X/J with Python vs PHP.
