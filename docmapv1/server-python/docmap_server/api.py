@@ -213,6 +213,9 @@ class Ctx:
         return Response(status, list(self.headers.values()), jenc(body).encode("utf-8", "surrogateescape"))
 
     def empty(self, status):
+        """http_response_code(204); exit; — PHP still sends its default Content-type."""
+        if "content-type" not in self.headers:
+            self.header("Content-type", "text/html; charset=UTF-8")
         return Response(status, list(self.headers.values()), b"")
 
     # ---- config ----

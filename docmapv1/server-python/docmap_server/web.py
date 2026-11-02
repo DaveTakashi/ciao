@@ -16,7 +16,7 @@ from urllib.parse import unquote_to_bytes
 from fastapi import FastAPI
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request as SRequest
-from starlette.responses import FileResponse, Response as SResponse
+from starlette.responses import Response as SResponse
 
 from .api import Request, handle
 from .phpcompat import php_int
@@ -26,14 +26,21 @@ DEFAULT_API_PATHS = ("/studio-de/server-php/api.php", "/api")
 ALL_METHODS = ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"]
 
 MIME = {
-    ".html": "text/html; charset=UTF-8", ".htm": "text/html; charset=UTF-8", ".js": "text/javascript; charset=UTF-8",
-    ".mjs": "text/javascript; charset=UTF-8", ".css": "text/css; charset=UTF-8", ".json": "application/json",
+    ".html": "text/html; charset=UTF-8", ".htm": "text/html; charset=UTF-8", ".js": "application/javascript",
+    ".mjs": "application/javascript", ".css": "text/css; charset=UTF-8", ".json": "application/json",
     ".webmanifest": "application/manifest+json", ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp", ".ico": "image/x-icon", ".txt": "text/plain; charset=UTF-8",
-    ".md": "text/plain; charset=UTF-8", ".xml": "application/xml", ".pdf": "application/pdf", ".wasm": "application/wasm",
+    ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp", ".ico": "image/vnd.microsoft.icon", ".txt": "text/plain; charset=UTF-8",
+    ".md": "text/markdown; charset=UTF-8", ".xml": "application/xml", ".pdf": "application/pdf", ".wasm": "application/wasm",
     ".woff": "font/woff", ".woff2": "font/woff2", ".ttf": "font/ttf", ".csv": "text/csv", ".zip": "application/zip",
     ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 }
+
+
+def _file(path):
+    """The file as php -S serves it: Content-Type from its table, no ETag / Last-Modified."""
+    with open(path, "rb") as f:
+        data = f.read()
+    return SResponse(data, status_code=200, headers={"Content-Type": MIME.get(os.path.splitext(path)[1].lower(), "application/octet-stream")})
 
 
 def _plain(status, text):
@@ -59,7 +66,7 @@ def _htaccess_denies(txt: str, here: bool, name: str) -> bool:
 def static_response(root: str, path: str):
     """php-router.php, step by step. `path` is rawurldecode(parse_url(REQUEST_URI, PHP_URL_PATH))."""
     if ".." in path or "\x00" in path:
-        return SResponse(b"", status_code=400)
+        return SResponse(b"", status_code=400, headers={"Content-Type": "text/html; charset=UTF-8"})
     root = os.path.abspath(root).rstrip("/\\") or "/"
     rel = path.replace("\\", "/")
     file = os.path.normpath(os.path.join(root, rel.lstrip("/"))) if rel.strip("/") else root
@@ -87,12 +94,12 @@ def static_response(root: str, path: str):
             break
         d = parent
     if os.path.isfile(file) and not name.endswith(".php"):
-        return FileResponse(file, headers={"Content-Type": MIME.get(os.path.splitext(file)[1].lower(), "application/octet-stream")})
+        return _file(file)
     if os.path.isfile(file):
         return _plain(404, "Not found")   # PHP files are not executed by the Python server
     idx = os.path.join(file, "index.html")
     if os.path.isdir(file) and os.path.isfile(idx):
-        return FileResponse(idx, headers={"Content-Type": MIME[".html"]})
+        return _file(idx)
     return _plain(404, "Not found")
 
 
