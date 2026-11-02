@@ -59,3 +59,10 @@ Newest entries last. Resume from the last "Next step".
 - tests/run_suite_python.sh: PATH=shim:..., runs node suite.js in docmapv1/tests, log in _trash/suite-python.log.
 - jsqr/pngjs not installed globally: npm i'd them in the session scratchpad and added to NODE_PATH.
 - Next step: run PHP baseline + Python suite, compare W/X/J, write SUITE-RESULTS.md.
+
+## 2026-11-02 — F2 suite results (SUITE-RESULTS.md)
+- PHP baseline `node suite.js`: RESULT 1093 passed, 0 failed, errors none.
+- Python via shim (default, v10.1 api.php + setup.php on real php): 1093 passed, 0 failed, errors none.
+- Python pure (DOCMAP_SHIM_LEGACY_PHP=0): 1092 passed, 1 failed — "J: v10.1 API … schema 1, no journal" (inherent: the
+  "old server" is then the v11 Python). No Python bugs found; api.py unchanged by F2.
+- Next step: optional — get a DOCMAP_TEST_SERVER_CMD hook into suite.js (other team) so the shim is not needed.

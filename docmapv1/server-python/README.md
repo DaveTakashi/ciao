@@ -72,6 +72,7 @@ Si rifiuta di partire se il file di configurazione esiste già. Opzioni: `--user
 | `--host H` / `--port N` | `127.0.0.1` / `8080` | indirizzo di ascolto (anche `DOCMAP_HOST`, `DOCMAP_PORT`) |
 | `--api-path P` (ripetibile) | `/studio-de/server-php/api.php` e `/api` | percorsi su cui risponde l'API (`?r=<rotta>`) |
 | `--root DIR` | nessuno | serve anche i file statici di una cartella di deploy dalla stessa origine |
+| `--php-layout` | spento | con `--root`: ogni `<cartella>/api.php` esistente del deploy è l'API e usa `<cartella>/config.php` (come `php -S`) |
 | `--log-level` | `info` | `debug` mostra anche le richieste |
 
 Con `--root`, i file del deploy (web app, `scan.html`, …) sono serviti con le **stesse regole di
@@ -124,6 +125,9 @@ python3 tests/test_licence.py       # licenza: chiavi e licenze create con il hu
 python3 tests/diff_test.py          # PHP vero e Python fianco a fianco (serve php 8 con pdo_sqlite)
 NODE_PATH=<node_modules con playwright> python3 tests/validate_python.py   # docs/python/tools/validate_schemas.py contro il Python
 ```
+
+Suite Playwright completa (`docmapv1/tests/suite.js`, non modificata) con il Python al posto di `php -S`:
+`sh tests/run_suite_python.sh` (finto `php` in `tests/php-shim/`; risultati in `SUITE-RESULTS.md`).
 
 `diff_test.py` avvia `php -S … tests/php-router.php` e il server Python con la stessa chiave e gli stessi token, manda a
 entrambi la stessa sequenza di richieste e confronta stato, JSON e header; poi confronta i due `docmap.sqlite`
