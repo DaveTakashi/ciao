@@ -398,7 +398,7 @@ const MOBILE_FIELD_IT = {archive_state:'stato', contents_items:'contenuti', room
 /** Pure: apply a mobile patch to a binder object (returns a new normalised binder). Shared by local provider and desktop live merge. */
 function mobileApplyPatch(b, patch, at){
   const o = Object.assign({}, b);
-  MOBILE_FIELDS.forEach(k => { if (patch && Object.prototype.hasOwnProperty.call(patch, k)) o[k] = k === 'contents_items' ? pipeToContents(patch[k]) : patch[k]; });
+  MOBILE_FIELDS.forEach(k => { if (patch && Object.prototype.hasOwnProperty.call(patch, k)) o[k] = k === 'contents_items' ? ciCarryIds(b.contents_items, pipeToContents(patch[k])) : patch[k]; });
   const n = normalizeBinder(o);
   n.id = b.id; n.created_at = b.created_at; n.short_code = b.short_code; n.short_url = b.short_url;   // never touched from mobile
   n.updated_at = at || nowISO();

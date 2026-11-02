@@ -24,6 +24,7 @@
     "clients": {"type": "array", "items": {"$ref": "client.schema.json"}},
     "locations": {"type": "array", "items": {"$ref": "location.schema.json"}, "description": "v11 (absent in older files = no change to the tree)."},
     "activity_log": {"type": "array", "items": {"$ref": "activity_log_entry.schema.json"}, "description": "v9, backups only: merged by id on restore, never replaced."},
+    "status_events": {"type": "array", "items": {"$ref": "status_event.schema.json"}, "description": "v12, backups only, present when there are status events: merged by id on restore (the history is never dropped)."},
     "sync_journal": {"type": "array", "items": {"$ref": "sync_journal_entry.schema.json"}, "description": "v11, backups only, present when the local journal is not empty: merged by id on 'ripristina tutto' + Sostituisci."}
   },
   "additionalProperties": true,
@@ -47,7 +48,9 @@
         "deviceId": {"type": "string", "description": "v10 sync: 'dev-' + uuid of this installation (localStorage docmap_v26_device wins over a restored copy)."},
         "deviceLabel": {"type": "string"},
         "locLevels": {"type": "array", "maxItems": 8, "items": {"type": "object", "properties": {"name": {"type": "string"}, "prefix": {"type": "string"}}}},
-        "locLevelsAt": {"type": "string"}
+        "locLevelsAt": {"type": "string"},
+        "statusTypes": {"type": "array", "maxItems": 60, "description": "v12: customised status types (docs/MODELLO-DATI.md §15; absent = the 10 built-in ones).", "items": {"type": "object", "required": ["id"], "properties": {"id": {"type": "string"}, "label": {"type": "string"}, "color": {"type": "string"}, "icon": {"type": "string"}, "presence": {"enum": ["in", "out", "missing", "neutral"]}, "needs_holder": {"enum": ["", "me", "client", "entity"]}, "needs_due_date": {"enum": ["", "optional", "required"]}, "needs_note": {"enum": ["", "optional", "required"]}, "needs_date": {"enum": ["", "optional", "required"]}, "returns_to": {"type": "string"}, "quick": {"type": "boolean"}, "applies_to": {"type": "array", "items": {"enum": ["binder", "document", "box"]}}, "disabled": {"type": "boolean"}}}},
+        "statusTypesAt": {"type": "string", "description": "v12: when statusTypes last changed (the newer list wins in sync)."}
       },
       "additionalProperties": true
     }

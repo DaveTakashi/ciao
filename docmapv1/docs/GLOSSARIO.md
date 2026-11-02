@@ -15,8 +15,13 @@
 | **Cliente** / anagrafica | client / client register | `S.clients`, tabella `clients`, record `client`, `normalizeClient()` | La ditta o persona dello studio. Il faldone ne copia nome, Multi, luogo e categoria. |
 | **Categoria** | category | `category` | Tipo di cliente o regime (es. APS, ETS, Ordinaria). Decide la famiglia di colori. |
 | **Colore del dorso** | spine colour | `color_hex`, `color_locked`, `settings.colorMode`, `catFamilies`, `colorRules` | Colore della barra sull'etichetta. Automatico (per cliente o categoria) o bloccato a mano (`color_locked: true`). |
-| **Contenuti** / voci | contents items | `contents_items[]` `{year, description, status}` | L'elenco dei documenti nel faldone; `status` `archive` (in archivio) · `in_use` (in uso) · `client` (al cliente). |
+| **Contenuti** / voci | contents items | `contents_items[]` `{id, year, description, status}` | L'elenco dei documenti nel faldone; `status` `archive` (in archivio) · `in_use` (in uso) · `client` (al cliente). |
 | **Stato del faldone** | archive state | `archive_state` | Stato complessivo del faldone (es. in archivio, prelevato). |
+| **Stato** (preso, reinserito…) / movimento | status / status event | `S.statusEvents[]`, tabella `status_events`, record `status_event` (02d-status.js) | v12: ogni movimento di un faldone, di un documento o di una scatola (chi, quando, chi lo ha, rientro, nota). Si aggiunge e non si modifica mai; lo stato attuale è l'ultimo movimento. |
+| **Stati rapidi** / tipo di stato | status types | `settings.statusTypes`, `statusTypesAt` | v12: l'elenco personalizzabile degli stati (nome, colore, presenza in/fuori/mancante/nota, cosa chiedere, pulsante rapido). |
+| **Fuori archivio** | out of the archive | vista `status` (06j-status.js), presenza `out` / `missing` | v12: cosa non è in archivio adesso, chi ce l'ha, da quando, chi è in ritardo. |
+| **Verifica rientro** | return check | `status.verify` (11c-status.js), localStorage `docmap_v26_status_verify` | v12: al ritorno di una scatola si scansionano i faldoni che contiene; trovati e mancanti finiscono nel registro e in un CSV. |
+| **Id del documento** | document id | `contents_items[].id`, `ciEnsureIds()`, `ciCarryIds()` | v12: identificativo stabile di una voce del contenuto, a cui puntano gli stati dei singoli documenti. |
 | **Posizione** | position | `room_code`, `cabinet_code`, `shelf_code`, `sector_code`, `computeLocation()` | Stanza, armadio, ripiano, settore scritti a mano (es. `A1-β-SX`). Indipendente dall'ubicazione. |
 | **Ubicazione** | location | `S.locations`, tabella `locations`, record `location`, `normalizeLocation()` (02c-locations.js) | Un nodo dell'albero dell'archivio fisico: magazzino › armadio › scansia › scaffale › scatola. Ha un suo QR (`dm26L…`). |
 | **Scatola** | box | ultimo livello di `settings.locLevels` (predefinito prefisso `B`) | L'ubicazione dove di solito si mettono i faldoni e si attacca il QR. |

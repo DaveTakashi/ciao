@@ -33,12 +33,12 @@
 
 | Rotta | Metodo | Ruolo | Richiesta | Risposta 200 |
 |---|---|---|---|---|
-| `ping` | GET | nessuno | – | `{"ok":true,"api":"docmap-php","version":1,"schema":2,"features":["journal","device_info","locations"],"server_time":"…","php":"8.3"}` (funziona anche senza `config.php`; serve all'avviso di orologio sfasato) |
+| `ping` | GET | nessuno | – | `{"ok":true,"api":"docmap-php","version":1,"schema":2,"features":["journal","device_info","locations","status_events"],"server_time":"…","php":"8.3"}` (funziona anche senza `config.php`; serve all'avviso di orologio sfasato) |
 | `me` | GET | viewer | – | `{"user":"mario","role":"editor","token_id":"cfg:1","studio_name":"…","server_time":"…"}` |
 | `pull` | GET | viewer | `since=<seq>` (0 = tutto) · `log_since=<seq>` | vedi §3 |
 | `push` | POST | editor | vedi §4 | `{"applied":n,"same":n,"rejected":[…],"settings_applied":bool,"logged":n,"seq":n,"server_time":"…"}` |
-| `binder` | GET | viewer | `qr=<short_code>` oppure `code=<speaking_code>` (maiuscole/minuscole indifferenti) | `{"binder":Binder,"etag":"<updated_at>","siblings":[Sibling]}` + header `ETag` · 404 |
-| `location` | GET | viewer | v11: `qr=<dm26L…>` oppure `id=<uuid>` oppure `code=<codice percorso>` | `{"location":Location,"etag":"<updated_at>","path":[Brief],"children":[Brief],"binders":[BinderBrief],"count":n}` · 404 |
+| `binder` | GET | viewer | `qr=<short_code>` oppure `code=<speaking_code>` (maiuscole/minuscole indifferenti) | `{"binder":Binder,"etag":"<updated_at>","siblings":[Sibling],"status_events":[StatusEvent],"status_types":[…]|null}` + header `ETag` · 404 |
+| `location` | GET | viewer | v11: `qr=<dm26L…>` oppure `id=<uuid>` oppure `code=<codice percorso>` | `{"location":Location,"etag":"<updated_at>","path":[Brief],"children":[Brief],"binders":[BinderBrief],"count":n,"status_events":[StatusEvent],"status_types":[…]|null}` · 404 |
 | `resolve` | GET | viewer | v11: `qr=<short_code>` di qualsiasi tipo | `{"type":"location", …come location}` oppure `{"type":"binder", …come binder}` · 404 |
 | `patch` | POST | editor | vedi §5 | `{"binder":Binder,"etag":"<nuovo updated_at>"}` + `ETag` · 409 · 422 |
 | `tokens` | GET | admin | – | `{"items":[{"id":"cfg:0"|"db:…","user","role","source":"config"|"database","created_at"?,"revoked_at"}]}` |
@@ -50,6 +50,9 @@
 Campi aggiunti in v11 (un client v10.1 li ignora): `ping` → `"schema":2,"features":["journal","device_info","locations"]`;
 `push` e `pull` → `"journal_id":n|null` (voce del registro scritta da quella chiamata); `patch` → `"journal_id"` e
 `"hash"` (SHA-256 canonico della versione salvata).
+
+Campi aggiunti in v12 (un client precedente li ignora): `ping` → `"status_events"` in `features`; `binder` e `location`
+→ `status_events` e `status_types` (§11).
 
 `Binder` = l'oggetto di `MODELLO-DATI.md` §1 così come lo invia il client (più `id`, `updated_at`); `Sibling` =
 `{speaking_code, shelf_code, sector_code, location_code}` degli altri faldoni dello **stesso armadio** (stanza+armadio).
@@ -253,3 +256,24 @@ l'elemento non ha una versione (`pull`, `pull-delete`, `rejected-invalid`) o il 
 volta al giorno e toglie le voci più vecchie con i loro elementi. **Compatibilità**: un database v10.1 riceve le due
 tabelle al primo avvio dell'API v11 (`meta.schema` 1 → 2); un client v10.1 continua a funzionare (i campi nuovi
 delle risposte sono ignorati, il dispositivo risulta `unknown`).
+
+## 11. v12 — stati (preso, reinserito, dato al Comune…): record `status_event`
+
+Nessuna nuova rotta e nessuna migrazione del server: i movimenti di stato sono **record del tipo `status_event`**
+(aggiunto a `DM_TYPES`) nella tabella `records`, scritti con `push` come gli altri e restituiti da `pull`.
+`StatusEvent` = l'oggetto di `MODELLO-DATI.md` §15.2 (schema `docs/python/schema/status_event.schema.json`);
+`updated_at` del record = `at` dell'evento. Un evento **non cambia mai** (append-only, un annullamento è un nuovo evento
+con `undo_of`), quindi lo stesso id arriva sempre con lo stesso contenuto (`same`).
+
+- **Indici HMAC**: `k_short = HMAC('st/b/<binder id>')` (anche per i documenti del faldone) oppure `HMAC('st/l/<location id>')`;
+  `k_code = HMAC('stbox/<box_id>')` quando il movimento è passato da una scatola. Il payload resta cifrato come ogni record.
+- **`binder`** aggiunge `status_events` (gli ultimi 200 del faldone e dei suoi documenti, in ordine cronologico) e
+  `status_types` (la chiave `statusTypes` delle impostazioni condivise, `null` = stati predefiniti).
+- **`location`** aggiunge `status_events` della scatola, dei faldoni che contiene e di quelli usciti con lei (`box_id`),
+  al massimo 2000, e `status_types`: il telefono ci costruisce la **Verifica rientro**.
+- **Telefono** (`scan.html`): un tocco = `push` con `records:[{type:"status_event",…}]` e una voce di registro
+  `activity_log` (`action` `status.set` · `status.box` · `status.verify` · `status.undo`, `source:"mobile"`,
+  `details.events` = gli eventi). Un server **precedente** risponde `rejected` `invalid` per i record ma conserva la voce
+  di registro: i PC v12 ricavano gli eventi da `details.events` al `pull` del registro, e non mandano record
+  `status_event` a un server il cui `ping` non elenca `status_events`.
+

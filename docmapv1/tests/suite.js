@@ -3291,7 +3291,7 @@ const sec = (n) => console.log('\n== ' + n);
           'J S2b: A deletes W, B edits it later → the edit wins (W back on A); server journal: B\'s push "create / resurrect" over the deletion', {A:Jv, srv:Jv2.j.items[0] && Jv2.j.items[0].records});
 
         // ---- phone (scan.html, web mode with the server): device name, save, conflict, forced ----
-        const Pc = await b.newContext({viewport:{width:390, height:844}, isMobile:true}); Jctxs.push(Pc);
+        const Pc = await b.newContext({viewport:{width:390, height:844}, isMobile:true, locale:'it-IT'}); Jctxs.push(Pc);
         const P = await Pc.newPage(); P.on('pageerror', e => errs.push('J phone PAGEERR ' + e.message));
         await P.goto(JO + '/studio-de/scan.html?q=dm26JrJRYQx'); await P.waitForTimeout(900);
         await P.fill('#sc-user', 'anna.tel'); await P.fill('#sc-pin', '8642'); await P.fill('#sc-pin2', '8642'); await P.fill('#sc-token', JT.anna); await P.click('#sc-enter'); await P.waitForTimeout(2200);
@@ -3541,7 +3541,7 @@ const sec = (n) => console.log('\n== ' + n);
         o.srv = $('#hx-m-srv').textContent; o.warn = $('#hx-about-body').textContent.includes(t('hx_srv_old')); o.card = ($('#hx-srv') || {}).textContent; o.cardWarn = !!$('#hx-srv-warn');
         o.url = calls[0] && calls[0].u; o.noTok = calls.every(c => !String(c.body).includes('SECRET'));
         schema = 2; await hxPing(); o.warn2 = $('#hx-about-body').textContent.includes(t('hx_srv_old'));
-        const txt = hxSupportText(); o.txt = /26\.11/.test(txt) && txt.includes(syncDeviceId()) && txt.includes('schema 2') && txt.includes('srv.example.test'); o.leak = /SECRET|PASSWORD-H/.test(txt);
+        const txt = hxSupportText(); o.txt = txt.includes(APP_VERSION) && txt.includes(syncDeviceId()) && txt.includes('schema 2') && txt.includes('srv.example.test'); o.leak = /SECRET|PASSWORD-H/.test(txt);
       } finally { window.fetch = f0; if (keep == null) localStorage.removeItem(SRV_LS); else localStorage.setItem(SRV_LS, keep); HX.ping = null; HX.pingErr = ''; while (topModal()) closeModal(true); renderAll(); }
       return o; });
     ok(Hv.cfg === await p.evaluate(() => t('hx_srv_cfg')) && Hv.btn && /schema 1/.test(Hv.srv) && /API 1\.2/.test(Hv.srv) && Hv.warn && Hv.cardWarn && /schema 1/.test(Hv.card) && /srv\.example\.test\/studio-de\/server-php\/api\.php\?r=ping/.test(Hv.url) && Hv.noTok && !Hv.warn2 && Hv.txt && !Hv.leak,
@@ -3636,10 +3636,358 @@ const sec = (n) => console.log('\n== ' + n);
       S.clients = keep; dbSyncFromState('t');
       return {ver, col:c1 && c1.color_hex, tags:c1 && c1.tags, up:c1 && c1.updated_at, multi:c1 && c1.multi_code, ex2, old:W3.clients.map(c => c.name + '/' + c.multi_code).join(','), oldCol:col};
     });
-    ok(+Vv.ver === 8 && Vv.col === '#9C051E' && Vv.tags === 'aps,proloco' && Vv.up === '2026-11-01T10:00:00.000Z' && Vv.multi === 'V111' && Vv.ex2 == null && Vv.old === 'Vecchio Cliente/777' && Vv.oldCol,
+    ok(+Vv.ver >= 8 && Vv.col === '#9C051E' && Vv.tags === 'aps,proloco' && Vv.up === '2026-11-01T10:00:00.000Z' && Vv.multi === 'V111' && Vv.ex2 == null && Vv.old === 'Vecchio Cliente/777' && Vv.oldCol,
       'v11.1: client colour / tags / updated_at round-trip through SQLite (clients.extra_json); a schema-7 file migrates and keeps its clients', Vv);
   }
   // @@STREAM-Q@@
+  sec('v12 Q: statuses (preso / reinserito / dato al Comune…) for binders, documents and boxes');
+  {
+    const Qcp = require('child_process'), Qpath = require('path'), Qcrypto = require('crypto');
+    let Qv, Qv2, Qv3;
+    const Qsnap = await p.evaluate(() => JSON.stringify({b:S.binders, ev:S.statusEvents || [], types:S.settings.statusTypes, at:S.settings.statusTypesAt, view:S.view}));
+    await p.evaluate(() => { while (topModal()) closeModal(true); });
+    // ---- model: defaults, normalisation, upgrade of v10.0 / v11.1 shaped states ----
+    Qv = await p.evaluate(() => {
+      const d = sqTypes({}), en = (() => { const l = S.lang; S.lang = 'en'; const x = sqTypeLabel(sqType(d, 'taken')); S.lang = l; return x; })();
+      const bad = sqNormType({id:'x1', presence:'??', color:'red', needs_holder:'nobody', applies_to:['planet']});
+      return {ids:d.map(x => x.id).join(','), it:sqTypeLabel(sqType(d, 'to_entity')), en, bad:[bad.presence, bad.color, bad.needs_holder, bad.applies_to.join()].join('|'),
+        quickIn:sqQuickFor(d, 'binder', null, 3).map(x => x.id).join(','), quickOut:sqQuickFor(d, 'binder', {status_id:'to_client'}, 3).map(x => x.id).join(','),
+        oneTap:[sqNeeds(sqType(d, 'taken')).oneTap, sqNeeds(sqType(d, 'to_entity')).oneTap].join(), chk:sqCheck(sqType(d, 'to_entity'), {holder:''})};
+    });
+    ok(Qv.ids === 'taken,returned,to_client,from_client,case,to_entity,from_entity,missing,found,check' && Qv.it === 'Dato al Comune / ente' && Qv.en === 'Taken' && Qv.bad === 'neutral|#64748B||binder' &&
+      Qv.quickIn === 'taken,to_client,case' && Qv.quickOut === 'from_client,returned' && Qv.oneTap === 'true,false' && Qv.chk === 'sq_e_holder',
+      'Q: 10 default status types (IT/EN), normalisation of bad values, context-aware quick buttons (in → out types, out → its "returns_to" first), one-tap vs form, validation', Qv);
+    Qv = await p.evaluate(() => {
+      // a v10.0-shaped state: contents as pipe text, no ids, no statusEvents; and a v11.1-shaped one with locations
+      const v10 = {schema:26.9, settings:{deviceId:'dev-old'}, binders:[{id:'q-up1', speaking_code:'QU1', company_name:'Upgrade Srl', contents_items:'2025: Fatture|2025: Fatture|2024: Bilancio [cliente]', updated_at:'2026-01-01T10:00:00.000Z'}]};
+      const a = migrate(JSON.parse(JSON.stringify(v10))), b2 = migrate(JSON.parse(JSON.stringify(v10)));
+      const v111 = migrate({schema:26.9, settings:{locLevels:[{name:'Scatola', prefix:'B'}]}, locations:[{id:'q-l1', seg:'B1'}], binders:[{id:'q-up2', speaking_code:'QU2', contents_items:[{year:'2025', description:'Libro giornale', status:'archive'}], location_id:'q-l1', updated_at:'2026-02-01T10:00:00.000Z'}], syncJournal:[]});
+      const ids = a.binders[0].contents_items.map(i => i.id);
+      return {ids, same:JSON.stringify(ids) === JSON.stringify(b2.binders[0].contents_items.map(i => i.id)), uniq:new Set(ids).size, ev:Array.isArray(a.statusEvents) && a.statusEvents.length === 0, upd:a.binders[0].updated_at,
+        st:a.binders[0].contents_items[2].status, v111:v111.binders[0].contents_items[0].id, v111ev:Array.isArray(v111.statusEvents), canon:syncCanon(a.binders[0], 'binder') === syncCanon(Object.assign({}, a.binders[0], {contents_items:a.binders[0].contents_items.map(i => ({year:i.year, description:i.description, status:i.status}))}), 'binder'),
+        keep:migrate({statusEvents:[{id:'se-1', at:'2026-11-01T08:00:00.000Z', target_type:'binder', target_id:'q-up1', status_id:'taken'}, {id:'se-1', at:'2026-11-01T08:00:00.000Z', target_type:'binder', target_id:'q-up1', status_id:'taken'}, {id:'bad'}, null]}).statusEvents.length};
+    });
+    ok(Qv.ids.every(i => /^ci-[0-9a-f]{16}$/.test(i)) && Qv.same && Qv.uniq === 3 && Qv.ev && Qv.upd === '2026-01-01T10:00:00.000Z' && Qv.st === 'client' && /^ci-/.test(Qv.v111) && Qv.v111ev && Qv.canon && Qv.keep === 1,
+      'Q: v10.0 / v11.1 states load unchanged + additive fields: deterministic unique document ids (same on two devices, even for repeated lines), statusEvents [] / de-duplicated, updated_at kept (ids not sync content)', Qv);
+
+    // ---- events: append, current status, undo, history ----
+    Qv = await p.evaluate(() => {
+      const b = normalizeBinder({speaking_code:'QD1', company_name:'Quokka Stati S.r.l.', short_code:'dm26QdQD1aaa', contents_items:'2025: Fatture Quokka|2025: Registri Quokka|2024: Bilancio Quokka', updated_at:'2026-03-01T10:00:00.000Z'});
+      const b2 = normalizeBinder({speaking_code:'QD2', company_name:'Quokka Due S.r.l.', short_code:'dm26QdQD2aaa', contents_items:'2025: Fatture Due', updated_at:'2026-03-01T10:00:00.000Z'});
+      S.binders.push(b, b2); commit();
+      const n0 = S.statusEvents.length;
+      const e1 = sqRecord([sqTargetBinder(b)], 'taken', {holder:'Mario'}, {quiet:true})[0];
+      const c1 = sqCurrent(S.statusEvents, 'binder', b.id);
+      const e2 = sqRecord([sqTargetBinder(b)], 'returned', {}, {quiet:true})[0];
+      const c2 = sqCurrent(S.statusEvents, 'binder', b.id).status_id;
+      sqUndo([e2]);
+      const c3 = sqCurrent(S.statusEvents, 'binder', b.id);
+      const h = sqHistory(S.statusEvents, 'binder', b.id);
+      const d = sqRecord([sqTargetDoc(b, b.contents_items[1])], 'to_client', {holder:'Quokka Stati S.r.l.'}, {quiet:true})[0];
+      const log = LOG.entries.filter(e => /^status\./.test(e.action)).slice(-4).map(e => e.action);
+      return {n:S.statusEvents.length - n0, c1:c1.id === e1.id && c1.holder === 'Mario' && c1.user === logWho() && c1.via === 'desktop', c2, c3:c3 && c3.id === e1.id, hist:h.map(x => (x.undo ? 'U' : '') + (x.voided ? 'V' : '') + (x.ev.status_id || '-')).join(','),
+        order:e2.at > e1.at, doc:d.target_type === 'document' && d.doc_id === b.contents_items[1].id && d.doc_text === '2025: Registri Quokka', docCur:sqDocCurrents(S.statusEvents, b.id).size, log:log.join(','),
+        ev:LOG.entries.filter(e => e.action === 'status.set').pop().details.events.length};
+    });
+    ok(Qv.n === 4 && Qv.c1 && Qv.c2 === 'returned' && Qv.c3 && Qv.hist === 'U-,Vreturned,taken' && Qv.order && Qv.doc && Qv.docCur === 1 && Qv.log === 'status.set,status.set,status.undo,status.set' && Qv.ev === 1,
+      'Q: events append-only: current = latest; undo = compensating event (the undone one stays, voided) → back to "Preso da Mario"; single-document status by contents id; one log line per action with details.events', Qv);
+
+    // ---- document ids survive CSV (merge + replace), lines mode, JSON backup, SQLite, sync package ----
+    Qv = await p.evaluate(async () => {
+      const b = S.binders.find(x => x.speaking_code === 'QD1'), ids0 = b.contents_items.map(i => i.id).join(',');
+      const csv = toCSV([CSV_COLUMNS, binderToCsvRow(b)], ';');
+      analyzeImport(csv.replace('2024: Bilancio Quokka', '2024: Bilancio Quokka|2026: Nuovo documento')); applyImport('merge');
+      const m = S.binders.find(x => x.speaking_code === 'QD1').contents_items;
+      const merge = m.slice(0, 3).map(i => i.id).join(',') === ids0 && m.length === 4 && /^ci-/.test(m[3].id) && !ids0.includes(m[3].id);
+      // lines mode of the editor ("Una riga per voce") keeps the ids of unchanged lines
+      openEditor(b.id); await new Promise(r => setTimeout(r, 120));
+      edLinesOpen(); const ta = $('#ed-lines'); ta.value = ta.value.split('\n').reverse().join('\n'); edLinesApply();
+      const lines = UI.ed.d.contents_items.map(i => i.id).slice().sort().join(',') === m.map(i => i.id).slice().sort().join(',');
+      closeModal(true);
+      const W = JSON.parse(workspaceJSON(true)), wb = W.binders.find(x => x.speaking_code === 'QD1');
+      const json = wb.contents_items.slice(0, 3).map(i => i.id).join(',') === ids0 && Array.isArray(W.status_events) && W.status_events.length === S.statusEvents.length && !W.status_events.some(e => e._rx);
+      dbSyncFromState('t'); const d2 = new DB.SQL.Database(DB.db.export()), R = dbReadWorkspace(d2), ver = dbScalar("SELECT value FROM meta WHERE key='schema_version'", null, d2); d2.close();
+      const rb = R.binders.find(x => x.speaking_code === 'QD1');
+      const sql = rb.contents_items.slice(0, 3).map(i => i.id).join(',') === ids0 && R.status_events.length === S.statusEvents.length && R.status_events.every(e => S.statusEvents.some(x => x.id === e.id && x.at === e.at && x.status_id === e.status_id));
+      const pkg = syncBuildPackage({}), pb = pkg.records.binders.find(x => x.speaking_code === 'QD1');
+      const sync = pb.contents_items.slice(0, 3).map(i => i.id).join(',') === ids0 && pkg.records.status_events.length === S.statusEvents.length && pkg.counts.status_events === S.statusEvents.length && pkg.settingsSubset && 'statusTypes' in pkg.settingsSubset === false;
+      // a CSV import in "replace" mode carries the ids over too
+      analyzeImport(toCSV([CSV_COLUMNS].concat(S.binders.map(binderToCsvRow)), ';')); applyImport('replace');
+      const rep = S.binders.find(x => x.speaking_code === 'QD1').contents_items.slice(0, 3).map(i => i.id).join(',') === ids0;
+      return {merge, lines, json, sql, ver:+ver, sync, rep};
+    });
+    ok(Qv.merge && Qv.lines && Qv.json && Qv.sql && Qv.ver === 9 && Qv.sync && Qv.rep,
+      'Q: document ids survive CSV import (Unisci + new line, Sostituisci), "Una riga per voce", the JSON backup (with status_events), the .sqlite file (schema 9: item_id + status_events) and sync packages', Qv);
+    Qv = await p.evaluate(() => {
+      // an older .sqlite (schema 8: no item_id, no status_events) migrates additively; opening it keeps (joins) the current events
+      const d3 = new DB.SQL.Database(); d3.exec("CREATE TABLE binders(id TEXT PRIMARY KEY, speaking_code TEXT, company_name TEXT, updated_at TEXT); CREATE TABLE contents_items(id INTEGER PRIMARY KEY AUTOINCREMENT, binder_id TEXT, position INTEGER, year TEXT, description TEXT, status TEXT); INSERT INTO binders VALUES ('q-old8','QO8','Vecchio Srl','2026-01-01T00:00:00.000Z'); INSERT INTO contents_items(binder_id,position,year,description,status) VALUES ('q-old8',0,'2024','Fatture vecchie','archive')");
+      dbMigrate(d3);
+      const cols = dbQuery('PRAGMA table_info(contents_items)', null, d3).map(r => r.name), tab = dbQuery("SELECT name FROM sqlite_master WHERE name='status_events'", null, d3).length;
+      dbMigrate(d3);   // idempotent
+      const W = dbReadWorkspace(d3); d3.close();
+      const n = S.statusEvents.length, keep = clone(S.binders), keepL = clone(S.locations || []);
+      applyWorkspaceObject({binders:W.binders, status_events:[S.statusEvents[0]]});
+      const kept = S.statusEvents.length === n, id = S.binders[0] && S.binders[0].contents_items[0].id;
+      S.binders = keep; S.locations = keepL; locTouch && locTouch(); commit();
+      return {cols:cols.includes('item_id'), tab, kept, id:/^ci-/.test(id || '')};
+    });
+    ok(Qv.cols && Qv.tab === 1 && Qv.kept && Qv.id, 'Q: a schema-8 .sqlite gains item_id + status_events (idempotent migration keyed on existence); opening it joins events, never drops them', Qv);
+
+    // ---- desktop UI: settings (types CRUD), binder form panel, archive filter / badges / bulk, dashboard, scanner mode ----
+    await p.evaluate(() => { S.view = 'settings'; renderAll(); });
+    await p.click('#sq-se-add'); await p.waitForTimeout(150);
+    await p.fill('#sqt-label', 'Prestato al revisore'); await p.selectOption('#sq-tform [data-sqt="needs_holder"]', 'entity');
+    await p.locator('.modal-f .btn-primary').last().click(); await p.waitForTimeout(200);
+    Qv = await p.evaluate(() => { const ty = sqType(sqTypes(S.settings), 'c-prestato_al_revisore'); return {ty:ty && [ty.label, ty.presence, ty.needs_holder, ty.quick].join('|'), at:!!S.settings.statusTypesAt, n:S.settings.statusTypes.length, row:!!document.querySelector('#sq-types [data-sq-type="c-prestato_al_revisore"]'), log:LOG.entries[LOG.entries.length - 1].action}; });
+    ok(Qv.ty === 'Prestato al revisore|out|entity|true' && Qv.at && Qv.n === 11 && Qv.row && Qv.log === 'settings.status_types', 'Q: Impostazioni › Stati rapidi: "Aggiungi stato" adds a custom type (id c-…, statusTypesAt set, logged)', Qv);
+    await p.click('#sq-types [data-sq-type="c-prestato_al_revisore"] [data-a="sq-se-edit"]'); await p.waitForTimeout(150);
+    Qv = await p.evaluate(() => !!Array.from(document.querySelectorAll('.modal-f .btn')).find(x => /Elimina/.test(x.textContent)));
+    await p.uncheck('#sq-tform [data-sqt-b="enabled"]'); await p.locator('.modal-f .btn-primary').last().click(); await p.waitForTimeout(150);
+    await p.click('#sq-types li:first-child [data-a="sq-se-move"][data-d="1"]'); await p.waitForTimeout(150);
+    await p.click('#sq-types [data-sq-type="taken"] [data-a="sq-se-edit"]'); await p.waitForTimeout(150);
+    Qv2 = await p.evaluate(() => ({del:!!Array.from(document.querySelectorAll('.modal-f .btn')).find(x => /Elimina/.test(x.textContent)), used:!!document.querySelector('#sq-tform .hint')}));
+    await p.evaluate(() => closeModal(true));
+    Qv3 = await p.evaluate(() => { const T = sqTypes(S.settings); return {off:sqType(T, 'c-prestato_al_revisore').disabled, order:T.slice(0, 2).map(x => x.id).join(','), offered:sqTypesFor(T, 'binder').some(x => x.id === 'c-prestato_al_revisore')}; });
+    await p.click('#sq-types li:nth-child(2) [data-a="sq-se-move"][data-d="-1"]'); await p.waitForTimeout(150);
+    ok(Qv && !Qv2.del && Qv2.used && Qv3.off && !Qv3.offered && Qv3.order === 'returned,taken' && await p.evaluate(() => sqTypes(S.settings)[0].id === 'taken'),
+      'Q: a type without events can be deleted, a used one only disabled (hidden from the choices, history kept); arrows reorder', {Qv, Qv2, Qv3});
+
+    // binder form: status panel, quick button (one tap), undo from the toast, document status
+    await p.evaluate(() => { S.view = 'archive'; renderAll(); openEditor(S.binders.find(x => x.speaking_code === 'QD2').id); });
+    await p.waitForTimeout(200);
+    Qv = await p.evaluate(() => ({panel:!!document.querySelector('#sq-ed'), now:(document.querySelector('#sq-ed .sq-ed-now') || {}).textContent, quick:Array.from(document.querySelectorAll('#sq-ed [data-a="sq-quick"]')).map(x => x.dataset.st).join(',')}));
+    await p.click('#sq-ed [data-a="sq-quick"][data-st="taken"]'); await p.waitForTimeout(200);
+    Qv2 = await p.evaluate(() => { const b = S.binders.find(x => x.speaking_code === 'QD2'), c = sqCurrent(S.statusEvents, 'binder', b.id); return {st:c && c.status_id, via:c && c.via, holder:c && c.holder, panel:(document.querySelector('#sq-ed .sq-ed-now') || {}).textContent, undo:!!Array.from(document.querySelectorAll('.toast button')).find(x => /Annulla/.test(x.textContent))}; });
+    await p.evaluate(() => { const btn = Array.from(document.querySelectorAll('.toast button')).filter(x => /Annulla/.test(x.textContent)).pop(); if (btn) btn.click(); });
+    await p.waitForTimeout(200);
+    Qv3 = await p.evaluate(() => { const b = S.binders.find(x => x.speaking_code === 'QD2'); return {cur:sqCurrent(S.statusEvents, 'binder', b.id), now:(document.querySelector('#sq-ed .sq-ed-now') || {}).textContent}; });
+    await p.click('#sq-ed .sq-ed-docs > summary'); await p.click('#sq-ed [data-a="sq-doc"]'); await p.waitForTimeout(150);
+    await p.click('#sq-sheet [data-a="sq-pick"][data-id="to_client"]'); await p.waitForTimeout(120);
+    Qv.form = await p.evaluate(() => ({holder:$('#sq-holder').value, due:!!$('#sq-due'), note:!!$('#sq-note')}));
+    await p.fill('#sq-due', '2020-01-15'); await p.click('#sq-go'); await p.waitForTimeout(200);
+    Qv.doc = await p.evaluate(() => { const b = S.binders.find(x => x.speaking_code === 'QD2'), m = sqDocCurrents(S.statusEvents, b.id), e = m.get(b.contents_items[0].id); return e && [e.status_id, e.holder, e.due_date, e.via, sqOverdue(e, sqTypes(S.settings))].join('|'); });
+    await p.evaluate(() => closeModal(true));
+    ok(Qv.panel && /In archivio/.test(Qv.now) && Qv.quick === 'taken,to_client,case' && Qv2.st === 'taken' && Qv2.via === 'editor' && Qv2.holder === await p.evaluate(() => logWho()) && /Preso/.test(Qv2.panel) && Qv2.undo && Qv3.cur === null && /In archivio/.test(Qv3.now) &&
+      Qv.form.holder === 'Quokka Due S.r.l.' && Qv.form.due && Qv.form.note && Qv.doc === 'to_client|Quokka Due S.r.l.|2020-01-15|editor|true',
+      'Q: binder form: "Stato del faldone" panel, one-tap "Preso" (holder = operator), 10 s "Annulla" in the toast, document sheet prefilled with the client (second tap only for fields)', {Qv, Qv2, Qv3});
+
+    // archive: filter, badges, strip, bulk "Stato…"
+    Qv = await p.evaluate(() => {
+      S.view = 'archive'; renderAll();
+      const sel = $('#sq-filter'); sel.value = 'overdue'; sel.dispatchEvent(new Event('change', {bubbles:true}));
+      const od = filteredBinders().map(b => b.speaking_code);
+      sel.value = 'out'; sel.dispatchEvent(new Event('change', {bubbles:true})); const out = filteredBinders().map(b => b.speaking_code);
+      sel.value = 'ty:taken'; sel.dispatchEvent(new Event('change', {bubbles:true})); const tk = filteredBinders().map(b => b.speaking_code);
+      sel.value = ''; sel.dispatchEvent(new Event('change', {bubbles:true}));
+      return {od, out, tk, strip:($('#sq-strip') || {}).textContent || '', badge:!!document.querySelector('#arch-results tr .sq-cell .sq-badge'), bulk:!!$('#sq-bulk-btn')};
+    });
+    ok(Qv.od.join() === 'QD2' && Qv.out.includes('QD1') && Qv.out.includes('QD2') && Qv.tk.join() === 'QD1' && /fuori archivio/.test(Qv.strip) && /in ritardo/.test(Qv.strip) && Qv.badge && Qv.bulk,
+      'Q: archive: status filter (overdue = a document due back in the past; out; one status), badges in the State column, "N fuori archivio · 1 in ritardo" strip, "Stato…" bulk button', Qv);
+    await p.evaluate(() => { S.binders.forEach(b => { b.selected_for_print = ['QD1', 'QD2'].includes(b.speaking_code); }); commit(); renderArchiveResults(); });
+    await p.click('#sq-bulk-btn'); await p.waitForTimeout(150);
+    await p.click('#sq-sheet [data-a="sq-all"]'); await p.waitForTimeout(80);
+    await p.click('#sq-sheet [data-a="sq-pick"][data-id="to_entity"]'); await p.waitForTimeout(80);
+    await p.click('#sq-go'); await p.waitForTimeout(80);
+    Qv = {err:await p.textContent('#sq-err')};
+    await p.fill('#sq-holder', 'Comune di Parma'); await p.fill('#sq-note', 'Pratica edilizia 12/2026'); await p.click('#sq-go'); await p.waitForTimeout(200);
+    Qv2 = await p.evaluate(() => { const L = LOG.entries[LOG.entries.length - 1]; const cs = ['QD1', 'QD2'].map(c => sqCurrent(S.statusEvents, 'binder', S.binders.find(x => x.speaking_code === c).id));
+      return {log:L.action, n:L.details.count, batch:cs[0].batch_id && cs[0].batch_id === cs[1].batch_id, st:cs.map(c => c.status_id + '/' + c.holder + '/' + c.via).join(',')}; });
+    ok(/Indica chi lo ha/.test(Qv.err) && Qv2.log === 'status.bulk' && Qv2.n === 2 && Qv2.batch && Qv2.st === 'to_entity/Comune di Parma/bulk,to_entity/Comune di Parma/bulk',
+      'Q: "Stato…" on the ticked binders: required holder checked, one batch (same batch_id), one status.bulk log line', {Qv, Qv2});
+
+    // "Fuori archivio" dashboard + CSV exports
+    await p.click('#sq-strip-open'); await p.waitForTimeout(200);
+    Qv = await p.evaluate(() => ({view:S.view, kpi:Array.from(document.querySelectorAll('#sq-kpis .v')).map(x => x.textContent).join(','), rows:document.querySelectorAll('#sq-dash-rows tbody tr').length, od:document.querySelectorAll('#sq-dash-rows tr.sq-row-od').length,
+      csv:sqEventsCsv(S.statusEvents, sqTypes(S.settings)).split('\r\n')[0], nav:document.querySelectorAll('.nav [data-v]').length}));
+    const [Qdl] = await Promise.all([p.waitForEvent('download'), p.click('#sq-csv-out')]);
+    const Qtxt = fs.readFileSync(await Qdl.path(), 'utf8');
+    await p.fill('[data-sqd="q"]', 'QD2'); await p.waitForTimeout(80);
+    Qv2 = await p.evaluate(() => document.querySelectorAll('#sq-dash-rows tbody tr').length);
+    ok(Qv.view === 'status' && Qv.kpi.split(',')[0] === '2' && Qv.rows >= 3 && Qv.od === 1 && /^﻿?quando;chi;oggetto;codice;documento;stato;presenza;chi_lo_ha;rientro_entro;in_data;nota;come;scatola;operazione;event_id;undo_of$/.test(Qv.csv) &&
+      /^﻿oggetto;codice;/.test(Qtxt) && /QD2;Quokka Due S\.r\.l\.;;Dato al Comune/.test(Qtxt) && /;sì;/.test(Qtxt) && Qv2 === 2,
+      'Q: "Fuori archivio": KPIs, overdue rows first, search; CSV of what is out (one row per object, "in ritardo") and of every movement', {Qv, Qv2, csv:Qtxt.slice(0, 300)});
+    // scanner mode ("Modalità stato"): pick a status, then scan QR / codes one after the other
+    await p.click('#sq-mode-btn'); await p.waitForTimeout(150);
+    await p.click('#sq-mode [data-a="sq-mode-ty"][data-id="returned"]'); await p.waitForTimeout(80);
+    await p.fill('#sq-scan', 'https://qr7.it/dm26QdQD1aaa'); await p.press('#sq-scan', 'Enter'); await p.waitForTimeout(120);
+    await p.fill('#sq-scan', 'qd2'); await p.press('#sq-scan', 'Enter'); await p.waitForTimeout(120);
+    await p.fill('#sq-scan', 'QD2'); await p.press('#sq-scan', 'Enter'); await p.waitForTimeout(120);
+    await p.fill('#sq-scan', 'dm26ZzZzZzZz'); await p.press('#sq-scan', 'Enter'); await p.waitForTimeout(120);
+    Qv = await p.evaluate(() => ({n:$('#sq-mode-n').textContent, msg:$('#sq-mode-msg').textContent, st:['QD1', 'QD2'].map(c => { const e = sqCurrent(S.statusEvents, 'binder', S.binders.find(x => x.speaking_code === c).id); return e.status_id + '/' + e.via; }).join(',')}));
+    await p.evaluate(() => closeModal(true));
+    ok(/^2 /.test(Qv.n) && /sconosciuto|non riconosciuto|Unknown/i.test(Qv.msg) && Qv.st === 'returned/scanner,returned/scanner', 'Q: "Modalità stato" (USB scanner): QR URL or typed code, duplicates refused, unknown QR reported', Qv);
+    ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Q: "Fuori archivio" at 1366×768: no horizontal scroll');
+    // stream C hook (feature-detected): with a global TAG_SCAN_HANDLERS list, "Modalità stato" registers itself first and takes reads only while a status is chosen
+    Qv = await p.evaluate(() => { const had = 'TAG_SCAN_HANDLERS' in window, keep = window.TAG_SCAN_HANDLERS; if (!had) window.TAG_SCAN_HANDLERS = [{id:'other', active:() => true, handle:() => true}];
+      try { sqTagReg(); sqTagReg(); const H = TAG_SCAN_HANDLERS, h = H.find(x => x.id === 'status'), o = {first:H[0] === h, once:H.filter(x => x.id === 'status').length, idle:h.active()};
+        sqModeOpen(); SQV.mode.ty = sqType(sqTypes(S.settings), 'case'); o.on = h.active(); h.handle('QD2'); const e = sqCurrent(S.statusEvents, 'binder', S.binders.find(x => x.speaking_code === 'QD2').id); o.st = e.status_id + '/' + e.via;
+        sqUndo([e]); closeModal(true); o.off = h.active(); return o; }
+      finally { if (!had) delete window.TAG_SCAN_HANDLERS; else window.TAG_SCAN_HANDLERS = keep; } });
+    ok(Qv.first && Qv.once === 1 && !Qv.idle && Qv.on && Qv.st === 'case/scanner' && !Qv.off, 'Q: stream C scan dispatcher hook: "Modalità stato" handler registered first, once; active only with a chosen status', Qv);
+
+    // help + guide
+    Qv = await p.evaluate(() => { const h = helpTopic('status'); return {h:!!h && /Preso/.test(h.body.it) && /Taken/.test(h.body.en) && h.guide === 'status', g:!!GUIDES.status && GUIDES.status.steps.length === 6, lbl:VIEW_LABEL.status}; });
+    ok(Qv.h && Qv.g && Qv.lbl === 'sq_h', 'Q: help topic "status" (IT/EN, training rule) and guided tour "status"', Qv);
+
+    // ---- phone, local mode (same browser as the PC): scan → "Preso" → the open PC gets it live, no reload banner ----
+    const Qqr = await p.evaluate(async () => { S.view = 'archive'; renderAll(); const A = dmProviders().auth; await A.addUser({username:'qtel', display_name:'Lucia Tel', role:'editor', secret:'135790'}); return S.binders.find(x => x.speaking_code === 'QD1').short_code; });
+    const QL = await ctx.newPage();
+    QL.on('pageerror', e => errs.push('Q LOCAL PHONE PAGEERR ' + e.message));
+    await QL.setViewportSize({width:390, height:844});
+    await QL.goto('file://' + Qpath.resolve(__dirname, '..', 'scan.html').replace(/\\/g, '/') + '?q=' + Qqr); await QL.waitForTimeout(500);
+    await QL.fill('#sc-user', 'qtel'); await QL.fill('#sc-pin', '135790'); await QL.click('#sc-enter'); await QL.waitForTimeout(1200);
+    Qv = await QL.evaluate(() => ({card:!!document.getElementById('sqp-card'), head:(document.getElementById('sqp-head') || {}).textContent, q:Array.from(document.querySelectorAll('#sqp-card [data-s="sqp-quick"]')).map(x => x.dataset.st).join(','), docs:document.querySelectorAll('#sc-items li.sqp-tap').length}));
+    await QL.click('#sqp-card [data-s="sqp-quick"]'); await QL.waitForTimeout(700);
+    Qv2 = await QL.evaluate(() => ({head:document.getElementById('sqp-head').textContent, undo:!!document.getElementById('sqp-undo-btn')}));
+    Qv3 = await p.evaluate(() => { const e = sqCurrent(S.statusEvents, 'binder', S.binders.find(x => x.speaking_code === 'QD1').id); return {st:e && e.status_id, holder:e && e.holder, via:e && e.via, banner:otherTabChanged, rx:e && e._rx && e._rx[1], log:LOG.entries.some(x => x.action === 'status.set' && x.source === 'mobile')}; });
+    await QL.reload(); await QL.waitForTimeout(900);
+    const QLhead = await QL.evaluate(() => (document.getElementById('sqp-head') || {}).textContent);
+    ok(Qv.card && /Reinserito/.test(Qv.head) && Qv.q === 'taken,to_client,case' && Qv.docs >= 3 && /Preso da Lucia Tel/.test(Qv2.head) && Qv2.undo && Qv3.st === 'taken' && Qv3.holder === 'Lucia Tel' && Qv3.via === 'scan' && !Qv3.banner && Qv3.rx === 'mobile' && Qv3.log && /Preso da Lucia Tel/.test(QLhead),
+      'Q phone (local): status card with big context buttons; one tap "Preso" → "Preso da Lucia Tel"; the open PC merges the event live (no reload banner); rescanning shows the holder', {Qv, Qv2, Qv3, QLhead});
+    await QL.click('#sc-items li.sqp-tap >> nth=2'); await QL.waitForTimeout(150);
+    await QL.click('#sqp-ov [data-s="sqp-pick"][data-id="case"]'); await QL.waitForTimeout(120);
+    await QL.fill('#sqp-note', 'Controllo F24'); await QL.click('#sqp-go'); await QL.waitForTimeout(600);
+    Qv = await QL.evaluate(() => ({badge:!!document.querySelector('#sc-items li:nth-child(3) .sqp-badge'), w:[document.documentElement.scrollWidth, innerWidth]}));
+    Qv2 = await p.evaluate(() => { const b = S.binders.find(x => x.speaking_code === 'QD1'), e = sqDocCurrents(S.statusEvents, b.id).get(b.contents_items[2].id); return e && [e.status_id, e.note, e.holder].join('|'); });
+    ok(Qv.badge && Qv2 === 'case|Controllo F24|Lucia Tel' && Qv.w[0] <= Qv.w[1] + 1, 'Q phone (local): a single document from the contents list (second tap for the note); no horizontal scroll at 390 px', {Qv, Qv2});
+    await QL.close();
+    await p.evaluate(() => { const A = dmProviders().auth, u = A.listUsers().find(x => x.username === 'qtel'); if (u) A.removeUser(u.id); });
+
+    // ---- package sync between two desktops: no duplicates, order kept, forwarding ----
+    const QP = await ctx.browser().newContext({viewport:{width:1366, height:768}});
+    const QPp = await QP.newPage(); QPp.on('pageerror', e => errs.push('Q PEER PAGEERR ' + e.message));
+    await QPp.goto(URL_); await QPp.waitForTimeout(1200);
+    await QPp.evaluate(() => { while (topModal()) closeModal(true); S.onboarded = true; });
+    const Qpkg = await p.evaluate(() => JSON.stringify(syncBuildPackage({})));
+    Qv = await QPp.evaluate((txt) => { const pkg = JSON.parse(txt); const plan = syncAnalyze(pkg); const n = plan.statusEvents.length, rv = syncReviewHTML(plan); plan.applySettings = true; syncApply(plan, {quiet:true});
+      const again = syncAnalyze(pkg).statusEvents.length; syncApply(syncAnalyze(pkg), {quiet:true});
+      const b = S.binders.find(x => x.speaking_code === 'QD1');
+      return {n, again, total:S.statusEvents.length, sorted:S.statusEvents.every((e, i, a) => !i || sqCmp(a[i - 1], e) <= 0), review:/movimenti di stato/.test(rv), cur:b && sqCurrent(S.statusEvents, 'binder', b.id).status_id, types:sqTypes(S.settings).length, rx:S.statusEvents.every(e => e._rx)}; }, Qpkg);
+    const Qn = await p.evaluate(() => S.statusEvents.length);
+    await QPp.evaluate(() => { const b = S.binders.find(x => x.speaking_code === 'QD2'); sqRecord([sqTargetBinder(b)], 'case', {note:'dal secondo PC'}, {quiet:true}); });
+    const Qback = await QPp.evaluate(() => JSON.stringify(syncBuildPackage({})));
+    Qv2 = await p.evaluate((txt) => { const pkg = JSON.parse(txt), plan = syncAnalyze(pkg); syncApply(plan, {quiet:true}); const b = S.binders.find(x => x.speaking_code === 'QD2'); const e = sqCurrent(S.statusEvents, 'binder', b.id);
+      return {n:plan.statusEvents.length, cur:e.status_id + '/' + e.note, ids:new Set(S.statusEvents.map(x => x.id)).size === S.statusEvents.length}; }, Qback);
+    ok(Qv.n === Qn && Qv.again === 0 && Qv.total === Qn && Qv.sorted && Qv.review && Qv.cur === 'taken' && Qv.types === 11 && Qv.rx && Qv2.n === 1 && Qv2.cur === 'case/dal secondo PC' && Qv2.ids,
+      'Q: sync packages: events travel both ways, re-importing adds nothing, chronological order, status types in the shared settings, review line "N nuovi movimenti di stato"', {Qv, Qv2, Qn});
+    await QP.close();
+
+    // ---- server: two desktops + phone (php -S), box apply, return check, offline outbox ----
+    let Qphp = ''; try { Qphp = Qcp.execFileSync('php', ['-r', 'echo extension_loaded("pdo_sqlite") && extension_loaded("openssl") ? "ok" : "no";']).toString(); } catch(e){}
+    if (Qphp !== 'ok') console.log('  (stream Q server part skipped: php CLI with pdo_sqlite + openssl not installed)');
+    else {
+      const QR_ = Qpath.resolve(__dirname, 'shots', 'qsrv'), QDp = Qpath.join(QR_, 'studio-de'), QSP = Qpath.join(QDp, 'server-php');
+      Qcp.execFileSync('python3', [Qpath.resolve(__dirname, '..', 'tools', 'build_deploy.py'), QDp, '--studio-name', 'Studio Stati Prova']);
+      const QDATA = Qpath.resolve(__dirname, 'shots', 'qsrv-data', String(Date.now())); fs.mkdirSync(QDATA, {recursive:true});
+      const QT = {dave:'qtok-admin-' + Qcrypto.randomBytes(9).toString('hex'), anna:'qtok-ed-' + Qcrypto.randomBytes(9).toString('hex'), lia:'qtok-v-' + Qcrypto.randomBytes(9).toString('hex')};
+      const sha = (s) => Qcrypto.createHash('sha256').update(s).digest('hex');
+      fs.writeFileSync(Qpath.join(QSP, 'config.php'), "<?php\nif (!defined('DOCMAP_API')) { http_response_code(404); exit; }\nreturn ['data_dir' => " + JSON.stringify(QDATA) + ", 'aes_key' => '" + Qcrypto.randomBytes(32).toString('base64') + "',\n  'tokens' => [" +
+        [['dave', 'admin'], ['anna', 'editor'], ['lia', 'viewer']].map(([u, r]) => "['user' => '" + u + "', 'role' => '" + r + "', 'token_sha256' => '" + sha(QT[u]) + "']").join(', ') + "],\n  'allowed_origins' => ['null'], 'max_fails' => 50, 'studio_name' => 'Studio Stati Prova'];\n");
+      const QPORT = 19450 + (process.pid % 300), QO = 'http://127.0.0.1:' + QPORT, QAPI = QO + '/studio-de/server-php/api.php';
+      const Qsrv = Qcp.spawn('php', ['-S', '127.0.0.1:' + QPORT, '-t', QR_, Qpath.resolve(__dirname, 'php-router.php')], {stdio:'ignore'});
+      const Qsleep = (ms) => new Promise(r => setTimeout(r, ms));
+      const Qq = async (route, o) => { o = o || {}; const h = {}; if (o.token) h['X-DocMap-Token'] = o.token; if (o.body !== undefined) h['Content-Type'] = 'application/json';
+        const r = await fetch(QAPI + '?r=' + route + (o.q ? '&' + new URLSearchParams(o.q).toString() : ''), {method:o.body !== undefined ? 'POST' : 'GET', headers:h, body:o.body === undefined ? undefined : JSON.stringify(o.body)}); let j = null; try { j = await r.json(); } catch(e){} return {s:r.status, j}; };
+      const Qsql = (q) => JSON.parse(Qcp.execFileSync('python3', ['-c', 'import sqlite3,json,sys; c=sqlite3.connect(sys.argv[1]); print(json.dumps([list(r) for r in c.execute(sys.argv[2])]))', Qpath.join(QDATA, 'docmap.sqlite'), q]).toString());
+      let Qup = false; for (let i = 0; i < 50 && !Qup; i++){ try { Qup = (await Qq('ping')).s === 200; } catch(e){ await Qsleep(100); } }
+      const Qctxs = [];
+      try {
+        // desktop A: a v11.1-shaped state (no document ids, no events) with a box holding two binders
+        const QB = (id, code, sc, x) => Object.assign({id, speaking_code:code, company_name:'Wombat ' + code + ' S.r.l.', category:'IVA', short_code:sc, contents_items:'2025: Fatture ' + code + '|2025: Registri ' + code, location_id:'q-box1', created_at:'2026-10-01T08:00:00.000Z', updated_at:'2026-10-02T08:00:00.000Z'}, x || {});
+        const Qstate = {schema:26.9, lang:'it', view:'archive', onboarded:true, settings:{studioName:'Studio Stati Prova', operator:'Dave', deviceId:'dev-QA', deviceLabel:'PC Stati A', locLevels:[{name:'Scatola', prefix:'B'}], locLevelsAt:'2026-10-01T08:00:00.000Z'},
+          locations:[{id:'q-box1', parent_id:'', seg:'QB1', name:'Scatola Q', short_code:'dm26LQsBox001', created_at:'2026-10-01T08:00:00.000Z', updated_at:'2026-10-01T08:00:00.000Z'}],
+          binders:[QB('q-a1', 'QS1', 'dm26QsQS1aaa'), QB('q-a2', 'QS2', 'dm26QsQS2aaa'), QB('q-a3', 'QS3', 'dm26QsQS3aaa', {location_id:''})], clients:[], tombstones:[], sync:{peers:{}, lastExportAt:null, lastImportAt:null, lastPeer:'', history:[]}};
+        const Qdesk = async (dev, token, state) => {
+          const c = await b.newContext({viewport:{width:1366, height:768}}); Qctxs.push(c);
+          const pg = await c.newPage(); pg.on('pageerror', e => errs.push('Q ' + dev + ' PAGEERR ' + e.message)); pg.on('dialog', d => d.accept());
+          pg.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errs.push('Q ' + dev + ' CONSOLE ' + m.text()); });
+          await pg.goto(URL_);
+          await pg.evaluate(([st, d, url, tok]) => { localStorage.clear(); localStorage.setItem('docmap_v26_state', JSON.stringify(st)); localStorage.setItem('docmap_v26_device', d); localStorage.setItem('docmap_v26_srv', JSON.stringify({url, token:tok, basic:''})); }, [state, dev, QAPI, token]);
+          await pg.reload(); await pg.waitForTimeout(1200);
+          await pg.evaluate(() => { while (topModal()) closeModal(true); window.__qB = (c) => S.binders.find(x => x.speaking_code === c); });
+          return pg;
+        };
+        const Qsync = (pg) => pg.evaluate(async () => { const r = await srvSync({}); return r; });
+        const A = await Qdesk('dev-QA', QT.dave, Qstate);
+        Qv = await A.evaluate(() => ({u:__qB('QS1').updated_at, ids:__qB('QS1').contents_items.every(i => /^ci-/.test(i.id)), loc:__qB('QS1').location_code}));
+        await A.evaluate(() => { sqRecord([sqTargetBinder(__qB('QS3'))], 'to_client', {holder:'Wombat QS3 S.r.l.', due_date:'2030-12-31'}, {quiet:true}); });
+        Qv2 = await Qsync(A);
+        const Qn1 = Qsql("SELECT COUNT(*) FROM records WHERE type='status_event'")[0][0];
+        const B = await Qdesk('dev-QB', QT.anna, {schema:26.9, lang:'it', onboarded:true, settings:{operator:'Anna', deviceLabel:'PC Stati B'}, binders:[], clients:[]});
+        await Qsync(B); await Qsync(B);
+        Qv3 = await B.evaluate(() => ({n:S.statusEvents.length, cur:__qB('QS3') && sqCurrent(S.statusEvents, 'binder', __qB('QS3').id).holder, ids:__qB('QS3') && __qB('QS3').contents_items.map(i => i.id).join(',')}));
+        const QidsA = await A.evaluate(() => __qB('QS3').contents_items.map(i => i.id).join(','));
+        ok(Qup && Qv.u === '2026-10-02T08:00:00.000Z' && Qv.ids && !Qv2.error && Qn1 === 1 && Qv3.n === 1 && Qv3.cur === 'Wombat QS3 S.r.l.' && Qv3.ids === QidsA,
+          'Q server: a v11.1 desktop gets document ids without a time-stamp bump; its event goes up as a status_event record; desktop B receives it once (two syncs, no duplicate) with the same document ids', {Qv, Qv2, Qn1, Qv3});
+
+        // phone (scan.html with the server): set-up, scan → Preso → rescan shows the holder
+        const Pc = await b.newContext({viewport:{width:390, height:844}, isMobile:true, locale:'it-IT'}); Qctxs.push(Pc);
+        const P = await Pc.newPage(); P.on('pageerror', e => errs.push('Q phone PAGEERR ' + e.message));
+        await P.goto(QO + '/studio-de/scan.html?q=dm26QsQS1aaa'); await P.waitForTimeout(900);
+        await P.fill('#sc-user', 'anna.tel'); await P.fill('#sc-pin', '8642'); await P.fill('#sc-pin2', '8642'); await P.fill('#sc-token', QT.anna); await P.click('#sc-enter'); await P.waitForTimeout(2200);
+        Qv = await P.evaluate(() => ({view:SC.view, head:(document.getElementById('sqp-head') || {}).textContent, ok:SQP.ok}));
+        await P.click('#sqp-card [data-s="sqp-quick"][data-st="taken"]'); await P.waitForTimeout(900);
+        await P.reload(); await P.waitForTimeout(1500);
+        Qv2 = await P.evaluate(() => ({head:(document.getElementById('sqp-head') || {}).textContent, seen:(document.getElementById('sqp-seen') || {}).textContent, q:Array.from(document.querySelectorAll('#sqp-card [data-s="sqp-quick"]')).map(x => x.dataset.st).join(',')}));
+        Qv3 = await Qq('binder', {token:QT.lia, q:{qr:'dm26QsQS1aaa'}});
+        ok(Qv.view === 'card' && /In archivio/.test(Qv.head) && Qv.ok && /^Preso da /.test(Qv2.head) && /Ultima azione: Preso/.test(Qv2.seen) && Qv2.q.split(',')[0] === 'returned' && Qv3.j.status_events.length === 1 && Qv3.j.status_events[0].via === 'scan' && Qv3.j.status_types === null,
+          'Q server phone: scan → "Preso" (push of a status_event + log line) → rescan shows "Preso da …" and offers "Reinserito" first; GET binder returns status_events / status_types', {Qv, Qv2, srv:Qv3.j && Qv3.j.status_events});
+        // offline: the tap waits in the outbox and leaves when the network is back
+        await Pc.setOffline(true);
+        await P.click('#sqp-card [data-s="sqp-quick"][data-st="returned"]'); await P.waitForTimeout(500);
+        Qv = await P.evaluate(() => ({box:JSON.parse(localStorage.getItem(SQP_API.SQP_OUTBOX_LS) || '[]').length, wait:!!document.getElementById('sqp-wait'), head:document.getElementById('sqp-head').textContent, msg:(document.getElementById('sqp-msg') || {}).textContent}));
+        await Pc.setOffline(false);
+        await P.evaluate(() => SQP_API.sqpFlush()); await P.waitForTimeout(300);
+        Qv2 = {box:await P.evaluate(() => JSON.parse(localStorage.getItem(SQP_API.SQP_OUTBOX_LS) || '[]').length), srv:(await Qq('binder', {token:QT.lia, q:{qr:'dm26QsQS1aaa'}})).j.status_events.map(e => e.status_id).join(',')};
+        ok(Qv.box === 1 && Qv.wait && /Reinserito/.test(Qv.head) && /Senza rete/.test(Qv.msg) && Qv2.box === 0 && Qv2.srv === 'taken,returned', 'Q server phone: offline → "Reinserito" kept in the outbox (shown at once, "in attesa di invio"), sent when the network is back', {Qv, Qv2});
+
+        // box: "Applica a tutta la scatola" then "Verifica rientro" with one binder missing
+        await A.evaluate(async () => { await srvSync({}); });
+        await P.goto(QO + '/studio-de/scan.html?q=dm26LQsBox001'); await P.waitForTimeout(1500);
+        Qv = await P.evaluate(() => ({view:SC.view, card:!!document.getElementById('sqp-card'), btn:!!document.getElementById('sqp-box') && !!document.getElementById('sqp-vf-start')}));
+        await P.click('#sqp-box'); await P.waitForTimeout(150);
+        await P.click('#sqp-ov [data-s="sqp-pick"][data-id="to_entity"]'); await P.waitForTimeout(120);
+        await P.fill('#sqp-holder', 'Comune di Parma'); await P.fill('#sqp-due', '2030-06-30'); await P.fill('#sqp-note', 'Accesso agli atti'); await P.click('#sqp-go'); await P.waitForTimeout(900);
+        Qv2 = await Qq('location', {token:QT.lia, q:{qr:'dm26LQsBox001'}});
+        const Qbox = (Qv2.j.status_events || []).filter(e => e.status_id === 'to_entity');
+        ok(Qv.view === 'location' && Qv.card && Qv.btn && Qbox.length === 3 && new Set(Qbox.map(e => e.batch_id)).size === 1 && Qbox.every(e => e.holder === 'Comune di Parma' && e.due_date === '2030-06-30' && e.box_id === 'q-box1' && e.via === 'box') && Qbox.some(e => e.target_type === 'location'),
+          'Q server phone: box page → "Applica a tutta la scatola" "Dato al Comune / ente" (holder, due date, note): the box + its 2 binders in one batch', {Qv, n:Qbox.length});
+        await P.reload(); await P.waitForTimeout(1500);
+        await P.click('#sqp-vf-start'); await P.waitForTimeout(200);
+        Qv = await P.evaluate(() => ({view:SC.view, exp:SQP.vf.expected.map(x => x.code).join(','), k:document.getElementById('sqp-vf-k').textContent}));
+        await P.fill('#sqp-vf-in', 'QS1'); await P.press('#sqp-vf-in', 'Enter'); await P.waitForTimeout(400);
+        await P.fill('#sqp-vf-in', 'dm26QsQS1aaa'); await P.press('#sqp-vf-in', 'Enter'); await P.waitForTimeout(400);
+        await P.fill('#sqp-vf-in', 'QS3'); await P.press('#sqp-vf-in', 'Enter'); await P.waitForTimeout(600);
+        Qv2 = await P.evaluate(() => ({f:document.getElementById('sqp-vf-f').textContent, m:document.getElementById('sqp-vf-m').textContent, u:document.getElementById('sqp-vf-u').textContent, msg:document.getElementById('sqp-vf-msg').textContent, mark:document.querySelector('#sqp-vf-end label').textContent, w:[document.documentElement.scrollWidth, innerWidth]}));
+        await P.click('#sqp-vf-finish'); await P.waitForTimeout(1000);
+        Qv3 = await P.evaluate(() => ({done:!!document.getElementById('sqp-vf-done'), sum:document.getElementById('sqp-vf-sum').textContent, vf:localStorage.getItem(SQP_API.SQP_VF_LS), csv:sqVerifyCsv(SQP.vfDone)}));
+        const [QdlP] = await Promise.all([P.waitForEvent('download'), P.click('#sqp-vf-csv')]);
+        const QcsvP = fs.readFileSync(await QdlP.path(), 'utf8');
+        ok(Qv.view === 'sqverify' && Qv.exp === 'QS1,QS2' && Qv2.f === '1' && Qv2.m === '1' && Qv2.u === '1' && /QS3 non era atteso/.test(Qv2.msg) && /Segna il mancante come "Mancante/.test(Qv2.mark) && Qv2.w[0] <= Qv2.w[1] + 1 &&
+          Qv3.done && /1 trovati, 1 mancanti, 1 in più/.test(Qv3.sum) && !Qv3.vf && /^﻿esito;codice;id\r\ntrovato;QS1;q-a1\r\nmancante;QS2;q-a2\r\nin più;QS3;q-a3/.test(QcsvP),
+          'Q server phone: "Verifica rientro": expected binders, scans (code, QR, extra), live counters, finish → summary + CSV report; no horizontal scroll', {Qv, Qv2, Qv3, csv:QcsvP.slice(0, 120)});
+        await Qsync(A);
+        Qv = await A.evaluate(() => { const T = sqTypes(S.settings), c = (code) => sqCurrent(S.statusEvents, 'binder', __qB(code).id), L = LOG.entries.filter(e => e.action === 'status.verify').pop();
+          return {s1:c('QS1').status_id + '/' + c('QS1').via, s2:c('QS2').status_id, box:sqCurrent(S.statusEvents, 'location', 'q-box1').status_id, log:L && [L.source, (L.details.found || []).length, (L.details.missing || []).map(x => x.code).join(), (L.details.unexpected || []).length].join('|'),
+            dup:new Set(S.statusEvents.map(e => e.id)).size === S.statusEvents.length, miss:sqOutRows(S.statusEvents, T).filter(r => r.presence === 'missing').length}; });
+        await A.evaluate(() => { S.view = 'status'; renderAll(); });
+        Qv2 = await A.evaluate(() => ({verif:(document.querySelector('#sq-verifs .sq-verif li') || {}).textContent || '', miss:Array.from(document.querySelectorAll('#sq-kpis .v')).map(x => x.textContent)[4]}));
+        ok(Qv.s1 === 'from_entity/verify' && Qv.s2 === 'missing' && Qv.box === 'from_entity' && Qv.log === 'mobile|1|QS2|1' && Qv.dup && Qv.miss === 1 && /1 trovati, 1 mancanti, 1 in più/.test(Qv2.verif) && Qv2.miss === '1',
+          'Q server: after the check the PC shows QS1 returned ("Restituito dal Comune"), QS2 missing, the box back; the report is in the activity log and in "Verifiche di rientro"', {Qv, Qv2});
+        // an older server (ping without "status_events"): no status_event records are pushed, the log lines still carry them
+        Qv = await A.evaluate(() => { const conf = srvConf(), peer = S.sync.peers['server:' + conf.url]; sqRecord([sqTargetBinder(__qB('QS2'))], 'found', {}, {quiet:true}); const keep = SRV.features;
+          SRV.features = ['journal', 'device_info', 'locations']; const old = srvChanges(peer).status_events.length; SRV.features = keep; const now = srvChanges(peer).status_events.length; return {old, now}; });
+        ok(Qv.old === 0 && Qv.now === 1, 'Q server: status_event records are pushed only to servers that announce "status_events" (older servers get them inside the log lines)', Qv);
+      } finally {
+        for (const c of Qctxs){ try { await c.close(); } catch(e){} }
+        Qsrv.kill();
+      }
+    }
+    // ---- cleanup: the shared page goes back to its state before this section ----
+    await p.evaluate((snap) => { const o = JSON.parse(snap); while (topModal()) closeModal(true); S.binders = o.b; S.statusEvents = o.ev; if (o.types === undefined) delete S.settings.statusTypes; else S.settings.statusTypes = o.types; if (o.at === undefined) delete S.settings.statusTypesAt; else S.settings.statusTypesAt = o.at;
+      S.binders.forEach(b => { b.selected_for_print = b.selected_for_print; }); UI.fSq = ''; S.view = o.view || 'archive'; commit(); renderAll(); }, Qsnap);
+    ok(await p.evaluate((n) => S.binders.length === n && !S.binders.some(b => /^Q[DS]\d/.test(b.speaking_code)), JSON.parse(Qsnap).b.length), 'Q cleanup: binders, events and status types restored');
+  }
   // @@STREAM-A@@
   // @@STREAM-C@@
   console.log('\nerrors:', errs.length ? errs.join('\n') : 'none');

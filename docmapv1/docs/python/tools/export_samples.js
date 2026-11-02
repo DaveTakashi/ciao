@@ -7,7 +7,7 @@
      workspace_backup.json     workspaceJSON(true)          = "Salva backup" (with activity_log and sync_journal)
      sync_package.json         syncBuildPackage({})         = full sync package (plain)
      sync_package_enc.json     syncEncrypt(...)             = the same package with a passphrase
-     records.json              {binder, client, location, activity_log_entry, sync_journal_entry} single samples
+     records.json              {binder, client, location, status_event, activity_log_entry, sync_journal_entry} single samples
 
    Usage:  node export_samples.js <output folder>
    Needs the npm package "playwright" with Chromium (the test suite uses the same: see docs/python/PORTING.md §8).
@@ -51,6 +51,10 @@ const APP = path.resolve(__dirname, '..', '..', '..', 'index.html');
       contacts: 'Mario Prova', notes: 'nota di prova', short_code: newShortCode(), location_id: b01.id, selected_for_print: true });
     S.binders.push(b);
     logAct('binder.create', { type: 'binder', id: b.id, code: b.speaking_code }, 'Creato il faldone PS1 (schema test)', {}, 'ui');
+    // v12: status events (binder, one document, the box) recorded with the app's own function
+    sqRecord([sqTargetBinder(b)], 'to_entity', { holder: 'Comune di Prova', due_date: '2030-01-31', note: 'pratica di prova' }, { quiet: true });
+    sqRecord([sqTargetDoc(b, b.contents_items[0])], 'to_client', { holder: 'Prova Schemi S.r.l.' }, { quiet: true });
+    sqRecord([sqTargetLoc(b01)], 'check', { note: 'da controllare' }, { quiet: true });
     commit();
     // one deletion (tombstone) of a demo binder
     const demo = S.binders.find(x => isDemo(x));
@@ -77,6 +81,7 @@ const APP = path.resolve(__dirname, '..', '..', '..', 'index.html');
         binder: S.binders.find(x => x.speaking_code === 'PS1'),
         client: S.clients.find(x => x.multi_code === 'T-0001'),
         location: S.locations.find(x => x.seg === 'B01'),
+        status_event: S.statusEvents[0],
         activity_log_entry: one(LOG.entries),
         sync_journal_entry: one(S.syncJournal)
       },

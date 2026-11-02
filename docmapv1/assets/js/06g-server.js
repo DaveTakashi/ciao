@@ -131,7 +131,7 @@ function srvPackage(conf, peer, pulled){
   const newSettings = pulled.settings && syTs(pulled.settings.updated_at) > syTs(peer.settingsAt) ? pulled.settings.data : null;
   return {format:SYNC_FORMAT, version:SYNC_VERSION, app:'DocMap26', exportedAt:pulled.serverTime || nowISO(),
     source:{deviceId:'server:' + conf.url, deviceLabel:t('sy_mode_server'), mode:'web', operator:''}, since:peer.seq ? peer.lastPullAt : null, target:'', ack:{},
-    records:{binders:recs('binder'), clients:recs('client'), locations:recs('location')}, tombstones:pulled.tombstones.map(x => ({type:x.type, id:x.id, code:x.code, deletedAt:x.deletedAt, who:x.who})),
+    records:{binders:recs('binder'), clients:recs('client'), locations:recs('location'), status_events:recs('status_event')}, tombstones:pulled.tombstones.map(x => ({type:x.type, id:x.id, code:x.code, deletedAt:x.deletedAt, who:x.who})),
     settingsSubset:newSettings, activity_log:pulled.log};
 }
 function srvPlan(conf, peer, pulled){
@@ -141,7 +141,7 @@ function srvPlan(conf, peer, pulled){
 }
 /** Automatic resolution: the most recent version wins; same time → the server's. */
 function srvAutoChoose(plan){ syncChooseNewer(plan); plan.items.forEach(i => { if (i.kind === 'conflict' && i.reason === 'tie') i.choice = 'remote'; }); }
-const srvHasWork = (plan) => { const c = plan.counts; return !!(c.new || c.updated || c.delete || c.conflict || c.propagate || plan.applySettings); };
+const srvHasWork = (plan) => { const c = plan.counts; return !!(c.new || c.updated || c.delete || c.conflict || c.propagate || c.status_events || plan.applySettings); };   // v12: + new status events (06j-status.js)
 /** Apply a plan (quietly in automatic mode) and update the peer bookkeeping + the "known on the server" map. */
 function srvApplyPlan(conf, plan, pulled, quiet){
   let d = {new:0, updated:0, delete:0, conflict:0};
@@ -168,7 +168,8 @@ async function srvPush(cl, conf){
   const settings = hash !== peer.settingsHash ? {updated_at:start, data:subset} : null;
   const recs = ch.binders.map(b => ({type:'binder', id:b.id, updated_at:String(b.updated_at || start), data:srvRecData(b)}))
     .concat(ch.clients.map(c => ({type:'client', id:c.id, updated_at:String(c.updated_at || start), data:srvRecData(c)})))
-    .concat(ch.locations.map(l => ({type:'location', id:l.id, updated_at:String(l.updated_at || start), data:srvRecData(l)})));   // v11
+    .concat(ch.locations.map(l => ({type:'location', id:l.id, updated_at:String(l.updated_at || start), data:srvRecData(l)})))   // v11
+    .concat((ch.status_events || []).map(e => ({type:'status_event', id:e.id, updated_at:e.at, data:sqRecData(e)})));   // v12: append-only status events (06j-status.js adds ch.status_events)
   const tombs = ch.tombstones.map(x => ({type:x.type, id:x.id, code:x.code, deletedAt:x.deletedAt, who:x.who}));
   const log = ch.log.map(e => ({id:e.id, at:e.at, who:e.who, action:e.action, target:e.target, summary:e.summary, details:e.details, source:e.source}));
   const res = {applied:0, same:0, rejected:[], sent:recs.length + tombs.length};
@@ -182,7 +183,7 @@ async function srvPush(cl, conf){
       if (r.journal_id) (res.journalIds || (res.journalIds = [])).push(r.journal_id);
       rs.forEach(x => SRV.known.set(srvK(x.type, x.id), x.updated_at));
       const rj = new Set((r.rejected || []).map(x => srvK(x.type, x.id)));   // v11: the server now holds exactly this version (06f syncSameAsPeer)
-      rs.forEach(x => { if (!rj.has(srvK(x.type, x.id))) syncMarkRecv(x.type, x.id, peer.id, x.updated_at); });
+      rs.forEach(x => { if (x.type !== 'status_event' && !rj.has(srvK(x.type, x.id))) syncMarkRecv(x.type, x.id, peer.id, x.updated_at); });   // v12: events never change, no recvAt needed
       if (!k) tombs.forEach(x => SRV.known.set(srvK(x.type, x.id), 'del:' + x.deletedAt));
       ls.forEach(e => SRV.knownLog.add(e.id));
     }
@@ -217,7 +218,7 @@ async function srvSync(o){
   let result = null;
   try {
     const cl = srvClient(conf);
-    try { const t0 = Date.now(), pg = await cl.call('ping'), t1 = Date.now(); if (pg && pg.server_time) SRV.skew = syTs(pg.server_time) - (t0 + t1) / 2; } catch(e){ if (e.code === 'offline') throw e; }
+    try { const t0 = Date.now(), pg = await cl.call('ping'), t1 = Date.now(); if (pg && pg.server_time) SRV.skew = syTs(pg.server_time) - (t0 + t1) / 2; SRV.features = pg && Array.isArray(pg.features) ? pg.features : null; } catch(e){ if (e.code === 'offline') throw e; }
     if (conf.auto){ const sv = DocMapVault.srv() || {}; SRV.role = sv.role || ''; SRV.user = sv.user || ''; }
     else { const me = await cl.call('me'); SRV.role = me.role; SRV.user = me.user; }
     const peer = srvPeer(conf), first = !peer.lastSyncAt && !peer.seq;

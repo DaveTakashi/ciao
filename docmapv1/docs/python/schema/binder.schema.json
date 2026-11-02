@@ -24,11 +24,12 @@
     "archive_state": {"enum": ["CURRENT", "HISTORICAL", "CHECKED_OUT"], "default": "CURRENT"},
     "contents_items": {
       "type": "array",
-      "description": "Documents in the binder, in order. Identify an item by (binder id, position): items have no id.",
+      "description": "Documents in the binder, in order. v12: each item has a stable id (status events of single documents point to it); older data without ids gets deterministic ones on load (normalizeBinder → ciEnsureIds), CSV / AI imports and the mobile patch carry them over by text.",
       "items": {
         "type": "object",
         "required": ["year", "description", "status"],
         "properties": {
+          "id": {"type": "string", "pattern": "^[A-Za-z0-9._:-]{1,64}$", "description": "v12: stable document id ('ci-' + 16 hex, deterministic from binder id + text + occurrence when first assigned, then kept). Absent in files written before v12."},
           "year": {"type": "string", "description": "Optional year or range (2025, 2024/25, 2020-2024)."},
           "description": {"type": "string"},
           "status": {"enum": ["archive", "in_use", "client"], "default": "archive", "description": "archive = in the binder; in_use = taken out; client = given to the client. Independent of archive_state."}

@@ -284,7 +284,7 @@ async function scLoadPhoto(){
   SC.photo = p; SC.photoFor = id;
   const el = document.getElementById('sc-photo'); if (el) el.innerHTML = scPhotoHTML();
 }
-function scDraftFrom(b){ return { id:b.id, archive_state:b.archive_state, contents_items:(b.contents_items || []).map(i => ({year:i.year, description:i.description, status:normCiStatus(i.status)})),
+function scDraftFrom(b){ return { id:b.id, archive_state:b.archive_state, contents_items:(b.contents_items || []).map(i => ({id:i.id, year:i.year, description:i.description, status:normCiStatus(i.status)})),
   room_code:b.room_code, cabinet_code:b.cabinet_code, shelf_code:b.shelf_code, sector_code:b.sector_code, notes:b.notes || '', tags:b.tags || '', quick:b.location_code || computeLocation(b) }; }
 function scEditHTML(){
   const b = SC.rec.binder, d = SC.draft;
@@ -372,7 +372,7 @@ function scLockCountdown(u){
 function scPatch(){
   const b = SC.rec.binder, d = SC.draft, p = {};
   if (d.archive_state !== b.archive_state) p.archive_state = d.archive_state;
-  if (contentsToPipe(d.contents_items) !== contentsToPipe(b.contents_items)) p.contents_items = d.contents_items.map(i => ({year:i.year, description:i.description, status:i.status}));
+  if (contentsToPipe(d.contents_items) !== contentsToPipe(b.contents_items)) p.contents_items = d.contents_items.map(i => ({id:i.id, year:i.year, description:i.description, status:i.status}));   // v12: + id (status history)
   ['room_code', 'cabinet_code', 'shelf_code', 'sector_code'].forEach(k => { if (String(d[k] || '').trim() !== String(b[k] || '')) p[k] = String(d[k] || '').trim(); });
   if (String(d.notes).trim() !== String(b.notes || '')) p.notes = String(d.notes).trim();
   const tg = String(d.tags).split(',').map(x => x.trim()).filter(Boolean).join(',');
