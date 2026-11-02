@@ -116,3 +116,18 @@
 - Prove: `diff_test.py` 7 OK (senza la modifica fallisce sulle risposte `location`: le coppie esistenti coprono già
   ubicazioni annidate); `test_licence.py` 9 OK; `validate_python.py` "all checks passed". Suite Playwright non rifatta.
 - Prossimo passo: invariato (prova Windows, chiave dell'hub, backup cifrati, `.exe`).
+
+## 2026-11-02 23:45 · Ponte server ⇄ server `sync-remote` (web ⇄ studio)
+
+- Fatto: `python -m docmap_server sync-remote PROFILO.json` (`server-python/docmap_server/sync_remote.py`): un client
+  dell'API di **entrambi** i server (PHP ⇄ Python, Python ⇄ Python, PHP ⇄ PHP) che tiene uguali web e studio nelle due
+  direzioni (`--direction a-to-b` = dal web al locale, `b-to-a` = dal locale al web), con `--dry-run` (nessuna scrittura),
+  `--json`, registro locale `sync-log/`, uscita 0/1/2. Stesse regole del server: vince il più recente; stessa ora e
+  contenuto diverso = conflitto segnalato, nessun lato toccato. Passano record, eliminazioni, impostazioni condivise
+  (vince il blocco più recente) e registro attività (unione per id); non passano token, licenza, registro accessi.
+  Cursori salvati solo dopo l'invio riuscito: un giro interrotto riprende, un secondo giro applica 0.
+- Guida per Dave e lo studio: `server-python/GUIDA-SYNC-WEB-LOCALE.md` (token, profilo, prova, `schtasks` ogni 10 minuti
+  con `C:\DocMap\venv\Scripts\python.exe` e `C:\DocMap\server`, conflitti, errori, sicurezza).
+- Prove: `test_sync_remote.py` 10 OK (PHP vero + Python veri, HTTPS con la CA dello studio dell'installer);
+  `diff_test.py` 7 OK; `test_licence.py` 9 OK; `validate_python.py` "all checks passed".
+- Prossimo passo: prova sul PC dello studio contro il sito vero, prima con `--dry-run`.
