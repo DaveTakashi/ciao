@@ -667,7 +667,9 @@ def ping(url: str, cafile: str | None = None, timeout: float = 5.0, insecure: bo
         else:
             ctx = ssl.create_default_context(cafile=cafile) if cafile and os.path.isfile(cafile) else ssl.create_default_context()
     req = urllib.request.Request(u, headers={"Accept": "application/json"})
-    with urllib.request.urlopen(req, timeout=timeout, context=ctx) as r:   # noqa: S310
+    # mai attraverso un proxy (impostazioni di Windows o variabili d'ambiente): il server è su questo PC o in rete locale
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), urllib.request.HTTPSHandler(context=ctx))
+    with opener.open(req, timeout=timeout) as r:   # noqa: S310
         body = json.loads(r.read().decode("utf-8"))
     if not (isinstance(body, dict) and body.get("ok") is True):
         raise ToolError("Il server ha risposto ma non 'ok': %r" % (body,))

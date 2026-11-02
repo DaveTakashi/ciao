@@ -139,7 +139,7 @@ function Find-SystemPython {
         if ($exe -like '*\WindowsApps\*') { continue }          # alias di Microsoft Store: non funziona per l'attività di sistema
         $code = Invoke-Native $exe @('-c', $probe) -Cattura
         if ($code -ne 0 -or $script:UltimoOutput.Count -lt 2) { continue }
-        try { $ver = [Version]([string]$script:UltimoOutput[1]).Trim() } catch { continue }
+        try { $ver = [Version](([string]$script:UltimoOutput[1]).Trim()) } catch { continue }
         if ($ver -ge $script:MinPython) { return ([string]$script:UltimoOutput[0]).Trim() }
     }
     return $null

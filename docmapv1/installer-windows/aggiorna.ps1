@@ -43,6 +43,8 @@ try {
     # 3. stop e sostituzione
     Write-Info 'Fermo il server...'
     Stop-DocMapServer
+    # una cartella che si sposta non può essere la cartella corrente di questo processo
+    Set-Location -LiteralPath $p.Base; [Environment]::CurrentDirectory = $p.Base
     $sostituito = $true
     $salvata = Install-Versione $src $ts
     Write-Ok "Versione precedente conservata in $salvata"

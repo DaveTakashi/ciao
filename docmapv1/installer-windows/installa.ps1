@@ -86,6 +86,8 @@ try {
     $taskEsiste = [bool](Get-ScheduledTask -TaskName $script:TaskServer -ErrorAction SilentlyContinue)
     if ($taskEsiste -or (Get-ServerProcesses).Count -gt 0) { Write-Info 'Fermo il server...'; Stop-DocMapServer }
     $haPrecedente = (Test-Path -LiteralPath $p.App) -or (Test-Path -LiteralPath $p.Server)
+    # una cartella che si sposta non può essere la cartella corrente di questo processo
+    Set-Location -LiteralPath $p.Base; [Environment]::CurrentDirectory = $p.Base
     $sostituito = $true
     $salvata = Install-Versione $Sorgente $ts
     if ($haPrecedente) { Write-Ok "Versione precedente conservata in $salvata" }
@@ -118,6 +120,11 @@ try {
     Write-Ok "Studio: $($s.nome_studio)  -  porta $($s.porta)"
 
     if (-not (Test-Path -LiteralPath $p.Config)) {
+        if (Test-Path -LiteralPath (Join-Path $p.Dati 'docmap.sqlite')) {
+            # database senza configurazione: una chiave nuova non lo aprirebbe. Si rimette la config dal backup.
+            throw ("C'e gia un database in $($p.Dati) ma manca $($p.Config). Non creo una chiave nuova: " +
+                   "rimetti config.json da un backup (cartella config dello zip) oppure usa ripristina.ps1, poi rilancia installa.bat.")
+        }
         while ($true) {
             if (-not $Admin) {
                 if ($NonChiedere) { $Admin = 'admin' } else {
@@ -128,8 +135,10 @@ try {
             $old = Get-Location
             Set-Location -LiteralPath $p.Server
             try {
-                $code = Invoke-Native $p.VenvPython @('-m', 'docmap_server', 'setup', '--config', $p.Config, '--data-dir', $p.Dati,
-                                                       '--user', "$Admin,admin", '--studio-name', [string]$s.nome_studio) -Cattura
+                $setupArgs = @('-m', 'docmap_server', 'setup', '--config', $p.Config, '--data-dir', $p.Dati, '--user', "$Admin,admin")
+                # Windows PowerShell 5.1 non passa gli argomenti vuoti: il nome si aggiunge solo se c'è
+                if (-not [string]::IsNullOrWhiteSpace([string]$s.nome_studio)) { $setupArgs += @('--studio-name', [string]$s.nome_studio) }
+                $code = Invoke-Native $p.VenvPython $setupArgs -Cattura
             } finally { Set-Location $old }
             if ($code -eq 0) { break }
             Write-Errore ($script:UltimoOutput -join ' ')
