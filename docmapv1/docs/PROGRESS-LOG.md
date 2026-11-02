@@ -97,3 +97,13 @@
   segue la stessa regola delle date.
 - Prossimo passo: chiedere a chi cura `suite.js` di attendere > 2 s (o cambiare mtime) dopo ogni riscrittura di
   `config.php` nella sezione A.
+
+## 2026-11-02 02:35 · Punto della notte (coordinatore)
+
+- Fasi chiuse su Linux: F0, F1, F2, F3, F5. F4 scritta ma da provare su Windows. Prove rifatte dal coordinatore:
+  `diff_test.py` 7 OK, `test_licence.py` 9 OK, hub 39 OK, installer 37 OK.
+- Serve Dave per andare avanti: (1) provare `installer-windows/GUIDA-INSTALLAZIONE.md` su un PC Windows di prova
+  (cancello F4); (2) creare la sua chiave dell'hub (`hub/README.md`) ed esportare la chiave pubblica da mettere in
+  `TRUSTED_LICENCE_KEYS`; (3) confermare le decisioni D1–D7 di `ROADMAP.md` §5 e la scelta HTTPS in LAN.
+- Lavori successivi possibili senza Dave: backup cifrati con passphrase nell'installer; aggancio nativo
+  `DOCMAP_TEST_SERVER_CMD` in `suite.js` (file del thread v12).
