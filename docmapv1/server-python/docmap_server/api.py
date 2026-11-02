@@ -1,4 +1,4 @@
-"""DocMap shared online database — Python port of server-php/api.php (v11, DM_SCHEMA 2), 1:1.
+"""DocMap shared online database — Python port of server-php/api.php (v12, DM_SCHEMA 3), 1:1.
 
 Every function below mirrors the PHP function of the same name (see docmapv1/server-php/api.php, the executable spec):
 same routes (?r=<route>), same parameters (JSON body first, then query), same JSON, status codes, error codes and
@@ -25,7 +25,7 @@ from . import licence
 from .crypto import CryptoError, dec as _dec, enc as _enc, hidx as _hidx
 from .phpcompat import (
     PhpWarning, akey, ascii_lower, ascii_upper, b64decode_strict, canon, elvis, is_arr, is_scalar, iso_ms, jenc,
-    json_decode, now_iso, pget, php_array_values, php_empty, php_int, php_str, php_trim, php_truthy, strnatcasecmp,
+    json_decode, now_iso, numeric_string, pget, php_array_values, php_empty, php_int, php_str, php_trim, php_truthy, strnatcasecmp,
     substr_bytes, ts_ms,
 )
 from .phpconfig import read_config_file
@@ -34,7 +34,7 @@ log = logging.getLogger("docmap")
 
 DM_API = "docmap-php"
 DM_API_VERSION = 1
-DM_TYPES = ("binder", "client", "location")
+DM_TYPES = ("binder", "client", "location", "archive", "status_event")   # v11: + location · v12: + archive + status_event
 DM_ROLES = {"viewer": 1, "editor": 2, "admin": 3}
 DM_MOBILE_FIELDS = ("archive_state", "contents_items", "room_code", "cabinet_code", "shelf_code", "sector_code", "notes",
                     "tags", "location_id", "location_code")
@@ -42,8 +42,12 @@ DM_LOC_SC = re.compile(r"dm26L[A-Za-z0-9]{8}$")
 DM_PULL_PAGE = 2000
 DM_LOG_PAGE = 1000
 DM_MAX_RECORD = 262144
-DM_SCHEMA = 2
+DM_SCHEMA = 3   # 1 = v10.1, 2 = v11 (sync_journal + sync_journal_items), 3 = v12 (access_log)
 DM_JOURNAL_PAGE, DM_JOURNAL_PAGE_MAX, DM_JOURNAL_ITEMS_LIST = 50, 200, 500
+DM_ACCESS_VIA = ("qr", "search", "nav", "nfc")   # v12: how a binder / location was reached (access_log.via)
+DM_ACCESS_TYPES = ("binder", "location")
+DM_ACCESS_PAGE, DM_ACCESS_PAGE_MAX, DM_SEEN_MAX, DM_LAST_SEEN_MAX = 50, 200, 500, 20
+DM_STATUS_PER_TARGET = 200   # v12: newest status events returned with a binder / location
 
 QR_RE = re.compile(r"[A-Za-z0-9_-]{1,40}$")
 ID_RE = re.compile(r"[A-Za-z0-9._:@-]{1,100}$")
@@ -79,6 +83,15 @@ MIGRATIONS = {
             client_updated_at TEXT, prev_updated_at TEXT, new_updated_at TEXT, prev_hash TEXT, new_hash TEXT, payload BLOB, PRIMARY KEY (jid, n));
           CREATE INDEX IF NOT EXISTS sync_journal_items_rec ON sync_journal_items (type, id);
           CREATE INDEX IF NOT EXISTS sync_journal_items_code ON sync_journal_items (k_code);""",
+    # v12: who looked at what and when (binder / location / resolve reads + "seen" reports of views served from a cache)
+    3: """CREATE TABLE IF NOT EXISTS access_log (aid INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, received_at TEXT NOT NULL, route TEXT NOT NULL,
+            via TEXT NOT NULL DEFAULT '', token_id TEXT NOT NULL DEFAULT '', role TEXT NOT NULL DEFAULT '', k_user TEXT, k_device TEXT,
+            target_type TEXT NOT NULL DEFAULT '', target_id TEXT NOT NULL DEFAULT '', k_code TEXT, meta BLOB);
+          CREATE INDEX IF NOT EXISTS access_log_at ON access_log (at);
+          CREATE INDEX IF NOT EXISTS access_log_target ON access_log (target_type, target_id, at);
+          CREATE INDEX IF NOT EXISTS access_log_user ON access_log (k_user);
+          CREATE INDEX IF NOT EXISTS access_log_device ON access_log (k_device);
+          CREATE INDEX IF NOT EXISTS access_log_code ON access_log (k_code);""",
 }
 
 CORS_ALLOW_HEADERS = "Content-Type, X-DocMap-Token, Authorization, If-Match, X-DocMap-Device, X-DocMap-Device-Name, X-DocMap-App"
@@ -231,7 +244,8 @@ class Ctx:
         if not isinstance(c, dict):
             fail(500, "config", "config.php must return an array.")
         defaults = {"data_dir": "", "aes_key": "", "tokens": {}, "allowed_origins": {}, "max_fails": 5, "lock_seconds": 60,
-                    "max_body_mb": 20, "studio_name": "", "journal_keep_days": 0, "journal_pulls": "changes"}
+                    "max_body_mb": 20, "studio_name": "", "journal_keep_days": 0, "journal_pulls": "changes",
+                    "access_keep_days": 365, "access_dedupe_seconds": 120, "remember_minutes": None}   # v12 (optional)
         for k, v in defaults.items():
             if k not in c:
                 c[k] = v
@@ -481,6 +495,10 @@ def rec_write(ctx, type_, id_, updated, deleted, who, data, device):
     elif type_ == "location" and not deleted:
         ks = ctx.hidx(php_str(pget(data, "short_code", "")))
         kc = ctx.hidx(ascii_upper(php_trim(php_str(pget(data, "code", "")))))
+    elif type_ == "status_event" and not deleted:   # v12: k_short = its binder (documents too) or location, k_code = the box it went through
+        ks = st_key(ctx, php_str(pget(data, "target_type", "")), php_str(pget(data, "target_id", "")))
+        box = pget(data, "box_id", "")
+        kc = ctx.hidx("stbox/" + php_str(box)) if box != "" else None
     data = dict(data)
     data.pop("updated_at", None)
     db.execute("""INSERT INTO records (type, id, updated_at, deleted, who, payload, seq, k_short, k_code, k_cab) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -625,7 +643,7 @@ def jr_payload(ctx, it):
 
 # ---------------------------------------------------------------- routes
 def r_ping():
-    return {"ok": True, "api": DM_API, "version": DM_API_VERSION, "schema": DM_SCHEMA, "features": ["journal", "device_info", "locations"],
+    return {"ok": True, "api": DM_API, "version": DM_API_VERSION, "schema": DM_SCHEMA, "features": ["journal", "device_info", "locations", "archives", "access_log", "status_events"],
             "server_time": now_iso(), "php": PING_RUNTIME}
 
 
@@ -854,6 +872,50 @@ def r_push(ctx, who):
             "server_time": now_iso(), "journal_id": jid}
 
 
+# ---------------------------------------------------------------- v12: status events (records of type status_event)
+def st_key(ctx, tt, id_):
+    return None if id_ == "" else ctx.hidx("st/" + ("l" if tt == "location" else "b") + "/" + id_)
+
+
+def st_events(ctx, keys, box_key, cap):
+    """Status events found through the HMAC index columns (k_short IN keys, or k_code = box key), chronological, newest cap kept."""
+    db = ctx.db
+    out, seen = [], set()
+    uniq = []
+    for k in keys:
+        if k is not None and k != "" and k not in uniq:
+            uniq.append(k)
+
+    def add(rows):
+        for r in rows:
+            if r["id"] in seen or php_int(r["deleted"]):
+                continue
+            seen.add(r["id"])
+            d = rec_data(ctx, r)
+            d["id"] = r["id"]
+            out.append(d)
+
+    for i in range(0, len(uniq), 400):
+        ch = uniq[i:i + 400]
+        add(db.execute("SELECT * FROM records WHERE type = 'status_event' AND k_short IN (" + ",".join("?" * len(ch)) + ")", ch).fetchall())
+    if box_key is not None:
+        add(db.execute("SELECT * FROM records WHERE type = 'status_event' AND k_code = ?", (box_key,)).fetchall())
+    if len(out) > 1:   # usort: strcmp(at) ?: strcmp(id)
+        bkey = lambda v: php_str(v).encode("utf-8", "surrogateescape")   # noqa: E731
+        out.sort(key=lambda e: (bkey(pget(e, "at", "")), bkey(e["id"])))
+    return out[-cap:] if len(out) > cap else out
+
+
+def st_types(ctx):
+    """Status types of the studio (shared settings subset, key statusTypes), or None: the phone then uses the built-in ones."""
+    r = ctx.db.execute("SELECT json FROM settings_shared WHERE key = 'subset'").fetchone()
+    if not r:
+        return None
+    d = jdec(ctx.dec(r["json"], "settings/subset"))
+    t = d.get("statusTypes") if isinstance(d, dict) else None
+    return t if isinstance(t, dict) and t else None
+
+
 def binder_pack(ctx, row):
     p = rec_public(ctx, row)
     b = p["data"]
@@ -863,7 +925,8 @@ def binder_pack(ctx, row):
             d = rec_data(ctx, r)
             sib.append({"speaking_code": php_str(pget(d, "speaking_code", "")), "shelf_code": php_str(pget(d, "shelf_code", "")),
                         "sector_code": php_str(pget(d, "sector_code", "")), "location_code": php_str(pget(d, "location_code", ""))})
-    return {"binder": b, "etag": row["updated_at"], "siblings": sib}
+    return {"binder": b, "etag": row["updated_at"], "siblings": sib,
+            "status_events": st_events(ctx, [st_key(ctx, "binder", row["id"])], None, DM_STATUS_PER_TARGET), "status_types": st_types(ctx)}   # v12
 
 
 def r_binder(ctx):
@@ -916,7 +979,14 @@ def loc_pack(ctx, row):
     from functools import cmp_to_key
     kids.sort(key=cmp_to_key(lambda a, b: strnatcasecmp(a["seg"], b["seg"])))
     binders.sort(key=cmp_to_key(lambda a, b: strnatcasecmp(a["speaking_code"], b["speaking_code"])))
-    return {"location": l, "etag": row["updated_at"], "path": path, "children": kids, "binders": binders, "count": n}
+    # v12: statuses of the box, of the binders in it and of the binders that left with it (return check on the phone)
+    bk = ctx.hidx("stbox/" + row["id"])
+    sk = [st_key(ctx, "location", row["id"])] + [st_key(ctx, "binder", x["id"]) for x in binders]
+    for e in st_events(ctx, [], bk, DM_STATUS_PER_TARGET * 10):
+        if pget(e, "target_type", "") != "location":
+            sk.append(st_key(ctx, "binder", php_str(pget(e, "target_id", ""))))
+    sev = st_events(ctx, sk, bk, DM_STATUS_PER_TARGET * 10)
+    return {"location": l, "etag": row["updated_at"], "path": path, "children": kids, "binders": binders, "count": n, "status_events": sev, "status_types": st_types(ctx)}
 
 
 def loc_find(ctx, qr, id_, code):
@@ -1262,9 +1332,212 @@ def r_token_revoke(ctx):
     return {"ok": True}
 
 
+# ---------------------------------------------------------------- v12: access log (who looked at what, when, how)
+def php_is_numeric(v):
+    if isinstance(v, bool):
+        return False
+    if isinstance(v, (int, float)):
+        return True
+    return isinstance(v, str) and numeric_string(v) is not None
+
+
+def acc_via(v, dflt):
+    v = ascii_lower(php_trim(v)) if isinstance(v, str) else ""
+    return v if v in DM_ACCESS_VIA else dflt
+
+
+def acc_write(ctx, who, ci, route, type_, id_, code, via, at=None):
+    """One access row (INSERT + UPDATE meta, inside the caller's transaction if any). at = when it was seen (client time for seen)."""
+    db, c = ctx.db, ctx.c
+    if type_ not in DM_ACCESS_TYPES or not valid_id(id_):
+        return None
+    now = now_iso()
+    at = now if at is None else at
+    kd = ctx.hidx("device/" + ci["device_id"])
+    dd = max(0, php_int(c["access_dedupe_seconds"]))
+    tok = php_str(who["token_id"])
+    if route != "seen" and dd > 0:   # same reader, same record, same way, a moment ago: keep the first row
+        if db.execute("SELECT aid FROM access_log WHERE target_type = ? AND target_id = ? AND token_id = ? AND k_device = ? AND via = ? AND route <> ? AND at >= ? LIMIT 1",
+                      (type_, id_, tok, kd, via, "seen", iso_ms(ts_ms(now) - dd * 1000))).fetchone() is not None:
+            return None
+    if route == "seen":   # a re-sent report (same reader, device and record, same moment ± access_dedupe_seconds) is recorded once
+        ta = ts_ms(at)
+        if db.execute("SELECT aid FROM access_log WHERE route = ? AND target_type = ? AND target_id = ? AND token_id = ? AND k_device = ? AND at >= ? AND at <= ? LIMIT 1",
+                      ("seen", type_, id_, tok, kd, iso_ms(ta - dd * 1000), iso_ms(ta + dd * 1000))).fetchone() is not None:
+            return None
+    cur = db.execute("INSERT INTO access_log (at, received_at, route, via, token_id, role, k_user, k_device, target_type, target_id, k_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                     (at, now, route, via, tok, php_str(who["role"]), ctx.hidx("user/" + ascii_lower(php_str(who["user"]))), kd, type_, id_,
+                      ctx.hidx(ascii_upper(php_trim(code))) if code != "" else None))
+    aid = int(cur.lastrowid)
+    meta = {"user": php_str(who["user"]), "device_id": ci["device_id"], "device_name": ci["device_name"], "app_version": ci["app_version"],
+            "code": code, "ip": ctx.client_ip()}
+    db.execute("UPDATE access_log SET meta = ? WHERE aid = ?", (ctx.enc(jenc(meta), "access/" + str(aid)), aid))
+    return aid
+
+
+def acc_after_read(ctx, who, route, res):
+    """After a successful read (binder, location, resolve): log it. Never makes the read fail."""
+    try:
+        type_ = php_str(pget(res, "type", "")) if route == "resolve" else route
+        rec = pget(res, "binder", {}) if type_ == "binder" else pget(res, "location", {})
+        code = php_str(pget(rec, "speaking_code", "") if type_ == "binder" else pget(rec, "code", ""))
+        dflt = "search" if route == "binder" and php_trim(php_str(ctx.param("qr", ""))) == "" else "qr"
+        acc_write(ctx, who, client_info(ctx), route, type_, php_str(pget(rec, "id", "")), cut_str(code, 100), acc_via(ctx.param("via", ""), dflt))
+        acc_prune(ctx)
+    except Exception as e:   # noqa: BLE001
+        log.error("docmap access_log: %s", e)
+
+
+def acc_prune(ctx):
+    db, c = ctx.db, ctx.c
+    days = php_int(c["access_keep_days"])
+    if days <= 0:
+        return
+    r = db.execute("SELECT v FROM meta WHERE k = 'access_pruned_at'").fetchone()
+    last = php_str(r[0]) if r and php_truthy(r[0]) else ""
+    if last != "" and ts_ms(last) > ts_ms(now_iso()) - 86400000:
+        return
+    db.execute("DELETE FROM access_log WHERE at < ?", (iso_ms(ts_ms(now_iso()) - days * 86400000),))
+    db.execute("INSERT INTO meta (k, v) VALUES ('access_pruned_at', ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v", (now_iso(),))
+
+
+def acc_meta(ctx, row):
+    m = jdec(ctx.dec(row["meta"], "access/" + str(row["aid"]))) if php_truthy(row["meta"]) else None
+    return m if isinstance(m, dict) else {}
+
+
+def acc_target_where(ctx, where, args):
+    """Shared target filter: type (binder|location), target or id (record id), code (human code, HMAC index)."""
+    type_ = php_trim(php_str(ctx.param("type", "")))
+    id_ = php_trim(php_str(ctx.param("target", ctx.param("id", ""))))
+    code = ascii_upper(php_trim(php_str(ctx.param("code", ""))))
+    if type_ != "":
+        if type_ not in DM_ACCESS_TYPES:
+            fail(422, "invalid", "type must be binder or location")
+        where.append("target_type = ?")
+        args.append(type_)
+    if id_ != "":
+        if not valid_id(id_):
+            fail(400, "invalid", "target")
+        where.append("target_id = ?")
+        args.append(id_)
+    if code != "":
+        where.append("k_code = ?")
+        args.append(ctx.hidx(code))
+    return id_ != "" or code != ""
+
+
+def r_access(ctx, who):
+    db = ctx.db
+    admin = who["role"] == "admin"
+    where, args = [], []
+    user = php_trim(php_str(ctx.param("user", ""))) if admin else php_str(who["user"])
+    if user != "":
+        where.append("k_user = ?")
+        args.append(ctx.hidx("user/" + ascii_lower(user)))
+    acc_target_where(ctx, where, args)
+    dev = php_trim(php_str(ctx.param("device", "")))
+    if dev != "":
+        where.append("k_device = ?")
+        args.append(ctx.hidx("device/" + dev))
+    via = php_trim(php_str(ctx.param("via", "")))
+    if via != "":
+        where.append("via = ?")
+        args.append(acc_via(via, ""))
+    route = php_trim(php_str(ctx.param("route", "")))
+    if route != "":
+        where.append("route = ?")
+        args.append(route)
+    frm = php_trim(php_str(ctx.param("from", "")))
+    to = php_trim(php_str(ctx.param("to", "")))
+    if DAY_RE.match(to):
+        to += "T23:59:59.999Z"
+    if frm != "":
+        where.append("at >= ?")
+        args.append(frm)
+    if to != "":
+        where.append("at <= ?")
+        args.append(to)
+    before = php_int(ctx.param("before", 0))
+    if before > 0:
+        where.append("aid < ?")
+        args.append(before)
+    limit = max(1, min(DM_ACCESS_PAGE_MAX, php_int(ctx.param("limit", DM_ACCESS_PAGE))))
+    rows = db.execute("SELECT * FROM access_log" + (" WHERE " + " AND ".join(where) if where else "") + " ORDER BY aid DESC LIMIT %d" % (limit + 1), args).fetchall()
+    more = len(rows) > limit
+    if more:
+        rows.pop()
+    items = []
+    for r in rows:
+        m = acc_meta(ctx, r)
+        e = {"aid": php_int(r["aid"]), "at": r["at"], "received_at": r["received_at"], "route": r["route"], "via": r["via"], "role": r["role"],
+             "token_id": r["token_id"], "user": php_str(pget(m, "user", "")),
+             "device": {"id": php_str(pget(m, "device_id", "unknown")), "name": php_str(pget(m, "device_name", "unknown")), "app": php_str(pget(m, "app_version", "unknown"))},
+             "target": {"type": r["target_type"], "id": r["target_id"], "code": php_str(pget(m, "code", ""))}}
+        if admin:
+            e["ip"] = php_str(pget(m, "ip", ""))
+        items.append(e)
+    return {"items": items, "more": more, "next_before": php_int(rows[-1]["aid"]) if more and rows else None, "server_time": now_iso()}
+
+
+def r_last_seen(ctx):
+    """The latest N accesses of ONE binder / location (type + id, or code), for any role."""
+    db = ctx.db
+    where, args = [], []
+    if not acc_target_where(ctx, where, args):
+        fail(400, "invalid", "id (or code) required")
+    limit = max(1, min(DM_LAST_SEEN_MAX, php_int(ctx.param("limit", 5))))
+    w = " AND ".join(where)
+    items = []
+    for r in db.execute("SELECT * FROM access_log WHERE " + w + " ORDER BY at DESC, aid DESC LIMIT %d" % limit, args).fetchall():
+        m = acc_meta(ctx, r)
+        items.append({"at": r["at"], "user": php_str(pget(m, "user", "")), "via": r["via"], "route": r["route"], "device_name": php_str(pget(m, "device_name", "unknown"))})
+    total = db.execute("SELECT COUNT(*) FROM access_log WHERE " + w, args).fetchone()[0]
+    return {"items": items, "total": php_int(total), "server_time": now_iso()}
+
+
+def r_seen(ctx, who):
+    """POST {items:[{type, id, code, at, via}]} (<= 500): views the client served from its own copy."""
+    db, c = ctx.db, ctx.c
+    lst = pget(ctx.body(), "items", None)
+    if not isinstance(lst, dict):
+        fail(400, "invalid", "items required")
+    if len(lst) > DM_SEEN_MAX:
+        fail(413, "too_large", "at most %d items per call" % DM_SEEN_MAX)
+    ci = client_info(ctx)
+    now = ts_ms(now_iso())
+    keep = php_int(c["access_keep_days"])
+    rec = skip = 0
+    db.execute("BEGIN IMMEDIATE")
+    try:
+        for it in lst.values():
+            isa = isinstance(it, dict)
+            type_ = php_str(pget(it, "type", "binder")) if isa else ""
+            id_ = pget(it, "id", "") if isa else ""
+            t = ts_ms(pget(it, "at", "")) if isa else 0
+            if type_ not in DM_ACCESS_TYPES or not valid_id(id_) or t <= 0 or t > now + 300000 or (keep > 0 and t < now - keep * 86400000):
+                skip += 1
+                continue
+            aid = acc_write(ctx, who, ci, "seen", type_, id_, cut_str(pget(it, "code", ""), 100), acc_via(pget(it, "via", ""), "nav"), iso_ms(t))
+            if aid:
+                rec += 1
+            else:
+                skip += 1
+        db.execute("COMMIT")
+    except BaseException:
+        _rollback(db)
+        raise
+    acc_prune(ctx)
+    return {"recorded": rec, "skipped": skip, "server_time": now_iso()}
+
+
 # ---------------------------------------------------------------- dispatch
-READS = {"me": "viewer", "pull": "viewer", "binder": "viewer", "location": "viewer", "resolve": "viewer", "tokens": "admin", "journal": "editor"}
-WRITES = {"push": "editor", "patch": "editor", "token_create": "admin", "token_revoke": "admin", "journal_restore": "admin"}
+READS = {"me": "viewer", "pull": "viewer", "binder": "viewer", "location": "viewer", "resolve": "viewer", "tokens": "admin", "journal": "editor",
+         "access": "editor", "last_seen": "viewer"}
+WRITES = {"push": "editor", "patch": "editor", "token_create": "admin", "token_revoke": "admin", "journal_restore": "admin", "seen": "viewer"}
+# Licence: in read_only every write route answers 403 licence_read_only, except these audit writes (they record that
+# someone looked at the data; reading is never blocked by the licence, so neither is logging the read).
+LICENCE_AUDIT_WRITES = ("seen",)
 
 
 def handle(req: Request, config_path: str) -> Response:
@@ -1297,13 +1570,14 @@ def handle(req: Request, config_path: str) -> Response:
                 fail(405, "method", "use GET or POST")
             open_db(ctx)
             who = auth(ctx, READS.get(route) or WRITES[route])
-            if route in WRITES:
+            if route in WRITES and route not in LICENCE_AUDIT_WRITES:
                 blk = licence.write_block(c)   # None unless config licence_required is true (then: licence.py)
                 if blk:
                     fail(403, "licence_read_only", blk[0], blk[1])
             etag = False
             if route == "me":
-                res = {"user": who["user"], "role": who["role"], "token_id": who["token_id"], "studio_name": php_str(c["studio_name"]), "server_time": now_iso()}
+                res = {"user": who["user"], "role": who["role"], "token_id": who["token_id"], "studio_name": php_str(c["studio_name"]), "server_time": now_iso(),
+                       "remember_minutes": php_int(c["remember_minutes"]) if php_is_numeric(c["remember_minutes"]) else None}   # v12
                 if licence.required(c):
                     res["licence"] = licence.summary(licence.status(c), True)
             elif route == "pull":
@@ -1313,11 +1587,14 @@ def handle(req: Request, config_path: str) -> Response:
             elif route == "binder":
                 res = r_binder(ctx)
                 etag = True
+                acc_after_read(ctx, who, route, res)   # v12: + access_log
             elif route == "location":
                 res = r_location(ctx)
                 etag = True
+                acc_after_read(ctx, who, route, res)
             elif route == "resolve":
                 res = r_resolve(ctx)
+                acc_after_read(ctx, who, route, res)
             elif route == "patch":
                 res = r_patch(ctx, who)
                 etag = True
@@ -1329,6 +1606,12 @@ def handle(req: Request, config_path: str) -> Response:
                 res = r_journal(ctx, who)
             elif route == "journal_restore":
                 res = r_journal_restore(ctx, who)
+            elif route == "access":
+                res = r_access(ctx, who)
+            elif route == "last_seen":
+                res = r_last_seen(ctx)
+            elif route == "seen":
+                res = r_seen(ctx, who)
             else:
                 res = r_token_revoke(ctx)
             if etag:

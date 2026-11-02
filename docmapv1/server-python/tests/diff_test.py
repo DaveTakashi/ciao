@@ -17,7 +17,13 @@ Tests:
   test_2_database     the two docmap.sqlite files hold the same rows (payloads decrypted, HMAC indexes identical)
   test_3_switch       PHP data dir opened by Python and Python data dir opened by PHP: same answers, cross writes
   test_4_lock         IP lock: 401 token_invalid + left, 429 locked + Retry-After even with a good token, unlock
-  test_5_upgrade      a v10.1 database (git 68ae170 api.php, schema 1) upgraded in place by Python = by PHP v11
+  test_1b_v12         v12: ping features, me.remember_minutes (config variants), archive / status_event push + pull
+                      (same, tie, undo_of, tombstones), binder / location / resolve with status_events + status_types and
+                      the `via` parameter, access (filters, paging, roles), last_seen, seen (dedupe, skips, 413/400/405),
+                      access_dedupe_seconds = 0, access_keep_days = 0 then pruning
+  test_5_upgrade      a v10.1 database (git 68ae170 api.php, schema 1) upgraded in place by Python = by PHP v12 (1 → 2 → 3)
+  test_6_upgrade_v11  a v11.1 database (git 32c3485 api.php, schema 2) upgraded to schema 3 by Python = by PHP v12; one
+                      data folder upgraded by Python then served by PHP v12 (and the reverse); v11.1 PHP still serves it
 """
 import base64
 import hashlib
@@ -51,6 +57,7 @@ TOK = {"dave": "dtok-admin-" + os.urandom(9).hex(), "mario": "dtok-ed-" + os.ura
        "anna": "dtok-ed2-" + os.urandom(9).hex(), "lucia": "dtok-v-" + os.urandom(9).hex()}
 A, E, E2, V = TOK["dave"], TOK["mario"], TOK["anna"], TOK["lucia"]
 DEV = {"X-DocMap-Device": "dev-diff", "X-DocMap-Device-Name": "PC%20diff%20%C3%A8", "X-DocMap-App": "26.11.1"}
+PHONE = {"X-DocMap-Device": "phone-diff", "X-DocMap-Device-Name": "Telefono%20Lucia", "X-DocMap-App": "26.12.0"}
 T0 = time.time()
 
 HEX32 = re.compile(r"[0-9a-f]{32}")
@@ -565,6 +572,160 @@ class DiffTest(unittest.TestCase):
             d.both("static " + p, None, exp, path=p)
         self.assertNoDiff(d)
 
+    # ------------------------------------------------------------------ 1b
+    def test_1b_v12(self):
+        """v12 routes and record types, side by side (runs on the data written by test_1)."""
+        d = Duo(self.php, self.py)
+        d.n = self.duo.n
+        dbs = [os.path.join(s.data, "docmap.sqlite") for s in (self.php, self.py)]
+
+        def config(extra=""):
+            self.php.write_config(extra=extra)
+            self.py.write_config(extra=extra)
+            time.sleep(2.2)   # opcache of php -S
+
+        d.both("ping v12: schema 3 + features", "ping", 200)
+        d.both("me remember_minutes default null", "me", 200, token=V)
+        for val in ("480", "-1", "0", "'45 '", "'abc'", "1.9", "true", "'1e3'"):
+            config(", 'remember_minutes' => %s" % val)
+            d.both("me remember_minutes = " + val, "me", 200, token=V)
+        config()
+
+        # ---- archive + status_event records (push / pull, LWW, append-only, undo_of)
+        def SE(id_, at, tt, tid, **x):
+            e = {"id": id_, "at": at, "user": "Mario", "device": "dev-diff", "target_type": tt, "target_id": tid, "doc_id": "", "status_id": "taken",
+                 "holder": "Mario", "due_date": "", "date": "", "note": "", "via": "scan", "box_id": "", "batch_id": "", "code": "", "doc_text": "", "undo_of": ""}
+            e.update(x)
+            return {"type": "status_event", "id": id_, "updated_at": at if isinstance(at, str) else "2025-10-29T00:00:00.000Z", "data": e}
+        arch = {"type": "archive", "id": "ar-1", "updated_at": "2025-10-15T08:00:00.000Z",
+                "data": {"id": "ar-1", "name": "Archivio storico è", "code": "ST", "color": "#AA0000", "description": "", "sort": 1,
+                         "levels": [{"name": "Stanza", "prefix": "S"}, {"name": "Scatola", "prefix": "B"}], "qr_levels": [1],
+                         "created_at": "2025-10-15T08:00:00.000Z", "updated_at": "2025-10-15T08:00:00.000Z"}}
+        evs = [SE("se-1", "2025-10-20T10:00:00.000Z", "binder", "j-x", code="JRX"),
+               SE("se-0", "2025-10-20T10:00:00.000Z", "document", "j-x", doc_id="d1", doc_text="2025: Fatture è"),
+               SE("se-3", "2025-10-21T10:00:00.000Z", "location", "l-b10", via="box", code="MAG1-A1-B10"),
+               SE("se-4", "2025-10-21T10:00:00.000Z", "binder", "j-z", via="box", box_id="l-b10", batch_id="bt-1"),
+               SE("se-5", "2025-10-22T10:00:00.000Z", "binder", "j-y", via="box", box_id="l-b10", batch_id="bt-1", status_id="to_entity", due_date="2025-12-31"),
+               SE("se-6", "2025-10-23T10:00:00.000Z", "binder", "j-y", status_id="returned"),
+               SE("se-7", "2025-10-24T10:00:00.000Z", "binder", "j-x", status_id="", via="undo", undo_of="se-1"),
+               SE("se-8", "2025-10-25T10:00:00.000Z", "binder", "j-x", box_id=0),
+               SE("se-9", "2025-10-25T11:00:00.000Z", "location", ""),
+               SE("se-10", None, "binder", "j-x")]
+        d.both("push archive + status events", "push", 200, token=E, headers=DEV, body={"records": [arch] + evs, "deviceId": "dev-diff", "operator": "Mario"})
+        d.both("push the same events again → same", "push", 200, token=E, body={"records": evs[:3] + [arch], "deviceId": "dev-diff"})
+        tie = SE("se-1", "2025-10-20T10:00:00.000Z", "binder", "j-x", note="cambiato")
+        d.both("push event, same id + time, other content (tie)", "push", 200, token=E, body={"records": [tie], "deviceId": "dev-diff"})
+        d.both("push archive newer + older", "push", 200, token=E, body={"records": [
+            dict(arch, updated_at="2025-10-16T08:00:00.000Z", data=dict(arch["data"], name="Archivio storico 2", updated_at="2025-10-16T08:00:00.000Z")),
+            dict(arch, updated_at="2025-10-01T08:00:00.000Z")], "deviceId": "dev-diff"})
+        d.both("push event target_id array → 500 (PHP warning)", "push", 500, token=E, body={"records": [SE("se-bad", "2025-10-27T10:00:00.000Z", "binder", ["x"])]})
+        d.both("push tombstones: event se-9, archive ar-gone", "push", 200, token=E, body={"tombstones": [
+            {"type": "status_event", "id": "se-9", "code": "", "deletedAt": "2025-10-27T00:00:00.000Z"},
+            {"type": "archive", "id": "ar-gone", "code": "OLD", "deletedAt": "2025-10-27T00:00:00.000Z"}], "deviceId": "dev-diff"})
+        d.both("binder: status_types null (settings without statusTypes)", "binder", 200, token=V, query={"qr": "dm26DfJRXQx"})
+        d.both("push settings statusTypes {} ", "push", 200, token=E, body={"settings": {"updated_at": "2025-10-28T00:00:00.000Z", "data": {"studioName": "nuovo", "statusTypes": {}}}})
+        d.both("binder: statusTypes {} → null", "binder", 200, token=V, query={"code": "jrx"})
+        d.both("push settings statusTypes list", "push", 200, token=E, body={"settings": {"updated_at": "2025-10-29T00:00:00.000Z", "data": {
+            "studioName": "nuovo", "statusTypes": [{"id": "taken", "label": "Preso", "presence": "out"}, {"id": "returned", "label": "Reinserito", "presence": "in"}]}}})
+        d.both("pull since=0 with archive + status_event", "pull", 200, token=V, query={"since": 0, "log_since": 0})
+
+        # ---- binder / location / resolve: status_events + status_types, via
+        r = d.both("binder qr via=nfc", "binder", 200, token=V, headers=PHONE, query={"qr": "dm26DfJRXQx", "via": "nfc"})
+        self.assertEqual(sorted(e["id"] for e in r["php"][1]["status_events"]), ["se-0", "se-1", "se-10", "se-7", "se-8"])
+        self.assertEqual(r["php"][1]["status_types"][0]["id"], "taken")
+        d.both("binder qr via=nfc again (deduped)", "binder", 200, token=V, headers=PHONE, query={"qr": "dm26DfJRXQx", "via": "nfc"})
+        d.both("binder qr via=' NAV '", "binder", 200, token=V, headers=PHONE, query={"qr": "dm26DfJRXQx", "via": " NAV "})
+        d.both("binder qr via=bogus → qr", "binder", 200, token=V, headers=PHONE, query={"qr": "dm26DfJRXQx", "via": "bogus"})
+        d.both("binder code (default via search)", "binder", 200, token=E, headers=DEV, query={"code": "JRY"})
+        d.both("binder via in POST body (array → default)", "binder", 200, method="POST", token=E2, body={"qr": "dm26DfJRYQx", "via": ["x"]})
+        d.both("binder 404 (nothing logged)", "binder", 404, token=V, query={"qr": "dm26NOTHERE0", "via": "qr"})
+        r = d.both("location B10: events of box, binders, left with box", "location", 200, token=V, headers=PHONE, query={"id": "l-b10", "via": "nav"})
+        self.assertEqual(sorted(e["id"] for e in r["php"][1]["status_events"]), ["se-0", "se-1", "se-10", "se-3", "se-4", "se-5", "se-6", "se-7", "se-8"])
+        d.both("location by qr (via default qr)", "location", 200, token=V, headers=PHONE, query={"qr": "dm26LBox00010"})
+        d.both("location A1 (no events)", "location", 200, token=E, query={"code": "MAG1-A1"})
+        d.both("resolve location via=search", "resolve", 200, token=V, headers=PHONE, query={"qr": "dm26LBox00010", "via": "search"})
+        d.both("resolve binder", "resolve", 200, token=E2, query={"qr": "dm26DfJRYQx"})
+
+        # ---- access
+        d.both("access viewer → 403", "access", 403, token=V)
+        d.both("access GET only? POST works too (read route)", "access", 200, method="POST", token=E, body={"limit": 3})
+        d.both("access editor own", "access", 200, token=E)
+        d.both("access editor2 own (user filter ignored)", "access", 200, token=E2, query={"user": "lucia"})
+        d.both("access admin all", "access", 200, token=A, query={"limit": 200})
+        r = d.both("access admin page 1", "access", 200, token=A, query={"limit": 4})
+        for k in ("php", "py"):
+            d.saved[k]["acc_next"] = r[k][1].get("next_before")
+        d.both("access admin page 2", "access", 200, token=A, query=lambda k, s: {"limit": 4, "before": s["acc_next"]})
+        for label, q, st in (("type binder", {"type": "binder"}, 200), ("type location", {"type": "location"}, 200), ("type bad → 422", {"type": "x"}, 422),
+                             ("target", {"target": "j-x"}, 200), ("id alias", {"id": "l-b10"}, 200), ("target bad → 400", {"target": "a b"}, 400),
+                             ("code lower", {"code": "jrx"}, 200), ("via nfc", {"via": "NFC"}, 200), ("via bogus → none", {"via": "zzz"}, 200),
+                             ("route resolve", {"route": "resolve"}, 200), ("user LUCIA", {"user": "LUCIA"}, 200), ("device", {"device": "phone-diff"}, 200),
+                             ("from/to day", {"from": "2000-01-01", "to": time.strftime("%Y-%m-%d", time.gmtime())}, 200), ("to past", {"to": "2001-01-01"}, 200),
+                             ("limit 0 → 1", {"limit": 0}, 200), ("limit 999 → 200", {"limit": 999}, 200), ("array param → 500", {"code[]": "x"}, 500)):
+            d.both("access " + label, "access", st, token=A, query=q)
+
+        # ---- last_seen
+        for label, q, st, tok in (("no target → 400", {}, 400, V), ("type only → 400", {"type": "binder"}, 400, V), ("type bad → 422", {"type": "x", "id": "j-x"}, 422, V),
+                                  ("by id", {"type": "binder", "id": "j-x"}, 200, V), ("by target", {"target": "j-x"}, 200, E), ("by code", {"code": "JRX"}, 200, V),
+                                  ("location", {"type": "location", "id": "l-b10"}, 200, V), ("limit 1", {"id": "j-x", "limit": 1}, 200, V),
+                                  ("limit 50 → 20", {"id": "j-x", "limit": 50}, 200, A), ("bad id → 400", {"id": "a b"}, 400, V),
+                                  ("unknown → empty", {"id": "nope"}, 200, V)):
+            d.both("last_seen " + label, "last_seen", st, token=tok, query=q)
+        d.both("last_seen no token → 401", "last_seen", 401, query={"id": "j-x"})
+
+        # ---- seen
+        now = time.time()
+        iso = lambda dt: time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(now + dt)) + ".000Z"   # noqa: E731
+        d.both("seen GET → 405", "seen", 405, token=V)
+        d.both("seen no items → 400", "seen", 400, token=V, body={})
+        d.both("seen items string → 400", "seen", 400, token=V, body={"items": "x"})
+        d.both("seen 501 items → 413", "seen", 413, token=V, body={"items": [{"id": "j-x", "at": iso(-60)}] * 501})
+        items = [{"type": "binder", "id": "j-x", "code": "JRX", "at": iso(-3600), "via": "nav"},
+                 {"type": "location", "id": "l-b10", "code": "MAG1-A1-B10", "at": iso(-7200), "via": "QR"},
+                 {"id": "j-y", "code": "JRY", "at": iso(-86400 * 3)},
+                 {"type": "binder", "id": "j-z", "at": iso(240), "via": "bogus"},
+                 {"type": "binder", "id": "j-z", "at": iso(900)},
+                 {"type": "binder", "id": "j-z", "at": iso(-86400 * 400)},
+                 {"type": "client", "id": "j-c1", "at": iso(-60)},
+                 {"type": "binder", "id": "a b", "at": iso(-60)},
+                 {"type": "binder", "id": 5, "at": iso(-60)},
+                 {"type": "binder", "id": "j-x", "at": "ieri"},
+                 {"type": "binder", "id": "j-x"},
+                 "not an object", 7,
+                 {"type": "binder", "id": "j-x", "code": "riga\x01 " + "è" * 120, "at": iso(-1800), "via": "search"}]
+        r = d.both("seen mixed items (viewer, phone)", "seen", 200, token=V, headers=PHONE, body={"items": items})
+        self.assertEqual((r["php"][1]["recorded"], r["php"][1]["skipped"]), (5, 9))
+        r = d.both("seen re-sent → all skipped", "seen", 200, token=V, headers=PHONE, body={"items": items})
+        self.assertEqual((r["php"][1]["recorded"], r["php"][1]["skipped"]), (0, 14))
+        d.both("seen at +60 s → deduped, +200 s → recorded", "seen", 200, token=V, headers=PHONE, body={"items": [
+            {"id": "j-x", "at": iso(-3600 + 60)}, {"id": "j-x", "at": iso(-3600 + 200)}]})
+        d.both("seen same item, other device → recorded", "seen", 200, token=V, headers=DEV, body={"items": [{"id": "j-x", "at": iso(-3600)}]})
+        d.both("seen items as object, _device in body", "seen", 200, token=E, body={"items": {"a": {"id": "j-y", "at": iso(-120)}}, "_device": {"id": "pc-x", "name": "PC X", "app": "26.12.0"}})
+        d.both("seen type array → 500 (rolled back)", "seen", 500, token=E, body={"items": [{"id": "j-y", "at": iso(-130)}, {"type": ["x"], "id": "j-y", "at": iso(-60)}]})
+        d.both("seen _token in text/plain body", "seen", 200, method="POST", raw=json.dumps({"_token": V, "items": [{"id": "j-v", "at": iso(-10)}]}))
+        d.both("access route=seen", "access", 200, token=A, query={"route": "seen", "limit": 100})
+        d.both("last_seen j-x after seen", "last_seen", 200, token=V, query={"id": "j-x", "limit": 20})
+
+        # ---- access_dedupe_seconds 0 + access_keep_days 0, then pruning with 365
+        config(", 'access_dedupe_seconds' => 0, 'access_keep_days' => 0")
+        for i in range(2):
+            d.both("dedupe 0: binder read %d" % (i + 1), "binder", 200, token=V, headers=PHONE, query={"qr": "dm26DfJRXQx", "via": "nfc"})
+        d.both("keep 0: seen from 2020 accepted, exact resend skipped", "seen", 200, token=V, headers=PHONE, body={"items": [
+            {"id": "j-x", "at": "2020-01-01T00:00:00.000Z"}, {"id": "j-x", "at": "2020-01-01T00:00:00.000Z"}, {"id": "j-x", "at": "2020-01-01T00:00:01.000Z"}]})
+        d.both("access after dedupe 0 / keep 0", "access", 200, token=A, query={"limit": 12})
+        for db in dbs:
+            with sqlite3.connect(db) as c:
+                c.execute("DELETE FROM meta WHERE k = 'access_pruned_at'")
+        config(", 'access_keep_days' => '365'")
+        d.both("keep 365: read prunes the 2020 rows", "location", 200, token=V, query={"id": "l-b2"})
+        for db in dbs:
+            with sqlite3.connect(db) as c:
+                self.assertEqual(c.execute("SELECT COUNT(*) FROM access_log WHERE at < '2021'").fetchone()[0], 0)
+                self.assertIsNotNone(c.execute("SELECT v FROM meta WHERE k = 'access_pruned_at'").fetchone())
+        d.both("access after pruning", "access", 200, token=A, query={"limit": 200})
+        config()
+        self.assertNoDiff(d)
+
     # ------------------------------------------------------------------ 2
     def test_2_database(self):
         dumps = {}
@@ -655,7 +816,7 @@ class DiffTest(unittest.TestCase):
 
     # ------------------------------------------------------------------ 5
     def test_5_upgrade(self):
-        """v10.1 database (schema 1, written by the v10.1 api.php) opened by Python v11 = opened by PHP v11."""
+        """v10.1 database (schema 1, written by the v10.1 api.php) opened by Python v12 = opened by PHP v12."""
         try:
             old = subprocess.check_output(["git", "show", "68ae170:docmapv1/server-php/api.php"], cwd=REPO)
         except Exception:   # noqa: BLE001
@@ -693,21 +854,142 @@ class DiffTest(unittest.TestCase):
         try:
             d = Duo(php11, py11)
             d.both("first request after the upgrade: pull since=0", "pull", 200, token=V, query={"since": 0, "log_since": 0})
-            d.both("ping schema 2", "ping", 200)
+            d.both("ping schema 3", "ping", 200)
             d.both("tokens of the v10.1 database", "tokens", 200, token=A)
             d.both("push on the upgraded db", "push", 200, token=E, body={"records": [B("u-1", "UP1", "2025-10-05T00:00:00.000Z")], "deviceId": "dev-v11"})
             d.both("journal on the upgraded db", "journal", 200, token=A)
+            d.both("binder read on the upgraded db (access row)", "binder", 200, token=V, query={"qr": "dm26DfUP1Qx", "via": "nav"})
+            d.both("access on the upgraded db", "access", 200, token=A)
             for kind, path in (("php", copy_php), ("py", copy_py)):
                 with sqlite3.connect(os.path.join(path, "docmap.sqlite")) as c:
                     meta = dict(c.execute("SELECT k, v FROM meta").fetchall())
                     tabs = sorted(r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type IN ('table','index') AND name NOT LIKE 'sqlite_%'"))
                 d.saved[kind]["meta"] = (meta.get("schema"), sorted(meta), tabs)
             self.assertEqual(d.saved["php"]["meta"], d.saved["py"]["meta"])
-            self.assertEqual(d.saved["py"]["meta"][0], "2")
+            self.assertEqual(d.saved["py"]["meta"][0], "3")
+            self.assertIn("access_log", d.saved["py"]["meta"][2])
             self.assertNoDiff(d)
         finally:
             php11.stop()
             py11.stop()
+
+    # ------------------------------------------------------------------ 6
+    def test_6_upgrade_v11(self):
+        """v11.1 database (schema 2, written by the v11.1 api.php of git 32c3485) → schema 3: Python v12 = PHP v12;
+        one folder upgraded by Python then served by PHP v12 (and the reverse); v11.1 PHP keeps serving a schema-3 file."""
+        try:
+            old = subprocess.check_output(["git", "show", "32c3485:docmapv1/server-php/api.php"], cwd=REPO)
+        except Exception:   # noqa: BLE001
+            self.skipTest("git commit 32c3485 (v11.1 api.php) not available")
+        work = self.work
+        v11 = Server("php-v11-1", work)
+        with open(os.path.join(v11.sp, "api.php"), "wb") as f:
+            f.write(old)
+        v11.write_config()
+        v11.start()
+        try:
+            st, j, _, _ = v11.call("push", token=E, headers=DEV, body={
+                "records": [B("w-1", "WV1", "2025-10-01T00:00:00.000Z", location_id="wl-box", location_code="W1-B1"), B("w-2", "WV2", "2025-10-02T00:00:00.000Z"),
+                            L("wl-root", "W1", "", "W1", 0, "dm26LWwww0001"), L("wl-box", "B1", "wl-root", "W1-B1", 1, "dm26LWwww0002"),
+                            {"type": "client", "id": "w-c", "updated_at": "2025-10-01T00:00:00.000Z", "data": {"id": "w-c", "name": "Cliente W"}},
+                            # a v12 record type sent to a v11.1 server: rejected invalid (the server keeps the log entry)
+                            {"type": "status_event", "id": "se-w0", "updated_at": "2025-10-03T00:00:00.000Z", "data": {"id": "se-w0", "target_type": "binder", "target_id": "w-1"}}],
+                "tombstones": [{"type": "binder", "id": "w-0", "code": "WV0", "deletedAt": "2025-10-01T00:00:00.000Z"}],
+                "settings": {"updated_at": "2025-10-01T00:00:00.000Z", "data": {"studioName": "v11.1", "statusTypes": [{"id": "taken"}]}},
+                "activity_log": [{"id": "w-log", "action": "status.set", "details": {"events": [{"id": "se-w0"}]}}], "deviceId": "dev-v11", "operator": "Mario"})
+            self.assertEqual(st, 200, j)
+            self.assertEqual([x["reason"] for x in j["rejected"]], ["invalid"])
+            for route, kw in (("patch", {"body": {"id": "w-2", "patch": {"notes": "v11.1"}, "base_updated_at": "2025-10-02T00:00:00.000Z"}}),
+                              ("token_create", {"body": {"user": "Vecchio", "role": "viewer"}, "token": A}),
+                              ("pull", {"query": {"since": 0}, "method": "GET"}), ("binder", {"query": {"qr": "dm26DfWV1Qx"}, "method": "GET"})):
+                st, j, _, _ = v11.call(route, **dict({"token": E}, **kw))
+                self.assertEqual(st, 200, (route, j))
+            st, j, _, _ = v11.call("access", token=A)
+            self.assertEqual(st, 404, j)   # no access log before v12
+        finally:
+            v11.stop()
+        src = v11.data
+        with sqlite3.connect(os.path.join(src, "docmap.sqlite")) as c:
+            self.assertEqual(c.execute("SELECT v FROM meta WHERE k='schema'").fetchone()[0], "2")
+        dirs = {}
+        for name in ("up11-php", "up11-py", "same-py-first", "same-php-first"):
+            dirs[name] = os.path.join(work, name)
+            os.makedirs(dirs[name])
+            for f in os.listdir(src):
+                shutil.copy(os.path.join(src, f), dirs[name])
+        servers = []
+
+        def srv(kind, name, data_dir):
+            s = Server(kind + "-" + name, work)
+            s.write_config(data_dir=data_dir)
+            s.start()
+            servers.append(s)
+            return s
+
+        try:
+            # (a) two copies: PHP v12 upgrades one, Python v12 the other; same answers, same files
+            php12, py12 = srv("php", "up11", dirs["up11-php"]), srv("py", "up11", dirs["up11-py"])
+            d = Duo(php12, py12)
+            d.both("v11.1 db, first request: binder read (upgrade + access row)", "binder", 200, token=V, headers=PHONE, query={"qr": "dm26DfWV1Qx", "via": "nfc"})
+            d.both("ping schema 3", "ping", 200)
+            d.both("location of the v11.1 db", "location", 200, token=V, headers=PHONE, query={"qr": "dm26LWwww0002"})
+            d.both("pull since=0 of the v11.1 db", "pull", 200, token=V, query={"since": 0, "log_since": 0})
+            d.both("journal written by v11.1", "journal", 200, token=A, query={"limit": 200})
+            d.both("tokens of the v11.1 db", "tokens", 200, token=A)
+            d.both("push a status_event (now accepted)", "push", 200, token=E, body={"records": [
+                {"type": "status_event", "id": "se-w1", "updated_at": "2025-10-04T00:00:00.000Z",
+                 "data": {"id": "se-w1", "at": "2025-10-04T00:00:00.000Z", "target_type": "binder", "target_id": "w-1", "box_id": "wl-box", "status_id": "taken"}}], "deviceId": "dev-v12"})
+            d.both("binder with status events + types", "binder", 200, token=E, query={"code": "WV1"})
+            d.both("seen on the upgraded db", "seen", 200, token=V, body={"items": [{"id": "w-2", "at": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime(time.time() - 600))}]})
+            d.both("access on the upgraded db", "access", 200, token=A)
+            d.both("last_seen on the upgraded db", "last_seen", 200, token=V, query={"code": "wv1"})
+            for kind, path in (("php", dirs["up11-php"]), ("py", dirs["up11-py"])):
+                with sqlite3.connect(os.path.join(path, "docmap.sqlite")) as c:
+                    meta = dict(c.execute("SELECT k, v FROM meta").fetchall())
+                    tabs = sorted(r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type IN ('table','index') AND name NOT LIKE 'sqlite_%'"))
+                d.saved[kind]["meta"] = (meta.get("schema"), sorted(meta), tabs)
+            self.assertEqual(d.saved["php"]["meta"], d.saved["py"]["meta"])
+            self.assertEqual(d.saved["py"]["meta"][0], "3")
+            self.assertIn("migrated_3_at", d.saved["py"]["meta"][1])
+            dp = dump_db(os.path.join(dirs["up11-php"], "docmap.sqlite"), d.n["php"])
+            dy = dump_db(os.path.join(dirs["up11-py"], "docmap.sqlite"), d.n["py"])
+            for t in dp:
+                if dp[t] != dy.get(t):
+                    d.fails.append("db table %s differs: %s" % (t, str(first_diff(dp[t], dy.get(t)))[:600]))
+            # (b) ONE folder: Python v12 upgrades it, then PHP v12 serves the same file (and the reverse)
+            for first, name in (("py", "same-py-first"), ("php", "same-php-first")):
+                a1 = srv(first, name, dirs[name])
+                st, j, _, _ = a1.call("binder", token=V, headers=PHONE, query={"qr": "dm26DfWV1Qx", "via": "qr"})
+                self.assertEqual(st, 200, j)
+                st, j, _, _ = a1.call("seen", token=E, headers=DEV, body={"items": [{"id": "w-2", "code": "WV2", "at": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime(time.time() - 300))}]})
+                self.assertEqual((st, j.get("recorded")), (200, 1), j)
+                a2 = srv("php" if first == "py" else "py", name + "-2", dirs[name])
+                dd = Duo(a2, a1) if first == "py" else Duo(a1, a2)
+                dd.n["py"] = dd.n["php"]
+                for label, route, q, tok in (("access", "access", {"limit": 50}, A), ("last_seen", "last_seen", {"id": "w-1"}, V), ("tokens", "tokens", None, A),
+                                             ("journal", "journal", {"limit": 50}, A), ("location", "location", {"id": "wl-box"}, V),
+                                             ("binder (deduped read)", "binder", {"qr": "dm26DfWV1Qx", "via": "qr"}, V)):
+                    dd.both("same folder upgraded by %s: %s" % (first, label), route, 200, token=tok, query=q, headers=PHONE)
+                dd.both("same folder: seen re-sent from the other server → skipped", "seen", 200, token=E, headers=DEV,
+                        body={"items": [{"id": "w-2", "at": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime(time.time() - 300))}]}, ignore=("server_time",))
+                d.ok += dd.ok
+                d.fails += dd.fails
+            # (c) the v11.1 PHP still serves a folder upgraded to schema 3 by Python (no downgrade needed)
+            v11b = Server("php-v11-1-again", work)
+            with open(os.path.join(v11b.sp, "api.php"), "wb") as f:
+                f.write(old)
+            v11b.write_config(data_dir=dirs["up11-py"])
+            v11b.start()
+            servers.append(v11b)
+            for route, q in (("pull", {"since": 0}), ("binder", {"qr": "dm26DfWV1Qx"}), ("journal", {"limit": 5})):
+                st, j, _, _ = v11b.call(route, token=A, query=q)
+                self.assertEqual(st, 200, (route, j))
+            with sqlite3.connect(os.path.join(dirs["up11-py"], "docmap.sqlite")) as c:
+                self.assertEqual(c.execute("SELECT v FROM meta WHERE k='schema'").fetchone()[0], "3")
+            self.assertNoDiff(d)
+        finally:
+            for s in servers:
+                s.stop()
 
 
 def dump_db(path, norm):
@@ -729,6 +1011,8 @@ def dump_db(path, norm):
                 d["meta"] = json.loads(blob_dec(KEY, d["meta"], "journal/%d" % d["jid"]))
             elif t == "sync_journal_items":
                 d["payload"] = json.loads(blob_dec(KEY, d["payload"], "journal/%d/%d" % (d["jid"], d["n"])))
+            elif t == "access_log" and d["meta"] is not None:
+                d["meta"] = json.loads(blob_dec(KEY, d["meta"], "access/%d" % d["aid"]))
             elif t == "meta" and d["k"] == "key_check":
                 d["v"] = blob_dec(KEY, base64.b64decode(d["v"]), "meta/key_check")
             elif t == "auth_fail":
