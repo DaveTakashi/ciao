@@ -90,12 +90,14 @@ if (typeof SC !== 'undefined' && typeof scRender === 'function'){
     TAG_SCAN_HANDLERS.push({ id:'assoc', active:() => SC.view === 'seq' && !!window.SA_API,
       handle:(text, via) => window.SA_API.saHandle(text, PHONE_VIA[via] || 'phone-camera') });
     // anywhere else: open the page of the scanned binder / location
-    TAG_SCAN_HANDLERS.push({ id:'open', active:() => !!SC.P && !['boot', 'login', 'setup', 'token', 'edit'].includes(SC.view), handle:(text) => nfcOpen(text) });
+    TAG_SCAN_HANDLERS.push({ id:'open', active:() => !!SC.P && !['boot', 'login', 'setup', 'token', 'edit'].includes(SC.view), handle:(text, via) => nfcOpen(text, via) });
 
-    function nfcOpen(text){
+    function nfcOpen(text, via){
       const p = assocParseCode(text); if (!p.type) { NFC.msg = {kind:'warn', text:t('nfc_blank')}; return scRender(); }
       const qs = new URLSearchParams(location.search); ['q', 'qr', 'code'].forEach(k => qs.delete(k)); qs.set(p.type === 'text' ? 'code' : 'q', p.code);
-      history.pushState(null, '', 'scan.html?' + qs.toString()); SC.params = scParams(); SC.msg = null; return scRoute();
+      history.pushState(null, '', 'scan.html?' + qs.toString()); SC.params = scParams(); SC.msg = null;
+      if (via === 'nfc') SC.via = 'nfc';   // v12: the access log (06k-access.js) records how the page was reached
+      return scRoute();
     }
 
     /* ---- write ---- */
