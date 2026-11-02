@@ -4222,6 +4222,7 @@ const sec = (n) => console.log('\n== ' + n);
         await P2.waitForTimeout(600);
         Av2 = await P2.evaluate(() => ({ph:(document.getElementById('ac-ph') || {}).innerText || '', w:document.documentElement.scrollWidth <= innerWidth + 1}));
         ok(Av.view === 'card' && Av.code === 'ZAB', 'A phone: reopening (new tab, new QR) → the binder directly, no PIN', Av);
+        ok(await P2.evaluate(() => !document.getElementById('sc-admin-link')), 'v12.2 phone: a viewer gets no "Gestione completa" link (admins only)');
         ok(/Visto di recente/i.test(Av2.ph) && /lucia/.test(Av2.ph) && Av2.w, 'A phone: the card shows "Visto di recente" (last_seen), no horizontal scroll', Av2);
         await P2.screenshot({path:'shots/a_phone_card.png'});
         // search screen: header button, chips, big cards, tap → binder (access via 'search'), back to results
@@ -4853,6 +4854,47 @@ const sec = (n) => console.log('\n== ' + n);
       return {got, want:[b1.id, b2.id].sort().join(), only, b1:b1.id};
     });
     ok(Vn.got === Vn.want && Vn.only === Vn.b1, 'v12.1: a status on a shelf applies to its binders and to those of the boxes nested in it; a box only to its own', Vn);
+    const Vt = await p.evaluate(() => {
+      const tr = document.querySelector('#topbar .top-right');
+      tr.insertAdjacentHTML('afterbegin', '<button class="status srv-st err" id="v121-pill"><span class="dot"></span><span class="sb-t">Accesso negato · prova di una scritta lunga</span></button>');
+      dmTopbarFit();
+      const nav = document.querySelector('#topbar .nav'), last = nav.children[nav.children.length - 1].getBoundingClientRect(), pill = document.getElementById('v121-pill').getBoundingClientRect();
+      const overlap = !(last.right <= pill.left || last.bottom <= pill.top || last.top >= pill.bottom);
+      const r = {overlap, wrap:document.getElementById('topbar').classList.contains('tb-wrap'), sw:document.documentElement.scrollWidth <= innerWidth + 1};
+      document.getElementById('v121-pill').remove(); dmTopbarFit();
+      const E = (code, status, sc) => ({code, data:{status, server_code:sc}});
+      r.msgs = [srvErrText(E('unauthorized', 401, 'token_missing')), srvErrText(E('unauthorized', 401, 'token_invalid')), srvErrText(E('forbidden', 403, 'forbidden')), srvErrText(E('forbidden', 403, ''))];
+      r.fix = [srvErrFix(E('unauthorized', 401, 'token_invalid')), srvErrFix(E('forbidden', 403, '')), srvErrFix(E('forbidden', 403, 'forbidden'))].join();
+      return r;
+    });
+    ok(!Vt.overlap && Vt.sw && /non ha ancora un codice/.test(Vt.msgs[0]) && /non riconosce il codice/.test(Vt.msgs[1]) && /non basta/.test(Vt.msgs[2]) && /dal sito, non da DocMap \(HTTP 403\)/.test(Vt.msgs[3]) && Vt.fix === 'tok,host,role',
+      'v12.1: a long status pill never overlaps the navigation (it moves to its own row); "Accesso negato" says why (no code, wrong code, role, blocked by the website) and what to do', Vt);
+    const Vq = await p.evaluate(async () => {
+      while (topModal()) closeModal(true);
+      const r = {};
+      // bulk guard: 10+ binders → confirmation first; below 10 → straight on
+      let ran = 0; dmBulkGuard(S.binders.slice(0, 3), t('bg_w_loc'), () => { ran++; }); r.small = ran === 1 && !topModal();
+      const many = S.binders.slice(0, Math.max(10, Math.min(12, S.binders.length)));
+      if (many.length >= 10){ dmBulkGuard(many, t('bg_w_loc'), () => { ran++; }); const m = topModal(); r.asked = !!m && ran === 1 && /Confermi l'azione su/.test(m.textContent) && /Primi:/.test(m.textContent);
+        m && m.querySelector('.modal-f .btn-primary').click(); r.after = ran === 2 && !topModal(); } else { r.asked = r.after = true; }
+      // series tool: explanation, ready-made examples, per-level summary
+      locOpenBulk(''); await new Promise(res => setTimeout(res, 50));
+      const f = document.getElementById('lo-bulk-form'); r.explain = !!f && /Come funziona/.test(f.textContent) && f.querySelectorAll('[data-a="lo-bk-preset"]').length >= 2;
+      f.querySelector('[data-a="lo-bk-preset"]').click(); await new Promise(res => setTimeout(res, 50));
+      r.sum = (document.getElementById('lo-bk-sum') || {}).textContent || '';
+      while (topModal()) closeModal(true);
+      // help topics
+      r.help = !!helpTopic('locations-test') && !!helpTopic('sync-guide');
+      return r;
+    });
+    ok(Vq.small && Vq.asked && Vq.after && Vq.explain && /in tutto/.test(Vq.sum) && Vq.help, 'v12.2: actions on 10+ binders ask first; "Crea in serie" explains itself with ready-made examples and a per-level summary; new help topics', Vq);
+    await p.setViewportSize({width:390, height:844});
+    const Vm = await p.evaluate(async () => { showQR(S.binders.find(b => b.short_url) || S.binders[0]); await new Promise(res => setTimeout(res, 80));
+      const pop = document.querySelector('.qr-pop'), code = pop.querySelector('.qr-pop-code').getBoundingClientRect(), info = pop.querySelector('.qr-pop-info').getBoundingClientRect(), m = topModal().getBoundingClientRect();
+      const r = {stack:info.top >= code.bottom - 1, inside:info.right <= m.right + 1 && code.right <= m.right + 1, sw:document.documentElement.scrollWidth <= innerWidth + 1};
+      while (topModal()) closeModal(true); return r; });
+    await p.setViewportSize({width:1366, height:768});
+    ok(Vm.stack && Vm.inside && Vm.sw, 'v12.2: on a phone the QR popup is one column (QR above, data below), nothing leaves the window', Vm);
     ok(Vg.arch && Vg.last && Vg.lastNone, 'v12: "archivio:<name>" finds the binders of the archive; the status card reads the last access from the access log', Vg);
   }
   console.log('\nerrors:', errs.length ? errs.join('\n') : 'none');

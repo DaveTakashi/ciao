@@ -40,7 +40,9 @@ Object.assign(I18N.it, {
   sv_conn:'Connesso come {u} ({r})', sv_last:'Ultima sincronizzazione', sv_never:'mai', sv_pending:'Modifiche da inviare', sv_skew:'Attenzione: l\'orologio di questo dispositivo differisce di {m} minuti da quello del server. L\'ordine delle modifiche dipende dall\'ora: correggi data e ora.',
   sv_st_ok:'Online · sincronizzato', sv_st_wait:'In attesa ({n})', sv_st_off:'Offline', sv_st_off_n:'Offline · in attesa ({n})', sv_st_sync:'Sincronizzo…', sv_st_denied:'Accesso negato', sv_st_ro:'Online · sola lettura',
   sv_e_denied:'Il server ha rifiutato il codice di accesso (errato o revocato): inseriscine uno valido.', sv_e_off:'Server non raggiungibile: riprovo da solo appena possibile.', sv_e_cfg:'Inserisci indirizzo e codice di accesso del server.',
-  sv_e_locked:'Troppi codici errati da questa rete: riprova tra {s} secondi.', sv_e_server:'Errore del server: {m}', sv_e_ro:'Questo codice è di sola lettura: le modifiche non vengono inviate.',
+  sv_e_locked:'Troppi codici errati da questa rete: riprova tra {s} secondi.', sv_e_notok:'Questo browser non ha ancora un codice di accesso al server.', sv_e_badtok:'Il server non riconosce il codice di accesso di questo browser (sbagliato, revocato o di un altro server).', sv_e_role:'Il codice di accesso di questo browser è «{r}» e non basta per questa operazione.', sv_e_host:'Il blocco viene dal sito, non da DocMap (HTTP {n}): di solito è la protezione cartella o il firewall di SiteGround.', sv_e_origin:'Il server accetta solo richieste dal suo stesso indirizzo: apri DocMap da {u}.',
+  sy_pick_h:'Due modi di tenere allineati PC, web app e telefoni', sy_pick_srv:'Con il database online (consigliato): inserisci qui sotto indirizzo e codice di accesso del server; poi basta «Sincronizza con il server», in entrambi i sensi.', sy_pick_srv_on:'Database online attivo: «Sincronizza con il server» manda le tue modifiche e riceve quelle degli altri, in entrambi i sensi.', sy_pick_file:'Senza server: «Esporta» un file cifrato da una parte e «Importa» dall\'altra (sezione Scambio con un file, più sotto).', sy_pick_doc:'Guida completa: docs/GUIDA-SINCRONIZZAZIONE.md (anche nell\'aiuto ?).', sy_file_h:'Scambio con un file (senza server)',
+  sv_fix_h:'Cosa fare', sv_fix_tok:'Incolla qui sotto in «Nuovo codice di accesso» il codice che ti ha dato setup.php (o l\'amministratore da ⚙ Sincronizzazione › Codici di accesso) e premi «Sostituisci codice».', sv_fix_host:'In SiteGround: Site Tools › Sicurezza › Directory protette, togli la protezione di studio-de; poi ricarica la pagina. Se resta, guarda Site Tools › Sicurezza › Firewall.', sv_fix_role:'Chiedi all\'amministratore un codice «editor» o «admin» e incollalo qui sotto.', sv_e_server:'Errore del server: {m}', sv_e_ro:'Questo codice è di sola lettura: le modifiche non vengono inviate.',
   sv_done:'Sincronizzato con il server: {r} ricevuti, {s} inviati.', sv_cancel:'Sincronizzazione annullata: nulla è stato inviato.',
   sv_seed_t:'Carica il mio archivio sul server (prima volta)', sv_seed_d:'Il server è vuoto. Verrà caricato tutto l\'archivio di questo PC come base comune:', sv_seed_b:'{n} faldoni', sv_seed_c:'{n} clienti', sv_seed_x:'{n} eliminazioni', sv_seed_l:'{n} righe del registro attività',
   sv_seed_s:'le impostazioni condivise (nome studio, destinazione QR, colori)', sv_seed_ph:'Le foto degli armadi restano su questo PC (non vengono ancora caricate).', sv_seed_ok:'Carica sul server',
@@ -57,7 +59,9 @@ Object.assign(I18N.en, {
   sv_conn:'Connected as {u} ({r})', sv_last:'Last sync', sv_never:'never', sv_pending:'Changes to send', sv_skew:'Warning: this device\'s clock differs by {m} minutes from the server. The order of changes depends on the time: fix date and time.',
   sv_st_ok:'Online · in sync', sv_st_wait:'Waiting ({n})', sv_st_off:'Offline', sv_st_off_n:'Offline · waiting ({n})', sv_st_sync:'Syncing…', sv_st_denied:'Access denied', sv_st_ro:'Online · read only',
   sv_e_denied:'The server refused the access code (wrong or revoked): enter a valid one.', sv_e_off:'Server unreachable: retrying by itself as soon as possible.', sv_e_cfg:'Enter the server address and access code.',
-  sv_e_locked:'Too many wrong codes from this network: try again in {s} seconds.', sv_e_server:'Server error: {m}', sv_e_ro:'This code is read only: changes are not sent.',
+  sv_e_locked:'Too many wrong codes from this network: try again in {s} seconds.', sv_e_notok:'This browser has no access code for the server yet.', sv_e_badtok:'The server does not recognise the access code of this browser (wrong, revoked or of another server).', sv_e_role:'The access code of this browser is «{r}», not enough for this action.', sv_e_host:'The block comes from the website, not from DocMap (HTTP {n}): usually the SiteGround folder protection or firewall.', sv_e_origin:'The server only accepts requests from its own address: open DocMap from {u}.',
+  sy_pick_h:'Two ways to keep PC, web app and phones in step', sy_pick_srv:'With the online database (recommended): enter the server address and access code below; then «Sync with the server» works both ways.', sy_pick_srv_on:'Online database on: «Sync with the server» sends your changes and receives the others\', both ways.', sy_pick_file:'Without a server: «Export» an encrypted file on one side and «Import» it on the other (File exchange, below).', sy_pick_doc:'Full guide: docs/GUIDA-SINCRONIZZAZIONE.md (also in the ? help).', sy_file_h:'File exchange (without a server)',
+  sv_fix_h:'What to do', sv_fix_tok:'Paste below in «New access code» the code given by setup.php (or by the admin from ⚙ Sync › Access codes) and press «Replace code».', sv_fix_host:'In SiteGround: Site Tools › Security › Protected URLs, remove the protection of studio-de; then reload the page. If it stays, check Site Tools › Security › Firewall.', sv_fix_role:'Ask the admin for an «editor» or «admin» code and paste it below.', sv_e_server:'Server error: {m}', sv_e_ro:'This code is read only: changes are not sent.',
   sv_done:'Synced with the server: {r} received, {s} sent.', sv_cancel:'Sync cancelled: nothing was sent.',
   sv_seed_t:'Upload my archive to the server (first time)', sv_seed_d:'The server is empty. The whole archive of this PC will be uploaded as the common base:', sv_seed_b:'{n} binders', sv_seed_c:'{n} clients', sv_seed_x:'{n} deletions', sv_seed_l:'{n} activity-log rows',
   sv_seed_s:'the shared settings (studio name, QR destination, colours)', sv_seed_ph:'Cabinet photos stay on this PC (not uploaded yet).', sv_seed_ok:'Upload to the server',
@@ -255,7 +259,7 @@ async function srvSync(o){
     renderTopbar();
     return result;
   } catch(e){
-    SRV.err = e.code === 'unauthorized' || e.code === 'forbidden' ? t('sv_e_denied') : e.code === 'offline' ? t('sv_e_off') : e.code === 'locked' ? t('sv_e_locked', {s:(e.data && e.data.retry_in) || 60}) : t('sv_e_server', {m:e.message || e.code});
+    SRV.err = srvErrText(e); SRV.fix = srvErrFix(e);
     SRV.state = e.code === 'unauthorized' || e.code === 'forbidden' ? 'denied' : 'offline';
     if (SRV.state === 'offline' && conf.auto){   // retry with exponential backoff (a denied token is NOT retried: it would lock the office IP)
       SRV.retry++;
@@ -284,11 +288,31 @@ function srvSchedulePush(){
   SRV.pushTimer = setTimeout(() => { if (srvAuto() && SRV.state !== 'denied') srvSync(); }, SRV_PUSH_DEBOUNCE);
 }
 
+/* ---------------- v12.1: precise reason of an "Accesso negato" + what to do ---------------- */
+/** e: DMError from DMServer.call (data.status = HTTP status, data.server_code = DocMap error code, '' when the answer was not DocMap's). */
+function srvErrText(e){
+  const d = (e && e.data) || {}, sc = d.server_code || '';
+  if (!e) return '';
+  if (e.code === 'unauthorized' || e.code === 'forbidden'){
+    if (sc === 'token_missing') return t('sv_e_notok');
+    if (sc === 'token_invalid') return t('sv_e_badtok');
+    if (sc === 'forbidden') return t('sv_e_role', {r:t('au_role_' + (SRV.role || 'viewer'))});
+    if (sc === 'origin') return t('sv_e_origin', {u:dmServerUrl((dmConfig() || {}).apiBase || '').replace(/\/server-php\/api\.php.*$/, '/')});
+    return t('sv_e_host', {n:d.status || (e.code === 'unauthorized' ? 401 : 403)});
+  }
+  return e.code === 'offline' ? t('sv_e_off') : e.code === 'locked' ? t('sv_e_locked', {s:d.retry_in || 60}) : t('sv_e_server', {m:e.message || e.code});
+}
+function srvErrFix(e){
+  const d = (e && e.data) || {}, sc = d.server_code || '';
+  if (!e || !(e.code === 'unauthorized' || e.code === 'forbidden')) return '';
+  return sc === 'token_missing' || sc === 'token_invalid' ? 'tok' : sc === 'forbidden' ? 'role' : sc === 'origin' ? '' : 'host';
+}
+
 /* ---------------- automatic mode (web + apiBase) ---------------- */
 function srvBoot(){
   if (!srvAuto() || SRV.started) return;
   SRV.started = true;
-  if (!DocMapVault.srvToken()){ SRV.state = 'denied'; SRV.err = t('sv_e_denied'); srvRender(); return; }
+  if (!DocMapVault.srvToken()){ SRV.state = 'denied'; SRV.err = t('sv_e_notok'); SRV.fix = 'tok'; SRV.started = false; srvRender(); return; }   // v12.1: started again once a code is pasted
   srvSync();
   SRV.interval = setInterval(() => { if (SRV.state !== 'denied' && !document.hidden) srvSync(); }, SRV_PULL_MS);
   window.addEventListener('focus', () => { if (SRV.state !== 'denied') srvSync(); });
@@ -314,9 +338,10 @@ function srvCardInner(){
     (SRV.user ? ' · ' + esc(t('sv_conn', {u:SRV.user, r:t('au_role_' + (SRV.role || 'viewer'))})) : '') + '</div>' + (SRV.err ? '<div class="err-t small" id="srv-err">' + esc(SRV.err) + '</div>' : '') +
     (SRV.role === 'viewer' ? '<div class="small muted">' + esc(t('sv_e_ro')) + '</div>' : '') + skew;
   const tokBtn = SRV.role === 'admin' ? '<button class="btn" data-a="srv-tokens">' + ic('users') + esc(t('sv_tokens')) + '</button>' : '';
+  const fix = SRV.state === 'denied' && SRV.fix ? '<div class="warn-box" id="srv-fix">' + ic('alert') + '<div><b>' + esc(t('sv_fix_h')) + '</b><div class="small">' + esc(t('sv_fix_' + SRV.fix)) + '</div></div></div>' : '';
   if (auto){
     return '<div class="row between"><h2 style="margin:0">' + ic('globe') + ' ' + esc(t('sv_h')) + (typeof helpDot === 'function' ? helpDot('server') : '') + '</h2>' + srvStatusHTML().replace('id="srv-status"', 'id="srv-status-card"') + '</div>' +
-      '<div class="small muted">' + esc(t('sv_mode_auto')) + ' · <span class="mono">' + esc(dmServerUrl(dmConfig().apiBase)) + '</span></div>' + info +
+      '<div class="small muted">' + esc(t('sv_mode_auto')) + ' · <span class="mono">' + esc(dmServerUrl(dmConfig().apiBase)) + '</span></div>' + info + fix +
       '<div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-primary" data-a="srv-sync">' + ic('sync') + esc(t('sv_sync_now')) + '</button>' + tokBtn + '</div>' +
       '<div class="row" style="gap:8px;align-items:flex-end;flex-wrap:wrap"><div class="field" style="min-width:260px"><label for="srv-newtok">' + esc(t('sv_newtok')) + '</label><input class="inp mono" id="srv-newtok" type="password" autocomplete="off"></div><button class="btn" data-a="srv-newtok">' + esc(t('sv_newtok_btn')) + '</button></div>';
   }
@@ -363,8 +388,8 @@ const SRV_ACTIONS = {
   'srv-sync': () => { if (dmConfig().mode !== 'web') srvSaveLocal(); return srvSync({interactive:true}); },
   'srv-newtok': async () => {
     const v = String(($('#srv-newtok') || {}).value || '').trim(); if (!v) return;
-    try { const me = await srvSetToken(v); SRV.role = me.role; SRV.user = me.user; SRV.state = 'idle'; SRV.err = ''; toast(t('sv_tok_ok')); srvRender(); srvSync(); }
-    catch(e){ toast(e.code === 'offline' ? t('sv_e_off') : t('sv_e_denied'), 'err', 7000); }
+    try { const me = await srvSetToken(v); SRV.role = me.role; SRV.user = me.user; SRV.state = 'idle'; SRV.err = ''; SRV.fix = ''; toast(t('sv_tok_ok')); srvRender(); if (!SRV.started) srvBoot(); else srvSync(); }
+    catch(e){ const m = e.code === 'offline' ? t('sv_e_off') : srvErrText(e) || t('sv_e_denied'); toast(m, 'err', 9000); }
   },
   'srv-tokens': () => srvTokensModal(),
   'srv-tok-create': async () => {
@@ -389,7 +414,17 @@ const SRV_ACTIONS = {
   // every commit / save: in automatic mode schedule a push when something is waiting
   wrap('persist', (o) => function(){ const r = o.apply(this, arguments); try { if (srvAuto() && !SRV.busy && SRV.state !== 'denied' && srvPending() > 0){ srvSchedulePush(); const el = document.getElementById('srv-status'); if (el) el.outerHTML = srvStatusHTML(); } } catch(e){ console.warn('srv', e); } return r; });
   wrap('renderTopbar', (o) => function(){ const r = o.apply(this, arguments); try { if (srvAuto()){ const tr = document.querySelector('#topbar .top-right'); if (tr && !document.getElementById('srv-status')) tr.insertAdjacentHTML('afterbegin', srvStatusHTML()); } } catch(e){} return r; });
-  wrap('viewSync', (o) => function(){ return o.apply(this, arguments) + (dmConfig().mode === 'web' && !dmConfig().apiBase ? '' : '<div class="card card-p stack" style="margin-top:16px" id="srv-card">' + srvCardInner() + '</div>'); });
+  wrap('viewSync', (o) => function(){
+    const h = o.apply(this, arguments); if (dmConfig().mode === 'web' && !dmConfig().apiBase) return h;
+    const card = '<div class="card card-p stack' + (SRV.state === 'denied' ? ' srv-denied' : '') + '" style="margin-top:16px" id="srv-card">' + srvCardInner() + '</div>';
+    // v12.2: the online database is the recommended way → its card comes first (PC and web app), with a short "which one?" box;
+    // the encrypted file exchange stays below for studios without a server
+    const conf = srvConf();
+    const pick = '<div class="info-box small sy-pick" id="sy-pick">' + ic('info') + '<div><b>' + esc(t('sy_pick_h')) + '</b><ul><li>' + esc(t(conf || srvAuto() ? 'sy_pick_srv_on' : 'sy_pick_srv')) + '</li><li>' + esc(t('sy_pick_file')) + '</li></ul><div class="tiny muted">' + esc(t('sy_pick_doc')) + '</div></div></div>';
+    const i = h.indexOf('<div class="grid g2">');
+    const mid = pick + card.replace('margin-top:16px', 'margin:16px 0') + '<h2 class="sy-file-h" id="sy-file-h">' + esc(t('sy_file_h')) + '</h2>';
+    return i > 0 ? h.slice(0, i) + mid + h.slice(i) : mid + h;
+  });
 })();
 document.addEventListener('DOMContentLoaded', () => {
   if (typeof ACTIONS !== 'undefined') Object.assign(ACTIONS, SRV_ACTIONS);

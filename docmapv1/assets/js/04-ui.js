@@ -110,6 +110,22 @@ function confirmAction(o){
   });
 }
 
+/** v12.1 — safety check for actions on MANY binders at once (Dave: "attenzione alle azioni massive con tutto selezionato").
+    n ≥ BULK_GUARD_MIN → a confirmation with the number, the first codes and, when everything is ticked, a clear warning;
+    fewer → go() at once (the undo toast stays the normal safety net). */
+const BULK_GUARD_MIN = 10;
+function dmBulkGuard(list, what, go){
+  const n = (list || []).length; if (n < BULK_GUARD_MIN) return go();
+  const total = (S && S.binders ? S.binders.length : n), all = n >= total;
+  const codes = list.slice(0, 8).map(b => b.speaking_code || b.code || '').filter(Boolean).join(', ') + (n > 8 ? ' …' : '');
+  confirmAction({plain:true, title:t('bg_t', {n}), okLabel:t('bg_ok', {n}),
+    detail:(all ? t('bg_all') + ' ' : '') + t('bg_d', {n, w:what, tot:total}) + (codes ? ' ' + t('bg_codes', {c:codes}) : ''), onOk:go});
+}
+Object.assign(I18N.it, { bg_t:'Confermi l\'azione su {n} faldoni?', bg_ok:'Sì, applica a {n} faldoni', bg_all:'Attenzione: sono selezionati TUTTI i faldoni.',
+  bg_d:'Stai per {w} su {n} faldoni (su {tot} in archivio).', bg_codes:'Primi: {c}.', bg_w_loc:'cambiare l\'ubicazione', bg_w_unloc:'togliere l\'ubicazione', bg_w_status:'cambiare lo stato', bg_w_save:'salvare le modifiche', bg_w_arch:'spostare in un altro archivio' });
+Object.assign(I18N.en, { bg_t:'Confirm the action on {n} binders?', bg_ok:'Yes, apply to {n} binders', bg_all:'Careful: ALL binders are ticked.',
+  bg_d:'You are about to {w} on {n} binders (of {tot} in the archive).', bg_codes:'First: {c}.', bg_w_loc:'change the location', bg_w_unloc:'remove the location', bg_w_status:'change the status', bg_w_save:'save the changes', bg_w_arch:'move to another archive' });
+
 function download(name, text, mime){
   const blob = new Blob([text], {type:(mime || 'text/plain') + ';charset=utf-8'});
   const a = document.createElement('a');

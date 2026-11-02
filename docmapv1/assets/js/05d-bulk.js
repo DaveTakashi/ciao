@@ -583,6 +583,10 @@ function bkSave(){
   if (!BK.draft.size) return 0;
   bkValidate();
   if (BK.errs.size){ toast(t('bk_errs', {n:bkErrCount()}), 'err'); bkGotoErr(); return 0; }
+  if (BK.draft.size >= BULK_GUARD_MIN && !BK.guardOk){   // v12.1: many rows changed at once → confirm first (bkSave runs again with guardOk)
+    const list = Array.from(BK.draft.keys()).map(id => S.binders.find(b => b.id === id)).filter(Boolean);
+    dmBulkGuard(list, t('bg_w_save'), () => { BK.guardOk = true; try { bkSave(); } finally { BK.guardOk = false; } }); return 0;
+  }
   undoPoint();
   const items = [], fields = new Set(), at = nowISO();
   BK.draft.forEach((d, id) => {

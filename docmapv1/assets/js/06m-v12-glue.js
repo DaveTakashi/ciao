@@ -78,6 +78,65 @@
   }
 })();
 
+/* ---- v12.1: the top bar never overlaps ----
+   The bar is one line (brand · navigation · pills on the right) and wraps only below 1180 px (css-info.css). With extra
+   pills (server status "Accesso negato", "Da esportare", English labels) one line can be too short at any width: then the
+   navigation would slide under the pills. dmTopbarFit measures and, when it does not fit, moves the navigation to its own
+   row (class tb-wrap). Runs after every top-bar render, after a server status change and on resize. */
+function dmTopbarFit(){
+  const tb = document.getElementById('topbar'); if (!tb) return;
+  tb.classList.remove('tb-wrap');
+  const nav = tb.querySelector('.nav'), tr = tb.querySelector('.top-right');
+  let over = tb.scrollWidth > tb.clientWidth + 1 || (nav && nav.scrollWidth > nav.clientWidth + 1);
+  if (!over && nav && tr){ const kids = nav.children, last = kids[kids.length - 1]; if (last && last.getBoundingClientRect().right > tr.getBoundingClientRect().left - 4) over = true; }
+  if (over) tb.classList.add('tb-wrap');
+}
+(function(){
+  if (typeof renderTopbar === 'function' && document.getElementById('topbar')){
+    const base = renderTopbar;
+    window.renderTopbar = function(){ const r = base.apply(this, arguments); try { dmTopbarFit(); } catch(e){} return r; };
+    try { renderTopbar = window.renderTopbar; } catch(e){}
+  }
+  if (typeof srvRender === 'function'){
+    const base = srvRender;
+    window.srvRender = function(){ const r = base.apply(this, arguments); try { dmTopbarFit(); } catch(e){} return r; };
+    try { srvRender = window.srvRender; } catch(e){}
+  }
+  let tm = 0; window.addEventListener('resize', () => { clearTimeout(tm); tm = setTimeout(dmTopbarFit, 60); });
+})();
+
+/* ---- v12.2 help topics: test the location mapping in 15 minutes, which sync to use ---- */
+if (typeof HELP_TOPICS !== 'undefined' && Array.isArray(HELP_TOPICS) && !HELP_TOPICS.some(x => x.id === 'locations-test')){
+  HELP_TOPICS.push({ id:'locations-test', guide:'locations', tags:['archive'], acts:['how'], pop:20, related:['locations', 'status'],
+    title:{it:'Come provo la mappatura delle ubicazioni con i QR (15 minuti)?', en:'How do I try the location mapping with QR codes (15 minutes)?'},
+    body:{
+      it:'<ol><li><b>Informazioni › Ubicazioni › Crea in serie…</b>: premi il primo <b>esempio pronto</b> (un elemento per livello e 10 scatole) → <b>Crea</b>. Nascono le ubicazioni con codici e QR; il riepilogo sotto dice quante.</li>' +
+        '<li>Spunta 2-3 scatole → <b>Stampa etichette</b> (anche su carta normale) e incollale su tre scatole vere o su tre fogli.</li>' +
+        '<li>Stampa anche le etichette di 6 faldoni di prova (Archivio, spunta, <b>Stampa etichette</b>).</li>' +
+        '<li><b>Dal PC</b>: <b>Modalità associazione</b> → con la webcam o un lettore USB leggi il QR della scatola 1, poi 3 faldoni; poi la scatola 2 e altri 3 faldoni.</li>' +
+        '<li><b>Dal telefono</b> (versione online): inquadra il QR di una scatola → <b>Avvia associazione qui</b> → inquadra un faldone.</li>' +
+        '<li>Controlla: in Archivio la colonna ubicazione mostra <span class="kbd">MAG1-A1-B01</span>; inquadrando il QR di un faldone il telefono dice <b>Dov\'è?</b>; il QR di un <b>contenitore</b> (armadio, scaffale) dice "compresi quelli nelle scatole interne".</li>' +
+        '<li>Prova anche <b>Applica a tutta la scatola</b> → <b>Preso</b> e poi <b>Verifica rientro</b> lasciando fuori un faldone: risulta <b>Mancante</b>.</li>' +
+        '<li>Finito: puoi eliminare le ubicazioni di prova dall\'albero (o tenerle). Tutto è nel Registro attività e si annulla.</li></ol>',
+      en:'<ol><li><b>Information › Locations › Create in series…</b>: press the first <b>ready-made</b> example (one item per level and 10 boxes) → <b>Create</b>. The locations get codes and QR; the summary below says how many.</li>' +
+        '<li>Tick 2-3 boxes → <b>Print labels</b> (plain paper is fine) and stick them on three real boxes or sheets.</li>' +
+        '<li>Print the labels of 6 test binders too (Archive, tick, <b>Print labels</b>).</li>' +
+        '<li><b>On the PC</b>: <b>Association mode</b> → with the webcam or a USB scanner read box 1, then 3 binders; then box 2 and 3 more binders.</li>' +
+        '<li><b>On the phone</b> (online version): point at a box QR → <b>Start association here</b> → point at a binder.</li>' +
+        '<li>Check: in Archive the location column shows <span class="kbd">MAG1-A1-B01</span>; scanning a binder QR the phone shows <b>Where is it?</b>; the QR of a <b>container</b> (cabinet, shelf) says "those in the nested boxes included".</li>' +
+        '<li>Also try <b>Apply to the whole box</b> → <b>Taken</b>, then <b>Return check</b> leaving one binder out: it shows as <b>Missing</b>.</li>' +
+        '<li>Done: delete the test locations from the tree (or keep them). Everything is in the Activity log and can be undone.</li></ol>'
+    }});
+  HELP_TOPICS.push({ id:'sync-guide', guide:null, tags:['online', 'export', 'import'], acts:['how'], pop:45, related:['sync', 'server'],
+    title:{it:'Quale sincronizzazione uso tra PC locale, web app e telefoni?', en:'Which sync do I use between the local PC, the web app and phones?'},
+    body:{
+      it:'<p><b>Con il server online (consigliato)</b>: sul PC, ⚙ Sincronizzazione › riquadro <b>Server online</b> → indirizzo e codice di accesso → <b>Sincronizza con il server</b>. Lo stesso pulsante manda le tue modifiche al web e riceve quelle di web app e telefoni. La prima volta, a server vuoto, conferma <b>Carica il mio archivio sul server (prima volta)</b>. Web app e telefoni si sincronizzano da soli.</p>' +
+        '<p><b>Senza server</b>: <b>Scambio con un file</b> — esporti un file cifrato da una parte (PC: <b>Copia export per web app</b>; web app: <b>Esporta per il client locale</b>) e lo importi dall\'altra con <b>Analizza</b> → <b>Applica</b>.</p><p>Guida completa: <span class="kbd">docs/GUIDA-SINCRONIZZAZIONE.md</span>.</p>',
+      en:'<p><b>With the online server (recommended)</b>: on the PC, ⚙ Sync › <b>Online server</b> box → address and access code → <b>Sync with the server</b>. The same button sends your changes to the web and receives those of the web app and phones. The first time, with an empty server, confirm <b>Upload my archive to the server (first time)</b>. The web app and phones sync by themselves.</p>' +
+        '<p><b>Without a server</b>: <b>File exchange</b> — export an encrypted file on one side (PC: <b>Export for the web app</b>; web app: <b>Export for the local client</b>) and import it on the other with <b>Analyse</b> → <b>Apply</b>.</p><p>Full guide: <span class="kbd">docs/GUIDA-SINCRONIZZAZIONE.md</span>.</p>'
+    }});
+}
+
 if (typeof I18N !== 'undefined'){
   Object.assign(I18N.it, { sq_chip_out:'Fuori archivio' });
   Object.assign(I18N.en, { sq_chip_out:'Out of the archive' });

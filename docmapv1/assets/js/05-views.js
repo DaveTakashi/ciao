@@ -128,12 +128,13 @@ function shelfMapHTML(list){
 
 /* ---------------- QR modal ---------------- */
 function showQR(b){
+  // v12.1: classes instead of a fixed 240 px + text grid → one centred column on phones (css-info.css .qr-pop), long URLs wrap
   openModal({ title:t('qr_modal') + ' — ' + b.speaking_code, size:'',
-    body:'<div style="display:grid;grid-template-columns:240px 1fr;gap:20px;align-items:center"><div style="width:240px;height:240px;border:1px solid var(--border);border-radius:12px;padding:8px">' + DMQR.svg(b.short_url, {ecl:S.settings.qrEcc || 'M'}) + '</div>' +
-      '<div class="stack"><div><div class="lbl">' + esc(t('f_short')) + '</div><div class="mono" style="font-size:20px;font-weight:800">' + esc(b.short_code) + '</div></div>' +
-      '<div><div class="lbl">' + esc(t('f_shorturl')) + '</div><a class="mono" href="' + esc(b.short_url) + '" target="_blank" rel="noopener">' + esc(b.short_url) + '</a></div>' +
-      '<div><div class="lbl">final_destination</div><div class="mono small" style="word-break:break-all">' + esc(destFor(b)) + '</div></div>' +
-      '<div class="row"><button class="btn btn-sm" data-a="copy-url" data-id="' + b.id + '">' + ic('copy') + 'URL</button>' + (typeof mobPreviewBtnHTML === 'function' ? mobPreviewBtnHTML(b) : '') + '</div></div></div>',
+    body:'<div class="qr-pop"><div class="qr-pop-code">' + DMQR.svg(b.short_url, {ecl:S.settings.qrEcc || 'M'}) + '</div>' +
+      '<div class="qr-pop-info"><div><div class="lbl">' + esc(t('f_short')) + '</div><div class="mono qr-pop-sc">' + esc(b.short_code) + '</div></div>' +
+      '<div><div class="lbl">' + esc(t('f_shorturl')) + '</div><a class="mono qr-pop-url" href="' + esc(b.short_url) + '" target="_blank" rel="noopener">' + esc(b.short_url) + '</a></div>' +
+      '<div><div class="lbl">final_destination</div><div class="mono small qr-pop-url">' + esc(destFor(b)) + '</div></div>' +
+      '<div class="row qr-pop-acts"><button class="btn btn-sm" data-a="copy-url" data-id="' + b.id + '">' + ic('copy') + 'URL</button>' + (typeof mobPreviewBtnHTML === 'function' ? mobPreviewBtnHTML(b) : '') + '</div></div></div>',
     buttons:[{label:t('close'), cls:'btn', action:'modal-close'}] });
 }
 

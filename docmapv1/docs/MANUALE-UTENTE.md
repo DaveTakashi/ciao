@@ -1,6 +1,6 @@
 # DocMap 2026 — manuale d'uso (passo passo)
 
-> Per chi usa DocMap ogni giorno nello studio. Versione **26.12.1**. Ogni capitolo è una cosa da fare, in passi brevi.
+> Per chi usa DocMap ogni giorno nello studio. Versione **26.12.2**. Ogni capitolo è una cosa da fare, in passi brevi.
 > I nomi tra **grassetto** sono scritti esattamente come sui pulsanti (interfaccia in italiano).
 > Descrizione completa di ogni funzione: [`RIFERIMENTO-FUNZIONI.md`](RIFERIMENTO-FUNZIONI.md) · parole: [`GLOSSARIO.md`](GLOSSARIO.md) ·
 > prove da fare a mano: [`CHECKLIST-COLLAUDO.md`](CHECKLIST-COLLAUDO.md).
@@ -490,3 +490,27 @@ Serve a rispondere a "chi ha preso in mano il faldone BL4?" o "quando l'ha guard
 4. Le aperture dal PC sono anche nel **Registro attività** (gruppo **Visite**, una riga per faldone ogni 10 minuti).
 5. Il server tiene il registro per 365 giorni (`access_keep_days` in `config.php`). È un dato personale: informa i
    collaboratori che le aperture dei faldoni vengono registrate.
+
+## 17. Ruoli e permessi (chi può fare cosa)
+
+Ogni persona o dispositivo ha un **codice di accesso** con uno di tre ruoli. Il ruolo lo decide il **server** a ogni
+richiesta, non il telefono.
+
+| Ruolo | Telefono e web app | Sul PC | Amministrazione |
+|---|---|---|---|
+| **viewer** (sola lettura) | vede faldoni, ubicazioni, stati, ricerca | — | — |
+| **editor** | in più modifica faldoni, dà gli stati, associa alle scatole, fa la verifica rientro | sincronizza (manda e riceve) | vede solo i **propri** accessi |
+| **admin** | tutto quello dell'editor + il link **Gestione completa** sul telefono (apre la web app intera) | sincronizza, carica l'archivio la prima volta | crea e revoca i codici (⚙ Sincronizzazione › **Codici di accesso**), vede tutti gli accessi e il registro sincronizzazioni |
+
+- Il **PC locale** (`file://`) non ha login: chi usa quel PC è il "proprietario" dell'archivio locale. Il ruolo conta
+  quando sincronizza con il server, tramite il codice inserito.
+- **Consiglio**: un codice **admin** per te, **editor** per chi lavora in archivio, **viewer** per chi deve solo
+  consultare. Se un telefono si perde, revoca il suo codice: al QR successivo non vede più nulla.
+- Un livello sopra l'admin (super-admin di più studi o di più clienti) arriverà con l'hub delle licenze e la versione
+  Python; oggi ogni studio ha i suoi admin.
+
+## 18. Azioni su molti faldoni insieme
+
+Quando un'azione tocca **10 o più faldoni** (stato a una selezione, ubicazione a una selezione, salvataggio della
+modifica in blocco) DocMap chiede conferma e dice quanti sono, i primi codici e se hai selezionato **tutto
+l'archivio**. Sotto i 10 parte subito e resta il pulsante **Annulla** per qualche secondo.

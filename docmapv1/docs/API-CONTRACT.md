@@ -1,6 +1,6 @@
 # DocMap — contratto API del database online condiviso
 
-> Versione dell'app 26.12.1 (v12.1): `api` = `docmap-php`, `version` 1, `schema` 3.
+> Versione dell'app 26.12.2 (v12.2): `api` = `docmap-php`, `version` 1, `schema` 3.
 > Nato con la v10.1; la v11 ha aggiunto ubicazioni e registro sincronizzazioni, la v12 il registro accessi (§11:
 > rotte `access`, `last_seen`, `seen`, parametro `via`, `me.remember_minutes`). Solo campi e rotte in più, ignorati dai client vecchi.
 
