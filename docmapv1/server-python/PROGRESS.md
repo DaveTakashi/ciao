@@ -89,3 +89,29 @@ Newest entries last. Resume from the last "Next step".
     regex 8642 in random base64), run 2 1232/1232. No Python bug found by the suite.
 - Next step: none required for F5; optional — ask the suite owners to make section A wait > 2 s (or bump mtime) after
   rewriting config.php, so the plain PHP baseline does not depend on opcache settings.
+
+## 2026-11-02 — Ponte server ⇄ server `sync-remote` (web ⇄ studio)
+- New `docmap_server/sync_remote.py` (stdlib + phpcompat) and subcommand `python -m docmap_server sync-remote PROFILE
+  [--dry-run] [--json] [--direction both|a-to-b|b-to-a] [--example]`. API client of both sides (works PHP⇄Python,
+  Python⇄Python, PHP⇄PHP): token (or env var), optional HTTP Basic, `ca` file (studio CA) or `insecure_lan` (LAN only);
+  http:// to a public host refused; no proxy for LAN hosts; never retries after 401/403/429.
+- Algorithm: pull both sides since their cursors (all pages; log separately), per-record LWW with the server's own
+  comparison (ts_ms, canon/CANON_SKIP, location code/level), exact tie with different content = conflict (nobody touched,
+  kept in state `open_conflicts` until edited), push in batches (500 records / 1000 log / ≤90% max_body_mb, 413 → split),
+  server `rejected/older` → its newer `current` is sent to the other side. Cursors move only when that side's changes
+  reached the other side; `known` map suppresses echoes; state written atomically; lock file per profile.
+- Decisions: settings = LWW on the block (same as the server's push rule), tie → conflict `settings/subset`;
+  activity_log = union by id (as the desktop client pushes/pulls it), full history on first run except, for logs > 1000
+  entries, entry seq 1 (contract limit: log_since=0 = newest 1000). `who` on the receiving side = the bridge (push has no
+  per-record author); tombstones keep theirs. Licence read_only side (ping/me licence.mode or a 403): pulled, never pushed.
+- Tests `tests/test_sync_remote.py` (10): dry-run leaves both DB data tables byte-identical; PHP⇄Python convergence
+  (13 items + settings + log identical) and 2nd run applies 0 with an empty plan; a-to-b / b-to-a leave the other side
+  untouched; deletions + concurrent edits (newer wins both ways); exact tie → exit 1, both untouched, stays open, resolved
+  by a newer save; crash after the first push batch (test hook DOCMAP_SYNC_TEST_EXIT_AFTER_PUSHES) → resume applies the
+  remaining 20, converges, lock taken over; errors exit 2 (wrong token, unreachable, missing token, viewer token, public
+  http); Python⇄Python with a location tombstone; licence read_only side; HTTPS with the CA made by
+  installer-windows/docmap_tools.ensure_certificates (refused without `ca`, accepted with it / insecure_lan on 127.0.0.1).
+  Mutation check: no echo suppression, tie treated as a win, cursor moved on failure → each caught.
+- Guide `GUIDA-SYNC-WEB-LOCALE.md` (Italian: tokens, C:\DocMap\sync + icacls, profile, dry-run, schtasks every 10 min as
+  SYSTEM via sincronizza.bat, conflicts, logs, errors, security); README section.
+- Next step: try it on the studio Windows PC against the real SiteGround site (dry-run first).

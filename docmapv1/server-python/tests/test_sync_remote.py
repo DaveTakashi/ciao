@@ -480,5 +480,67 @@ class PythonPython(Base):
         self.assertConverged()
 
 
+class TlsStudioCa(unittest.TestCase):
+    """Side B as installed in a studio: HTTPS with the certificate of the studio CA made by installer-windows/docmap_tools.py
+    (same function the installer uses). The bridge must accept it with "ca" = DocMap-CA-studio.crt, refuse it without,
+    and accept "insecure_lan" only for a LAN address."""
+
+    def test_https_with_studio_ca(self):
+        sys.dont_write_bytecode = True                      # never write __pycache__ into installer-windows (another team's folder)
+        sys.path.insert(0, os.path.join(DOCMAP, "installer-windows"))
+        import docmap_tools                                 # noqa: E402
+        work = tempfile.mkdtemp(prefix="docmap-bridge-tls-")
+        A = Srv(work, "Aphp", "php")
+        B = Srv(work, "Bpy", "py")
+        B.stop()                                            # restart B with TLS on the same config
+        certs = os.path.join(work, "certificati")
+        c = docmap_tools.ensure_certificates(certs, "Studio Prova", "pc-studio", ["127.0.0.1"])
+        B.log = open(os.path.join(B.dir, "server-tls.log"), "ab")
+        code = ("import uvicorn; from docmap_server.web import create_app; "
+                "uvicorn.run(create_app(%r, None, ['/api']), host='127.0.0.1', port=%d, ssl_certfile=%r, ssl_keyfile=%r, log_level='warning')"
+                % (B.config, B.port, c["cert"], c["key"]))
+        B.proc = subprocess.Popen([sys.executable, "-c", code], cwd=PYROOT, stdout=B.log, stderr=B.log)
+        ca = os.path.join(certs, "DocMap-CA-studio.crt")
+        try:
+            import ssl
+            ctx = ssl.create_default_context(cafile=ca)
+            op = urllib.request.build_opener(urllib.request.ProxyHandler({}), urllib.request.HTTPSHandler(context=ctx))
+            for _ in range(150):
+                try:
+                    op.open("https://127.0.0.1:%d/api?r=ping" % B.port, timeout=2).read()
+                    break
+                except Exception:   # noqa: BLE001
+                    time.sleep(0.1)
+            seed_a(A)
+            prof = os.path.join(work, "p.json")
+
+            def run(bcfg):
+                with open(prof, "w", encoding="utf-8") as f:
+                    json.dump({"name": "TLS", "a": {"label": "Web", "url": A.base, "token": A.tok["editor"]},
+                               "b": dict({"label": "Studio", "url": "https://127.0.0.1:%d/api" % B.port, "token": B.tok["editor"]}, **bcfg)}, f)
+                r = subprocess.run([sys.executable, "-m", "docmap_server", "sync-remote", prof, "--json"], cwd=PYROOT, capture_output=True, text=True)
+                return r.returncode, json.loads(r.stdout)
+
+            code1, rep = run({})                            # no CA → refused, clear message
+            self.assertEqual(code1, 2)
+            self.assertIn("certificato", " ".join(rep["errors"]))
+            code1, rep = run({"ca": ca})
+            self.assertEqual(code1, 0, rep)
+            self.assertEqual(rep["result"]["a_to_b"]["applied"], 7)
+            code1, rep = run({"insecure_lan": True})        # allowed on 127.0.0.1
+            self.assertEqual((code1, rep["result"]["a_to_b"]["applied"]), (0, 0))
+            with open(prof, "w", encoding="utf-8") as f:
+                json.dump({"a": {"url": "https://docmap.example.com/api", "token": "x", "insecure_lan": True}, "b": {"url": "https://127.0.0.1/api", "token": "y"}}, f)
+            r = subprocess.run([sys.executable, "-m", "docmap_server", "sync-remote", prof], cwd=PYROOT, capture_output=True, text=True)
+            self.assertEqual(r.returncode, 2)
+            self.assertIn("insecure_lan", r.stdout)
+        finally:
+            A.stop()
+            B.stop()
+            trash = os.path.join(PYROOT, "_trash")
+            os.makedirs(trash, exist_ok=True)
+            shutil.move(work, os.path.join(trash, "test-bridge-" + os.path.basename(work)))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

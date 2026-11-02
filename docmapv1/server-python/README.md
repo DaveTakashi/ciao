@@ -136,11 +136,45 @@ python -m docmap_server licence status --config /srv/docmap/config.json
 `licence.prev.docmap-licence` e mostra lo stato; un file non valido viene rifiutato e la licenza attuale resta.
 Il server in esecuzione vede la nuova licenza da solo, senza riavvio.
 
+## Sincronizzazione server ⇄ server (web ⇄ studio)
+
+`python -m docmap_server sync-remote PROFILO.json [--dry-run] [--json] [--direction both|a-to-b|b-to-a]` tiene allineati
+due server DocMap (il web PHP e il server Python dello studio, ma anche Python ⇄ Python o PHP ⇄ PHP) usando **solo
+l'API**, come un client: token editor per lato, HTTP Basic facoltativo, `ca` per il certificato dello studio.
+Guida passo passo in italiano (profilo, prova, pianificazione con `schtasks`, conflitti, errori, sicurezza):
+**[GUIDA-SYNC-WEB-LOCALE.md](GUIDA-SYNC-WEB-LOCALE.md)**. Codice: `docmap_server/sync_remote.py` (solo libreria standard).
+
+Note tecniche:
+
+- Regole = quelle di `r_push`: confronto di `ts_ms(updated_at | deletedAt)`; stessa ora + stesso contenuto canonico
+  (`canon`, `CANON_SKIP`, per le ubicazioni anche `code`/`level`) = allineato; stessa ora + contenuto diverso = conflitto,
+  nessun lato toccato (resta in `open_conflicts` dello stato finché uno dei due lo modifica). Un `rejected/older` del server
+  porta la versione più recente, che viene mandata all'altro lato (fino a 3 giri in più).
+- Stato in `<profilo>.state.json` (scrittura atomica): cursori `seq` / `log_seq` per lato, spostati **solo** quando le
+  novità di quel lato sono arrivate all'altro (direzione esclusa, errore o licenza `read_only` → il cursore resta);
+  `known` = versione che i due lati condividono per ogni record (niente rimbalzi dei record appena mandati);
+  id delle voci di registro mandate (niente rimbalzi del registro). Un giro interrotto si riprende: ciò che era già
+  arrivato risulta allineato, applicati 0.
+- Impostazioni condivise: LWW sul blocco come fa il server (`settings.updated_at` più recente); stessa ora e contenuto
+  diverso = conflitto `settings/subset`. Registro attività: unione per `id` (come il client, `push.activity_log`); al primo
+  giro si legge tutto lo storico (`log_since=0` dà le ultime 1000 voci, poi si pagina da `log_since=1`: per un registro di
+  oltre 1000 voci la primissima, `seq` 1, non è raggiungibile dal contratto).
+- Tipi `location` / `archive` / `status_event` non mandati a un server il cui `ping.features` non li elenca (contati come
+  `skipped_unsupported`). Blocchi da `batch_records` (500) record e `batch_log` (1000) voci, ≤ 90% di `max_body_mb` del
+  lato (predefinito 20); un 413 dimezza il blocco.
+- Identità: `X-DocMap-Device: bridge-<uuid dello stato>`, `X-DocMap-Device-Name: bridge <name>`, `X-DocMap-App:
+  docmap-bridge/1`, `operator` = `bridge <name>`. Sul server che riceve, `who` dei record è quello del ponte (il contratto
+  `push` non porta l'autore per record); le tombstone conservano il loro `who`.
+- Un solo giro per profilo alla volta (`<profilo>.lock`, ripreso se il processo non c'è più o dopo 6 ore).
+- Registro locale `sync-log/sync-AAAA-MM.jsonl` (righe `start` / `end`). Uscita 0 / 1 (conflitti aperti, lato in sola
+  lettura, record rifiutati) / 2 (errore). Mai ritentativi dopo 401/403/429 (non bloccare l'IP dello studio).
+
 ## Test
 
 ```sh
 python3 tests/test_licence.py       # licenza: chiavi e licenze create con il hub, server con licence_required
 python3 tests/diff_test.py          # PHP vero e Python fianco a fianco (serve php 8 con pdo_sqlite)
+python3 tests/test_sync_remote.py   # ponte sync-remote: PHP ⇄ Python e Python ⇄ Python veri, HTTPS con la CA dello studio
 NODE_PATH=<node_modules con playwright> python3 tests/validate_python.py   # docs/python/tools/validate_schemas.py contro il Python
 ```
 
