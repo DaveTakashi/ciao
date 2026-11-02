@@ -1,6 +1,6 @@
 # DocMap 2026 — manuale d'uso (passo passo)
 
-> Per chi usa DocMap ogni giorno nello studio. Versione **26.11.1**. Ogni capitolo è una cosa da fare, in passi brevi.
+> Per chi usa DocMap ogni giorno nello studio. Versione **26.12.0**. Ogni capitolo è una cosa da fare, in passi brevi.
 > I nomi tra **grassetto** sono scritti esattamente come sui pulsanti (interfaccia in italiano).
 > Descrizione completa di ogni funzione: [`RIFERIMENTO-FUNZIONI.md`](RIFERIMENTO-FUNZIONI.md) · parole: [`GLOSSARIO.md`](GLOSSARIO.md) ·
 > prove da fare a mano: [`CHECKLIST-COLLAUDO.md`](CHECKLIST-COLLAUDO.md).
@@ -11,7 +11,7 @@ Dove si trovano le cose:
 - Il menu **⚙ Funzioni avanzate** (in alto a destra) ha due gruppi:
   - *Dati*: **Importa**, **Esporta e Salva**, **Database**, **Registro attività**, **Sincronizzazione**;
   - *Strumenti*: **Genera con AI**, **Impostazioni**.
-- Il pulsante **?** (o il tasto F1) apre la guida con le 18 azioni guidate. Ogni azione guidata ti accompagna sullo schermo vero.
+- Il pulsante **?** (o il tasto F1) apre la guida con le azioni guidate. Ogni azione guidata ti accompagna sullo schermo vero.
 
 ---
 
@@ -185,6 +185,81 @@ Il QR stampato contiene `https://qr7.it/dm26XXXXXXXX`. Il sistema qr7.it deve sa
 2. Premi **Ubicazione…**, scegli la scatola e premi **Assegna**.
 3. Il filtro **Tutte le ubicazioni** / **Senza ubicazione** mostra cosa manca.
 
+### 6.6 Più archivi (v12)
+Lo stesso studio può tenere **archivi separati**: per esempio l'archivio corrente, lo storico, un Comune, un secondo
+magazzino. Faldoni, ubicazioni, stampa ed esportazioni restano divisi.
+1. **Informazioni** › **Archivi** › **Nuovo archivio**: nome, codice breve (es. `ST`) e colore. Premi **Avanti**: parte
+   **Configura archivio** (§6.7).
+2. I dati di prima stanno tutti in **Archivio principale** (puoi rinominarlo con la matita).
+3. Con due o più archivi compare in alto il **selettore**: scegli un archivio oppure **Tutti gli archivi**. Archivio,
+   coda di stampa, **Ubicazioni** ed **Esporta e Salva** mostrano solo l'archivio scelto. I faldoni nuovi e le righe
+   importate senza archivio finiscono nell'archivio scelto.
+4. Spostare faldoni: in **Archivio** spuntali e premi **Archivio…**. Mettere un faldone in una scatola di un altro
+   archivio lo sposta anche di archivio.
+5. **Unisci in…** sposta tutti i faldoni e le ubicazioni di un archivio in un altro e lo elimina. Un archivio vuoto si
+   elimina con il cestino. **Annulla** rimette tutto com'era.
+6. CSV ed Excel: la colonna `archive_id` (o `archivio`) accetta il codice (`ST`), il nome o l'id; un nome nuovo crea
+   l'archivio. **Esporta e Salva** › **Archivio da esportare** limita manifest, CSV completo e registro a un archivio
+   (il backup JSON contiene sempre tutto).
+
+### 6.7 Configura archivio (procedura guidata)
+1. **Informazioni** › **Archivi** › **Configura archivio** sulla scheda dell'archivio (oppure il pulsante in
+   **Ubicazioni**).
+2. Scegli il **modello** più vicino: **Studio** (Stanza › Armadio › Ripiano › Scatola), **Magazzino** (Magazzino ›
+   Corsia › Scaffale › Ripiano › Scatola), **Ente / Comune** (Deposito › Scaffale › Palchetto › Faldone-scatola) o
+   **Personalizzato** (parti dai livelli attuali).
+3. Per ogni livello: nome, prefisso, **quanti** dentro ciascuno del livello sopra e se riceve un **QR** (davanti
+   all'armadio, su ogni scansia, sulle scatole). In basso vedi subito quante ubicazioni ed etichette verranno create.
+4. **Anteprima**: primo e ultimo codice (es. `DEP1-S1-P1-F01 … DEP1-S2-P2-F03`), il primo ramo e i totali.
+5. **Crea l'archivio**, poi **Stampa N etichette QR**: si stampano solo i livelli con il QR. I livelli valgono per
+   quell'archivio (**Ubicazioni** › **Livelli…** li cambia; nell'Archivio principale restano i livelli dello studio).
+
+### 6.8 QR annidati: mappare il magazzino con lo scanner
+Per dire "questa scansia sta dentro quell'armadio" senza digitare:
+1. **Ubicazioni** › **Modalità associazione** e spunta **Annida ubicazioni**.
+2. Scansiona il QR dell'armadio (diventa il **contenitore**), poi il QR di una scansia che non è ancora dentro.
+3. DocMap chiede *"Sposta S2 dentro A1?"*: premi **Sì, sposta** oppure scansiona di nuovo la scansia. **No** apre
+   soltanto la scansia. **Annulla spostamento** rimette tutto com'era.
+4. I faldoni scansionati dopo vanno nell'ubicazione più precisa attiva. Senza la spunta la modalità associazione
+   funziona come prima.
+
+### 6.9 Tag NFC (Android) e iPhone
+Un tag NFC adesivo può sostituire o affiancare il QR: contiene **lo stesso indirizzo** del QR.
+1. **Scrivere il tag** (telefono Android con Chrome, utente che può modificare): apri la pagina del faldone o della
+   scatola scansionando il QR, premi **Scrivi su tag NFC** e avvicina il tag al retro del telefono.
+2. **Leggere**: su Android premi **Leggi tag NFC**; ogni tag avvicinato apre la sua scheda, e in **Scansiona in
+   sequenza** finisce nella scatola attiva come un QR. Su **iPhone** non serve nulla: avvicinando il telefono al tag
+   iOS apre l'indirizzo come quando inquadri un QR (Safari non può scrivere i tag).
+3. Su PC e iPhone i pulsanti NFC non compaiono. Progetto per varchi RFID futuri: [RFID-NFC.md](RFID-NFC.md).
+### 6.10 Stati: preso, reinserito, dato al Comune…
+Ogni faldone, ogni singolo documento e ogni scatola può avere uno **stato**: Preso, Reinserito, Dato al cliente,
+Restituito dal cliente, Fuori per pratica, Dato al Comune / ente, Restituito dal Comune / ente, Mancante / non trovato,
+Ritrovato, Da verificare. DocMap ricorda chi lo ha fatto, quando e da dove.
+
+**La regola per tutto lo studio**: quando prendi un faldone scansiona il QR e premi **Preso**; quando lo rimetti a posto
+scansionalo e premi **Reinserito**. Chi lo scansiona dopo vede subito "Preso da Mario · da 2 giorni".
+
+1. **Dal telefono** (già entrato con il tuo utente): inquadra il QR del faldone. In cima c'è il riquadro **Stato** con i
+   pulsanti grandi: un tocco per **Preso** o **Reinserito**; per gli stati che chiedono chi lo ha, una data o una nota si
+   apre un secondo passo con i dati già pronti → **Conferma**. Per un solo documento tocca il documento nell'elenco
+   **Contenuto**. Hai 10 secondi per **Annulla**. Senza rete lo stato resta sul telefono e parte da solo appena torna la
+   connessione.
+2. **Scatola che esce**: inquadra il QR della scatola → **Applica a tutta la scatola** → per esempio **Dato al Comune /
+   ente**, scrivi l'ente, la data di rientro e una nota → **Conferma**. Lo stato va alla scatola e a ogni faldone dentro.
+3. **Scatola che torna**: inquadra il QR della scatola → **Verifica rientro** → scansiona (fotocamera o codice scritto) il
+   QR di ogni faldone. Vedi **Trovati**, **Mancano**, **In più**. Premi **Salva la verifica**: i trovati diventano
+   restituiti, i mancanti (se lasci la spunta) **Mancante / non trovato**. Poi **Scarica il report (CSV)**.
+4. **Dal PC**: nella scheda del faldone c'è il riquadro **Stato del faldone** (pulsanti, documenti, **Storico**). In
+   **Archivio**: il filtro **Movimenti: tutti** (Fuori archivio, In ritardo, Mancanti…), il badge nella colonna Stato e
+   il pulsante **Stato…** per i faldoni spuntati. In **Informazioni › Ubicazioni** il pulsante **Stato della scatola…**.
+5. **Fuori archivio**: quando qualcosa è fuori, in Archivio compare la striscia "N fuori archivio" → **Apri "Fuori
+   archivio"**: chi ha cosa, da quando, chi è in ritardo; un tocco per farlo rientrare; **Esporta fuori archivio (CSV)**
+   ed **Esporta tutti i movimenti (CSV)**; l'elenco delle **Verifiche di rientro** con il loro CSV.
+6. **Lettore USB**: in Fuori archivio premi **Modalità stato (lettore QR)**, scegli lo stato e scansiona un faldone dopo
+   l'altro (il QR di una scatola vale per tutta la scatola).
+7. **Personalizzare**: **Impostazioni › Stati rapidi**: **Aggiungi stato**, **Modifica** (nome, colore, cosa chiedere,
+   pulsante rapido, attivo), frecce per l'ordine. Uno stato già usato non si elimina: si disattiva.
+
 ## 7. Server online su SiteGround (una volta sola, chi gestisce il sito)
 
 1. **Prepara i file sul PC**: `python3 docmapv1/tools/build_deploy.py`. Crea la cartella `deploy/studio-de/`.
@@ -224,7 +299,7 @@ Dettagli tecnici: [`DEPLOY-WEB.md`](DEPLOY-WEB.md) e il `README-DEPLOY.md` dentr
 2. Compare **Primo accesso su questo telefono** se hai aperto un QR, oppure **Primo accesso su questo dispositivo** se hai aperto l'indirizzo dell'app. Inserisci:
    - un nome utente e un PIN di questo dispositivo;
    - il **codice di accesso** ricevuto dall'amministratore.
-3. Da quel momento basta il PIN. Lo stato si vede in alto:
+3. Da quel momento basta il PIN; con **Ricordami su questo dispositivo** (già spuntato) i QR si aprono senza PIN (§15). Lo stato si vede in alto:
    - "Online · sincronizzato";
    - "In attesa (N)": modifiche da inviare;
    - "Offline · in attesa (N)";
@@ -337,3 +412,75 @@ Segui sempre la guida della versione (`docs/AGGIORNAMENTO-vX-vY.md`) e le regole
 | Ho l'indirizzo di un QR (`https://qr7.it/dm26…` o `…/q/dm26…`) e voglio il faldone | Incollalo o scansionalo nella ricerca dell'**Archivio**: trova il suo faldone. |
 
 Altri problemi di stampa e import: [`RIFERIMENTO-FUNZIONI.md`](RIFERIMENTO-FUNZIONI.md) › "Problemi comuni".
+
+## 14. Cercare un faldone
+
+Sul PC c'è **una sola casella di ricerca**, in cima all'**Archivio**. Scrivi come ti viene: maiuscole, accenti e un
+errore di battitura non contano.
+
+1. Scrivi una parte del nome del cliente, del codice, della città, di un tag o di un anno: `barbieri`, `BL2`,
+   `castello 2024`. Devono esserci **tutte** le parole. Le parole trovate sono evidenziate in giallo nella tabella.
+2. Hai sbagliato a scrivere? DocMap trova lo stesso il faldone e mostra **Forse cercavi: …**: tocca la parola giusta
+   per correggere la ricerca.
+3. Per restringere usa le **parole chiave** (compaiono come etichette sotto la casella; la ✕ di un'etichetta la toglie):
+
+   | Scrivi | Trova |
+   |---|---|
+   | `tag:iva` · `-tag:2019` | con il tag iva · senza il tag 2019 |
+   | `anno:2024` · `anno:2020..2022` · `anno:>2023` | quell'anno · un intervallo · dopo il 2023 |
+   | `cat:aps` · `cliente:"rossi mario"` · `citta:perugia` | categoria · cliente · città |
+   | `luogo:B04` · `colore:rosso` · `codice:bl2` · `multi:M-77001` | posizione · colore del dorso · codice · Codice Multi |
+   | `stato:fuori` · `stato:storico` · `stato:cliente` | prelevati · storici · con documenti dal cliente |
+   | `contenuto:bilancio` · `note:geometra` | dentro i contenuti · nelle note e nei contatti |
+   | `-parola` · `"frase esatta"` | esclude una parola · cerca le parole in quell'ordine |
+
+   Puoi anche incollare il link di un QR (`https://qr7.it/dm26…` o `…/q/dm26…`) o leggerlo con il lettore: compare
+   subito quel faldone.
+4. **Filtri**: apre i gruppi (tag, categoria, anno, ubicazione, colore, stato) con il numero di faldoni di ogni
+   voce. Tocca le voci che ti servono: dentro un gruppo vale una qualsiasi, tra gruppi diversi valgono tutte.
+5. **☆ Salva ricerca**: dai un nome (es. "IVA 2024 da archiviare"). Le ricerche salvate compaiono sotto la casella e
+   arrivano agli altri PC con la sincronizzazione (impostazioni condivise). Le **ricerche recenti** sono nel pannello
+   Filtri e restano su questo PC.
+6. Nel pannello Filtri puoi togliere le note e i contatti dalla ricerca (**Cerca anche in note e contatti**).
+
+Sul **telefono** (versione online): tocca la lente 🔍 in alto, oppure **Cerca un faldone** se non hai inquadrato un QR.
+
+1. Scrivi o tocca il microfono 🎤 per dettare. Le scorciatoie sotto la casella (**Fuori archivio**, ricerche recenti,
+   tag più usati) fanno la ricerca con un tocco.
+2. I risultati sono schede grandi con codice, cliente e posizione; tocca una scheda per aprire il faldone.
+   **Torna ai risultati** riporta alla ricerca.
+3. Senza rete la ricerca funziona lo stesso sulla copia salvata (cifrata) nel telefono; compare "Senza rete".
+
+L'azione guidata **Cerca con operatori, filtri e ricerche salvate** (pulsante **?**) mostra tutto questo sullo schermo vero.
+
+## 15. Accesso senza PIN sul telefono ("Ricordami su questo dispositivo")
+
+1. Al primo accesso (e a ogni accesso con il PIN) sotto il PIN c'è **Ricordami su questo dispositivo**, già spuntato.
+2. Con la spunta, i QR inquadrati dopo aprono il faldone **subito, senza PIN**.
+3. Il PIN viene chiesto di nuovo:
+   - dopo **30 giorni** senza usare DocMap su quel telefono (o il tempo scelto dall'amministratore);
+   - se tocchi **Esci**;
+   - se l'amministratore revoca il codice di accesso di quel telefono o cambia il tuo PIN.
+4. Telefono condiviso o che resta in giro? Togli la spunta: il PIN servirà a ogni QR.
+5. **Telefono perso o rubato**: avvisa subito l'amministratore, che revoca il codice di accesso di quel telefono
+   (⚙ › **Sincronizzazione** › **Server online** › codici di accesso). Al primo contatto con il server il telefono
+   dimentica l'accesso. Fino ad allora chi ha il telefono **sbloccato** può vedere i faldoni.
+6. Amministratore: in ⚙ › **Impostazioni** › **Utenti e accesso** › **Accesso senza PIN su questo dispositivo** scegli
+   dopo quanto tempo chiedere di nuovo il PIN (**Chiedi sempre il PIN**, **8 ore**, **30 giorni**, **Mai**) e
+   **Dimentica questo dispositivo**. Per tutti i telefoni insieme: `remember_minutes` in `config.php` sul server
+   (`0` = sempre il PIN, `480` = 8 ore, `43200` = 30 giorni, `-1` = mai); vince su quella del dispositivo.
+
+## 16. Chi l'ha visto (registro accessi)
+
+Serve a rispondere a "chi ha preso in mano il faldone BL4?" o "quando l'ha guardato il collega?".
+
+1. **Sul PC**: apri la scheda di un faldone. In fondo c'è **Chi l'ha visto**: le aperture fatte su questo PC e, con il
+   server online, **Carica dal server** mostra chi lo ha aperto da telefoni e altri PC (persona, quando, come: QR,
+   Ricerca, Scheda, NFC).
+2. **Sul telefono**: la scheda del faldone mostra **Visto di recente** (le ultime aperture).
+3. **Tutti gli accessi**: ⚙ › **Sincronizzazione** › riquadro **Accessi**. Scegli **Questo PC**, **Server (tutti)**
+   (amministratore, con l'IP) o **Server (le mie)** (editor) e filtra per date, persona, faldone e modo. **Altri**
+   carica le righe più vecchie.
+4. Le aperture dal PC sono anche nel **Registro attività** (gruppo **Visite**, una riga per faldone ogni 10 minuti).
+5. Il server tiene il registro per 365 giorni (`access_keep_days` in `config.php`). È un dato personale: informa i
+   collaboratori che le aperture dei faldoni vengono registrate.

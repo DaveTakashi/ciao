@@ -2,7 +2,7 @@
    DocMap 2026 — core: i18n, state, persistence, data model helpers
    ===================================================================== */
 'use strict';
-const APP_VERSION = '26.11.1';
+const APP_VERSION = '26.12.0';
 const LS_KEY = 'docmap_v26_state';
 const LS_PREV = 'docmap_v26_state_prev';
 const SC_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
@@ -12,7 +12,7 @@ const GREEK = ['α','β','γ','δ','ε','ζ','η','θ'];
 const CATEGORIES = ['Ordinaria','Semplificata','Societario','Lavoro','Dichiarativi','Contenzioso','Privati'];
 const CAT_COLOR = {Ordinaria:'#2563EB',Semplificata:'#059669',Societario:'#7C3AED',Lavoro:'#D97706',Dichiarativi:'#DC2626'};
 const STATES = ['CURRENT','HISTORICAL','CHECKED_OUT'];
-const CSV_COLUMNS = ['speaking_code','multi_code','company_name','company_city','category','binder_title','ref_year','room_code','cabinet_code','shelf_code','sector_code','location_code','archive_state','contents','tags','color_hex','short_code','short_url','final_destination','extra_codes','shelf_color','contacts','notes','selected_for_print','id','created_at','updated_at','color_locked','location_id'];   // v10: color_locked appended · v11: location_id (02c-locations.js) appended (never reorder)
+const CSV_COLUMNS = ['speaking_code','multi_code','company_name','company_city','category','binder_title','ref_year','room_code','cabinet_code','shelf_code','sector_code','location_code','archive_state','contents','tags','color_hex','short_code','short_url','final_destination','extra_codes','shelf_color','contacts','notes','selected_for_print','id','created_at','updated_at','color_locked','location_id','archive_id'];   // v10: color_locked appended · v11: location_id (02c-locations.js) appended · v12: archive_id (02e-archives.js) appended (never reorder)
 /* Shelf naming styles: the quick-pick buttons in the binder form follow the chosen style. */
 const SHELF_TYPES = {
   number:['1','2','3','4','5','6','7','8'], letter:['A','B','C','D','E','F','G','H'], greek:GREEK,
@@ -282,7 +282,7 @@ function normCiStatus(v){
 function ciText(i){ return (i.year ? i.year + ': ' : '') + (i.description || '') + (CI_SUFFIX[i.status] ? ' [' + CI_SUFFIX[i.status] + ']' : ''); }
 function contentsToPipe(items){ return (items || []).filter(i => String(i.year || '').trim() || String(i.description || '').trim()).map(ciText).join('|'); }
 function pipeToContents(str){
-  if (Array.isArray(str)) return str.map(x => typeof x === 'string' ? pipeToContents(x)[0] : {year:String(x.year || '').trim(), description:String(x.description || x.desc || '').trim(), status:normCiStatus(x.status)}).filter(x => x && (x.year || x.description));
+  if (Array.isArray(str)) return str.map(x => typeof x === 'string' ? pipeToContents(x)[0] : ciKeepId({year:String(x.year || '').trim(), description:String(x.description || x.desc || '').trim(), status:normCiStatus(x.status)}, x)).filter(x => x && (x.year || x.description));
   return String(str || '').split(/\||\n/).map(p => p.trim()).filter(Boolean).map(p => {
     let status = 'archive';
     const sm = p.match(CI_SUFFIX_RE);
@@ -290,6 +290,40 @@ function pipeToContents(str){
     const m = p.match(/^(\d{4}(?:\s*[-\/]\s*\d{2,4})?)\s*[:\-–—]\s*(.+)$/);
     return m ? {year:m[1].replace(/\s+/g, ''), description:m[2].trim(), status} : {year:'', description:p, status};
   }).filter(x => x.year || x.description);
+}
+/* v12 (stream Q): every contents item has a stable `id`, so a single document can carry its own status history
+   (02d-status.js). Rules: an id, once assigned, never changes (kept by JSON / SQLite contents_items.item_id / sync);
+   an item without one (CSV, AI, pipe text, data from v10–v11.1) gets a DETERMINISTIC id derived from the binder id,
+   its text and its occurrence (ciEnsureIds), so two devices upgrading the same data agree without talking to each other;
+   when items are re-parsed from text for a binder that already has ids (CSV merge, "one line per item", phone patch),
+   ciCarryIds() gives them back the ids of the matching old items (same year + description, else same position). */
+const CI_ID_RE = /^[A-Za-z0-9._:-]{1,64}$/;
+function ciKeepId(o, src){ if (src && typeof src.id === 'string' && CI_ID_RE.test(src.id)) o.id = src.id; return o; }
+function ciHash(s){ let h1 = 0x811c9dc5, h2 = 0x01000193 ^ s.length; for (let i = 0; i < s.length; i++){ const c = s.charCodeAt(i); h1 = Math.imul(h1 ^ c, 16777619) >>> 0; h2 = Math.imul(h2 ^ c, 2246822519) >>> 0; h2 = (h2 ^ (h2 >>> 13)) >>> 0; } return h1.toString(16).padStart(8, '0') + h2.toString(16).padStart(8, '0'); }
+const ciKey = (i) => String(i.year || '').trim().toLowerCase() + '\u001f' + String(i.description || '').trim().replace(/\s+/g, ' ').toLowerCase();
+/** Gives every item a unique id (in place). Missing / duplicate ids → 'ci-' + hash(binder id, text, occurrence). */
+function ciEnsureIds(binderId, items){
+  const used = new Set(), seen = {};
+  (items || []).forEach(it => { if (it.id && CI_ID_RE.test(it.id) && !used.has(it.id)) used.add(it.id); else it._ciNew = 1; });
+  (items || []).forEach(it => {
+    const k = ciKey(it); seen[k] = (seen[k] || 0) + 1;
+    if (!it._ciNew) return;
+    delete it._ciNew;
+    let n = seen[k] - 1, id;
+    do { id = 'ci-' + ciHash(String(binderId || '') + '\u001e' + k + '\u001e' + n); n++; } while (used.has(id));
+    it.id = id; used.add(id);
+  });
+  return items;
+}
+/** Re-attach the ids of `prev` items to re-parsed `items` without ids (in place): same year + description first,
+    then — only when the number of items did not change — the item at the same position. */
+function ciCarryIds(prev, items){
+  if (!Array.isArray(prev) || !Array.isArray(items) || !prev.length) return items;
+  const free = prev.filter(p => p && p.id), taken = new Set(items.map(i => i && i.id).filter(Boolean));
+  const pool = free.filter(p => !taken.has(p.id));
+  items.forEach(it => { if (!it || it.id) return; const k = ciKey(it), j = pool.findIndex(p => ciKey(p) === k); if (j >= 0){ it.id = pool[j].id; taken.add(it.id); pool.splice(j, 1); } });
+  if (prev.length === items.length) items.forEach((it, i) => { const p = prev[i]; if (it && !it.id && p && p.id && !taken.has(p.id)){ it.id = p.id; taken.add(p.id); } });
+  return items;
 }
 const STOP = new Set(['il','lo','la','i','gli','le','aps','ets','odv','onlus','asd','ssd','coop','srl','s','r','l','spa','p','a','snc','n','c','sas','di','de','del','della','dei','e','ed','&','the','and','of','studio','dott','dr','sig','geom','ing','avv','rag']);
 function initialsOf(name){
@@ -349,15 +383,16 @@ function manifestTags(b){ return ['docmap26', b.speaking_code, b.multi_code ? 'm
 function normalizeBinder(b){
   const o = Object.assign({
     id:uuid(), speaking_code:'', multi_code:'', company_name:'', company_city:'', ref_year:'', extra_codes:'', shelf_color:'', category:'', color_hex:'#2563EB', binder_title:'', room_code:'', cabinet_code:'', shelf_code:'', sector_code:'',
-    location_code:'', archive_state:'CURRENT', contents_items:[], tags:'', short_code:'', short_url:'', final_destination:'', contacts:'', notes:'', selected_for_print:false, color_locked:false, location_id:'',
+    location_code:'', archive_state:'CURRENT', contents_items:[], tags:'', short_code:'', short_url:'', final_destination:'', contacts:'', notes:'', selected_for_print:false, color_locked:false, location_id:'', archive_id:'',
     created_at:nowISO(), updated_at:nowISO()
   }, b || {});
-  ['speaking_code','multi_code','company_name','company_city','ref_year','extra_codes','shelf_color','category','binder_title','room_code','cabinet_code','shelf_code','sector_code','tags','short_code','final_destination','contacts','notes','location_id'].forEach(k => o[k] = String(o[k] == null ? '' : o[k]).trim());
+  ['speaking_code','multi_code','company_name','company_city','ref_year','extra_codes','shelf_color','category','binder_title','room_code','cabinet_code','shelf_code','sector_code','tags','short_code','final_destination','contacts','notes','location_id','archive_id'].forEach(k => o[k] = String(o[k] == null ? '' : o[k]).trim());
+  if (typeof archKey === 'function') o.archive_id = archKey(o.archive_id);   // v12: '' = default archive (02e-archives.js)
   o.speaking_code = o.speaking_code.toUpperCase().replace(/\s+/g, '');
   if (/^[a-z]{1,2}$/i.test(o.room_code)) o.room_code = o.room_code.toUpperCase();   // short room letters (a → A); names like "Ufficio 1" stay as typed
   o.shelf_color = normHex(o.shelf_color);
   o.multi_code = o.multi_code.replace(/\s+/g, ' ');
-  o.contents_items = pipeToContents(o.contents_items);
+  o.contents_items = ciEnsureIds(o.id, pipeToContents(o.contents_items));   // v12: stable item ids (see ciEnsureIds)
   o.color_hex = normHex(o.color_hex) || CAT_COLOR[o.category] || '#2563EB';
   if (!STATES.includes(o.archive_state)) o.archive_state = 'CURRENT';
   o.location_code = binderLocCode(o);   // v11: path code of the location tree when location_id is set
@@ -429,9 +464,11 @@ function defaultState(){
             contentMode:'info', template:'classic', showMulti:true, fields:{}, split:{ratio:0.5, rotate:-90, guides:true}, advanced:false, qrMode:'live', showQrUrl:true, copies:1, previewMode:'labels',
             info:{items:2, pair:false}, edge:{outer:4, cut:1, byPreset:{}} },
     customPresets:[], usedSlots:{}, clients:[], locations:[],   // v11: location tree (02c-locations.js)
+    archives:[], archiveSel:'',   // v12: archives / clusters (02e-archives.js); archiveSel = archive shown by the top-bar switcher ('' = all), a preference of this device
    
     hasUnexportedChanges:true, onboarded:false, lastExportAt:null, lastExportFile:null, lastSavedAt:null, archiveView:'table',
-    syncJournal:[]   // v11: local push/sync journal (06i-journal.js)
+    syncJournal:[],   // v11: local push/sync journal (06i-journal.js)
+    statusEvents:[]   // v12: status / check-out events, append-only (02d-status.js)
   };
 }
 let S = null;
@@ -462,6 +499,7 @@ function migrate(st){
   if (!(st && st.schema >= 26.9) && o.print.presetId === 'mrink143' && o.print.contentMode === 'split') o.print.contentMode = 'info';
   o.schema = 26.9;
   // v11: the location tree is normalised before the binders, so their location_code can follow it (02c-locations.js)
+  o.archives = typeof archNormalizeList === 'function' ? archNormalizeList(o.archives) : Array.isArray(o.archives) ? o.archives : [];   // v12 (02e-archives.js): absent before v12 = only the default archive
   o.locations = Array.isArray(o.locations) && typeof normalizeLocation === 'function' ? o.locations.map(normalizeLocation) : Array.isArray(o.locations) ? o.locations : [];
   if (typeof locIndexUse === 'function') locIndexUse(o.locations);
   o.binders = Array.isArray(o.binders) ? o.binders.map(normalizeBinder) : [];
@@ -471,6 +509,7 @@ function migrate(st){
   if (!['it','en'].includes(o.lang)) o.lang = 'it';
   if (o.view === 'clients'){ o.view = 'info'; o.infoTab = 'clients'; }   // v8: the client register lives in Informazioni
   o.syncJournal = Array.isArray(o.syncJournal) ? o.syncJournal.filter(e => e && typeof e === 'object' && e.id) : [];   // v11 (06i-journal.js): absent in v10.1 states
+  o.statusEvents = typeof sqNormEvents === 'function' ? sqNormEvents(o.statusEvents) : Array.isArray(o.statusEvents) ? o.statusEvents : [];   // v12 (02d-status.js): absent before v12
   return o;
 }
 function loadState(){

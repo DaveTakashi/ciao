@@ -172,6 +172,41 @@ quindi senza codice in più.
 - Telefono: la modalità associazione scrive con `patch` (`API-CONTRACT.md` §5); il PC riceve i faldoni aggiornati e
   le righe `binder.locate` al pull successivo.
 
+## 7c. v12 — archivi (tipo di record `archive`)
+
+Gli archivi (`S.archives`, `MODELLO-DATI.md` §15) seguono gli stessi percorsi generici: `syncTrack` (tombstone quando
+un archivio sparisce: unione "Unisci in…" o eliminazione), `syncChangedSince`, pacchetto (`records.archives`,
+`counts.archives`), `syncAnalyze` / `syncApply` (LWW per record; gli archivi si applicano **prima** di ubicazioni e
+faldoni), `srvChanges` / `srvPush` (`type:'archive'`), pull dal server e registro sincronizzazioni.
+
+- Escluso dal confronto: solo `updated_at` (`SYNC_A_SKIP`). `levels` e `qr_levels` sono contenuto.
+- L'**Archivio principale** non viaggia finché non viene modificato (è virtuale, `MODELLO-DATI.md` §15.1): due PC
+  appena aggiornati non si scambiano nulla di nuovo. I suoi livelli restano `settings.locLevels` (sottoinsieme
+  impostazioni, come in v11).
+- `binder.archive_id` e `location.archive_id` sono contenuto (LWW del faldone / dell'ubicazione). `archive_id` dei
+  nodi non radice è derivato dalla radice: quando la radice cambia archivio, `syncTrack` vede il sottoalbero cambiato e
+  ne aggiorna `updated_at`, quindi i figli viaggiano insieme alla radice.
+- Un record di un archivio che questo PC non conosce ancora (ordine di arrivo) resta valido: il faldone mostra un
+  archivio "non ancora sincronizzato" finché arriva il record.
+- **Server v11 e app v12**: un `api.php` vecchio rifiuta i record `archive` come `invalid` (gli altri passano).
+  Aggiornare `server-php/api.php` insieme all'app (`ping` → `features` contiene `archives`).
+
+
+## 7d. v12 — stati (`records.status_events`, tipo di record `status_event`)
+
+Gli stati (`MODELLO-DATI.md` §17) sono **eventi che non cambiano mai**: niente LWW, niente conflitti, niente tombstone.
+
+- **Pacchetto**: `records.status_events` = gli eventi con `at` dopo `since` **più** quelli ricevuti da un altro peer dopo
+  `since` (`_rx = [ora locale, peer]`, inoltro come `recvAt`; mai rimandati al peer da cui sono arrivati);
+  `counts.status_events`. All'import si aggiungono per `id` (`sqMergeEvents`): nessun doppione, ordine per `at` poi `id`.
+  La revisione mostra "N nuovi movimenti di stato". Un lettore precedente ignora la chiave.
+- **Server**: record `type:'status_event'` con `updated_at = at`; lo stesso id ha sempre lo stesso contenuto (`same`).
+  Si mandano solo se il `ping` elenca `status_events`; altrimenti (server v10.1/v11) viaggiano nelle voci di registro
+  `status.*` (`details.events`), che ogni server conserva: al `pull` del registro il PC li unisce.
+- **Impostazioni condivise**: `statusTypes` + `statusTypesAt` (vince la lista più recente, come `locLevels`).
+- **Backup / .sqlite**: unione per `id`, mai sostituzione.
+- I `contents_items[].id` sono contenuto del faldone ma `syncCanon` li ignora: aggiungerli a dati vecchi non cambia
+  `updated_at`, e gli id deterministici coincidono su tutti i dispositivi.
 ## 8. Per il back-end Python
 
 Il formato è pensato per diventare l'API di sync: `POST /sync/push` = un pacchetto `docmap-sync` (anche cifrato end-to-end), `GET /sync/pull?since=` = un pacchetto con i record successivi. Il server può applicare la stessa regola (record-level LWW su `updated_at`, tombstone con `deletedAt`) o fare solo da casella postale cifrata. Campi da conservare lato server: `updated_at` dei record, tabella `tombstones(type, id, code, deleted_at, who)`, `device(id, label, mode)` e, per ogni coppia di dispositivi, l'ultima conferma (`ack`).

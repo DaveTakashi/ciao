@@ -494,7 +494,7 @@ async function locCamToggle(){
   const A = LUI.assoc;
   if (A.cam){ locCamStop(); locAssocRender(); return; }
   if (typeof DMCamScanner !== 'function') return;
-  const cam = new DMCamScanner({onCode:(txt) => locAssocInput(txt, 'camera')});
+  const cam = new DMCamScanner({onCode:(txt) => (typeof onTagScanned === 'function' && onTagScanned(txt, 'qr')) || locAssocInput(txt, 'camera')});   // v12: one pipeline (11e-nfc.js)
   A.cam = cam; locAssocRender();
   try { await cam.start(); locCamAttach(); }
   catch(e){ A.cam = null; A.msg = {kind:'err', text:t('la_cam_err', {m:e && e.message || e})}; locAssocRender(); }

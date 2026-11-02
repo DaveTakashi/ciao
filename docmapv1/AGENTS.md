@@ -39,6 +39,8 @@ What changed from v7 is summarised in §10.
 | 1 | `assets/js/01-qr.js` | `DMQR` — pure-JS QR encoder → SVG (ISO/IEC 18004, byte mode, ECC L/M/Q/H) |
 | 2 | `assets/js/02-core.js` | constants, `I18N` + `t()`, utils (`$`, `esc`, `uuid`, `randChars`…), binder helpers (`normalizeBinder`, `computeLocation`, `pipeToContents`, `suggestSpeakingCode`, `newShortCode`, `ensureIntegrity`, `normalizeClient`, `destFor`/`renderDest`, `manifestTags`), `CSV_COLUMNS`, `BUILTIN_PRESETS`, demo data, `defaultState()`, `migrate()`, `loadState()`, `persist()`, `commit()`, `savePrefs()`, `markExported()` |
 | 2c | `assets/js/02c-locations.js` | **v11** location tree pure model (shared with scan.html): `LOC_SC_RE`, `locLevels`, `normalizeLocation`, cached index (`locIndex`, `locById`, `locChildren`, `locCodeFor`, `locPath`, `locPathText`), `newLocShortCode`, `locNextSeg`, `locIntegrity`, `assocParseCode`, `locDest`, `locManifestTags` |
+| 2e | `assets/js/02e-archives.js` | **v12** archives pure model (desktop; scan.html does not load it — the wizard stamps `kind` on every node): `ARCH_DEFAULT_ID` (virtual default archive), `normalizeArchive`, `archList`/`archById`/`archMulti`/`archSelected`/`archCurrentId`, `binderArchiveId` (effective archive), `locArchiveId`, `archResolveRef` (CSV id/code/name), `ARCH_TEMPLATES`; overrides `locLevels` / `locKind` / `locNextSeg` / `locIntegrity` for per-archive levels (`ARCH_CTX`, `archWithCtx`) |
+| 2d | `assets/js/02d-status.js` | **v12** statuses pure model (shared with scan.html): `SQ_DEFAULT_TYPES`, `sqTypes`/`sqNormType`, events `sqNormEvent`/`sqMergeEvents`/`sqNewEvent`/`sqUndoEvent`, cached index `sqIndex`/`sqCurrent`/`sqHistory`/`sqDocCurrents`, `sqQuickFor`, `sqNeeds`/`sqCheck`, texts `sqHeadline`/`sqSubline`, `sqLastSeen` (stream A hook), reports `sqOutRows`/`sqVerifyExpected`/`sqEventsCsv`/`sqVerifyCsv` — §18 |
 | 2b | `assets/js/02b-colors.js` | v10 smart spine colours: `COLOR_FAMILIES`, `COLOR_CAT_RULES`, colour math (`colorContrast`, `colorDeltaE` CIEDE2000, `colorHash` FNV-1a), `colorFamilyId`, `colorShades`, `colorCategoryHex`, `colorAssign`, `applyAutoColor`, `colorPlan`, `recolorAll`, `colorLockLegacy`, editor hooks `edAutoColor`/`edColorLock`/`colorSwatchesHTML`, Settings card `colorSettingsHTML`, `COLOR_ACTIONS`, help topic `colors` (see §12) |
 | 3 | `assets/js/03-print.js` | label engine: `renderLabel` (A/B/U), `renderFull` (S, complete label), `renderSlotLabel` (turned sheets), `slotSeq`, `layoutLabels`, `buildLabelSheets`, `buildCalibSheet`, `buildRegisterHTML`, `doPrint`, `printLabels` |
 | 4 | `assets/js/04-ui.js` | `ICONS`/`ic()`, `toast`, undo (`undoPoint`/`undoToast`), modal stack (`openModal`/`closeModal`/`confirmAction`), `download`, `copyText`, `readFileText`, CSV (`detectDelim`, `parseCSV`, `toCSV`, `safeCell`/`unsafeCell`), `HEADER_ALIASES`, `mapRecord`, export builders (`binderToCsvRow`, `exportManifest`, `mergeManifest`, `exportFullCSV`, `workspaceJSON`, `quickBackup`), AI prompt (`csvTemplateHeader`, `buildAIPrompt`) |
@@ -56,11 +58,16 @@ What changed from v7 is summarised in §10.
 | 6g | `assets/js/06g-server.js` | **v10.1** sync with the shared online database (`server-php/api.php`): the server is the 06f peer `server:<url>`; `srvSync({interactive})` (pull → `syncAnalyze`/`syncApply` → push, seed confirmation on an empty server, review modal on conflicts), automatic mode in web+apiBase (`srvBoot`, debounced push from a `persist` wrapper, 60 s pull, backoff), top-bar status `#srv-status`, "Server online" card appended to `viewSync`, admin token management, `SRV_ACTIONS` — §14 |
 | 6h | `assets/js/06h-locations.js` | **v11** Informazioni › Ubicazioni (tree editor, bulk create, levels, move, delete+undo), assignment (`locAssign`) from archive/editor, archive filter `UI.fLoc`, "Dov'è?" path, label template `loc` (kind `L`), manifest rows, desktop association mode (`LUI.assoc`, keyboard scanner `#la-scan`, webcam), `LOC_ACTIONS`, help topic `locations` + guide |
 | 6i | `assets/js/06i-journal.js` | **v11** push / sync journal "Registro sincronizzazioni" (docs/SYNC.md §9): `S.syncJournal` (`jrAdd`, `jrPrune`, `jrMerge`), canonical hash `jrCanon`/`jrRecHash` (= server `canon()`), client identity `jrClientInfo()` (sent by `DMServer.call`), observation wrappers (`jrWrapSync`, `jrWrapProviders`), card appended to `viewSync` (filters, detail + diff, restore, CSV/JSON), phone list in `scan.html`, `JR_ACTIONS`, help topic `journal`; CSS `assets/css-journal.css` — §15. Also loaded by `scan.html` after `10-auth.js` |
+| 6l | `assets/js/06l-archives.js` | **v12** top-bar archive switcher (`S.archiveSel`), Informazioni › Archivi (create/edit/merge/delete, move binders), "Configura archivio" wizard (`WZ`), per-archive levels dialog, nested association (`LUI.assoc.nest`), archive-scoped tree/print/exports, SQLite hooks `archDbMigrate`/`archDbSync`/`archDbRead`, search facet `archFacetProvider`, `ARCH_ACTIONS`, help topic `archives` + guide |
+| 6j | `assets/js/06j-status.js` | **v12** statuses on the PC: `sqRecord`/`sqUndo`, status sheet (`sqOpenSheet`), binder-form panel `#sq-ed`, archive filter `UI.fSq` + badges + strip + "Stato…" bulk button, view `status` "Fuori archivio" (reached from the strip / help, not from the nav), "Modalità stato" (USB scanner), Impostazioni › Stati rapidi, sync / server / backup wrappers, `SQ_ACTIONS`, help topic + guide `status`; CSS `assets/css-status.css` — §18 |
 | 7 | `assets/js/07-help.js` | extra i18n keys, `HELP_TAGS`, `HELP_ACTS`, `HELP_TOPICS`, `HELP_META`, help drawer (popularity, favourites, filters, search `helpQueryTerms`/`helpMatch`), `helpStore()`, `helpDot(id)`, onboarding |
 | 8 | `assets/js/08-guide.js` | guided-action engine, `GUIDES` (18 tours: 14 here + `locations` added by 06h and `firstrun`, `server`, `journal` added by 07b at load time), exit question, keyboard, resume (`guideResume`) |
 | 7b | `assets/js/07b-helpx.js`, `assets/css-helpx.css` | **v11.1** knowledge base: extra help topics (`first-run`, `server`, `multi-device`, `upgrade`, `scanner`, `troubleshoot` FAQ, `about`), tags `start`/`online`, hidden keywords `kw`, tours `firstrun`/`server`/`journal`, "Informazioni su DocMap" panel in Impostazioni (`hxAboutHTML`), contextual "?" (`INFO_TAB_HELP`), screen-reader region `#hx-live` |
 | 8b | `assets/js/10-auth.js` | v10 provider seams (`dmProviders()`, `DataProvider`/`AuthProvider`/`CryptoProvider`/`BlobStore`, local + remote stubs), `DocMapVault` (web-mode encrypted storage, boot gate), Impostazioni › Utenti e accesso, "Anteprima mobile", live merge of mobile edits, help topic `mobile` — §12 |
 | 8c | `assets/js/11b-assoc.js` | **v11** `DMCamScanner` (BarcodeDetector or lazy `vendor/jsqr.js`), `dmDecodeQRCanvas`, `dmScanFeedback`; on scan.html (when `SC` exists) location page + phone association mode (`SA`, `docmap_v26_assoc`) |
+| 8e | `assets/js/11e-nfc.js` | **v12** `onTagScanned(text, via)` dispatcher (`TAG_SCAN_HANDLERS`: desktop association; on scan.html association sequence + open page); Web NFC on scan.html (`NFC`, write URL record / continuous read), help topic `nfc` |
+| 8d | `assets/js/11c-status.js` | **v12** (scan.html only, after 11b) phone status card, document sheet, 10 s undo, offline outbox, box "Applica a tutta la scatola" + "Verifica rientro"; provider methods `getStatus` / `addStatusEvents` — §18 |
+| 8f | `assets/js/06m-v12-glue.js` | **v12** integration (index.html after `11d-search.js`, scan.html last): defines `window.statusSearchHook` (statuses → `stato:` / facet / badge; no event recorded = the old `archive_state` decides), `window.archiveSearchHook` (`archivio:`) and `window.dmAccessLast(kind, id)` (last access for the status card, from `AC.seen` or the local view log). Each hook only if its module is loaded; tests `@@STREAM-V12@@` |
 | 9 | `assets/js/09-actions.js` | `ACTIONS` map, global event delegation (click/input/change/keydown/drag-drop), file inputs, **boot** (`loadState` → `ensureIntegrity` → `persist` → `renderAll` → `maybeOnboard` → `dbInit`), `window.DocMap` test hook |
 
 CSS: `assets/docmap.css` (main) + `css-info.css` (top bar, Informazioni), `css-editor.css` (typeahead, editor), `css-import.css` (column mapping), … `css-help.css` (v10 help panel and tour additions), loaded in that order.
@@ -335,6 +342,27 @@ Field-level details and file formats: `docs/MODELLO-DATI.md`.
   then a php -S server started with the v10.1 `api.php` from git `68ae170` and switched to the current one; phone
   association on scan.html; two desktop pages syncing locations).
 
+## 16b. v12: several archives, "Configura archivio", nested association, NFC (stream C)
+
+- **Files**: `02e-archives.js` (model), `06l-archives.js` (desktop), `11e-nfc.js` (both pages), `css-archives.css`
+  (both pages). scan.html loads `02-core → 02c → 10-auth → 06i → 11-scan → 11b → 11e` (no archive model needed there:
+  the phone shows `kind`, which "Configura archivio" writes on every node).
+- **Data**: `S.archives[]` (`docs/MODELLO-DATI.md` §15), `S.archiveSel` (preference), `binder.archive_id`,
+  `location.archive_id` (root only; derived for children by `locIntegrity`). `''` = the default archive, which is
+  **virtual** (not in `S.archives`) until edited, then stored with the fixed id `ARCH_DEFAULT_ID`. Never stamp old data.
+  The effective archive of a binder is `binderArchiveId(b)` (its box wins). CSV column `archive_id` appended at the end.
+- **Levels**: `locLevels()` without arguments = levels of the context archive (`archWithCtx(id, fn)` or the switcher);
+  `locLevels(S.settings)` = the v11 office levels, which stay the levels of the default archive.
+- **Hooks into shared files** are all feature-detected (`typeof archX === 'function'`): 02-core (normalizeBinder,
+  migrate), 02c (normalizeLocation), 04-ui (undo, CSV, workspace), 05-views (`filteredBinders`), 06-db (migration,
+  sync, read), 06f/06g (record type `archive`). The rest is done by wrapping globals at load time in 06l (`archWrap`).
+- **Scanning**: every tag goes through `onTagScanned(text, via)` (`via` = `qr` · `nfc` · `keyboard`). Another mode
+  (e.g. a status mode) registers `TAG_SCAN_HANDLERS.unshift({id, active:() => bool, handle:(text, via) => …})`.
+- **SQLite**: `DB_SCHEMA_VERSION 9` (table `archives`, columns `binders.archive_id`, `locations.archive_id`; keyed on
+  existence). **Server**: record type `archive` in `DM_TYPES`, ping feature `archives`, no server migration.
+- **Tests**: last `// @@STREAM-C@@` (wizard, switcher/filters, merge/move/undo, CSV, levels, nested association,
+  onTagScanned, SQLite 9, package + server sync, NFC with a mock `NDEFReader`, real v10.0 → v12 upgrade from git `34ff0d1`).
+
 ## 17. v11.1: documentation layout (stream D, docs only)
 
 - `README.md` is a short entry point (version, start, links). The full feature description moved to
@@ -355,4 +383,72 @@ Field-level details and file formats: `docs/MODELLO-DATI.md`.
   / `$writes` of `api.php`; the ping `features` in API-CONTRACT/HANDOFF = `api.php`. Bumping `APP_VERSION`, adding a
   CSV column, a field, a route or a ping feature therefore needs the matching doc/schema update.
 - No code, data-model, storage-key, DB-schema or API change in this stream.
+
+## 18. v12: one search box, remembered phone sign-in, access log (stream A)
+
+- **Files**: `04c-search.js` (pure engine, no DOM: `srchRun(binders, q, {facets, notes, counts})` → `{list, total,
+  hits, marks, parsed, fuzzy, facets, ms}`, `srchParse`, `srchMark`, `SRCH_OPS`, document cache `SRCH.cache` keyed by
+  binder id + signature), `11d-search.js` (desktop archive zone + phone search screen), `06k-access.js` (remember me,
+  views, "Chi l'ha visto", "Accessi"), `css-search.css`. index.html: 04c after 04b, 06k after 10-auth (before
+  09-actions boots), 11d after 11b; scan.html: 04c after 02c, 06k + 11d after 11b.
+- **Desktop search** goes through the existing `filteredBinders()`: the wrapper runs the original filters with
+  `UI.q = ''` and then `srchRun` on the result (so state / room / category / location / Informazioni / hideDemo filters
+  keep working). `sortedBinders()` is memoised on the identity + codes of `S.binders` elements. Never call
+  `srchRun` with a query in a loop of 5 000 binders: one call is ~10–30 ms.
+- **Hooks for other streams** (feature-detected at every search, all optional, exceptions swallowed):
+  `window.statusSearchHook = {match(b, v) → true|false|null, statusOf(b) → {id, label}|null, words(b) → string}` (stream
+  Q: `stato:<v>`, facet group `status`, card badge via `srchStateOf(b)`), `window.archiveSearchHook = {match(b, v),
+  archiveOf(b) → {id, label}|null, words(b)}` (stream C: `archivio:<v>`, facet group `archive`). Their answers are part
+  of the document signature, so a changed status re-indexes the binder. `SC.via` (scan.html) is the `via` sent with
+  the next `binder` / `location` read: `''` (= qr), `'search'` (set by 11d), `'nfc'` (stream C, set it right before its `scRoute()` and clear it afterwards); 11d clears it on
+  back / forward navigation and on logout.
+- **Remember me** (`rm*`): only when `DocMapVault.isActive()` (web mode). Wraps `LocalAuthProvider.prototype.login /
+  logout`, `DocMapVault.resume`, `vaultLockRender`, `vaultLockNow`, `authSettingsHTML`, `scLoginHTML`, `scSetupHTML`.
+  The checkbox is `#dm-remember` (`data-rm-want`); its state is read in the login wrapper. Policy:
+  `rmPolicy() → {minutes, source:'server'|'device'|'default'}`.
+- **Views**: `acNoteView(b, via)` (called by the `openEditor` wrapper) logs `view.binder` (throttled 10 min, key
+  `docmap_v26_view_seen`) and queues `{type, id, code, at, via}` for `POST seen` (`docmap_v26_seen_queue`) when a server
+  is configured; `srvSync` / `scRoute` wrappers flush it. A 401 with this device's token (`DMServer.prototype.call`
+  wrapper) forgets the remembered sign-in.
+- **Server** `api.php`: `DM_SCHEMA = 3`, step 3 = table `access_log` (+ 4 indexes); `acc_*` helpers; routes `access`
+  (editor own rows / admin all + IP), `last_seen` (viewer), `seen` (POST, viewer); `via` on `binder` / `location` /
+  `resolve`; `me.remember_minutes`; ping feature `access_log`; config `access_keep_days` (365),
+  `access_dedupe_seconds` (120), `remember_minutes` (null). `HX_SERVER_SCHEMA = 3` in 07b-helpx.js.
+- **State**: `S.settings.savedSearches` / `savedSearchesAt` (in the shared settings subset: `locSyncSubset` /
+  `locSyncApply` wrappers, newer `savedSearchesAt` wins) and `S.settings.srchNotes`. No local DB / CSV change.
+- **i18n** prefixes `sr_*`, `rm_*`, `ac_*`, plus `lg_g_view`, `lga_view.binder`; log group `view`; help topics
+  `search`, `remember`, `access`; tour `GUIDES.search`.
+- **Tests** `// @@STREAM-A@@`: engine, desktop UI, 5 000-binder timing, server upgrade v11 → v12 (API of `58a53e0`) and
+  v10.1 → v12 (API of `68ae170`) under `php -S` (port 19100 + pid % 300, folders `tests/shots/asrv*`), access / seen /
+  last_seen / retention, phone remember / timeout / policy / logout / revoke / search / offline flows.
+
+## 19. v12: statuses / check-out of binders, documents and boxes (stream Q)
+
+- **Files**: `02d-status.js` (pure model, also on scan.html), `06j-status.js` (desktop), `11c-status.js` (phone),
+  `css-status.css`. scan.html loads `02-core → 02c → 02d → 10-auth → 06i → 11-scan → 11b → 11c`.
+- **Data** (`docs/MODELLO-DATI.md` §17): `S.settings.statusTypes` / `statusTypesAt` (shared settings subset, newer list
+  wins), `S.statusEvents[]` append-only (`{id, at, user, device, target_type, target_id, doc_id, status_id, holder,
+  due_date, date, note, via, box_id, batch_id, code, doc_text, undo_of}`); current status = latest event that is not an
+  undo nor undone. **Never edit or delete an event**: undo = `sqUndoEvent` (compensating event). Statuses do not touch
+  `archive_state` or `contents_items[].status`.
+- **Document ids**: every `contents_items[]` entry has a stable `id` (`ciEnsureIds` in `normalizeBinder`, deterministic
+  for data without ids). When you rebuild a contents list from text (CSV/AI import, lines mode, phone patch, journal
+  restore) call `ciCarryIds(previousItems, newItems)` before `normalizeBinder`, or document statuses lose their target.
+- **SQLite**: `DB_SCHEMA_VERSION 9` (`contents_items.item_id`, table `status_events`), migration keyed on column / table
+  existence. `.sqlite` open/import merges events by id.
+- **Sync / server**: package `records.status_events` (union by id, forwarded with `_rx` like `recvAt`); server record
+  type `status_event` (`DM_TYPES`, HMAC `k_short = st/b|l/<id>`, `k_code = stbox/<box>`), `binder` / `location`
+  responses carry `status_events` + `status_types`, ping feature `status_events`. Status events are never pushed to a
+  server without that feature: they still travel inside the activity-log lines (`details.events`), merged by the
+  `logMerge` wrapper — the same path as phone events in local mode.
+- **Stream A hook**: `sqLastSeen(kind, id, rec)` reads `window.dmAccessLast(kind, id)` → `{user, at, via}` or the
+  response fields `last_scan` / `last_view` / `access.last`; nothing else depends on stream A.
+- **Stream C hooks**: `locDetailHTML` is wrapped (badge + "Stato della scatola…"); when `TAG_SCAN_HANDLERS` exists
+  (11e-nfc.js, `onTagScanned`), handlers `status` (desktop "Modalità stato", 06j) and `status-verify` (phone
+  "Verifica rientro", 11c) are `unshift`ed so QR / NFC / scanner reads reach them while they are open.
+- **UI**: the `status` view is not in the nav (the nav tests count 3 tabs): it opens from the archive strip, the
+  help topic and the guide `status`. Box actions cover only binders whose `location_id` is the box itself.
+- **Tests**: `// @@STREAM-Q@@` (types, events, document ids through CSV/JSON/SQLite/sync, desktop UI, phone flow in
+  local mode and against a php -S server, box apply + return check, offline outbox, two-desktop sync via package and
+  server, v10.0 / v11.1-shaped upgrade, help/guide, no horizontal scroll).
 

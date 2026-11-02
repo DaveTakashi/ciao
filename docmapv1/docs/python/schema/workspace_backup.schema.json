@@ -3,7 +3,7 @@
   "title": "DocMap workspace JSON (backup)",
   "description": "The file written by 'Salva backup' (docmap_workspace_AAAAMMGG_HHMM.json) and by Esporta e Salva › Sessione completa JSON (docmap_workspace.json): workspaceJSON(true) in assets/js/04-ui.js, plus the key sync_journal added by 06i-journal.js when the local journal is not empty. Sessions stored in SQLite (sessions.workspace_json) use the same format without activity_log and sync_journal. No photos: they live only in the .sqlite. Contract: docs/MODELLO-DATI.md §8.",
   "type": "object",
-  "required": ["app", "format", "version", "exported_at", "settings", "lang", "print", "customPresets", "usedSlots", "binders", "clients", "locations"],
+  "required": ["app", "format", "version", "exported_at", "settings", "lang", "print", "customPresets", "usedSlots", "binders", "clients", "locations", "archives"],
   "properties": {
     "app": {"const": "DocMap26"},
     "format": {"const": "docmap_workspace"},
@@ -23,7 +23,9 @@
     "binders": {"type": "array", "items": {"$ref": "binder.schema.json"}},
     "clients": {"type": "array", "items": {"$ref": "client.schema.json"}},
     "locations": {"type": "array", "items": {"$ref": "location.schema.json"}, "description": "v11 (absent in older files = no change to the tree)."},
+    "archives": {"type": "array", "items": {"$ref": "archive.schema.json"}, "description": "v12 (absent in older files = only the default archive). The default archive appears only once edited."},
     "activity_log": {"type": "array", "items": {"$ref": "activity_log_entry.schema.json"}, "description": "v9, backups only: merged by id on restore, never replaced."},
+    "status_events": {"type": "array", "items": {"$ref": "status_event.schema.json"}, "description": "v12, backups only, present when there are status events: merged by id on restore (the history is never dropped)."},
     "sync_journal": {"type": "array", "items": {"$ref": "sync_journal_entry.schema.json"}, "description": "v11, backups only, present when the local journal is not empty: merged by id on 'ripristina tutto' + Sostituisci."}
   },
   "additionalProperties": true,
@@ -47,7 +49,12 @@
         "deviceId": {"type": "string", "description": "v10 sync: 'dev-' + uuid of this installation (localStorage docmap_v26_device wins over a restored copy)."},
         "deviceLabel": {"type": "string"},
         "locLevels": {"type": "array", "maxItems": 8, "items": {"type": "object", "properties": {"name": {"type": "string"}, "prefix": {"type": "string"}}}},
-        "locLevelsAt": {"type": "string"}
+        "locLevelsAt": {"type": "string"},
+        "savedSearches": {"type": "array", "maxItems": 50, "description": "v12: saved searches (Archivio › Salva ricerca), shared through settingsSubset; the list with the newer savedSearchesAt wins as a whole.", "items": {"type": "object", "required": ["id", "name", "q"], "properties": {"id": {"type": "string"}, "name": {"type": "string", "maxLength": 80}, "q": {"type": "string", "maxLength": 300}, "facets": {"type": "object", "description": "{group: [facet keys]}; groups tag, cat, year, loc, color, state, status, archive", "additionalProperties": {"type": "array", "items": {"type": "string"}}}, "at": {"type": "string"}}}},
+        "savedSearchesAt": {"type": "string"},
+        "srchNotes": {"type": "boolean", "description": "v12: false = free words do not look into notes / contacts (default: they do)."},
+        "statusTypes": {"type": "array", "maxItems": 60, "description": "v12: customised status types (docs/MODELLO-DATI.md §17; absent = the 10 built-in ones).", "items": {"type": "object", "required": ["id"], "properties": {"id": {"type": "string"}, "label": {"type": "string"}, "color": {"type": "string"}, "icon": {"type": "string"}, "presence": {"enum": ["in", "out", "missing", "neutral"]}, "needs_holder": {"enum": ["", "me", "client", "entity"]}, "needs_due_date": {"enum": ["", "optional", "required"]}, "needs_note": {"enum": ["", "optional", "required"]}, "needs_date": {"enum": ["", "optional", "required"]}, "returns_to": {"type": "string"}, "quick": {"type": "boolean"}, "applies_to": {"type": "array", "items": {"enum": ["binder", "document", "box"]}}, "disabled": {"type": "boolean"}}}},
+        "statusTypesAt": {"type": "string", "description": "v12: when statusTypes last changed (the newer list wins in sync)."}
       },
       "additionalProperties": true
     }

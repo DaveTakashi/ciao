@@ -2,10 +2,10 @@
 
 **Questo documento è il contratto tra l'MVP e il sistema Python dello studio.** In caso di dubbio vincono il modello dati e la UX dell'MVP: il sistema Python si allinea a questi nomi, tipi e regole.
 
-Versione attuale: **26.11.1** (v11.1) — schema stato `26.9` (invariato dalla v9), `DB_SCHEMA_VERSION 8`, server
-`DM_SCHEMA 2`. La v11.1 non cambia nessun formato. I §1–§9 descrivono i formati di oggi; i campi aggiunti dopo la v7
+Versione attuale: **26.12.0** (v12) — schema stato `26.9` (invariato dalla v9), `DB_SCHEMA_VERSION 9`, server
+`DM_SCHEMA 2`. La v12 aggiunge gli archivi (§15: `archive_id` su faldoni e ubicazioni, colonna CSV in coda). I §1–§9 descrivono i formati di oggi; i campi aggiunti dopo la v7
 sono segnati con la versione (**(v8)**, **(v10)**, **(v11)**); i §10–§14 raccontano versione per versione cosa è
-cambiato (v8 §10, v9 §11, v10 §12–§13, v10.1 e v11 §13, ubicazioni v11 §14).
+cambiato (v8 §10, v9 §11, v10 §12–§13, v10.1 e v11 §13, ubicazioni v11 §14, archivi v12 §15).
 **Schemi macchina** (JSON Schema 2020-12, controllati sui file veri): `python/SCHEMI.md` e `python/schema/`.
 
 Fonti nel codice: `assets/js/02-core.js` (`normalizeBinder`, `normalizeClient`, `CSV_COLUMNS`, `CI_STATUSES`, `normCiStatus`, `pipeToContents`, `defaultState`, `migrate`), `04-ui.js` (`HEADER_ALIASES`, `binderToCsvRow`, `workspaceJSON`, `csvTemplateHeader`), `06-db.js` (`DB_DDL`, `dbMigrate`, `dbReadWorkspace`), `06b-photos.js`, `06c-clients.js`, `06d-info.js` (`catColors`, `qrPreset`, `printPrev`), `05b-import-map.js` (`importMappings`).
@@ -36,7 +36,7 @@ Un record per ogni faldone / raccoglitore fisico. Tutti i campi testuali sono st
 | `shelf_color` | `#RRGGBB` o `''` | no | colore del ripiano (mappa scaffali, "Dov'è?") | `#22C55E` | `shelf_color` | `shelf_color` |
 | `location_code` | stringa **derivata** | — | calcolata da stanza/armadio/ripiano/settore (§5.4); in import serve solo se mancano i campi separati | `A1-α`, `B2-β-SX`, `Ufficio 1 · 2-α` | `location_code` | `location_code` |
 | `archive_state` | enum | sì (def. `CURRENT`) | `CURRENT` (archivio corrente), `HISTORICAL` (storico), `CHECKED_OUT` (in uso / prelevato) | `CURRENT` | `archive_state` | `archive_state` CHECK |
-| `contents_items` | array di `{year, description, status}` | no | documenti contenuti, in ordine (§2) | vedi §2 | `contents` (testo con `\|`) | tabella `contents_items` |
+| `contents_items` | array di `{id, year, description, status}` | no | documenti contenuti, in ordine (§2) | vedi §2 | `contents` (testo con `\|`) | tabella `contents_items` |
 | `tags` | stringa, virgole | no | parole chiave minuscole; il tag `demo` marca i dati di esempio e non si stampa mai | `iva,fatture,2025` | `tags` | `tags` |
 | `short_code` | stringa | sì (auto) | codice QR statico, unico, mai riusato (§5.3) | `dm26K8m2P9xL` | `short_code` | `short_code` UNIQUE |
 | `short_url` | stringa **derivata** | — | `https://qr7.it/{short_code}` | `https://qr7.it/dm26K8m2P9xL` | `short_url` | `short_url` |
@@ -53,17 +53,26 @@ Regole di validazione dell'editor: codice parlante obbligatorio e unico; cliente
 ## 2. Contenuti (`contents_items`)
 
 ```json
-[{"year": "2025", "description": "Fatture Acquisto Q1-Q4", "status": "archive"},
- {"year": "2024", "description": "Bilancio",               "status": "client"},
- {"year": "",     "description": "Visure camerali",        "status": "in_use"}]
+[{"id": "ci-3f9a0c12d4e5b6a7", "year": "2025", "description": "Fatture Acquisto Q1-Q4", "status": "archive"},
+ {"id": "ci-0b1c2d3e4f5a6b7c", "year": "2024", "description": "Bilancio",               "status": "client"},
+ {"id": "ci-9e8d7c6b5a4f3e2d", "year": "",     "description": "Visure camerali",        "status": "in_use"}]
 ```
+
+- `id` **(v12)**: identificativo stabile del documento (gli stati dei singoli documenti, §17, puntano a lui). Formato
+  `ci-` + 16 esadecimali (`CI_ID_RE = /^[A-Za-z0-9._:-]{1,64}$/`). Una voce senza id (dati v10/v11, CSV, AI, modello
+  vecchio del telefono) lo riceve da `normalizeBinder()` → `ciEnsureIds()` in modo **deterministico** (hash di id del
+  faldone + anno/descrizione + occorrenza): due dispositivi che aggiornano gli stessi dati ottengono gli stessi id e
+  `updated_at` non cambia (`syncCanon` ignora gli id). Dopo, l'id resta anche se il testo cambia. Import CSV/AI
+  (Sostituisci e Unisci), "Una riga per voce", il telefono e il ripristino dal registro riportano gli id delle voci
+  esistenti con `ciCarryIds()` (stesso testo, poi stessa posizione se il numero di voci non cambia). Il formato testo
+  (`|`) non porta gli id.
 
 - `year`: stringa, facoltativa (`2025`, `2024/25`, `2020-2024`). `description`: stringa.
 - `status` **(v8)**: `'archive'` (nel faldone, predefinito) · `'in_use'` (in uso / prelevato) · `'client'` (dato al cliente). Costanti `CI_STATUSES`; `normCiStatus()` normalizza i valori in ingresso (`in uso`, `in_use`, `uso`, `prelevato`, `fuori`, `out`, `checked_out` → `in_use`; `cliente`, `client`, `al cliente`, `dato al cliente` → `client`; tutto il resto, vuoto compreso → `archive`). È indipendente da `archive_state` del faldone: un faldone `CURRENT` può avere voci `client`.
 - **Formato testo (CSV, AI):** voci separate da `|`, ciascuna `ANNO: Descrizione` (anno facoltativo). In lettura sono accettati anche gli a capo e i separatori `:` `-` `–` `—` dopo l'anno (regex `^(\d{4}(?:\s*[-/]\s*\d{2,4})?)\s*[:\-–—]\s*(.+)$`).
   Esempio: `2025: Fatture Acquisto Q1-Q4|2025: Liquidazioni IVA|Visure camerali`
 - **Stato nel testo (v8)** (`ciText()` / `contentsToPipe()`): una voce non in archivio riceve un suffisso finale tra parentesi quadre, `[in uso]` oppure `[cliente]`; senza suffisso = `archive`. Esempio: `2025: Fatture acquisto|2024: Bilancio [cliente]|2025: F24 [in uso]`. In lettura (`pipeToContents()`, regex `CI_SUFFIX_RE`, senza distinzione maiuscole) sono accettati anche `[al cliente]`, `[dato al cliente]`, `[client]`, `[in use]`, `[in_use]`, `[prelevato]`, `[archivio]`, `[in archivio]`, `[archive]`. Il suffisso viene tolto dalla descrizione. Un file v7 (senza suffissi) si legge con tutte le voci `archive`.
-- SQLite: tabella `contents_items(binder_id, position, year, description, status)`; `position` parte da 0; `status TEXT DEFAULT 'archive'`. La colonna `id` è un AUTOINCREMENT **non stabile** (la tabella viene riscritta a ogni sync): identificare una voce con `(binder_id, position)`.
+- SQLite: tabella `contents_items(binder_id, position, year, description, status, item_id)`; `position` parte da 0; `status TEXT DEFAULT 'archive'`; `item_id` **(v12, schema 9)** = l'`id` stabile della voce. La colonna `id` è un AUTOINCREMENT **non stabile** (la tabella viene riscritta a ogni sync): identificare una voce con `item_id` (o, nei file vecchi, con `(binder_id, position)`).
 - JSON: ogni voce ha la chiave `status` (sempre presente nello stato e negli export v8).
 
 ## 3. Cliente (`client`) — anagrafica
@@ -203,11 +212,13 @@ Testo libero; spazi multipli ridotti a uno; maiuscole/minuscole, trattini, barre
 Regole comuni in **export**: delimitatore `;`, a capo `\r\n` (manifest `\n`), campi con `;` `"` o a capo tra virgolette con `""`. Backup e clienti hanno BOM UTF-8 (per Excel) e **protezione formule**: una cella che inizia con `= + - @ TAB CR` riceve un apostrofo iniziale, tolto di nuovo in import.
 In **import**: delimitatore rilevato (`;` `,` TAB) o riga `sep=;`; codifica UTF-8 (con/senza BOM), UTF-16 o Windows-1252; intestazioni confrontate dopo `normHeader` (minuscolo, senza accenti, non alfanumerici → `_`) con gli alias di `HEADER_ALIASES` (es. `cliente → company_name`, `codice_multi → multi_code`, `stanza → room_code`, `contenuti → contents_items`, `stato → archive_state`; v8: `contatti`, `contatto`, `persone`, `persone_coinvolte`, `referenti`, `referente`, `contact`, `people → contacts`; `note`, `nota`, `annotazioni`, `annotazione → notes`). Le intestazioni non riconosciute aprono il passo di abbinamento colonne (§6.5).
 
-### 6.1 Backup completo `docmap_full_backup.csv` (29 colonne, in quest'ordine)
+### 6.1 Backup completo `docmap_full_backup.csv` (30 colonne, in quest'ordine)
 
 ```
-speaking_code;multi_code;company_name;company_city;category;binder_title;ref_year;room_code;cabinet_code;shelf_code;sector_code;location_code;archive_state;contents;tags;color_hex;short_code;short_url;final_destination;extra_codes;shelf_color;contacts;notes;selected_for_print;id;created_at;updated_at;color_locked;location_id
+speaking_code;multi_code;company_name;company_city;category;binder_title;ref_year;room_code;cabinet_code;shelf_code;sector_code;location_code;archive_state;contents;tags;color_hex;short_code;short_url;final_destination;extra_codes;shelf_color;contacts;notes;selected_for_print;id;created_at;updated_at;color_locked;location_id;archive_id
 ```
+
+**v12:** `archive_id` (archivio del faldone, §15) è aggiunta **in coda**, dopo `location_id`. In export contiene l'id dell'archivio **effettivo** (quello dell'albero dell'ubicazione, se il faldone è in una scatola nota; vuoto = Archivio principale). In import accetta l'id, il **codice** (`ST`) o il **nome** (`Archivio storico`); un nome sconosciuto crea l'archivio al momento dell'importazione. Alias: `archivio`, `id_archivio`, `archivio_id`, `cluster`, `archive`. Un CSV senza la colonna mette le righe nuove nell'archivio scelto in alto (Archivio principale con "Tutti gli archivi").
 
 **v11:** `location_id` (id dell'ubicazione, §14) è aggiunta **in coda**, dopo `color_locked`. Alias in import: `id_ubicazione`, `ubicazione_id`, `id_luogo`. Con `location_id` valorizzato, `location_code` è il percorso dell'ubicazione e in import **non** viene scomposto in stanza/armadio/ripiano (resta com'è se l'ubicazione non è nota su quel PC).
 
@@ -262,6 +273,7 @@ File: download `docmap_AAAAMMGG_HHMM.sqlite`, file collegato, oppure copia in In
 | 6 | `binders.color_locked INTEGER DEFAULT 0` (v10, colori, §12) |
 | 7 | tabella `locations` + indice `ix_locations_parent`, `binders.location_id` + indice `ix_binders_location` (v11, ubicazioni, §14.4) |
 | 8 | `clients.extra_json TEXT`: i campi del cliente oltre le 10 colonne (`color_hex`, `tags`, `updated_at`, …) in JSON (v11.1; prima si perdevano aprendo un file `.sqlite` o una sessione) |
+| 9 | `contents_items.item_id TEXT` + tabella `status_events` + indice `ix_status_target` (v12, stati, §17.4) |
 
 DDL corrente (da `06-db.js`, `DB_DDL`; la tabella `locations` è riportata al §14.4):
 
@@ -287,7 +299,8 @@ CREATE TABLE IF NOT EXISTS contents_items(
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   binder_id TEXT NOT NULL REFERENCES binders(id) ON DELETE CASCADE,
   position INTEGER, year TEXT, description TEXT,
-  status TEXT DEFAULT 'archive');   -- archive | in_use | client
+  status TEXT DEFAULT 'archive',    -- archive | in_use | client
+  item_id TEXT);                     -- v9 (v12): id stabile della voce (§2, §15)
 CREATE INDEX IF NOT EXISTS ix_contents_binder ON contents_items(binder_id);
 CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT);
 CREATE TABLE IF NOT EXISTS label_presets(id TEXT PRIMARY KEY, name TEXT, geometry_json TEXT);
@@ -540,7 +553,7 @@ configurabili, da 1 a 8 livelli). Il QR attaccato al contenitore (di solito la s
 | `id` | testo (uuid) | mai cambiato |
 | `parent_id` | testo | id del genitore; `''` = livello più alto (in SQLite `NULL`) |
 | `level` | intero | profondità 0-based, **derivata** dalla catena dei genitori |
-| `kind` | testo | nome del livello per questo nodo; `''` = nome configurato (`settings.locLevels[level]`) |
+| `kind` | testo | nome del livello per questo nodo; `''` = nome configurato (v12: `archive.levels[level]` del suo archivio, altrimenti `settings.locLevels[level]`). "Configura archivio" lo scrive su ogni nodo creato |
 | `name` | testo | nome libero (es. "Archivio seminterrato"); vuoto = mostrato come `<kind> <seg>` |
 | `seg` | testo | segmento del codice (`MAG1`, `A2`, `B04`): maiuscolo, senza spazi né `-`, max 16, **unico tra fratelli** (un doppione diventa `B04.2`) |
 | `code` | testo | codice percorso = segmenti uniti da `-` (`MAG1-A2-S3-R1-B04`); **derivato** dai `seg` (si modifica cambiando i segmenti); salvato per SQLite/CSV/Python, non è "contenuto" per la sincronizzazione |
@@ -548,6 +561,7 @@ configurabili, da 1 a 8 livelli). Il QR attaccato al contenitore (di solito la s
 | `short_url` | testo | `https://qr7.it/<short_code>` (derivato) |
 | `notes` | testo | note libere |
 | `sort` | intero | ordine tra fratelli (0 = ordine naturale per `seg`) |
+| `archive_id` | testo | **(v12)** archivio dell'albero (§15); `''` = Archivio principale. Si imposta sul nodo radice; per gli altri nodi è **derivato** (sempre quello della radice, `locIntegrity`) |
 | `created_at`, `updated_at` | ISO | `updated_at` guida il last-write-wins come per i faldoni |
 
 **Faldone o ubicazione?** Il codice dei faldoni è `dm26` + 8 (12 caratteri, `SC_RE`); quello delle ubicazioni
@@ -595,7 +609,7 @@ Un database v6 (v10.1) si apre e riceve tabella e colonna; `dbReadWorkspace` di 
 | Azione | Dettagli |
 |---|---|
 | `location.create` / `location.bulk_create` / `location.edit` / `location.move` / `location.delete` / `location.levels` | codice, genitore, campi cambiati, conteggi |
-| `binder.locate` | `{from:{id, code}, to:{id, code}, via, device, user}`; `via` = `scanner` · `camera` · `manual` · `editor` · `bulk` · `undo` (PC) oppure `phone` · `phone-camera` · `phone-typed` · `undo` (telefono, `source: 'mobile'`) |
+| `binder.locate` | `{from:{id, code}, to:{id, code}, via, device, user}`; `via` = `scanner` · `camera` · `manual` · `editor` · `bulk` · `undo` (PC) oppure `phone` · `phone-camera` · `phone-typed` · `phone-nfc` (v12) · `undo` (telefono, `source: 'mobile'`); v12 sul PC anche `nfc` |
 | `binder.locate_bulk` | più faldoni nella stessa ubicazione (`codes`, `to`, `via`) |
 
 ### 14.7 Memoria del telefono (scan.html)
@@ -603,4 +617,224 @@ Un database v6 (v10.1) si apre e riceve tabella e colonna; `dbReadWorkspace` di 
 `localStorage 'docmap_v26_assoc'` = modalità associazione attiva su quel dispositivo
 `{v:1, user, box:{id, code, title, path, short_code}, startedAt, at, n, list:[…]}` (scade dopo 30 minuti senza
 scansioni); `localStorage 'docmap_v26_scan_device'` = id del telefono per il registro (`phone-xxxxxxxx`).
+
+
+## 15. Archivi (v12, stream C — `assets/js/02e-archives.js`, `06l-archives.js`, `11e-nfc.js`)
+
+Uno studio può tenere **più archivi separati** (cluster): archivio corrente, storico, un ente/Comune, un secondo
+magazzino. Ogni faldone e ogni albero di ubicazioni appartiene a **un** archivio. I dati precedenti alla v12 non
+hanno nessun `archive_id` e stanno tutti nell'**Archivio principale**: niente da migrare, niente da timbrare.
+
+### 15.1 Archivio (`archive`) — `S.archives[]`, tabella SQLite `archives`, record server di tipo `archive`
+
+| Campo | Tipo | Regole |
+|---|---|---|
+| `id` | testo (uuid) | mai cambiato. L'**Archivio principale** ha l'id fisso `00000000-0000-4000-8000-0000000a0001` |
+| `name` | testo | nome mostrato; `''` solo per l'archivio principale (= "Archivio principale" / "Main archive") |
+| `code` | testo | codice breve `A-Z0-9`, max 8, unico tra gli archivi (`AP` per il principale); accettato dalla colonna CSV `archive_id` |
+| `color` | `#RRGGBB` | colore dell'archivio (selettore, schede, pallini) |
+| `description` | testo | facoltativa |
+| `sort` | intero | ordine negli elenchi (il principale è sempre primo) |
+| `levels` | `[{name, prefix}]` | livelli **di questo archivio** (1–8, dal più grande al più piccolo); `[]` = livelli dello studio `settings.locLevels` |
+| `qr_levels` | `[intero]` | livelli 0-based che ricevono un'etichetta QR (davanti all'armadio, sulle scansie, sulle scatole); `[]` = solo l'ultimo livello |
+| `created_at`, `updated_at` | ISO | `updated_at` guida il last-write-wins |
+
+**Archivio principale virtuale.** Finché nessuno lo modifica, l'archivio principale **non** è un record
+(`S.archives` resta `[]`, nessun pacchetto o server riceve nulla): `archList()` lo aggiunge in memoria con
+`updated_at = 2000-01-01T00:00:00.000Z`. Diventa un record (stesso id fisso) alla prima modifica (nome, colore,
+livelli QR). I suoi livelli restano **sempre** `settings.locLevels` + `settings.locLevelsAt` (v11), così un PC v11
+continua a leggerli.
+
+### 15.2 Faldone e ubicazione
+
+- `binder.archive_id` (`''` = principale). **Archivio effettivo** (`binderArchiveId`): se il faldone è in
+  un'ubicazione nota vince l'archivio di quell'albero; altrimenti `archive_id`. Mettere un faldone in una scatola
+  aggiorna anche `archive_id`; spostarlo in un altro archivio lo toglie da una scatola dell'archivio vecchio.
+- `location.archive_id`: impostato sulla radice, derivato sui figli. Gli alberi sono **per archivio**: il selettore
+  mostra solo l'albero dell'archivio scelto. I `seg` delle radici restano unici **tra tutti** gli archivi (i codici
+  percorso, e quindi `location_code`, non si confondono mai).
+- Livelli per archivio: `locLevels()` senza argomenti restituisce i livelli dell'archivio "di contesto"
+  (l'archivio del nodo, o quello scelto in alto); `locLevels(S.settings)` resta il comportamento v11.
+
+### 15.3 Stato e preferenze
+
+`S.archives` (array, dati) e `S.archiveSel` (preferenza del PC: `''` = "Tutti gli archivi", altrimenti l'id;
+non viaggia in pacchetti né sul server).
+
+### 15.4 SQLite (`DB_SCHEMA_VERSION 9`, migrazione solo additiva, basata sull'esistenza di tabelle e colonne)
+
+```sql
+CREATE TABLE IF NOT EXISTS archives(id TEXT PRIMARY KEY, name TEXT, code TEXT, color TEXT, description TEXT,
+  sort INTEGER DEFAULT 0, levels_json TEXT, qr_levels_json TEXT, created_at TEXT, updated_at TEXT);
+ALTER TABLE binders ADD COLUMN archive_id TEXT;     -- se manca · NULL = Archivio principale · INDEX ix_binders_archive
+ALTER TABLE locations ADD COLUMN archive_id TEXT;   -- se manca · INDEX ix_locations_archive
+```
+
+`binders.archive_id` contiene l'archivio effettivo. La tabella `archives` contiene anche la riga dell'archivio
+principale (virtuale o no): chi legge con Python trova sempre tutti gli archivi, con nome e codice.
+`dbReadWorkspace` ignora la riga virtuale (`updated_at` = 2000-01-01).
+
+### 15.5 Workspace JSON, pacchetti, server
+
+- Workspace JSON: chiave `archives` (array; assente nei file vecchi = solo l'archivio principale). Ripristino completo
+  → sostituisce; unione → per `id`, il più recente vince.
+- Pacchetto `docmap-sync`: `records.archives` + `counts.archives`, tombstone `{type:'archive', id, code, deletedAt}`
+  (unione o eliminazione di un archivio).
+- Server: record `{type:'archive', …, data:<archivio>}` nella tabella generica `records` (nessuna migrazione del
+  server; `ping` → `features` contiene `archives`). Un server v11 rifiuta i record `archive` come tipo sconosciuto
+  (il resto della sincronizzazione continua): aggiornare `api.php` insieme all'app.
+
+### 15.6 Registro attività
+
+| Azione | Dettagli |
+|---|---|
+| `archive.create` / `archive.edit` / `archive.delete` | `{name, code, color}` / `{changed:{campo:[prima, dopo]}}` |
+| `archive.merge` | `{from:{id, code, name}, to:{…}, binders, locations}` |
+| `archive.setup` | "Configura archivio": `{archive, template, rows:[{level, name, prefix, n, qr}], count, qr_labels, codes}` |
+| `binder.archive` | faldoni spostati di archivio: `{to:{id, code}, binders:[{id, code, from}], unplaced:[codici tolti dalla scatola]}` |
+| `location.levels` | v12 anche per archivio: `{archive, levels, qr_levels}` |
+
+### 15.7 Tag NFC e RFID
+
+Un tag NFC contiene **lo stesso URL** del QR (`short_url`, record NDEF `url`): nessun id nuovo, `short_code` resta
+l'unica identità di faldoni e ubicazioni. Lettura e scrittura in `11e-nfc.js` (Web NFC, Chrome Android); ogni tag
+letto passa da `onTagScanned(testo, via)` con `via` = `qr` · `nfc` · `keyboard`. Progetto per varchi RFID:
+[`RFID-NFC.md`](RFID-NFC.md).
+
+## 16. Novità v12 (stream A: ricerca, accesso senza PIN, registro accessi)
+
+Nessuna modifica dello schema locale (`DB_SCHEMA_VERSION` invariato) né delle colonne CSV. Server: schema 3,
+tabella `access_log` (`API-CONTRACT.md` §6 e §11).
+
+### 16.1 Impostazioni (`settings`, nel workspace JSON e nella riga SQLite `settings`)
+
+| Chiave | Tipo | Default | Note |
+|---|---|---|---|
+| `savedSearches` | `[{id, name, q, facets:{gruppo:[chiavi]}, at}]` (max 50) | assente = `[]` | ricerche salvate (Archivio › ☆ Salva ricerca); viaggiano nelle impostazioni condivise (`settingsSubset` del pacchetto e del server) |
+| `savedSearchesAt` | ISO | assente | ultima modifica della lista: vince la più recente, tutta intera |
+| `srchNotes` | booleano | assente = `true` | `false` = le parole libere non cercano in note e contatti |
+
+### 16.2 Ricerca (`assets/js/04c-search.js`)
+
+Operatori (alias IT/EN, maiuscole e accenti indifferenti): `tag:` · `anno:` (`2024`, `2020..2022`, `>2023`, `<2020`, `24`) ·
+`cat:` · `luogo:` · `stato:` (`corrente`, `storico`, `fuori`, `cliente`, … più gli stati dello stream Q tramite
+`statusSearchHook`) · `cliente:` · `citta:` · `multi:` · `codice:` · `colore:` (nome o `#hex`) · `archivio:` (stream C,
+`archiveSearchHook`) · `note:` · `contenuto:`; `-parola` / `-tag:x` esclude; `"frase esatta"`. Una chiave sconosciuta
+vale come testo. Un codice breve, un URL `qr7.it/…` o `…/q/…` porta a quel faldone (o ai faldoni di quell'ubicazione).
+Parole con un errore di battitura (distanza di Damerau-Levenshtein 1–2 secondo la lunghezza) → «Forse cercavi».
+Facce (filtri): `tag`, `cat`, `year`, `loc`, `color`, `state`, `status`, `archive` — OR dentro un gruppo, AND tra gruppi.
+
+Ganci per gli altri moduli (facoltativi, cercati a ogni ricerca):
+`window.statusSearchHook = {match(b, v) → true|false|null, statusOf(b) → {id, label}|null, words(b) → stringa}` e
+`window.archiveSearchHook = {match(b, v), archiveOf(b) → {id, label}|null, words(b)}`.
+
+### 16.3 Memoria del browser
+
+| Chiave | Contenuto | Dove |
+|---|---|---|
+| `localStorage 'docmap_v26_srch_recent'` | ultime 8 ricerche (solo `file://`; in modalità web restano in memoria) | PC |
+| `localStorage 'docmap_v26_srch_panel'` | pannello Filtri aperto | PC |
+| IndexedDB `docmap_v26_srch` › `kv` › `cache` | copia dei faldoni per la ricerca sul telefono, **cifrata** con la DEK della cassaforte (AAD `srch-cache`) | telefono (web + server) |
+| `localStorage 'docmap_v26_remember'` | accesso ricordato `{v, rid, user_id, created_at, last_at, pwfp, wrapped, mac}` | web (`SICUREZZA.md` §5d) |
+| IndexedDB `docmap_v26_keys` › `keys` › `remember:<rid>` | `{kw, mk}` chiavi non estraibili | web |
+| `localStorage 'docmap_v26_remember_policy'` | minuti di inattività dal server (`me.remember_minutes`) | web |
+| `localStorage 'docmap_v26_view_seen'` | `{"<id faldone>|<operatore>": ms}`: limita `view.binder` a una voce ogni 10 minuti | PC |
+| `localStorage 'docmap_v26_seen_queue'` | visite da mandare con `POST seen` (max 500) `[{type, id, code, at, via}]` | PC e telefono con server |
+
+Politica del dispositivo (⚙ Utenti e accesso › Accesso senza PIN): `policy.rememberMinutes` (0, 480, 43200, -1;
+predefinito 43200) nell'archivio utenti locale `localStorage 'docmap_v26_auth'`; `remember_minutes` del server vince.
+
+### 16.4 Registro attività
+
+| Azione | Dettagli |
+|---|---|
+| `view.binder` (gruppo `view`, «Visite») | `{via, device}`; `via` = `nav` (scheda aperta dall'elenco) · `search` (aperta da una ricerca); al massimo una voce per faldone per operatore ogni 10 minuti |
+
+## 17. Stati: preso, reinserito, dato al Comune… (v12, stream Q — `assets/js/02d-status.js`, `06j-status.js`, `11c-status.js`)
+
+Uno **stato** dice dov'è adesso un faldone, un singolo documento o una scatola (location): chi ce l'ha, da quando,
+quando deve tornare. Gli stati sono **eventi** che si aggiungono e non si modificano mai: lo stato attuale di un oggetto è
+il suo ultimo evento. Sono un livello in più: non cambiano `archive_state` del faldone né `contents_items[].status`.
+
+### 17.1 Tipi di stato — `S.settings.statusTypes` (impostazioni condivise)
+
+Assente o vuoto = i 10 predefiniti (`SQ_DEFAULT_TYPES`). Ogni tipo:
+
+| Campo | Valori | Significato |
+|---|---|---|
+| `id` | slug stabile (`taken`, `returned`, … o `c-…` per quelli aggiunti) | mai riusato; un tipo con eventi non si elimina, si disattiva |
+| `label` | testo | `''` per un tipo predefinito (nome tradotto IT/EN da `sqt_<id>`) |
+| `color`, `icon` | `#RRGGBB`, una chiave di `SQ_ICONS` | |
+| `presence` | `in` · `out` · `missing` · `neutral` | in archivio · fuori (qualcuno ce l'ha) · mancante · solo un'annotazione |
+| `needs_holder` | `''` · `me` · `client` · `entity` | chi ce l'ha: non chiesto · chi registra (modificabile) · il cliente del faldone · testo obbligatorio (Comune, ente) |
+| `needs_due_date`, `needs_note`, `needs_date` | `''` · `optional` · `required` | rientro previsto · nota · data effettiva ("restituito il…") |
+| `returns_to` | id di un tipo `in` | il tipo proposto per primo per chiudere questo (es. `to_client` → `from_client`) |
+| `quick` | bool | pulsante grande a un tocco |
+| `applies_to` | `binder` · `document` · `box` | dove si può usare |
+| `disabled` | bool | nascosto nelle scelte, lo storico resta |
+
+Predefiniti: `taken` Preso (out, chi registra) · `returned` Reinserito (in) · `to_client` Dato al cliente (out, cliente,
+rientro e nota facoltativi) · `from_client` Restituito dal cliente (in) · `case` Fuori per pratica (out) · `to_entity`
+Dato al Comune / ente (out, ente obbligatorio, rientro e nota) · `from_entity` Restituito dal Comune / ente (in, data) ·
+`missing` Mancante / non trovato · `found` Ritrovato (in) · `check` Da verificare (neutral).
+`S.settings.statusTypesAt` (ISO) = ultima modifica: nei pacchetti e sul server vince la lista più recente
+(`settingsSubset.statusTypes` / `statusTypesAt`, come `locLevels`).
+
+### 17.2 Evento — `S.statusEvents[]`, tabella `status_events`, record server `status_event`
+
+`{id:'se-<uuid>', at, user, device, target_type:'binder'|'document'|'location', target_id, doc_id, status_id, holder,
+due_date:'AAAA-MM-GG'|'', date:'AAAA-MM-GG'|'', note, via, box_id, batch_id, code, doc_text, undo_of}`
+(schema: `docs/python/schema/status_event.schema.json`).
+
+- `target_id` = id del faldone (anche per un documento, con `doc_id` = `contents_items[].id`) o della scatola.
+- `via`: `scan` (telefono) · `desktop` · `box` (tutta la scatola) · `bulk` (faldoni spuntati) · `verify` (verifica
+  rientro) · `scanner` (lettore USB, "Modalità stato") · `editor` (scheda del faldone) · `undo`.
+- `batch_id`: uguale per tutti gli eventi di una stessa azione su più oggetti. `code` / `doc_text`: codice e testo del
+  documento in quel momento, per i report anche se poi cambiano.
+- **Annulla** (10 s) = nuovo evento con `status_id:''` e `undo_of:<id>`: l'evento annullato resta nello storico, barrato.
+- **Stato attuale** = ultimo evento del bersaglio (per `at`, poi `id`) che non è un annullamento né annullato
+  (`sqCurrent`). **In ritardo** = presenza `out` e `due_date` < oggi. Nessun evento = in archivio.
+- Solo locale: `_rx = [ora locale, peer]` su un evento ricevuto da un altro dispositivo (serve a inoltrarlo, come `recvAt`).
+
+### 17.3 Viaggio dei dati
+
+- **Backup JSON**: chiave `status_events` (solo se ci sono eventi), unita per `id` al ripristino (mai sostituita).
+- **Pacchetti** (06f): `records.status_events` = eventi registrati o ricevuti da un altro peer dopo `since`; si
+  aggiungono per `id`, senza LWW e senza duplicati.
+- **Server**: record `status_event` (API-CONTRACT §11). Un server senza `"status_events"` nel `ping` non riceve record:
+  gli eventi viaggiano comunque nelle voci di registro (`details.events`).
+- **Telefono in locale** (stesso browser del PC): scrive `statusEvents` nello stato salvato e una voce di registro in
+  `docmap_v26_log_pending`; il PC aperto la unisce subito (senza l'avviso "modificato in un'altra scheda").
+
+### 17.4 SQLite (`DB_SCHEMA_VERSION 9`, migrazione solo additiva, basata sull'esistenza di tabella e colonne)
+
+```sql
+ALTER TABLE contents_items ADD COLUMN item_id TEXT;          -- se manca
+CREATE TABLE IF NOT EXISTS status_events(id TEXT PRIMARY KEY, at TEXT, user TEXT, device TEXT, target_type TEXT, target_id TEXT,
+  doc_id TEXT, status_id TEXT, holder TEXT, due_date TEXT, date TEXT, note TEXT, via TEXT, box_id TEXT, batch_id TEXT, code TEXT,
+  doc_text TEXT, undo_of TEXT);
+CREATE INDEX IF NOT EXISTS ix_status_target ON status_events(target_type, target_id);
+```
+
+Un file `.sqlite` aperto o importato **aggiunge** i suoi eventi a quelli presenti (unione per `id`).
+
+### 17.5 Registro attività
+
+| Azione | Dettagli |
+|---|---|
+| `status.set` · `status.bulk` · `status.box` | `{status, holder, due_date, note, count, batch_id, via, events:[StatusEvent]}` |
+| `status.verify` | `{box:{id, code}, found:[{id, code}], missing:[…], unexpected:[…], batch_id, marked_missing, events}` (report della verifica rientro, scaricabile in CSV) |
+| `status.undo` | `{count, events}` |
+| `settings.status_types` | `{types:[id]}` |
+
+Il CSV "Esporta tutti i movimenti" ha una riga per evento (`quando;chi;oggetto;codice;documento;stato;presenza;chi_lo_ha;
+rientro_entro;in_data;nota;come;scatola;operazione;event_id;undo_of`); "Esporta fuori archivio" una riga per oggetto
+fuori. Le colonne del CSV dei faldoni (§6.1) **non cambiano**.
+
+### 17.6 Memoria del telefono (scan.html)
+
+`localStorage 'docmap_v26_scan_status_outbox'` = stati registrati senza rete (modalità server), inviati in ordine al
+ritorno della connessione `[{id, events, entry, at}]`; `localStorage 'docmap_v26_status_verify'` = verifica rientro in
+corso `{v:1, user, box:{id, code, short_code}, startedAt, at, expected:[{id, code, company, short_code}], found:[id],
+extra:[{id, code}]}` (scade dopo 4 ore senza scansioni).
 

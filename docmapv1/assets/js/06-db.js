@@ -6,7 +6,7 @@
    - Download / open .sqlite files; on Chrome/Edge, link a file on disk
      and save to it automatically (File System Access API)
    ===================================================================== */
-const DB_SCHEMA_VERSION = 8;   // 2: binders.multi_code + photos table · 3: place/year/extra codes/shelf colour + clients table · 4: binders.contacts/notes + contents_items.status · 5: activity_log table (06e-log.js) · 6: binders.color_locked (02b-colors.js) · 7: locations table + binders.location_id (v11, 02c-locations.js) · 8: clients.extra_json (v11.1: client fields beyond the 10 columns, e.g. color_hex, tags, updated_at)
+const DB_SCHEMA_VERSION = 9;   // 2: binders.multi_code + photos table · 3: place/year/extra codes/shelf colour + clients table · 4: binders.contacts/notes + contents_items.status · 5: activity_log table (06e-log.js) · 6: binders.color_locked (02b-colors.js) · 7: locations table + binders.location_id (v11, 02c-locations.js) · 8: clients.extra_json (v11.1: client fields beyond the 10 columns, e.g. color_hex, tags, updated_at) · 9: archives table + binders.archive_id + locations.archive_id (v12, 06l-archives.js archDbMigrate, keyed on table/column existence) · also 9: contents_items.item_id + status_events table (v12, 02d-status.js; same existence-keyed rule)
 const DB = { SQL:null, db:null, ready:false, error:null, version:'', handle:null, handleName:'', handlePerm:'prompt', lastSync:null, lastFileSave:null, timer:null, busy:false, consoleSql:'', consoleResult:null };
 const IDB_NAME = 'docmap_v26_sqlite', IDB_STORE = 'kv';
 
@@ -45,8 +45,13 @@ CREATE TABLE IF NOT EXISTS contents_items(
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   binder_id TEXT NOT NULL REFERENCES binders(id) ON DELETE CASCADE,
   position INTEGER, year TEXT, description TEXT,
-  status TEXT DEFAULT 'archive');   -- archive | in_use | client
+  status TEXT DEFAULT 'archive',    -- archive | in_use | client
+  item_id TEXT);                    -- v9 (v12): stable id of the document (binder.contents_items[].id)
 CREATE INDEX IF NOT EXISTS ix_contents_binder ON contents_items(binder_id);
+CREATE TABLE IF NOT EXISTS status_events(   -- v9 (v12): append-only status / check-out log (02d-status.js), mirrored from S.statusEvents
+  id TEXT PRIMARY KEY, at TEXT NOT NULL, user TEXT, device TEXT, target_type TEXT NOT NULL, target_id TEXT NOT NULL, doc_id TEXT,
+  status_id TEXT, holder TEXT, due_date TEXT, date TEXT, note TEXT, via TEXT, box_id TEXT, batch_id TEXT, code TEXT, doc_text TEXT, undo_of TEXT);
+CREATE INDEX IF NOT EXISTS ix_status_target ON status_events(target_type, target_id);
 CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT);
 CREATE TABLE IF NOT EXISTS label_presets(id TEXT PRIMARY KEY, name TEXT, geometry_json TEXT);
 CREATE TABLE IF NOT EXISTS sessions(
@@ -100,8 +105,10 @@ function dbMigrate(db){
   if (!cols.includes('location_id')) db.exec('ALTER TABLE binders ADD COLUMN location_id TEXT');   // v7 (v11)
   db.exec('CREATE INDEX IF NOT EXISTS ix_binders_location ON binders(location_id)');
   if (!dbQuery('PRAGMA table_info(contents_items)', null, db).some(r => r.name === 'status')) db.exec("ALTER TABLE contents_items ADD COLUMN status TEXT DEFAULT 'archive'");
+  if (!dbQuery('PRAGMA table_info(contents_items)', null, db).some(r => r.name === 'item_id')) db.exec('ALTER TABLE contents_items ADD COLUMN item_id TEXT');   // v9 (v12); status_events comes from DB_DDL (IF NOT EXISTS)
   db.exec('CREATE INDEX IF NOT EXISTS ix_binders_multi ON binders(multi_code)');
   if (!dbQuery('PRAGMA table_info(clients)', null, db).some(r => r.name === 'extra_json')) db.exec('ALTER TABLE clients ADD COLUMN extra_json TEXT');   // v8 (v11.1)
+  if (typeof archDbMigrate === 'function') archDbMigrate(db);   // v12: archives (06l-archives.js)
   db.run("INSERT OR REPLACE INTO meta(key,value) VALUES ('app','DocMap26'),('schema_version',?)", [String(DB_SCHEMA_VERSION)]);
 }
 function dbLog(action, detail){ try { DB.db.run('INSERT INTO audit_log(at,action,detail) VALUES (?,?,?)', [nowISO(), action, detail || '']); DB.db.run('DELETE FROM audit_log WHERE id <= (SELECT MAX(id) - 500 FROM audit_log)'); } catch(e){} }
@@ -135,10 +142,10 @@ function dbSyncFromState(reason){
   try {
     db.exec('DELETE FROM contents_items; DELETE FROM binders; DELETE FROM settings; DELETE FROM label_presets; DELETE FROM clients; DELETE FROM locations;');
     const ins = db.prepare('INSERT INTO binders(id,speaking_code,multi_code,company_name,category,color_hex,binder_title,room_code,cabinet_code,shelf_code,sector_code,location_code,archive_state,tags,short_code,short_url,final_destination,final_destination_custom,selected_for_print,created_at,updated_at,company_city,ref_year,extra_codes,shelf_color,contacts,notes,color_locked,location_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
-    const ci = db.prepare('INSERT INTO contents_items(binder_id,position,year,description,status) VALUES (?,?,?,?,?)');
+    const ci = db.prepare('INSERT INTO contents_items(binder_id,position,year,description,status,item_id) VALUES (?,?,?,?,?,?)');
     S.binders.forEach(b => {
       ins.run([b.id, b.speaking_code, b.multi_code || null, b.company_name, b.category, b.color_hex, b.binder_title, b.room_code, b.cabinet_code, b.shelf_code, b.sector_code, b.location_code, b.archive_state, b.tags, b.short_code || null, b.short_url, destFor(b), b.final_destination || '', b.selected_for_print ? 1 : 0, b.created_at || '', b.updated_at || '', b.company_city || '', b.ref_year || '', b.extra_codes || '', b.shelf_color || '', b.contacts || '', b.notes || '', b.color_locked ? 1 : 0, b.location_id || null]);
-      b.contents_items.forEach((it, i) => ci.run([b.id, i, it.year, it.description, normCiStatus(it.status)]));
+      b.contents_items.forEach((it, i) => ci.run([b.id, i, it.year, it.description, normCiStatus(it.status), it.id || null]));
     });
     ins.free(); ci.free();
     const st = db.prepare('INSERT INTO settings(key,value) VALUES (?,?)');
@@ -153,6 +160,11 @@ function dbSyncFromState(reason){
     const lo = db.prepare('INSERT OR REPLACE INTO locations(id,parent_id,level,kind,name,seg,code,short_code,short_url,notes,sort,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)');
     (S.locations || []).forEach(l => lo.run([l.id, l.parent_id || null, l.level | 0, l.kind || '', l.name || '', l.seg || '', l.code || '', l.short_code || null, l.short_url || '', l.notes || '', l.sort | 0, l.created_at || '', l.updated_at || '']));
     lo.free();
+    if (typeof archDbSync === 'function') archDbSync(db);   // v12: archives table + archive_id columns (06l-archives.js)
+    db.exec('DELETE FROM status_events;');   // v12: append-only in S, rewritten here like the other mirrors
+    const se = db.prepare('INSERT OR REPLACE INTO status_events(id,at,user,device,target_type,target_id,doc_id,status_id,holder,due_date,date,note,via,box_id,batch_id,code,doc_text,undo_of) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+    (S.statusEvents || []).forEach(e => se.run([e.id, e.at, e.user || '', e.device || '', e.target_type, e.target_id, e.doc_id || '', e.status_id || '', e.holder || '', e.due_date || '', e.date || '', e.note || '', e.via || '', e.box_id || '', e.batch_id || '', e.code || '', e.doc_text || '', e.undo_of || '']));
+    se.free();
     db.run("INSERT OR REPLACE INTO meta(key,value) VALUES ('synced_at',?),('studio',?)", [nowISO(), S.settings.studioName || '']);
     db.exec('COMMIT');
     DB.lastSync = nowISO();
@@ -185,22 +197,26 @@ function dbReadWorkspace(db){
   const binders = dbQuery('SELECT * FROM binders ORDER BY speaking_code', null, db);
   const items = dbQuery('SELECT * FROM contents_items ORDER BY binder_id, position', null, db);   // SELECT *: files from older versions have no status column
   const byB = {};
-  items.forEach(i => (byB[i.binder_id] = byB[i.binder_id] || []).push({year:i.year || '', description:i.description || '', status:normCiStatus(i.status)}));
+  items.forEach(i => (byB[i.binder_id] = byB[i.binder_id] || []).push(Object.assign({year:i.year || '', description:i.description || '', status:normCiStatus(i.status)}, i.item_id ? {id:i.item_id} : {})));   // v9: item_id (older files: none → deterministic ids)
   const settings = {};
   dbQuery('SELECT key, value FROM settings', null, db).forEach(r => { try { settings[r.key] = JSON.parse(r.value); } catch(e){} });
   let clients = [];
   try { clients = dbQuery('SELECT * FROM clients ORDER BY name', null, db); } catch(e){}
   let locations = null;   // v7: absent in older files → null (the current tree is kept)
   try { if (dbQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='locations'", null, db).length) locations = dbQuery('SELECT * FROM locations ORDER BY code', null, db).map(l => ({id:l.id, parent_id:l.parent_id || '', level:l.level | 0, kind:l.kind || '', name:l.name || '', seg:l.seg || '', code:l.code || '', short_code:l.short_code || '', notes:l.notes || '', sort:l.sort | 0, created_at:l.created_at || '', updated_at:l.updated_at || ''})); } catch(e){ locations = null; }
+  let statusEvents;   // v9 (v12): absent in older files → undefined (the current events are kept)
+  try { if (dbQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='status_events'", null, db).length) statusEvents = dbQuery('SELECT * FROM status_events ORDER BY at, id', null, db); } catch(e){ statusEvents = undefined; }
   const presets = dbQuery('SELECT geometry_json FROM label_presets', null, db).map(r => { try { return JSON.parse(r.geometry_json); } catch(e){ return null; } }).filter(Boolean);
-  return {
+  const W = {
     clients: clients.map(c => Object.assign(clientExtraParse(c.extra_json), {id:c.id, multi_code:c.multi_code || '', name:c.name || '', address:c.address || '', cap:c.cap || '', city:c.city || '', province:c.province || '', type:c.type || '', category:c.category || '', notes:c.notes || ''})),
-    settings: settings.settings, print: settings.print, usedSlots: settings.usedSlots, lang: settings.lang, customPresets: presets, locations: locations || undefined,
+    settings: settings.settings, print: settings.print, usedSlots: settings.usedSlots, lang: settings.lang, customPresets: presets, locations: locations || undefined, status_events: statusEvents,
     binders: binders.map(b => ({ id:b.id, speaking_code:b.speaking_code, multi_code:b.multi_code || '', company_name:b.company_name, company_city:b.company_city || '', ref_year:b.ref_year || '', extra_codes:b.extra_codes || '', shelf_color:b.shelf_color || '', contacts:b.contacts || '', notes:b.notes || '', category:b.category, color_hex:b.color_hex, binder_title:b.binder_title,
       room_code:b.room_code, cabinet_code:b.cabinet_code, shelf_code:b.shelf_code, sector_code:b.sector_code, archive_state:b.archive_state, tags:b.tags,
       short_code:b.short_code, final_destination:b.final_destination_custom || '', selected_for_print: !!b.selected_for_print, color_locked: !!b.color_locked, location_id:b.location_id || '', created_at:b.created_at, updated_at:b.updated_at,
       contents_items: byB[b.id] || [] }))
   };
+  if (typeof archDbRead === 'function') archDbRead(db, W);   // v12: archives + archive_id (absent in older files)
+  return W;
 }
 /* Replace the whole working state with a workspace object (from a session or a .sqlite file). */
 function applyWorkspaceObject(W){
@@ -214,6 +230,7 @@ function applyWorkspaceObject(W){
   if (Array.isArray(W.customPresets)) S.customPresets = W.customPresets;
   if (W.usedSlots && typeof W.usedSlots === 'object') S.usedSlots = W.usedSlots;
   if (W.lang === 'it' || W.lang === 'en') S.lang = W.lang;
+  if (Array.isArray(W.status_events) && typeof sqMergeEvents === 'function'){ if (!Array.isArray(S.statusEvents)) S.statusEvents = []; sqMergeEvents(S.statusEvents, W.status_events); }   // v12: history is never dropped, only joined
 }
 
 /* ---------------- Sessions ---------------- */

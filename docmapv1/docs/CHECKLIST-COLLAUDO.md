@@ -54,7 +54,7 @@ Preparazione: 2 fogli MRINK143 e 3 fogli di carta normale. Faldoni di prova: i 5
 - [ ] Confronta 3 file a caso con gli sha256 di `DEPLOY-MANIFEST.txt` (o la dimensione in byte).
 - [ ] `setup.php` eseguito una volta: token copiati, `config.php` scaricato e conservato fuori dal sito; riaprendo
       `setup.php` risponde che non è disponibile.
-- [ ] `…/server-php/api.php?r=ping` → `"ok":true`, `"schema":2`, `"features"` con `locations`.
+- [ ] `…/server-php/api.php?r=ping` → `"ok":true`, `"schema":2`, `"features"` con `locations` e (v12) `status_events`.
 - [ ] Non raggiungibili (403/404): `…/server-php/config.php`, `…/server-php/data/`, la cartella dati, `…/.htaccess`.
 - [ ] `https://docmap.pr-it.it/studio-de/q/<short_code di un faldone>` apre la pagina mobile (dopo il login).
 - [ ] Da PC con il programma `file://`: **Prova connessione** dice "Connesso come … (admin)"; se la cartella è
@@ -76,11 +76,16 @@ Preparazione: 2 fogli MRINK143 e 3 fogli di carta normale. Faldoni di prova: i 5
       i QR vengono letti senza toccare lo schermo.
 - [ ] Permesso negato una volta → la pagina mostra "Fotocamera non disponibile"; riattivandolo dal lucchetto funziona.
 - [ ] Modalità aereo: una modifica resta "In attesa"; tolta la modalità aereo parte da sola.
+- [ ] v12: con **Ricordami su questo dispositivo** spuntato, chiudi Chrome, inquadra un altro QR con la fotocamera →
+      il faldone si apre **senza PIN**; la scheda mostra **Visto di recente**. **Esci** → il QR successivo chiede il PIN.
+- [ ] v12: l'admin revoca il codice di accesso del telefono → al QR successivo compare il primo accesso (nessun dato visibile).
+- [ ] v12: **Cerca** (lente in alto) → detta una ricerca con il microfono; la scheda aperta dai risultati ha **Torna ai risultati**.
 
 ### 4.2 iPhone con Safari
 - [ ] Come 4.1 con la fotocamera di iOS e Safari (non un'app di terze parti).
 - [ ] **Scansiona in sequenza** con Safari: la lettura dei QR funziona anche senza BarcodeDetector (lettore interno).
-- [ ] Dopo aver chiuso e riaperto Safari basta il PIN; dopo "Esci" serve di nuovo il PIN.
+- [ ] Dopo aver chiuso e riaperto Safari un nuovo QR apre il faldone senza PIN (v12, «Ricordami» spuntato); dopo "Esci" serve di nuovo il PIN.
+- [ ] v12: dopo 7 giorni senza aprire DocMap Safari può aver cancellato i dati del sito → si rifà il primo accesso (`SICUREZZA.md` §5d).
 - [ ] Una foto del faldone fatta con l'iPhone in formato "Più compatibile" (JPG) si carica.
 
 ## 5. Lettore USB che scrive come una tastiera (PC)

@@ -567,7 +567,7 @@ function jrCanRestoreLocal(it){
 }
 /** Coerce a journaled string value back to the field's type. */
 function jrCoerce(k, v, cur){
-  if (k === 'contents_items') return typeof pipeToContents === 'function' ? pipeToContents(v) : [];
+  if (k === 'contents_items') return typeof pipeToContents === 'function' ? ciCarryIds(cur, pipeToContents(v)) : [];
   if (typeof cur === 'boolean') return v === 'true';
   if (typeof cur === 'number') return +v || 0;
   if (cur && typeof cur === 'object'){ try { return JSON.parse(v); } catch(e){ return cur; } }

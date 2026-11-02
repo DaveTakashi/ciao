@@ -26,23 +26,27 @@
           "properties": {
             "binders": {"type": "array", "items": {"$ref": "binder.schema.json"}},
             "clients": {"type": "array", "items": {"$ref": "client.schema.json"}},
-            "locations": {"type": "array", "items": {"$ref": "location.schema.json"}, "description": "v11; older readers ignore the key."}
+            "locations": {"type": "array", "items": {"$ref": "location.schema.json"}, "description": "v11; older readers ignore the key."},
+            "archives": {"type": "array", "items": {"$ref": "archive.schema.json"}, "description": "v12; older readers ignore the key."},
+            "status_events": {"type": "array", "items": {"$ref": "status_event.schema.json"}, "description": "v12: status events recorded (or received from another peer) after `since`; merged by id, never LWW. Older readers ignore the key."}
           },
           "additionalProperties": {"type": "array"}
         },
         "tombstones": {"type": "array", "items": {"$ref": "#/$defs/tombstone"}},
         "settingsSubset": {
           "type": "object",
-          "description": "Shared settings, applied only when the user ticks 'Applica anche le impostazioni condivise'. The colour block applies as a whole when colorUpdatedAt is newer; the location levels when locLevelsAt is newer.",
+          "description": "Shared settings, applied only when the user ticks 'Applica anche le impostazioni condivise'. The colour block applies as a whole when colorUpdatedAt is newer; the location levels when locLevelsAt is newer; the saved searches (v12) when savedSearchesAt is newer.",
           "properties": {
             "studioName": {"type": "string"}, "destTemplate": {"type": "string"}, "catColors": {"type": "object"},
             "colorMode": {"type": "string"}, "catFamilies": {"type": "object"}, "colorRules": {"type": "object"}, "colorUpdatedAt": {"type": "string"},
-            "locLevels": {"type": "array"}, "locLevelsAt": {"type": "string"}
+            "locLevels": {"type": "array"}, "locLevelsAt": {"type": "string"},
+            "savedSearches": {"type": "array"}, "savedSearchesAt": {"type": "string"},
+                        "statusTypes": {"type": "array"}, "statusTypesAt": {"type": "string"}
           },
           "additionalProperties": true
         },
         "activity_log": {"type": "array", "items": {"$ref": "activity_log_entry.schema.json"}},
-        "counts": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}, "description": "binders, clients, locations, tombstones, log"}
+        "counts": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}, "description": "binders, clients, locations, archives, tombstones, log"}
       },
       "additionalProperties": true
     },
@@ -66,7 +70,7 @@
     "tombstone": {
       "type": "object", "required": ["type", "id", "code", "deletedAt"],
       "properties": {
-        "type": {"enum": ["binder", "client", "location"]},
+        "type": {"enum": ["binder", "client", "location", "archive"]},
         "id": {"type": "string"},
         "code": {"type": "string", "description": "Human code at deletion time (speaking code, Multi code / name, location code)."},
         "deletedAt": {"type": "string", "format": "date-time"},

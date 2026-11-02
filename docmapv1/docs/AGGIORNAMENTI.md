@@ -2,7 +2,7 @@
 
 Ogni nuova versione di DocMap deve potersi installare **sopra la precedente senza perdere dati**. Questo documento è
 la procedura che vale sempre; ogni rilascio aggiunge una guida specifica `docs/AGGIORNAMENTO-vX-vY.md` (esempi:
-`AGGIORNAMENTO-v10-v10.1.md`, `AGGIORNAMENTO-v10.1-v11.md`, `AGGIORNAMENTO-v11-v11.1.md`) con le sole differenze. Elenco di tutti i documenti:
+`AGGIORNAMENTO-v10-v10.1.md`, `AGGIORNAMENTO-v10.1-v11.md`, `AGGIORNAMENTO-v11-v11.1.md`, `AGGIORNAMENTO-v11.1-v12.md` e la guida diretta `AGGIORNAMENTO-v10-v12.md`) con le sole differenze. Elenco di tutti i documenti:
 `INDICE.md`; prova a secco dell'aggiornamento su una copia: `CHECKLIST-COLLAUDO.md` §8; versione per compiti:
 `MANUALE-UTENTE.md` §12.
 

@@ -3,7 +3,7 @@
 
 What it does (every step prints OK / FAIL; exit code 0 only if everything passes):
 
-  1. Loads the 7 JSON Schemas and openapi.yaml, checks they are valid schemas and that every $ref resolves.
+  1. Loads the 8 JSON Schemas and openapi.yaml, checks they are valid schemas and that every $ref resolves.
   2. Runs tools/export_samples.js (headless Chromium + Playwright) which builds a small archive with the app's own
      functions and writes: workspace_backup.json, sync_package.json, sync_package_enc.json, records.json.
      Validates each file against its schema; decrypts sync_package_enc.json in Python (PBKDF2 + AES-256-GCM) and
@@ -191,7 +191,7 @@ def step_samples(registry, samples_dir, run_browser):
     except Exception as e:  # noqa: BLE001
         bad(f"sync_package_enc.json: decryption failed: {e}")
     rec = f("records.json")
-    for k in ["binder", "client", "location", "activity_log_entry", "sync_journal_entry"]:
+    for k in ["binder", "client", "location", "archive", "status_event", "activity_log_entry", "sync_journal_entry"]:
         if not check(rec.get(k) is not None, f"records.json has a {k}"):
             continue
         validate(registry, schema_uri(k + ".schema.json"), rec[k], f"records.json {k}")
@@ -202,6 +202,9 @@ def step_samples(registry, samples_dir, run_browser):
     props = json.loads((SCHEMA_DIR / "location.schema.json").read_text())["properties"].keys()
     extra = sorted({k for b in ws["locations"] for k in b} - set(props))
     check(not extra, f"location keys written by the app are all described in location.schema.json {extra or ''}")
+    props = json.loads((SCHEMA_DIR / "archive.schema.json").read_text())["properties"].keys()
+    extra = sorted({k for b in ws.get("archives", []) for k in b} - set(props))
+    check(len(ws.get("archives", [])) >= 1 and not extra, f"archive keys written by the app are all described in archive.schema.json {extra or ''}")
     props = json.loads((SCHEMA_DIR / "workspace_backup.schema.json").read_text())["properties"].keys()
     extra = sorted(set(ws) - set(props))
     check(not extra, f"workspace top-level keys are all described {extra or ''}")
@@ -400,7 +403,7 @@ def run_routes(api, registry, a, toks, ws, key, data_dir):
     A, E, V = toks["admin"], toks["editor"], toks["viewer"]
     dev = {"X-DocMap-Device": "dev-validator", "X-DocMap-Device-Name": "PC%20validatore", "X-DocMap-App": "26.11.1"}
     p = expect(api, registry, a.call("ping"), "ping", 200, "no token")
-    check(p.get("features") == ["journal", "device_info", "locations"] and p.get("schema") == 2, f"ping features/schema {p.get('features')} {p.get('schema')}")
+    check(p.get("features") == ["journal", "device_info", "locations", "archives", "access_log", "status_events"] and p.get("schema") == 3, f"ping features/schema {p.get('features')} {p.get('schema')}")
     expect(api, registry, a.call("me", token=E, headers=dev), "me", 200, "editor")
     expect(api, registry, a.call("me"), "me", 401, "no token", "token_missing")
     st, b, _ = a.call("nope", token=E)
@@ -413,10 +416,10 @@ def run_routes(api, registry, a, toks, ws, key, data_dir):
     # push the real records of the sample backup (the PC's first upload)
     now = iso_now()
     recs = []
-    for t, arr in (("binder", ws["binders"]), ("client", ws["clients"]), ("location", ws["locations"])):
+    for t, arr in (("binder", ws["binders"]), ("client", ws["clients"]), ("location", ws["locations"]), ("archive", ws.get("archives", [])), ("status_event", ws.get("status_events", []))):
         for r in arr:
             d = dict(r)
-            d["updated_at"] = d.get("updated_at") or now
+            d["updated_at"] = d.get("at") if t == "status_event" else (d.get("updated_at") or now)
             recs.append({"type": t, "id": d["id"], "updated_at": d["updated_at"], "data": d})
     tomb_id = "b-validator-deleted"
     body = {"records": recs, "tombstones": [{"type": "binder", "id": tomb_id, "code": "ZZ9", "deletedAt": now, "who": "Schema Test"}],
@@ -439,7 +442,7 @@ def run_routes(api, registry, a, toks, ws, key, data_dir):
     r = expect(api, registry, a.call("pull", token=V, query={"since": 0, "log_since": 0}, headers=dev), "pull", 200, "since=0 after push")
     check(len(r.get("records", [])) == len(recs) and len(r.get("tombstones", [])) == 1 and r.get("counts") is not None, "pull returns records, tombstone, counts")
     for rec in r.get("records", [])[:400]:
-        sch = {"binder": "binder.schema.json", "client": "client.schema.json", "location": "location.schema.json"}[rec["type"]]
+        sch = {"binder": "binder.schema.json", "client": "client.schema.json", "location": "location.schema.json", "archive": "archive.schema.json", "status_event": "status_event.schema.json"}[rec["type"]]
         errs = list(validator_for(registry, schema_uri(sch)).iter_errors(rec["data"]))
         if errs:
             bad(f"pull record {rec['type']}/{rec['id']} vs {sch}: {errs[0].message[:200]}")
@@ -497,12 +500,39 @@ def run_routes(api, registry, a, toks, ws, key, data_dir):
     expect(api, registry, a.call("journal_restore", method="POST", token=A, body={"jid": 0, "n": 0}), "journal_restore", 422, "bad jid", "invalid")
     expect(api, registry, a.call("journal_restore", method="POST", token=A, body={"jid": 999999, "n": 1}), "journal_restore", 404, "unknown item", "not_found")
 
+    # ---- v12 access log: the binder / location / resolve reads above were recorded; seen, access, last_seen
+    expect(api, registry, a.call("binder", token=V, headers=dev, query={"qr": binder["short_code"], "via": "nfc"}), "binder", 200, "via=nfc (access_log)")
+    sn = expect(api, registry, a.call("seen", method="POST", token=E, headers=dev, body={"items": [
+        {"type": "binder", "id": binder["id"], "code": "PS1", "at": iso_now(-60000), "via": "nav"},
+        {"type": "binder", "id": binder["id"], "code": "PS1", "at": "2001-01-01T00:00:00.000Z"},
+        {"type": "nope", "id": binder["id"], "at": iso_now()}]}), "seen", 200, "editor, 1 valid + 2 skipped")
+    check(sn.get("recorded") == 1 and sn.get("skipped") == 2, f"seen recorded 1, skipped 2 ({sn.get('recorded')}, {sn.get('skipped')})")
+    expect(api, registry, a.call("seen", method="POST", token=E, body={"items": [{"id": binder["id"], "at": iso_now()}] * 501}), "seen", 413, "501 items", "too_large")
+    expect(api, registry, a.call("seen", method="POST", token=E, body={"nope": 1}), "seen", 400, "no items", "invalid")
+    expect(api, registry, a.call("access", token=V), "access", 403, "viewer", "forbidden")
+    ae = expect(api, registry, a.call("access", token=E), "access", 200, "editor (own rows)")
+    aa = expect(api, registry, a.call("access", token=A, query={"limit": 200}), "access", 200, "admin (all)")
+    check(len(aa.get("items", [])) >= len(ae.get("items", [])) >= 1 and all(it.get("user") == "Test editor" for it in ae.get("items", [])), "access: editor sees only own rows, admin sees all")
+    check(all("ip" in it for it in aa.get("items", [])) and not any("ip" in it for it in ae.get("items", [])), "access: ip only for admin")
+    check(any(it.get("via") == "nfc" and it.get("route") == "binder" for it in aa.get("items", [])) and any(it.get("route") == "seen" for it in aa.get("items", [])), "access: binder read with via=nfc and the seen item are listed")
+    af = expect(api, registry, a.call("access", token=A, query={"code": "ps1", "via": "nav"}), "access", 200, "filter code + via (HMAC index)")
+    check(len(af.get("items", [])) >= 1 and all(it["target"]["code"] == "PS1" and it["via"] == "nav" for it in af.get("items", [])), "access code/via filter")
+    expect(api, registry, a.call("access", token=A, query={"type": "nope"}), "access", 422, "bad type", "invalid")
+    pg = expect(api, registry, a.call("access", token=A, query={"limit": 1}), "access", 200, "page of 1")
+    check(pg.get("more") is True and isinstance(pg.get("next_before"), int), "access paging: more + next_before")
+    ls = expect(api, registry, a.call("last_seen", token=V, query={"type": "binder", "id": binder["id"]}), "last_seen", 200, "viewer, by id")
+    check(ls.get("total", 0) >= 2 and 1 <= len(ls.get("items", [])) <= 5, f"last_seen total {ls.get('total')} (max 5 items by default)")
+    expect(api, registry, a.call("last_seen", token=V, query={"code": "PS1", "limit": 50}), "last_seen", 200, "by code, limit capped at 20")
+    expect(api, registry, a.call("last_seen", token=V), "last_seen", 400, "no id / code", "invalid")
+    m = expect(api, registry, a.call("me", token=V), "me", 200, "remember_minutes")
+    check("remember_minutes" in m and m["remember_minutes"] is None, "me.remember_minutes = null (config default)")
+
     # ---- storage claims (PORTING.md §3): blob layout, AAD, HMAC index, key_check
     db = sqlite3.connect(str(data_dir / "docmap.sqlite"))
     db.row_factory = sqlite3.Row
     kc = db.execute("SELECT v FROM meta WHERE k='key_check'").fetchone()[0]
     check(blob_decrypt(key, base64.b64decode(kc), "meta/key_check") == "docmap-key-check", "meta key_check = base64(blob 'docmap-key-check', AAD meta/key_check)")
-    check(db.execute("SELECT v FROM meta WHERE k='schema'").fetchone()[0] == "2", "meta schema = 2")
+    check(db.execute("SELECT v FROM meta WHERE k='schema'").fetchone()[0] == "3", "meta schema = 3")
     row = db.execute("SELECT * FROM records WHERE type='binder' AND id=?", (binder["id"],)).fetchone()
     blob = bytes(row["payload"])
     check(blob[0] == 1, "record blob starts with version byte 0x01")
@@ -534,6 +564,10 @@ def run_routes(api, registry, a, toks, ws, key, data_dir):
     check(it["k_code"] == hidx(key, "PS1") and it["new_hash"] == canon_hash(pl["new"]), "journal item AAD journal/<jid>/<n>, k_code, new_hash = canon_hash(new)")
     tt = db.execute("SELECT * FROM sync_journal_items WHERE jid=? AND id=?", (push_jid, tomb_id)).fetchone()
     check(tt is not None and tt["new_hash"] == hashlib.sha256(f"deleted:binder/{tomb_id}@{now}".encode()).hexdigest(), "tombstone hash = sha256('deleted:<type>/<id>@<deletedAt>')")
+    acc = db.execute("SELECT * FROM access_log WHERE route='seen' ORDER BY aid DESC LIMIT 1").fetchone()
+    am = json.loads(blob_decrypt(key, acc["meta"], f"access/{acc['aid']}"))
+    check(am.get("user") == "Test editor" and am.get("device_id") == "dev-validator" and am.get("code") == "PS1", "access_log meta AAD access/<aid> (user, device, code)")
+    check(acc["k_user"] == hidx(key, "user/test editor") and acc["k_device"] == hidx(key, "device/dev-validator") and acc["k_code"] == hidx(key, "PS1"), "access_log k_user / k_device / k_code HMAC indexes")
     db.close()
 
     # ---- rate limit last (it locks this IP): 401 token_invalid with left, then 429 locked + Retry-After

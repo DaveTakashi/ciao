@@ -1,7 +1,7 @@
 # Prompt di passaggio: DocMap 2026 → sistema Python
 
 > Copia tutto il testo sotto la linea e incollalo all'agente che ha già costruito il sistema Python di gestione dello
-> studio. Prima metti a sua disposizione la cartella dell'ultima versione (oggi **26.11.1, v11.1**: lo zip del rilascio
+> studio. Prima metti a sua disposizione la cartella dell'ultima versione (oggi **26.12.0, v12**: lo zip del rilascio
 > estratto, oppure il repository) e scrivi il percorso al posto di `<CARTELLA_DOCMAP>`. La cartella contiene
 > `docmapv1/` (app, server PHP, test, documentazione); `deploy/studio-de/` (la copia da caricare su
 > https://docmap.pr-it.it/studio-de/) si rigenera con `python3 docmapv1/tools/build_deploy.py`.
@@ -9,7 +9,7 @@
 ---
 
 Ciao. Ti passo **DocMap 2026 (DM26)**, l'archivio fisico-digitale dei faldoni dello studio Dall'Asta, versione
-**26.11.1 (v11.1)**. L'ha costruito un altro agente; io (Dave) l'ho provato e lo uso. Da qui lo sviluppo lo porti
+**26.12.0 (v12)**. L'ha costruito un altro agente; io (Dave) l'ho provato e lo uso. Da qui lo sviluppo lo porti
 avanti tu, unendolo al sistema Python che hai già creato. Questo testo basta per partire: tutto il resto è nei file
 indicati, che sono la fonte di verità (se un documento e il codice non coincidono, vince il codice e la suite di test).
 
@@ -65,7 +65,7 @@ Apri anche l'app e provala; avvia `php -S 127.0.0.1:8000` nella cartella `docmap
 
 - **Rotte** (`<apiBase>?r=<rotta>`; letture GET, scritture solo POST): `ping`, `me`, `pull`, `push`, `binder`,
   `location`, `resolve`, `patch`, `tokens`, `token_create`, `token_revoke`, `journal`, `journal_restore`. `ping` risponde
-  `{"ok":true,"api":"docmap-php","version":1,"schema":2,"features":["journal","device_info","locations"],…}`.
+  `{"ok":true,"api":"docmap-php","version":1,"schema":3,"features":["journal","device_info","locations","archives","access_log","status_events"],…}`.
 - **Token**: header `X-DocMap-Token` (anche `Authorization: Bearer` o `"_token"` nel corpo `text/plain` del PC aperto da
   `file://`). Non usare `Authorization` come unico canale: la password di cartella di SiteGround (HTTP Basic) lo occupa.
 - **Errori**: sempre `{"error":{"code","message",…}}` con i codici HTTP e i `code` di `openapi.yaml`; 409 con `current`

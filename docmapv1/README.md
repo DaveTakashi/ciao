@@ -1,4 +1,4 @@
-# DocMap 2026 (DM26) — versione 26.11.1
+# DocMap 2026 (DM26) — versione 26.12.0
 
 Archivio fisico-digitale dello studio. Ogni faldone ha:
 
@@ -28,6 +28,8 @@ Sul PC funziona **offline**, con un doppio clic e senza installare niente. Il **
 | capire una parola (faldone, ubicazione, token, tombstone…) | [`docs/GLOSSARIO.md`](docs/GLOSSARIO.md) |
 | la descrizione completa di ogni funzione | [`docs/RIFERIMENTO-FUNZIONI.md`](docs/RIFERIMENTO-FUNZIONI.md) |
 | le prove da fare a mano (stampante, telefoni, SiteGround, ripristino) | [`docs/CHECKLIST-COLLAUDO.md`](docs/CHECKLIST-COLLAUDO.md) |
+| aggiornare dalla **v10.0** direttamente alla v12 | [`docs/AGGIORNAMENTO-v10-v12.md`](docs/AGGIORNAMENTO-v10-v12.md) |
+| aggiornare dalla v11.1 alla v12 | [`docs/AGGIORNAMENTO-v11.1-v12.md`](docs/AGGIORNAMENTO-v11.1-v12.md) |
 | aggiornare dalla v11 alla v11.1 | [`docs/AGGIORNAMENTO-v11-v11.1.md`](docs/AGGIORNAMENTO-v11-v11.1.md) (regole generali: [`docs/AGGIORNAMENTI.md`](docs/AGGIORNAMENTI.md)) |
 | pubblicare il sito e il database online | [`docs/DEPLOY-WEB.md`](docs/DEPLOY-WEB.md) |
 | sviluppare (JavaScript) | [`AGENTS.md`](AGENTS.md) |

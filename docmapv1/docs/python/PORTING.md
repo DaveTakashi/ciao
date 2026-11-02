@@ -1,8 +1,8 @@
 # Porting di `server-php/api.php` in Python (FastAPI), 1:1
 
 > Per il team Python. Lingua: italiano; identificatori, rotte e campi in inglese come nel codice.
-> Riferimento verificato: `server-php/api.php` di DocMap **26.11.1** (`DM_API 'docmap-php'`, `DM_API_VERSION 1`,
-> `DM_SCHEMA 2`). Contratto macchina: [`openapi.yaml`](openapi.yaml). Forme dei record: [`SCHEMI.md`](SCHEMI.md) e
+> Riferimento verificato: `server-php/api.php` di DocMap **26.12.0** (`DM_API 'docmap-php'`, `DM_API_VERSION 1`,
+> `DM_SCHEMA 3`). Contratto macchina: [`openapi.yaml`](openapi.yaml). Forme dei record: [`SCHEMI.md`](SCHEMI.md) e
 > [`schema/`](schema/). Testo umano del contratto: [`../API-CONTRACT.md`](../API-CONTRACT.md).
 >
 > Ogni affermazione di questo documento sui byte (blob, AAD, indici HMAC, JSON canonico, hash) è controllata da
@@ -76,8 +76,11 @@ anche il `code`.
 | `studio_name` | `''` | Restituito da `me`. |
 | `journal_keep_days` | 0 | v11: 0 = registro sincronizzazioni per sempre; N = voci più vecchie di N giorni cancellate (al massimo una volta al giorno, dopo un push). |
 | `journal_pulls` | `'changes'` | v11: `changes` (registra i pull che hanno restituito qualcosa o con `since=0`) · `all` · `none`. |
+| `access_keep_days` | 365 | v12: righe di `access_log` più vecchie di N giorni cancellate (al massimo una volta al giorno); 0 = per sempre. |
+| `access_dedupe_seconds` | 120 | v12: stessa persona + dispositivo + record + `via` entro N secondi = una riga sola (per `seen`: `at` entro N secondi); 0 = ogni lettura. |
+| `remember_minutes` | `null` | v12: restituito da `me`; minuti di inattività dopo cui il telefono chiede di nuovo il PIN (`0` sempre, `-1` mai, `null` = decide il dispositivo). |
 
-`setup.php` crea `config.php` **senza** `journal_keep_days` e `journal_pulls`: valgono i predefiniti.
+`setup.php` crea `config.php` **senza** `journal_keep_days`, `journal_pulls`, `access_keep_days`, `access_dedupe_seconds` e `remember_minutes`: valgono i predefiniti.
 
 ---
 
@@ -123,6 +126,7 @@ def dec(key: bytes, blob: bytes, aad: str) -> str:
 | `meta.v` (k `key_check`) | `meta/key_check` | la stringa `docmap-key-check`; il blob è salvato in **base64** (le altre colonne sono BLOB binari) |
 | `sync_journal.meta` | `journal/<jid>` | `{user, device_id, device_name, app_version, operator, ip, extra}` |
 | `sync_journal_items.payload` | `journal/<jid>/<n>` | `{code, reason, prev, new, extra}` |
+| `access_log.meta` (v12) | `access/<aid>` | `{user, device_id, device_name, app_version, code, ip}` |
 
 L'AAD lega il blob alla sua riga: copiare un blob su un'altra riga lo rende illeggibile (verificato dal validatore).
 
@@ -147,10 +151,13 @@ def hidx(key: bytes, v: str) -> str | None:
 |---|---|
 | `records.k_short` | binder e location: `short_code` così com'è |
 | `records.k_code` | binder: `upper(trim(speaking_code))` · location: `upper(trim(code))` |
+| `records.k_short` (v12) | status_event: `"st/b/" + target_id` (faldone o documento) oppure `"st/l/" + target_id` (scatola) |
+| `records.k_code` (v12) | status_event: `"stbox/" + box_id`, `NULL` se vuoto |
 | `records.k_cab` | solo binder: `room_code + "\x1f" + cabinet_code` (separatore unit separator, byte 0x1F); `NULL` se entrambi vuoti |
 | `sync_journal.k_user` | `"user/" + lower(user)` (utente del token) |
 | `sync_journal.k_device` | `"device/" + device_id` |
 | `sync_journal_items.k_code` | `upper(trim(code))` del codice umano dell'elemento; `NULL` se vuoto |
+| `access_log.k_user` / `k_device` / `k_code` (v12) | come `sync_journal` (`"user/" + lower(user)`, `"device/" + device_id`) e `upper(trim(code))`; `k_code` `NULL` se vuoto |
 
 Le tombstone hanno `k_short`, `k_code`, `k_cab` a `NULL`. `upper`/`lower` in PHP (`strtoupper`/`strtolower`) toccano
 solo l'ASCII: in Python usa una funzione che cambi solo `a-z`/`A-Z` (es. `s.translate(...)`) se vuoi la stessa chiave
@@ -194,6 +201,25 @@ CREATE TABLE IF NOT EXISTS sync_journal_items (jid INTEGER NOT NULL, n INTEGER N
 CREATE INDEX IF NOT EXISTS sync_journal_items_rec ON sync_journal_items (type, id);
 CREATE INDEX IF NOT EXISTS sync_journal_items_code ON sync_journal_items (k_code);
 ```
+
+Migrazione a schema 3 (v12, stesso meccanismo; da un database v10.1 i passi 2 e 3 girano in sequenza alla prima
+richiesta; scrive `meta.schema = '3'`):
+
+```sql
+CREATE TABLE IF NOT EXISTS access_log (aid INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, received_at TEXT NOT NULL, route TEXT NOT NULL,
+  via TEXT NOT NULL DEFAULT '', token_id TEXT NOT NULL DEFAULT '', role TEXT NOT NULL DEFAULT '', k_user TEXT, k_device TEXT,
+  target_type TEXT NOT NULL DEFAULT '', target_id TEXT NOT NULL DEFAULT '', k_code TEXT, meta BLOB);
+CREATE INDEX IF NOT EXISTS access_log_at ON access_log (at);
+CREATE INDEX IF NOT EXISTS access_log_target ON access_log (target_type, target_id, at);
+CREATE INDEX IF NOT EXISTS access_log_user ON access_log (k_user);
+CREATE INDEX IF NOT EXISTS access_log_device ON access_log (k_device);
+```
+
+Scrittura (`acc_write`): una lettura riuscita di `binder` / `location` / `resolve` scrive una riga se **non** ne esiste
+già una con stesso `target_type`, `target_id`, `token_id`, `k_device`, `via`, `route <> 'seen'` e `at >=` ora −
+`access_dedupe_seconds`; un elemento di `seen` se non ne esiste una `route = 'seen'` con stesso record, token e
+dispositivo e `at` entro ± `access_dedupe_seconds`. Prima l'INSERT, poi `meta` cifrato con l'`aid` appena creato.
+Un errore del registro non fa mai fallire la lettura.
 
 Chiavi di `meta`: `key_check`, `schema`, `created_at`, `migrated_2_at`, `journal_pruned_at`.
 
@@ -326,7 +352,7 @@ Le forme esatte delle risposte sono in `openapi.yaml`; qui le regole di comporta
 Corpo: `records[]`, `tombstones[]`, `settings?`, `activity_log?`, `deviceId`, `operator`. `who` dei record = `operator`
 (max 80 caratteri) o, se vuoto, l'utente del token. Per **ogni record**, nell'ordine:
 
-1. `type` non in `binder|client|location`, `id` non conforme a `^[A-Za-z0-9._:@-]{1,100}$`, `data` non oggetto, o
+1. `type` non in `binder|client|location|status_event`, `id` non conforme a `^[A-Za-z0-9._:@-]{1,100}$`, `data` non oggetto, o
    `updated_at` (del record o di `data`) non valido → `rejected` `invalid` (elemento `rejected-invalid` nel registro).
 2. `len(jenc(data)) > 262144` → `rejected` `too_large`.
 3. `data.id = id`. Se il server ha già la riga: stessa ora **e** viva **e** `jenc(canon(attuale)) == jenc(canon(data))`
@@ -359,6 +385,10 @@ l'upsert di `records` con quel `seq`, gli indici HMAC e il payload cifrato **sen
   500 elencati, `count` = totale), entrambi in ordine naturale senza maiuscole (`strnatcasecmp`: in Python per esempio
   `natsort.natsort_keygen(alg=ns.IGNORECASE)`). I figli e i faldoni si trovano **decifrando** tutte le righe del tipo
   (nessun indice su `parent_id` / `location_id`: va bene per l'archivio di uno studio; in Python puoi aggiungere una cache).
+- v12: `binder` aggiunge `status_events` (record `status_event` con `k_short = hidx('st/b/'+id)`, vivi, ordine `at` poi `id`, gli
+  ultimi 200) e `status_types` (`statusTypes` del sottoinsieme `settings_shared`, `null` se assente); `location` aggiunge
+  `status_events` della scatola (`st/l/`), dei suoi faldoni e di quelli trovati con `k_code = hidx('stbox/'+id)` (più gli
+  altri eventi di quei faldoni), al massimo 2000, e `status_types`.
 - `resolve`: `qr` obbligatorio; se corrisponde a `^dm26L[A-Za-z0-9]{8}$` è un'ubicazione, altrimenti un faldone (`k_short`).
   Risposta = `{type: 'location'|'binder'} + ` la risposta della rotta corrispondente.
 
@@ -415,7 +445,7 @@ Lo studio ha già dati sul server PHP. Tre strade, dalla più sicura:
 
 Il server Python apre **lo stesso** `docmap.sqlite` con la stessa `aes_key` e scrive nello stesso formato (§3–§5).
 Vantaggi: nessuna conversione, `seq` invariati (i client continuano da dove erano), si può tornare al PHP in qualsiasi
-momento. Verifica d'avvio: decifra `meta.key_check`; applica la migrazione a schema 2 se `meta.schema` < 2 (stessi
+momento. Verifica d'avvio: decifra `meta.key_check`; applica le migrazioni a schema 2 e 3 se `meta.schema` < 3 (stessi
 `CREATE … IF NOT EXISTS`); non usare mai `DROP` o `RENAME`.
 
 ### 8.2 Conversione in un altro database (es. PostgreSQL)
@@ -425,7 +455,7 @@ momento. Verifica d'avvio: decifra `meta.key_check`; applica la migrazione a sch
 3. Per ogni riga di `records`: `dec(payload, "records/<type>/<id>")` → JSON; conserva `type`, `id`, `updated_at`,
    `deleted`, `who`, **`seq`**; ricalcola o copia gli indici. Le tombstone restano tombstone (servono agli altri dispositivi).
 4. `changes`, `activity_log` (`activity/<id>`), `settings_shared` (`settings/subset`), `tokens` (solo sha256: i codici
-   restano validi), `sync_journal` (`journal/<jid>`) e `sync_journal_items` (`journal/<jid>/<n>`) con i loro numeri.
+   restano validi), `sync_journal` (`journal/<jid>`), `sync_journal_items` (`journal/<jid>/<n>`) e `access_log` (`access/<aid>`) con i loro numeri.
 5. **I contatori non devono ripartire da capo.** Ogni client ricorda, per indirizzo del server, l'ultimo `seq` e `log_seq`
    ricevuti (`S.sync.peers['server:<url>']`, `assets/js/06g-server.js`). Se il nuovo server riparte da 1, i client non
    vedono i cambiamenti finché il contatore non supera il vecchio valore. Quindi: copia `seq` e fai ripartire la

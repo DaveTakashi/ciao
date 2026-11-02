@@ -1,7 +1,8 @@
 # DocMap — contratto API del database online condiviso
 
-> Versione dell'app 26.11.1 (v11.1). Contratto invariato dalla v11: `api` = `docmap-php`, `version` 1, `schema` 2.
-> Nato con la v10.1; la v11 ha aggiunto ubicazioni e registro sincronizzazioni (campi in più, ignorati dai client vecchi).
+> Versione dell'app 26.12.0 (v12): `api` = `docmap-php`, `version` 1, `schema` 3.
+> Nato con la v10.1; la v11 ha aggiunto ubicazioni e registro sincronizzazioni, la v12 il registro accessi (§11:
+> rotte `access`, `last_seen`, `seen`, parametro `via`, `me.remember_minutes`). Solo campi e rotte in più, ignorati dai client vecchi.
 
 > Stato: **contratto in produzione**. Implementazione di riferimento: `server-php/api.php` (un solo file, PHP 8.0+,
 > PDO SQLite + OpenSSL, nessuna dipendenza) pensato per l'hosting condiviso SiteGround (PHP sì, Node/Python no).
@@ -33,23 +34,29 @@
 
 | Rotta | Metodo | Ruolo | Richiesta | Risposta 200 |
 |---|---|---|---|---|
-| `ping` | GET | nessuno | – | `{"ok":true,"api":"docmap-php","version":1,"schema":2,"features":["journal","device_info","locations"],"server_time":"…","php":"8.3"}` (funziona anche senza `config.php`; serve all'avviso di orologio sfasato) |
-| `me` | GET | viewer | – | `{"user":"mario","role":"editor","token_id":"cfg:1","studio_name":"…","server_time":"…"}` |
+| `ping` | GET | nessuno | – | `{"ok":true,"api":"docmap-php","version":1,"schema":3,"features":["journal","device_info","locations","archives","access_log","status_events"],"server_time":"…","php":"8.3"}` (funziona anche senza `config.php`; serve all'avviso di orologio sfasato) |
+| `me` | GET | viewer | – | `{"user":"mario","role":"editor","token_id":"cfg:1","studio_name":"…","server_time":"…","remember_minutes":null}` (v12: `remember_minutes` di `config.php`, §11) |
 | `pull` | GET | viewer | `since=<seq>` (0 = tutto) · `log_since=<seq>` | vedi §3 |
 | `push` | POST | editor | vedi §4 | `{"applied":n,"same":n,"rejected":[…],"settings_applied":bool,"logged":n,"seq":n,"server_time":"…"}` |
-| `binder` | GET | viewer | `qr=<short_code>` oppure `code=<speaking_code>` (maiuscole/minuscole indifferenti) | `{"binder":Binder,"etag":"<updated_at>","siblings":[Sibling]}` + header `ETag` · 404 |
-| `location` | GET | viewer | v11: `qr=<dm26L…>` oppure `id=<uuid>` oppure `code=<codice percorso>` | `{"location":Location,"etag":"<updated_at>","path":[Brief],"children":[Brief],"binders":[BinderBrief],"count":n}` · 404 |
-| `resolve` | GET | viewer | v11: `qr=<short_code>` di qualsiasi tipo | `{"type":"location", …come location}` oppure `{"type":"binder", …come binder}` · 404 |
+| `binder` | GET | viewer | `qr=<short_code>` oppure `code=<speaking_code>` (maiuscole/minuscole indifferenti) · v12: `via` (§11) | `{"binder":Binder,"etag":"<updated_at>","siblings":[Sibling]}` + header `ETag` · 404 |
+| `location` | GET | viewer | v11: `qr=<dm26L…>` oppure `id=<uuid>` oppure `code=<codice percorso>` · v12: `via` | `{"location":Location,"etag":"<updated_at>","path":[Brief],"children":[Brief],"binders":[BinderBrief],"count":n}` · 404 |
+| `resolve` | GET | viewer | v11: `qr=<short_code>` di qualsiasi tipo · v12: `via` | `{"type":"location", …come location}` oppure `{"type":"binder", …come binder}` · 404 |
 | `patch` | POST | editor | vedi §5 | `{"binder":Binder,"etag":"<nuovo updated_at>"}` + `ETag` · 409 · 422 |
 | `tokens` | GET | admin | – | `{"items":[{"id":"cfg:0"|"db:…","user","role","source":"config"|"database","created_at"?,"revoked_at"}]}` |
 | `token_create` | POST | admin | `{"user":"…","role":"editor"}` | `{"id":"db:…","user","role","token":"<in chiaro, mostrato una volta>"}` |
 | `token_revoke` | POST | admin | `{"id":"db:…"}` | `{"ok":true}` (i token di `config.php` si disattivano con `'disabled' => true`) |
 | `journal` (v11) | GET | editor (solo le proprie voci) · admin (tutte) | filtri, vedi §10 | `{"items":[Entry],"more":bool,"next_before":jid|null,"server_time":"…"}` · viewer → 403 |
 | `journal_restore` (v11) | POST | admin | `{"jid":n,"n":n,"version":"prev"|"new"}` | `{"ok":true,"type","id","updated_at","deleted":bool,"journal_id":n,"seq":n}` |
+| `access` (v12) | GET | editor (solo le proprie righe) · admin (tutte, con IP) | filtri, vedi §11 | `{"items":[AccessItem],"more":bool,"next_before":aid|null,"server_time":"…"}` · viewer → 403 |
+| `last_seen` (v12) | GET | viewer | `type=binder|location` + `id=<id>` oppure `code=<codice>`, `limit` (5, max 20) | `{"items":[{"at","user","via","route","device_name"}],"total":n,"server_time":"…"}` · 400 senza id/code |
+| `seen` (v12) | POST | viewer | `{"items":[{"type":"binder","id","code","at","via"}]}` (max 500) | `{"recorded":n,"skipped":n,"server_time":"…"}` · 413 oltre 500 |
 
-Campi aggiunti in v11 (un client v10.1 li ignora): `ping` → `"schema":2,"features":["journal","device_info","locations"]`;
+Campi aggiunti in v11 (un client v10.1 li ignora): `ping` → `"schema":2,"features":[…]` (v11: `journal`, `device_info`, `locations`; v12: `archives`, `access_log` e schema 3);
 `push` e `pull` → `"journal_id":n|null` (voce del registro scritta da quella chiamata); `patch` → `"journal_id"` e
 `"hash"` (SHA-256 canonico della versione salvata).
+
+Campi aggiunti in v12 (un client precedente li ignora): `ping` → `"status_events"` in `features`; `binder` e `location`
+→ `status_events` e `status_types` (§11).
 
 `Binder` = l'oggetto di `MODELLO-DATI.md` §1 così come lo invia il client (più `id`, `updated_at`); `Sibling` =
 `{speaking_code, shelf_code, sector_code, location_code}` degli altri faldoni dello **stesso armadio** (stanza+armadio).
@@ -144,7 +151,7 @@ settings_shared(key TEXT PRIMARY KEY, json BLOB, updated_at TEXT, seq INTEGER)  
 activity_log(seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT UNIQUE, at TEXT, payload BLOB)  -- cifrato
 auth_fail(k TEXT PRIMARY KEY, n INTEGER, until INTEGER, at INTEGER)     -- blocco progressivo per IP
 tokens(id, token_sha256 UNIQUE, user, role, created_at, created_by, revoked_at)          -- token creati dall'app
-meta(k, v)                                                              -- key_check, schema, created_at, migrated_2_at, journal_pruned_at
+meta(k, v)                                                              -- key_check, schema, created_at, migrated_2_at, migrated_3_at, journal_pruned_at, access_pruned_at
 -- v11 (schema 2, creato da db_migrate all'avvio su un database v10.1: solo tabelle nuove, nessun dato toccato)
 sync_journal(jid INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT, route TEXT, token_id TEXT, role TEXT, k_user TEXT, k_device TEXT,
              n_sent, n_accepted, n_rejected, n_conflicts, n_same, n_items INTEGER, seq_from, seq_to INTEGER, meta BLOB)
@@ -152,11 +159,16 @@ sync_journal(jid INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT, route TEXT, token_i
 sync_journal_items(jid INTEGER, n INTEGER, type TEXT, id TEXT, k_code TEXT, action TEXT, client_updated_at TEXT,
              prev_updated_at TEXT, new_updated_at TEXT, prev_hash TEXT, new_hash TEXT, payload BLOB, PRIMARY KEY(jid, n))
              -- payload cifrato (AAD journal/<jid>/<n>): {code, reason, prev, new, extra} = versioni complete prima/dopo
+-- v12 (schema 3, passo 3 di db_migrate: una tabella nuova, nessun dato toccato; da un database v10.1 si passa 1 → 2 → 3 alla prima richiesta)
+access_log(aid INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT, received_at TEXT, route TEXT, via TEXT, token_id TEXT, role TEXT,
+           k_user TEXT, k_device TEXT, target_type TEXT, target_id TEXT, k_code TEXT, meta BLOB)
+           -- indici su at, (target_type, target_id, at), k_user, k_device; meta cifrato (AAD access/<aid>):
+           -- {user, device_id, device_name, app_version, code, ip}
 ```
 
 - **Cifratura a riposo**: AES-256-GCM (`openssl_encrypt`), chiave di 32 byte da `config.php` (`aes_key`, base64),
   IV casuale di 12 byte a ogni scrittura, tag di 16 byte; blob = `0x01 | iv | tag | testo cifrato`; AAD =
-  `records/<type>/<id>`, `settings/subset`, `activity/<id>` (un blob non si sposta su un altro record).
+  `records/<type>/<id>`, `settings/subset`, `activity/<id>`, `journal/<jid>`, `journal/<jid>/<n>`, `access/<aid>` (un blob non si sposta su un altro record).
   Senza chiave valida l'API **non parte** (500 `config`). `meta.key_check` rileva una chiave sbagliata.
 - **Ricerche senza testo in chiaro**: `k_short = HMAC-SHA256(key, 'docmap-idx/'+short_code)` in esadecimale, **primi 40
   caratteri**; `k_code` sul codice parlante maiuscolo e senza spazi ai bordi (per le ubicazioni il codice percorso),
@@ -253,3 +265,73 @@ l'elemento non ha una versione (`pull`, `pull-delete`, `rejected-invalid`) o il 
 volta al giorno e toglie le voci più vecchie con i loro elementi. **Compatibilità**: un database v10.1 riceve le due
 tabelle al primo avvio dell'API v11 (`meta.schema` 1 → 2); un client v10.1 continua a funzionare (i campi nuovi
 delle risposte sono ignorati, il dispositivo risulta `unknown`).
+
+## 11. v12 — registro accessi (`access`, `last_seen`, `seen`) e accesso senza PIN
+
+**Cosa si registra.** Una riga di `access_log` per ogni lettura riuscita di `binder`, `location` e `resolve` (una
+404 non scrive nulla) e per ogni elemento valido di `seen`. La stessa persona (token), dallo stesso dispositivo, sullo
+stesso record e nello stesso modo (`via`) entro `access_dedupe_seconds` (120) = **una riga sola** (un telefono che
+ricarica la pagina non riempie il registro). Utente, dispositivo, codice e IP sono cifrati in `meta`; i filtri passano
+dagli indici HMAC `k_user` (`'user/' + utente minuscolo`), `k_device` (`'device/' + id`), `k_code` (codice maiuscolo).
+La scrittura del registro non fa **mai** fallire la lettura.
+
+**Parametro `via`** di `binder` / `location` / `resolve`: come il client è arrivato al record — `qr` (predefinito),
+`search` (predefinito per `binder` senza `qr`), `nav` (dalla scheda / dall'elenco), `nfc` (riservato al tag NFC dello
+stream C). Un valore sconosciuto vale il predefinito. Il telefono lo manda da `SC.via` (`'search'` quando il faldone è
+aperto dalla schermata Cerca, `'nfc'` quando lo imposta il lettore NFC).
+
+**`GET ?r=access`** (editor: solo le proprie righe; admin: tutte, con `ip`) — filtri facoltativi: `from`, `to` (ISO;
+`AAAA-MM-GG` in `to` vale fino a fine giornata), `user` (solo admin), `device` (id esatto), `type` (`binder`|`location`,
+422 altrimenti), `target` (alias `id`), `code`, `via`, `route` (`binder`|`location`|`resolve`|`seen`), `limit` (50,
+massimo 200), `before` (paginazione con `next_before`). Ordine: dalla riga più recente (`aid` decrescente).
+
+```json
+{"items":[{"aid":41,"at":"…","received_at":"…","route":"binder","via":"qr","role":"viewer","token_id":"db:…","user":"lucia",
+  "device":{"id":"dev-…","name":"Telefono Lucia","app":"26.12.0"},"target":{"type":"binder","id":"…","code":"BL2"},
+  "ip":"…" /* solo admin */}],"more":false,"next_before":null,"server_time":"…"}
+```
+
+**`GET ?r=last_seen`** (qualsiasi ruolo): gli ultimi accessi a **un** record, per la scheda («Visto di recente» sul
+telefono, «Chi l'ha visto» sul PC): `type` (predefinito `binder`), `id` (alias `target`) oppure `code`, `limit` (5,
+massimo 20). Risposta: `items` (`at`, `user`, `via`, `route`, `device_name`, dal più recente) e `total` (tutte le righe
+di quel record). Senza IP né id di token: è pensata per essere mostrata a tutti.
+
+**`POST ?r=seen`** (qualsiasi ruolo): visite che il client ha servito **dalla propria copia** (programma sul PC,
+telefono senza rete) e manda più tardi. Al massimo 500 elementi (413 `too_large`), `items` obbligatorio (400). Un
+elemento con `type` o `id` non validi, `at` nel futuro (oltre 5 minuti) o più vecchio di `access_keep_days` è
+saltato (`skipped`). Lo stesso elemento rimandato (stesso token, dispositivo e record, `at` entro
+`access_dedupe_seconds`) è registrato una volta sola. `via` predefinito `nav`. Il client manda la coda
+(`docmap_v26_seen_queue`, al massimo 500) dopo ogni sincronizzazione e quando torna la rete; una risposta 400 / 403 /
+404 (server v11 senza la rotta) scarta la coda senza riprovare.
+
+**Configurazione (`config.php`)**: `access_keep_days` (365; 0 = per sempre; la potatura gira al massimo una volta al
+giorno), `access_dedupe_seconds` (120; 0 = ogni lettura), `remember_minutes` (`null` = decide il dispositivo; `0` = PIN
+a ogni apertura; `480` = 8 ore; `43200` = 30 giorni; `-1` = finché non si esce o il token viene revocato): minuti di
+**inattività** dopo cui il telefono richiede di nuovo il PIN, restituito da `me` e applicato dal client (vedi
+`SICUREZZA.md` §5d).
+
+**Compatibilità**: il primo avvio dell'API v12 aggiunge la tabella (`meta.schema` 2 → 3, oppure 1 → 2 → 3 da un
+database v10.1), senza toccare i dati. Un client v11 continua a funzionare (non manda `via` né `seen`; le sue letture
+sono registrate come `qr` / `search`). Un client v12 su un server v11 riceve 404 `no_route` su `access` / `last_seen` /
+`seen` e nasconde i pannelli (`features` senza `access_log`).
+
+## 12. v12 — stati (preso, reinserito, dato al Comune…): record `status_event`
+
+Nessuna nuova rotta e nessuna migrazione del server: i movimenti di stato sono **record del tipo `status_event`**
+(aggiunto a `DM_TYPES`) nella tabella `records`, scritti con `push` come gli altri e restituiti da `pull`.
+`StatusEvent` = l'oggetto di `MODELLO-DATI.md` §17.2 (schema `docs/python/schema/status_event.schema.json`);
+`updated_at` del record = `at` dell'evento. Un evento **non cambia mai** (append-only, un annullamento è un nuovo evento
+con `undo_of`), quindi lo stesso id arriva sempre con lo stesso contenuto (`same`).
+
+- **Indici HMAC**: `k_short = HMAC('st/b/<binder id>')` (anche per i documenti del faldone) oppure `HMAC('st/l/<location id>')`;
+  `k_code = HMAC('stbox/<box_id>')` quando il movimento è passato da una scatola. Il payload resta cifrato come ogni record.
+- **`binder`** aggiunge `status_events` (gli ultimi 200 del faldone e dei suoi documenti, in ordine cronologico) e
+  `status_types` (la chiave `statusTypes` delle impostazioni condivise, `null` = stati predefiniti).
+- **`location`** aggiunge `status_events` della scatola, dei faldoni che contiene e di quelli usciti con lei (`box_id`),
+  al massimo 2000, e `status_types`: il telefono ci costruisce la **Verifica rientro**.
+- **Telefono** (`scan.html`): un tocco = `push` con `records:[{type:"status_event",…}]` e una voce di registro
+  `activity_log` (`action` `status.set` · `status.box` · `status.verify` · `status.undo`, `source:"mobile"`,
+  `details.events` = gli eventi). Un server **precedente** risponde `rejected` `invalid` per i record ma conserva la voce
+  di registro: i PC v12 ricavano gli eventi da `details.events` al `pull` del registro, e non mandano record
+  `status_event` a un server il cui `ping` non elenca `status_events`.
+

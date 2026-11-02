@@ -39,6 +39,7 @@ function filteredBinders(){
     if (UI.fRoom && b.room_code !== UI.fRoom) return false;
     if (UI.fCat && b.category !== UI.fCat) return false;
     if (UI.fLoc && typeof locBinderIn === 'function' && !locBinderIn(b, UI.fLoc)) return false;   // v11: location filter (06h-locations.js)
+    if (typeof archBinderVisible === 'function' && !archBinderVisible(b)) return false;   // v12: archive chosen in the top-bar switcher (06l-archives.js)
     if (UI.fInfo && !infoMatch(b, UI.fInfo)) return false;   // filter set from Informazioni
     if (!q) return true;
     const hay = [b.speaking_code, b.multi_code, b.company_name, b.company_city, b.ref_year, b.extra_codes, b.category, b.binder_title, b.location_code, b.tags, b.short_code, contentsToPipe(b.contents_items), t('s_' + b.archive_state), b.contacts, b.notes, ciSearchWords(b), typeof locBinderSearchText === 'function' ? locBinderSearchText(b) : ''].join(' ').toLowerCase();
@@ -541,6 +542,7 @@ function applyImport(mode){
     S.binders = rows.map(r => {
       const [p, keep] = strip(r.p);
       const base = r.match ? {id:r.match, short_code:keep || old.get(r.match).short_code, created_at:old.get(r.match).created_at} : {};
+      if (r.match && p.contents_items != null) p.contents_items = ciCarryIds(old.get(r.match).contents_items, pipeToContents(p.contents_items));   // v12: documents keep their id (status history)
       const b = normalizeBinder(Object.assign({updated_at:now}, base, p));
       if (!b.short_code) b.short_code = keep || newShortCode();
       b.short_url = shortUrl(b.short_code);
@@ -565,6 +567,7 @@ function applyImport(mode){
         const i = S.binders.findIndex(b => b.id === r.match);
         const cur = S.binders[i];
         delete p.id;
+        if (p.contents_items != null) p.contents_items = ciCarryIds(cur.contents_items, pipeToContents(p.contents_items));   // v12: documents keep their id (status history)
         const merged = Object.assign({}, cur, p, {updated_at: p.updated_at || now});
         if (!p.short_code) merged.short_code = keep || cur.short_code;
         const nb = normalizeBinder(merged);
