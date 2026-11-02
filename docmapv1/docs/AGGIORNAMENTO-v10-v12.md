@@ -1,7 +1,7 @@
 # Aggiornare DocMap dalla v10.0 alla v12 in un solo passaggio, senza perdere i dati
 
 Questa guida è per il PC che usa ancora la **v10.0** (26.10.0). Non serve installare prima la v10.1, la v11 e la v11.1:
-la v12 (**26.12.0**) apre direttamente i dati della v10.0 e li porta avanti da sola. Tutte le migrazioni sono
+la v12 (**26.12.0**, e la v12.1 **26.12.1**) apre direttamente i dati della v10.0 e li porta avanti da sola. Tutte le migrazioni sono
 **automatiche e additive**: si aggiungono campi e tabelle, niente viene rinominato o cancellato.
 
 | Dove | Cosa si aggiunge da solo alla prima apertura | Cosa resta uguale |
@@ -37,6 +37,10 @@ Se invece hai già un server v10.1 o v11 online, aggiornalo **prima** del PC:
    fra le `features` anche `archives`, `access_log`, `status_events`. Il server ha aggiunto da solo le tabelle nuove
    (registro sincronizzazioni, registro accessi).
 
+**Dopo** l'aggiornamento del server, togli la protezione della cartella se l'avevi messa (Site Tools › Sicurezza ›
+**Directory protette** › elimina quella di `studio-de`): con la v12 i telefoni restano collegati da soli e la password
+di SiteGround verrebbe chiesta di nuovo a ogni QR. I dati restano protetti da codici di accesso, PIN e cifratura.
+
 ## 3. Aggiornare il PC
 
 1. Chiudi tutte le schede di DocMap.
@@ -45,7 +49,7 @@ Se invece hai già un server v10.1 o v11 online, aggiornalo **prima** del PC:
    che Chrome / Edge tengono i dati.
 3. Riapri `index.html` con lo stesso browser.
 4. Controlla:
-   - ⚙ › Impostazioni › Dati e sicurezza › **Informazioni su DocMap**: versione **26.12.0**, database locale schema **9**;
+   - ⚙ › Impostazioni › Dati e sicurezza › **Informazioni su DocMap**: versione **26.12.1** (26.12.0 se installi la v12), database locale schema **9**;
    - numero di faldoni e clienti uguale a quello annotato; apri un paio di faldoni e una foto;
    - in alto non compare il selettore degli archivi (c'è un solo archivio): è normale.
 5. Fai subito un nuovo **Salva backup**, questa volta della v12.

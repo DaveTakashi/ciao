@@ -1,6 +1,6 @@
 # DocMap 2026 — manuale d'uso (passo passo)
 
-> Per chi usa DocMap ogni giorno nello studio. Versione **26.12.0**. Ogni capitolo è una cosa da fare, in passi brevi.
+> Per chi usa DocMap ogni giorno nello studio. Versione **26.12.1**. Ogni capitolo è una cosa da fare, in passi brevi.
 > I nomi tra **grassetto** sono scritti esattamente come sui pulsanti (interfaccia in italiano).
 > Descrizione completa di ogni funzione: [`RIFERIMENTO-FUNZIONI.md`](RIFERIMENTO-FUNZIONI.md) · parole: [`GLOSSARIO.md`](GLOSSARIO.md) ·
 > prove da fare a mano: [`CHECKLIST-COLLAUDO.md`](CHECKLIST-COLLAUDO.md).
@@ -246,6 +246,8 @@ scansionalo e premi **Reinserito**. Chi lo scansiona dopo vede subito "Preso da 
    connessione.
 2. **Scatola che esce**: inquadra il QR della scatola → **Applica a tutta la scatola** → per esempio **Dato al Comune /
    ente**, scrivi l'ente, la data di rientro e una nota → **Conferma**. Lo stato va alla scatola e a ogni faldone dentro.
+   Dalla v12.1 vale anche per i contenitori: il QR di uno **scaffale** o di un **armadio** porta con sé i faldoni delle
+   scatole che contiene (la scritta "compresi quelli nelle scatole interne" lo conferma); la Verifica rientro li aspetta tutti.
 3. **Scatola che torna**: inquadra il QR della scatola → **Verifica rientro** → scansiona (fotocamera o codice scritto) il
    QR di ogni faldone. Vedi **Trovati**, **Mancano**, **In più**. Premi **Salva la verifica**: i trovati diventano
    restituiti, i mancanti (se lasci la spunta) **Mancante / non trovato**. Poi **Scarica il report (CSV)**.
@@ -263,7 +265,7 @@ scansionalo e premi **Reinserito**. Chi lo scansiona dopo vede subito "Preso da 
 ## 7. Server online su SiteGround (una volta sola, chi gestisce il sito)
 
 1. **Prepara i file sul PC**: `python3 docmapv1/tools/build_deploy.py`. Crea la cartella `deploy/studio-de/`.
-2. In SiteGround apri Site Tools › Sicurezza › **Directory protette** e proteggi `public_html/studio-de/` con utente e password.
+2. **Non** proteggere `public_html/studio-de/` con Site Tools › Sicurezza › **Directory protette**: il telefono chiederebbe utente e password a ogni QR. I dati sono già protetti dai codici di accesso, dal PIN e dalla cifratura. Se l'avevi messa, toglila dopo aver installato la v12.
 3. Carica **il contenuto** di `deploy/studio-de/` in `public_html/studio-de/`, compresi i file `.htaccess`.
 4. Apri **una sola volta** `https://docmap.pr-it.it/studio-de/server-php/setup.php` e compila:
    - "Cartella del database": meglio fuori da `public_html`, per esempio `/home/customer/www/docmap.pr-it.it/docmap-data`;
@@ -452,6 +454,10 @@ Sul **telefono** (versione online): tocca la lente 🔍 in alto, oppure **Cerca 
 3. Senza rete la ricerca funziona lo stesso sulla copia salvata (cifrata) nel telefono; compare "Senza rete".
 
 L'azione guidata **Cerca con operatori, filtri e ricerche salvate** (pulsante **?**) mostra tutto questo sullo schermo vero.
+
+**Sul telefono con più archivi** (v12.1): nella schermata **Cerca** c'è un pulsante per ogni archivio (es. *Storico*)
+e ogni risultato porta la sigla del suo archivio; `stato:fuori` comprende anche i faldoni dati al cliente, al Comune o
+presi con gli stati rapidi.
 
 ## 15. Accesso senza PIN sul telefono ("Ricordami su questo dispositivo")
 

@@ -26,7 +26,7 @@
 
 const HX = { ping:null, pingErr:'', busy:false };
 const HX_SERVER_SCHEMA = 3;   // server-php/api.php DM_SCHEMA this client knows (1 = v10.1, 2 = v11, 3 = v12 access_log)
-const HX_UPGRADE_DOCS = ['docs/AGGIORNAMENTI.md', 'docs/AGGIORNAMENTO-v10-v12.md', 'docs/AGGIORNAMENTO-v11.1-v12.md', 'docs/AGGIORNAMENTO-v11-v11.1.md'];
+const HX_UPGRADE_DOCS = ['docs/AGGIORNAMENTI.md', 'docs/AGGIORNAMENTO-v10-v12.md', 'docs/AGGIORNAMENTO-v12-v12.1.md', 'docs/AGGIORNAMENTO-v11.1-v12.md'];
 
 Object.assign(I18N.it, {
   hx_about:'Informazioni su DocMap', hx_about_d:'Versione, database e dispositivo: utile per gli aggiornamenti e per l\'assistenza.',

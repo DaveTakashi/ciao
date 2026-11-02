@@ -27,7 +27,7 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       sqp_offline:'Senza rete: lo stato è salvato sul telefono e parte appena torna la connessione.', sqp_wait:'{n} stati in attesa di invio', sqp_err:'Stato non salvato: {m}',
       sqp_old:'Il server va aggiornato a DocMap v12 per mostrare gli stati sui telefoni (quelli registrati arrivano comunque al PC col registro attività).',
       sqp_docs_tip:'Tocca un documento per segnarne lo stato.', sqp_doc:'Documento', sqp_cancel:'Chiudi', sqp_confirm:'Conferma', sqp_back:'Indietro', sqp_pick:'Scegli lo stato',
-      sqp_box_cap:'Stato della scatola', sqp_box_all:'Applica a tutta la scatola', sqp_box_n:'la scatola e i {n} faldoni che contiene', sqp_verify:'Verifica rientro',
+      sqp_box_cap:'Stato della scatola', sqp_box_all:'Applica a tutta la scatola', sqp_box_n:'la scatola e i {n} faldoni che contiene', sqp_box_nn:'la scatola e i {n} faldoni che contiene, compresi quelli nelle scatole interne', sqp_verify:'Verifica rientro',
       sqp_vf_h:'Verifica rientro', sqp_vf_p:'Scansiona il QR di ogni faldone tornato nella scatola. Alla fine DocMap segna i trovati come rientrati e ti dice cosa manca.',
       sqp_vf_found:'Trovati', sqp_vf_missing:'Mancano', sqp_vf_extra:'In più', sqp_vf_cam:'Usa la fotocamera', sqp_vf_cam_off:'Spegni la fotocamera', sqp_vf_typed:'Oppure scrivi il codice', sqp_vf_typed_ph:'es. BL12 o dm26…',
       sqp_vf_ok:'{c} trovato', sqp_vf_dup:'{c} già contato', sqp_vf_unexp:'{c} non era atteso in questa scatola', sqp_vf_unknown:'QR non riconosciuto: {c}', sqp_vf_loc:'È il QR di una scatola: scansiona i faldoni.',
@@ -40,7 +40,7 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       sqp_offline:'No network: the status is saved on the phone and sent as soon as the connection is back.', sqp_wait:'{n} statuses waiting to be sent', sqp_err:'Status not saved: {m}',
       sqp_old:'The server must be updated to DocMap v12 to show statuses on phones (recorded ones still reach the PC with the activity log).',
       sqp_docs_tip:'Tap a document to set its status.', sqp_doc:'Document', sqp_cancel:'Close', sqp_confirm:'Confirm', sqp_back:'Back', sqp_pick:'Pick the status',
-      sqp_box_cap:'Status of the box', sqp_box_all:'Apply to the whole box', sqp_box_n:'the box and the {n} binders in it', sqp_verify:'Return check',
+      sqp_box_cap:'Status of the box', sqp_box_all:'Apply to the whole box', sqp_box_n:'the box and the {n} binders in it', sqp_box_nn:'the box and the {n} binders in it, those in the nested boxes included', sqp_verify:'Return check',
       sqp_vf_h:'Return check', sqp_vf_p:'Scan the QR of every binder that came back into the box. At the end DocMap marks the found ones as returned and tells you what is missing.',
       sqp_vf_found:'Found', sqp_vf_missing:'Missing', sqp_vf_extra:'Extra', sqp_vf_cam:'Use the camera', sqp_vf_cam_off:'Turn the camera off', sqp_vf_typed:'Or type the code', sqp_vf_typed_ph:'e.g. BL12 or dm26…',
       sqp_vf_ok:'{c} found', sqp_vf_dup:'{c} already counted', sqp_vf_unexp:'{c} was not expected in this box', sqp_vf_unknown:'Unknown QR: {c}', sqp_vf_loc:'That is a box QR: scan the binders.',
@@ -161,9 +161,11 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
     const tgBinder = (b) => ({target_type:'binder', target_id:b.id, code:b.speaking_code});
     const tgDoc = (b, it) => ({target_type:'document', target_id:b.id, doc_id:it.id, code:b.speaking_code, doc_text:sqpDocText(it)});
     const tgBox = (l) => ({target_type:'location', target_id:l.id, code:l.code || ''});
+    /** v12.1: binders directly in the box + those in the boxes nested in it (server field nested_binders; absent before v12.1). */
+    const sqpBoxAll = (r) => (r.binders || []).concat(Array.isArray(r.nested_binders) ? r.nested_binders : []);
     function sqpBoxTargets(){
       const r = SC.loc, l = r.location;
-      return [tgBox(l)].concat((r.binders || []).map(b => ({target_type:'binder', target_id:b.id, code:b.speaking_code, box_id:l.id})));
+      return [tgBox(l)].concat(sqpBoxAll(r).map(b => ({target_type:'binder', target_id:b.id, code:b.speaking_code, box_id:l.id})));
     }
 
     /* ---------------- sheet (bottom overlay) ---------------- */
@@ -270,10 +272,10 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
     function sqpDecorateLoc(){
       const r = SC.loc, l = r.location, cur = sqCurrent(SQP.ev, 'location', l.id), hero = document.querySelector('#app .sa-hero');
       if (!hero || document.getElementById('sqp-card')) return;
-      const n = (r.binders || []).length;
+      const n = sqpBoxAll(r).length;
       const btns = '<div class="sqp-box-acts"><button type="button" class="sc-btn sc-primary sc-block" data-s="sqp-box" id="sqp-box">' + sqIc('box') + esc(t('sqp_box_all')) + '</button>' +
         '<button type="button" class="sc-btn sc-block" data-s="sqp-vf-start" id="sqp-vf-start">' + sqIc('scan') + esc(t('sqp_verify')) + '</button></div>';
-      hero.insertAdjacentHTML('afterend', sqpVfBannerHTML() + sqpCardHTML('box', cur, sqLastSeen('location', l.id, SQP.raw), btns, n ? '<p class="sqp-tip">' + esc(t('sqp_box_n', {n})) + '</p>' : ''));
+      hero.insertAdjacentHTML('afterend', sqpVfBannerHTML() + sqpCardHTML('box', cur, sqLastSeen('location', l.id, SQP.raw), btns, n ? '<p class="sqp-tip" id="sqp-box-n">' + esc(t((r.nested_binders || []).length ? 'sqp_box_nn' : 'sqp_box_n', {n})) + '</p>' : ''));
       const list = document.querySelectorAll('#sa-binders > li');
       (r.binders || []).forEach((b, i) => { const e = sqCurrent(SQP.ev, 'binder', b.id), li = list[i]; if (e && li){ const a = li.querySelector('.sa-l-t'); if (a) a.insertAdjacentHTML('afterend', sqpBadge(e, true)); } });
     }
@@ -291,7 +293,7 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
     function sqpVfClear(){ SQP.vf = null; lsSet(SQP_VF_LS, null); }
     function sqpVfStart(){
       const r = SC.loc, l = r.location;
-      const expected = sqVerifyExpected(l.id, r.binders || [], SQP.ev, SQP.types);
+      const expected = sqVerifyExpected(l.id, sqpBoxAll(r), SQP.ev, SQP.types);
       if (typeof SA_API !== 'undefined' && SA_API.saClear) SA_API.saClear();   // association mode off: a check must not move binders
       SQP.vf = {v:1, user:sqpUserKey(), box:{id:l.id, code:l.code || '', short_code:l.short_code || ''}, startedAt:nowISO(), at:Date.now(), expected, found:[], extra:[]};
       sqpVfSave(); SQP.vfMsg = null; SQP.vfDone = null; SC.view = 'sqverify'; scRender(); window.scrollTo(0, 0);

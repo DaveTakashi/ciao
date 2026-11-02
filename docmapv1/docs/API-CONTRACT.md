@@ -1,6 +1,6 @@
 # DocMap — contratto API del database online condiviso
 
-> Versione dell'app 26.12.0 (v12): `api` = `docmap-php`, `version` 1, `schema` 3.
+> Versione dell'app 26.12.1 (v12.1): `api` = `docmap-php`, `version` 1, `schema` 3.
 > Nato con la v10.1; la v11 ha aggiunto ubicazioni e registro sincronizzazioni, la v12 il registro accessi (§11:
 > rotte `access`, `last_seen`, `seen`, parametro `via`, `me.remember_minutes`). Solo campi e rotte in più, ignorati dai client vecchi.
 
@@ -39,7 +39,7 @@
 | `pull` | GET | viewer | `since=<seq>` (0 = tutto) · `log_since=<seq>` | vedi §3 |
 | `push` | POST | editor | vedi §4 | `{"applied":n,"same":n,"rejected":[…],"settings_applied":bool,"logged":n,"seq":n,"server_time":"…"}` |
 | `binder` | GET | viewer | `qr=<short_code>` oppure `code=<speaking_code>` (maiuscole/minuscole indifferenti) · v12: `via` (§11) | `{"binder":Binder,"etag":"<updated_at>","siblings":[Sibling]}` + header `ETag` · 404 |
-| `location` | GET | viewer | v11: `qr=<dm26L…>` oppure `id=<uuid>` oppure `code=<codice percorso>` · v12: `via` | `{"location":Location,"etag":"<updated_at>","path":[Brief],"children":[Brief],"binders":[BinderBrief],"count":n}` · 404 |
+| `location` | GET | viewer | v11: `qr=<dm26L…>` oppure `id=<uuid>` oppure `code=<codice percorso>` · v12: `via` | `{"location":Location,"etag":"<updated_at>","path":[Brief],"children":[Brief],"binders":[BinderBrief],"count":n}` · v12.1: anche `"nested_binders":[BinderBrief + location_id, location_code],"nested_count":n` (faldoni delle ubicazioni annidate sotto questa; `binders` resta "direttamente qui") · 404 |
 | `resolve` | GET | viewer | v11: `qr=<short_code>` di qualsiasi tipo · v12: `via` | `{"type":"location", …come location}` oppure `{"type":"binder", …come binder}` · 404 |
 | `patch` | POST | editor | vedi §5 | `{"binder":Binder,"etag":"<nuovo updated_at>"}` + `ETag` · 409 · 422 |
 | `tokens` | GET | admin | – | `{"items":[{"id":"cfg:0"|"db:…","user","role","source":"config"|"database","created_at"?,"revoked_at"}]}` |
@@ -334,4 +334,14 @@ con `undo_of`), quindi lo stesso id arriva sempre con lo stesso contenuto (`same
   `details.events` = gli eventi). Un server **precedente** risponde `rejected` `invalid` per i record ma conserva la voce
   di registro: i PC v12 ricavano gli eventi da `details.events` al `pull` del registro, e non mandano record
   `status_event` a un server il cui `ping` non elenca `status_events`.
+
+## 13. v12.1 — scatole annidate nella risposta `location`
+
+- `location` aggiunge due campi, **solo in più** (un client v12 li ignora): `nested_binders` (fino a 1000, ordinati per
+  `location_code` e codice parlante; ogni elemento è un BinderBrief con `location_id` e `location_code`) e `nested_count`.
+  Contengono i faldoni di **tutte** le ubicazioni sotto quella richiesta (scaffale › scatole, armadio › scansie › scatole),
+  esclusa lei stessa; `binders` / `count` restano i faldoni messi direttamente lì.
+- Gli eventi `status_events` della risposta comprendono anche i faldoni annidati.
+- Il telefono applica "tutta la scatola" e la Verifica rientro a `binders` + `nested_binders`; il PC fa lo stesso con
+  `sqBoxBinders` (06j-status.js). Nessun cambio di schema del server (resta 3) né delle feature del ping.
 

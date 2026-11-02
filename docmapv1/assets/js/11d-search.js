@@ -254,6 +254,14 @@ function srNorm(d){ const b = normalizeBinder(Object.assign({}, d)); b.id = d.id
 function srPhApply(c){
   SR.ph.binders = Object.values(c.b).map(srNorm).sort((a, b) => naturalCmp(a.speaking_code, b.speaking_code));
   SR.ph.locations = Object.values(c.l || {}); SR.ph.settings = c.settings || null; SR.ph.at = c.at || '';
+  srPhModel(Object.values(c.a || {}), Object.values(c.e || {}));
+}
+/** v12.1: archives and status events on the phone too (search 'archivio:' / 'stato:fuori', archive chips and badges). */
+function srPhModel(archives, events){
+  if (typeof S === 'undefined' || !S) return;
+  S.archives = typeof archNormalizeList === 'function' ? archNormalizeList(archives || []) : (archives || []);
+  S.statusEvents = typeof sqNormEvents === 'function' ? sqNormEvents(events || []) : (events || []);
+  if (typeof SRCH !== 'undefined' && SRCH.cache) SRCH.cache.clear();
 }
 /** Load the binders for the phone search: this browser's state, or the server (incremental pull, cached). */
 async function srPhLoad(force){
@@ -265,12 +273,14 @@ async function srPhLoad(force){
       let c = await srCacheGet();
       if (c && !SR.ph.binders) srPhApply(c);
       c = c || {v:1, seq:0, b:{}, l:{}, settings:null, at:''};
+      if (!c.a || !c.e){ c.a = c.a || {}; c.e = c.e || {}; if (c.seq && !c.v121){ c.seq = 0; } }   // v12.1: a v12 cache never kept archives / statuses: pull again from the start once
+      c.v121 = 1;
       try {
         const cl = new DMServer(dmConfig().apiBase, () => DocMapVault.srvToken());
         for (let i = 0; i < 50; i++){
           const r = await cl.call('pull', {q:{since:c.seq || 0, log_since:9007199254740991}});
-          (r.records || []).forEach(x => { if (!x.data) return; if (x.type === 'binder') c.b[x.id] = x.data; else if (x.type === 'location') c.l[x.id] = x.data; });
-          (r.tombstones || []).forEach(x => { delete c.b[x.id]; delete c.l[x.id]; });
+          (r.records || []).forEach(x => { if (!x.data) return; if (x.type === 'binder') c.b[x.id] = x.data; else if (x.type === 'location') c.l[x.id] = x.data; else if (x.type === 'archive') c.a[x.id] = Object.assign({}, x.data, {id:x.id, updated_at:x.updated_at}); else if (x.type === 'status_event') c.e[x.id] = Object.assign({id:x.id}, x.data); });
+          (r.tombstones || []).forEach(x => { delete c.b[x.id]; delete c.l[x.id]; delete c.a[x.id]; delete c.e[x.id]; });
           if (r.settings && r.settings.data) c.settings = r.settings.data;
           c.seq = r.seq || c.seq;
           if (!r.more) break;
@@ -284,6 +294,7 @@ async function srPhLoad(force){
       const {st} = await SC.P.data.readState();
       SR.ph.binders = st ? (st.binders || []).map(b => { const x = normalizeBinder(b); x.id = b.id; x.updated_at = b.updated_at; return x; }).sort((a, b) => naturalCmp(a.speaking_code, b.speaking_code)) : [];
       SR.ph.locations = st && Array.isArray(st.locations) ? st.locations : []; SR.ph.settings = st ? st.settings || null : null; SR.ph.at = '';
+      srPhModel(st && st.archives, st && st.statusEvents);
     }
     SR.ph.loaded = true;
   } catch(e){ SR.ph.err = e.code === 'offline' ? t('sc_srv_off') : (e.message || e.code || 'error'); }

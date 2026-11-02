@@ -12,7 +12,9 @@
 (function(){
   const fold = (s) => typeof srchFold === 'function' ? srchFold(s) : String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
   const events = () => (typeof S !== 'undefined' && S && Array.isArray(S.statusEvents)) ? S.statusEvents : [];
-  const types = () => (typeof sqTypes === 'function' && typeof S !== 'undefined' && S) ? sqTypes(S.settings) : [];
+  // the phone page keeps the studio settings (custom status types) in SR.ph.settings, the PC in S.settings
+  const settings = () => (typeof SR !== 'undefined' && SR && SR.ph && SR.ph.settings) || (typeof S !== 'undefined' && S ? S.settings : null) || {};
+  const types = () => (typeof sqTypes === 'function' && typeof S !== 'undefined' && S) ? sqTypes(settings()) : [];
 
   /* ---- statuses → search ('stato:<v>', facet "status", badge on the cards) ---- */
   if (typeof sqCurrent === 'function' && typeof window.statusSearchHook === 'undefined'){
@@ -47,8 +49,20 @@
     window.archiveSearchHook = {
       archiveOf(b){ const a = arch(b); return a ? {id:a.id, label:archName(a)} : null; },
       match(b, v){ const q = fold(v).trim(); if (!q) return null; const a = arch(b); if (!a) return false; return fold(a.code) === q || fold(archName(a)) === q || fold(archName(a)).startsWith(q); },
-      words(b){ const a = arch(b); return a ? [archName(a), a.code].filter(Boolean).join(' ') : ''; }
+      words(b){ const a = arch(b); return a ? [archName(a), a.code].filter(Boolean).join(' ') : ''; },
+      // v12.1: one quick chip per archive when the studio has more than one (phone search home)
+      chips(){ return typeof archMulti === 'function' && archMulti() ? archList().map(a => ({q:'archivio:' + (a.code || archName(a)), label:archName(a)})) : []; }
     };
+    /* v12.1, phone: the archive on each result card (only with several archives) */
+    if (typeof srPhCardHTML === 'function' && typeof archMulti === 'function'){
+      const base = srPhCardHTML;
+      window.srPhCardHTML = function(b, marks){
+        const h = base(b, marks); if (!archMulti()) return h;
+        const a = arch(b); if (!a) return h;
+        const badge = '<span class="sr-pc-ar" style="--ac:' + esc(a.color || '#475569') + '" title="' + esc(archName(a)) + '">' + esc(a.code || archName(a)) + '</span>';
+        return h.replace(/(<b class="sr-pc-code">[\s\S]*?<\/b>)/, (m) => m + badge);
+      };
+    }
   }
 
   /* ---- "who scanned / viewed it last" for the status card ---- */

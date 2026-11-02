@@ -10,6 +10,21 @@
 
 Data: ________  Versione: ________  Chi: ________
 
+## 0. Le prove da fare per prime (v12.1, circa un'ora)
+
+Se hai poco tempo fai solo queste, nell'ordine; i dettagli sono nei paragrafi indicati.
+
+- [ ] **Aggiornamento** del PC dalla v10.0 seguendo [`AGGIORNAMENTO-v10-v12.md`](AGGIORNAMENTO-v10-v12.md): stessi faldoni e clienti di prima (§8).
+- [ ] **Server**: carica `deploy/studio-de/`, `api.php?r=ping` risponde `"schema":3`; togli la protezione cartella di SiteGround (§3).
+- [ ] **Stampa** di un foglio MRINK143 con 8 etichette e lettura dei QR con il telefono (§1).
+- [ ] **Android**: primo accesso, poi chiudi Chrome e inquadra un altro QR → si apre **senza PIN** (§4.1).
+- [ ] **iPhone**: lo stesso con Safari (§4.2).
+- [ ] **Stati**: dal telefono **Preso** su un faldone, sul PC dopo la sincronizzazione compare in **Fuori archivio**; poi **Reinserito**.
+- [ ] **Scatola**: **Applica a tutta la scatola** → **Dato al Comune**; poi **Verifica rientro** scansionando i faldoni, uno lasciato fuori risulta **Mancante**.
+- [ ] **Scaffale con scatole** (v12.1): il QR dello scaffale dice "compresi quelli nelle scatole interne".
+- [ ] **Ricerca** sul telefono: `stato:fuori` e, se hai più archivi, il pulsante dell'archivio.
+- [ ] **NFC** (solo Android con Chrome, facoltativo): scrivi un tag e leggilo (§4.1, manuale §6.9).
+
 ## 1. Stampante vera con il foglio MRINK143
 
 Preparazione: 2 fogli MRINK143 e 3 fogli di carta normale. Faldoni di prova: i 5 di esempio (tag `demo`) bastano.

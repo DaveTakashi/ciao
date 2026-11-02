@@ -118,6 +118,7 @@ mark.sr-hl{background:#FEF08A;color:inherit;border-radius:3px;padding:0 1px;box-
 .sr-pc-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;width:100%;min-width:0}
 .sr-pc-code{font-family:var(--mono);font-size:24px;font-weight:800;letter-spacing:-.01em}
 .sr-pc-multi{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--violet);background:var(--violet-weak);border-radius:6px;padding:1px 6px}
+.sr-pc-ar{font-size:12px;font-weight:800;color:#fff;background:var(--ac,#475569);border-radius:6px;padding:1px 6px;letter-spacing:.02em;vertical-align:1px}
 .sr-pc-st{margin-left:auto;font-size:12px;font-weight:800;border-radius:999px;padding:2px 9px;background:var(--surface-2);border:1px solid var(--border-2);color:var(--text-2)}
 .sr-pc-st.st-CHECKED_OUT{background:var(--amber-weak);border-color:var(--amber);color:var(--amber)}
 .sr-pc-st.st-HISTORICAL{background:var(--violet-weak);border-color:var(--violet);color:var(--violet)}

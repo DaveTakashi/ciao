@@ -37,11 +37,15 @@ server v11.1 sincronizza faldoni, clienti e ubicazioni ma non può inviare archi
    `access_keep_days` (giorni di registro accessi, predefinito 365), `access_dedupe_seconds` (letture ripetute unite,
    predefinito 120).
 
+**Dopo** l'aggiornamento del server, togli la protezione della cartella se l'avevi messa (Site Tools › Sicurezza ›
+**Directory protette** › elimina quella di `studio-de`): con la v12 i telefoni restano collegati da soli e la password
+di SiteGround verrebbe chiesta di nuovo a ogni QR. I dati restano protetti da codici di accesso, PIN e cifratura.
+
 ## 3. Ogni PC
 
 1. Chiudi DocMap, copia la nuova `docmapv1` **sopra quella vecchia, nella stessa cartella**, con lo stesso browser.
 2. Riapri `index.html` e controlla in ⚙ › Impostazioni › Dati e sicurezza › **Informazioni su DocMap**: versione
-   **26.12.0**, database locale schema **9**, server schema **3** (pulsante **Verifica server**).
+   **26.12.1** (26.12.0 se installi la v12), database locale schema **9**, server schema **3** (pulsante **Verifica server**).
 3. Numero di faldoni, clienti e ubicazioni uguale a quello annotato.
 4. **Sincronizza con il server**.
 
