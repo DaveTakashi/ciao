@@ -7,7 +7,7 @@
 
 | Chi | Parte da | Poi |
 |---|---|---|
-| **Dave / chi usa DocMap in studio** (operatore) | [`MANUALE-UTENTE.md`](MANUALE-UTENTE.md) | [`GLOSSARIO.md`](GLOSSARIO.md), [`RIFERIMENTO-FUNZIONI.md`](RIFERIMENTO-FUNZIONI.md), [`CHECKLIST-COLLAUDO.md`](CHECKLIST-COLLAUDO.md), [`AGGIORNAMENTO-v11-v11.1.md`](AGGIORNAMENTO-v11-v11.1.md) |
+| **Dave / chi usa DocMap in studio** (operatore) | [`MANUALE-UTENTE.md`](MANUALE-UTENTE.md) | [`GLOSSARIO.md`](GLOSSARIO.md), [`RIFERIMENTO-FUNZIONI.md`](RIFERIMENTO-FUNZIONI.md), [`CHECKLIST-COLLAUDO.md`](CHECKLIST-COLLAUDO.md), [`AGGIORNAMENTO-v10-v12.md`](AGGIORNAMENTO-v10-v12.md), [`AGGIORNAMENTO-v11.1-v12.md`](AGGIORNAMENTO-v11.1-v12.md) |
 | **Chi gestisce il sito su SiteGround** (sistemista) | [`DEPLOY-WEB.md`](DEPLOY-WEB.md) §0 e `README-DEPLOY.md` dentro il deploy | [`MANUALE-UTENTE.md`](MANUALE-UTENTE.md) §7, §11, §12 · [`SICUREZZA.md`](SICUREZZA.md) · [`AGGIORNAMENTI.md`](AGGIORNAMENTI.md) · [`CHECKLIST-COLLAUDO.md`](CHECKLIST-COLLAUDO.md) §3, §7, §8 |
 | **Sviluppatore Python** (porting del server, integrazione con il gestionale) | [`HANDOFF_PROMPT.md`](HANDOFF_PROMPT.md) (il prompt completo da incollare) | [`python/PORTING.md`](python/PORTING.md), [`python/openapi.yaml`](python/openapi.yaml), [`python/SCHEMI.md`](python/SCHEMI.md), [`API-CONTRACT.md`](API-CONTRACT.md), [`MODELLO-DATI.md`](MODELLO-DATI.md), [`SYNC.md`](SYNC.md), [`ALLINEAMENTO-PYTHON.md`](ALLINEAMENTO-PYTHON.md) |
 | **Agente o sviluppatore del front-end** (JavaScript) | [`../AGENTS.md`](../AGENTS.md) | [`ARCHITETTURA.md`](ARCHITETTURA.md), [`MODELLO-DATI.md`](MODELLO-DATI.md), [`SYNC.md`](SYNC.md), [`AGGIORNAMENTI.md`](AGGIORNAMENTI.md), `tests/suite.js` |
@@ -41,7 +41,9 @@
 | [`AGGIORNAMENTI.md`](AGGIORNAMENTI.md) | La procedura che vale per **ogni** aggiornamento (utente e sviluppatore) e le regole di rilascio senza perdita di dati. |
 | [`AGGIORNAMENTO-v10-v10.1.md`](AGGIORNAMENTO-v10-v10.1.md) | Storia: guida dalla v10 alla v10.1 (arrivo del database online). |
 | [`AGGIORNAMENTO-v10.1-v11.md`](AGGIORNAMENTO-v10.1-v11.md) | Storia: guida dalla v10.1 alla v11 (ubicazioni, registro sincronizzazioni, schema server 2). |
-| [`AGGIORNAMENTO-v11-v11.1.md`](AGGIORNAMENTO-v11-v11.1.md) | **Guida dalla v11 alla v11.1**: solo file del programma, nessuna migrazione, niente da fare sul database del server. |
+| [`AGGIORNAMENTO-v10-v12.md`](AGGIORNAMENTO-v10-v12.md) | **Guida diretta dalla v10.0 alla v12** (salta v10.1, v11, v11.1): backup, server facoltativo, stessa cartella, controlli, rollback. |
+| [`AGGIORNAMENTO-v11.1-v12.md`](AGGIORNAMENTO-v11.1-v12.md) | **Guida dalla v11.1 alla v12**: schema locale 9, schema server 3, opzioni nuove di `config.php`. |
+| [`AGGIORNAMENTO-v11-v11.1.md`](AGGIORNAMENTO-v11-v11.1.md) | Storia: guida dalla v11 alla v11.1: solo file del programma, nessuna migrazione, niente da fare sul database del server. |
 
 La v11.1 (26.11.1) non cambia dati, chiavi di memoria, schema del database né contratto dell'API: backup, poi i file
 nuovi nello stesso percorso (prima il sito, poi i PC, poi i telefoni), controllo, eventuale ritorno alla cartella vecchia.

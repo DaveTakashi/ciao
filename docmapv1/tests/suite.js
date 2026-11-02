@@ -4021,12 +4021,13 @@ const sec = (n) => console.log('\n== ' + n);
       r.facOr = srchRun(L, '', {facets:{cat:['aps', 'ordinaria']}}).total;
       r.mark = srchMark('Città di Castello <b>', srchRun(L, 'citta').marks);
       // hooks of streams Q (status) and C (archive): feature-detected
+      const Ahk0 = [window.statusSearchHook, window.archiveSearchHook];   // the real v12 hooks (06m-v12-glue.js): put back afterwards
       window.statusSearchHook = {match:(b, v) => v === 'prestato' ? b.id === 'sa4' : null, statusOf:(b) => b.id === 'sa4' ? {id:'loan', label:'Prestato a Mario'} : null, words:(b) => b.id === 'sa4' ? 'prestato mario' : ''};
       window.archiveSearchHook = {archiveOf:(b) => ({id:b.id === 'sa1' ? 'arc-a' : 'arc-b', label:b.id === 'sa1' ? 'Archivio A' : 'Archivio B'}), match:(b, v) => v === 'a' ? b.id === 'sa1' : null};
       r.hookStato = ids('stato:prestato'); r.hookOut = ids('stato:fuori'); r.hookWords = ids('prestato'); r.hookArc = ids('archivio:a'); r.hookArcLabel = ids('archivio:"archivio b"');
       const HF = srchRun(L, '').facets; r.hookFacet = (HF.status || []).map(x => x.label).join('|') + '/' + (HF.archive || []).map(x => x.k + ':' + x.n).join('|');
       r.hookCard = srchStateOf(L[3]).label;
-      delete window.statusSearchHook; delete window.archiveSearchHook; SRCH.cache.clear();
+      window.statusSearchHook = Ahk0[0]; window.archiveSearchHook = Ahk0[1]; SRCH.cache.clear();
       return r;
     });
     ok(Av.accent === 'sa1' && Av.case === 'sa1,sa2' && Av.fuzzyIds === 'sa1,sa2' && Av.fz.length === 1 && Av.fz[0].words[0] === 'barbieri' && Av.trans === 'sa1,sa2', 'A search: accent / case insensitive, a typo or a transposition finds the word ("Forse cercavi" barbieri)', Av);
@@ -4154,7 +4155,7 @@ const sec = (n) => console.log('\n== ' + n);
         const Atables = Asql(ADATA, "SELECT name FROM sqlite_master WHERE type='table'").map(r => r[0]);
         Av2 = await Aq('ping');
         ok(Av.s === 200 && Av.j.records.length === 3 && Av.j.records.find(r => r.id === 'a-2').updated_at === '2026-10-10T09:00:00.000Z' && Asql(ADATA, "SELECT v FROM meta WHERE k='schema'")[0][0] === '3' && Atables.includes('access_log') && Atables.includes('sync_journal') &&
-          Av2.j.schema === 3 && JSON.stringify(Av2.j.features) === '["journal","device_info","locations","access_log"]' && Asql(ADATA, 'SELECT COUNT(*) FROM access_log')[0][0] === 0, 'A server: the v12 api.php upgrades a v11 database in place (schema 2 → 3, table access_log), records and time stamps kept, ping features + access_log', {t:Atables, ping:Av2.j});
+          Av2.j.schema === 3 && JSON.stringify(Av2.j.features) === '["journal","device_info","locations","archives","access_log","status_events"]' && Asql(ADATA, 'SELECT COUNT(*) FROM access_log')[0][0] === 0, 'A server: the v12 api.php upgrades a v11 database in place (schema 2 → 3, table access_log), records and time stamps kept, ping features + access_log', {t:Atables, ping:Av2.j});
         // a v10.1 database (schema 1) straight to v12 (2 and 3 in one go)
         fs.writeFileSync(Apath.join(ASP, 'config.php'), Acfg(ADATA10)); fs.writeFileSync(Apath.join(ASP, 'api.php'), Agit('68ae170'));
         Av = await Aq('push', {token:AT.mario, body:{records:Abase.slice(0, 2).map(x => ({type:'binder', id:x.id, updated_at:x.updated_at, data:x})), tombstones:[{type:'binder', id:'a-gone', code:'ZZG', deletedAt:'2026-10-05T10:00:00.000Z'}], deviceId:'dev-v101'}});
@@ -4783,6 +4784,32 @@ const sec = (n) => console.log('\n== ' + n);
       await Cu.close();
     }
     await p.evaluate(() => { S.archiveSel = ''; S.view = 'archive'; savePrefs(); renderAll(); });
+  }
+  // @@STREAM-V12@@
+  sec('v12 integration: statuses and archives in the search, last access on the status card');
+  {
+    const Vg = await p.evaluate(() => {
+      while (topModal()) closeModal(true); S.view = 'archive'; UI.q = ''; renderAll();
+      const r = {hooks:typeof window.statusSearchHook === 'object' && typeof window.archiveSearchHook === 'object' && typeof window.dmAccessLast === 'function'};
+      const b1 = S.binders[0], b2 = S.binders[1], ev0 = (S.statusEvents || []).length;
+      sqRecord([{target_type:'binder', target_id:b1.id, code:b1.speaking_code}], 'to_client', {holder:'Cliente Prova'}, {via:'desktop', quiet:true});
+      const ids = (q) => srchRun(S.binders, q).list.map(b => b.id);
+      r.out = ids('stato:fuori'); r.outHas = r.out.includes(b1.id); r.outNo2 = !r.out.includes(b2.id) || b2.archive_state === 'CHECKED_OUT';
+      r.byLabel = ids('stato:"' + sqTypeLabel(sqType(sqTypes(S.settings), 'to_client')) + '"').includes(b1.id);
+      r.holder = ids('Cliente Prova').includes(b1.id);
+      r.badge = (srchStateOf(b1) || {}).hook === true;
+      r.chip = statusSearchHook.chips()[0].q === 'stato:fuori' && t('sq_chip_out') === 'Fuori archivio';
+      sqRecord([{target_type:'binder', target_id:b1.id, code:b1.speaking_code}], 'from_client', {}, {via:'desktop', quiet:true});
+      r.back = !ids('stato:fuori').includes(b1.id) || b1.archive_state === 'CHECKED_OUT';
+      r.arch = ids('archivio:' + archName(archById(ARCH_DEFAULT_ID))).length === S.binders.length;
+      AC.seen['v12-x'] = {items:[{at:'2026-11-02T08:00:00Z', user:'mario', via:'nfc'}]};
+      const L = window.dmAccessLast('binder', 'v12-x'); r.last = !!L && L.user === 'mario' && L.via === 'nfc'; delete AC.seen['v12-x'];
+      r.lastNone = window.dmAccessLast('location', 'nope') === null;
+      S.statusEvents.splice(ev0); commit(); renderAll();
+      return r;
+    });
+    ok(Vg.hooks && Vg.outHas && Vg.outNo2 && Vg.byLabel && Vg.holder && Vg.badge && Vg.chip && Vg.back, 'v12: "stato:fuori", the status name and the holder find a binder given to the client; it disappears once returned', Vg);
+    ok(Vg.arch && Vg.last && Vg.lastNone, 'v12: "archivio:<name>" finds the binders of the archive; the status card reads the last access from the access log', Vg);
   }
   console.log('\nerrors:', errs.length ? errs.join('\n') : 'none');
   if (errs.length) fails += errs.length;

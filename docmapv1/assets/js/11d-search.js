@@ -93,6 +93,8 @@ function srInstallDesktop(){
   /* the base order (natural sort by speaking code) is cached: re-sorting 5 000 binders at every keystroke costs ~40 ms */
   srWrap('sortedBinders', (o) => function(){
     /* valid only while S.binders holds the very same objects (an edited binder may be a new object) with the same codes */
+    /* an export limited to one archive (06l-archives.js, AR.export) filters the list: never cache or serve that */
+    if (typeof AR !== 'undefined' && AR && AR.export != null) return o.apply(this, arguments);
     const arr = S.binders, src = SR.sortSrc, codes = SR.sortCodes;
     let same = !!(SR.sortOut && src && src.length === arr.length);
     for (let i = 0; same && i < arr.length; i++) same = src[i] === arr[i] && codes[i] === arr[i].speaking_code;
