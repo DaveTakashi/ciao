@@ -64,3 +64,19 @@
   Riferimento: `docs/API-CONTRACT.md` §11 e §12, `openapi.yaml`, `archive.schema.json`, `status_event.schema.json`.
 - Prossimo passo: quando è pubblicato, merge del branch v12 in `claude/project-thread-iqsptc` e porting in `server-python/`
   con estensione di `diff_test.py`.
+
+## 2026-11-02 01:20 · F4 · Kit di installazione Windows (scritto, non provato su Windows)
+
+- Fatto: `installer-windows/` con `installa.bat`/`installa.ps1` (cartelle in `C:\DocMap\`, Python ≥3.11, setup del
+  server, firewall solo rete privata, attività pianificate "DocMap Server" e "DocMap Backup"), `backup.ps1`,
+  `ripristina.ps1`, `aggiorna.ps1` (rollback automatico se il ping fallisce), `disinstalla.ps1`, `licenza.ps1`,
+  `docmap_tools.py` (logica testabile), `GUIDA-INSTALLAZIONE.md`.
+- Scelta importante: in LAN serve **HTTPS** (su `http://192.168…` il browser non dà WebCrypto e il login web fallisce).
+  L'installer crea un'autorità di certificazione dello studio limitata agli indirizzi privati; app e API su `https:8443`,
+  pagina per scaricare il certificato su `http:8080`. Ogni telefono/PC installa il certificato una volta.
+- Commit: e8555d3, 9a35589, b37deba.
+- Prova: `cd docmapv1/installer-windows && python3 -m unittest discover -s tests` → 37 OK (1 saltato, il parser
+  PowerShell vero gira solo dove c'è `pwsh`), rifatta dal coordinatore. Test del server ancora verdi.
+- Non provato: nessuna esecuzione reale su Windows, certificato su Android/iPhone, backup su NAS. **Backup non cifrati**
+  (lo zip contiene la chiave): da fare un backup cifrato con passphrase.
+- Prossimo passo: Dave prova su un PC Windows di prova con la sola guida (cancello F4); intanto F5 (porting v12).
