@@ -261,6 +261,13 @@ class Duo:
         if expect is not None and s1 != expect:
             probs.append("php status %s != expected %s" % (s1, expect))
         a, b = n1(j1), n2(j2)
+        try:   # 429: retry_in is "seconds left", the two requests may straddle a second boundary
+            ra, rb = a["error"]["retry_in"], b["error"]["retry_in"]
+            if abs(ra - rb) <= 1:
+                a = json.loads(json.dumps(a))
+                a["error"]["retry_in"] = rb
+        except (KeyError, TypeError):
+            pass
         if ignore and isinstance(a, dict) and isinstance(b, dict):
             a = {k: v for k, v in a.items() if k not in ignore}
             b = {k: v for k, v in b.items() if k not in ignore}
