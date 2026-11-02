@@ -80,3 +80,20 @@
 - Non provato: nessuna esecuzione reale su Windows, certificato su Android/iPhone, backup su NAS. **Backup non cifrati**
   (lo zip contiene la chiave): da fare un backup cifrato con passphrase.
 - Prossimo passo: Dave prova su un PC Windows di prova con la sola guida (cancello F4); intanto F5 (porting v12).
+
+## 2026-11-02 · F5 · Server Python alla pari con api.php v12
+
+- Fatto: `server-python/docmap_server/api.py` porta 1:1 le modifiche v12 di `api.php` (merge 16270a2): schema 3 con
+  `access_log` (migrazione additiva, anche 1 → 2 → 3), tipi `archive` e `status_event` (indici HMAC `st/b|l/…`,
+  `stbox/…`), `status_events` / `status_types` in `binder` e `location`, rotte `access`, `last_seen`, `seen`, parametro
+  `via`, opzioni `access_keep_days`, `access_dedupe_seconds`, `remember_minutes`, `me.remember_minutes`, nuove `features`.
+- Licenza: in sola lettura `push` (anche `status_event` / `archive`) resta bloccato; `access`, `last_seen` e **`seen`**
+  funzionano (`seen` è un record di controllo di una lettura, non una modifica dei dati). Documentato nel README.
+- Prove: `diff_test.py` 7 OK (nuovi `test_1b_v12` e `test_6_upgrade_v11`: database v11.1 portato a schema 3 da PHP v12 e
+  da Python v12, anche sulla stessa cartella dati); `validate_python.py` "all checks passed"; `test_licence.py` 9 OK.
+  Suite: Python 1232/1232; PHP 1232/1232 con `opcache.revalidate_freq=0` (con l'opcache predefinito la sezione A si ferma:
+  rilegge `config.php` prima dei 2 s di opcache). Dettagli in `server-python/SUITE-RESULTS.md`.
+- Differenze note col PHP: invariate (ping `php`, date relative PHP non interpretate, UTF-8 tagliato) + `at` di `seen`
+  segue la stessa regola delle date.
+- Prossimo passo: chiedere a chi cura `suite.js` di attendere > 2 s (o cambiare mtime) dopo ogni riscrittura di
+  `config.php` nella sezione A.

@@ -80,3 +80,12 @@ Newest entries last. Resume from the last "Next step".
   32c3485: copies upgraded by PHP v12 / Python v12 compared incl. decrypted DB; one folder upgraded by Python then served by PHP
   v12 and the reverse; v11.1 PHP still serves the schema-3 file). dump_db decrypts access_log.meta.
   Mutation check: wrong event order / wrong via whitelist / seen ± window bounds (inclusive) are all caught (read-dedupe `at >=` vs `>` is not: sub-ms timing).
+- Final results (repo root):
+  - `python3 docmapv1/server-python/tests/diff_test.py` → Ran 7 tests OK (149 + 88 + 28 + 9 + 7 + 25 pairs, 10 tables identical decrypted).
+  - `NODE_PATH=/opt/node22/lib/node_modules python3 docmapv1/server-python/tests/validate_python.py` → "RESULT: all checks passed" (337 OK).
+  - `python3 docmapv1/server-python/tests/test_licence.py` → Ran 9 tests OK.
+  - Suite (SUITE-RESULTS.md): PHP as is → stops in section A (opcache revalidate_freq 2 s vs config.php rewritten and read
+    at once); PHP with opcache.revalidate_freq=0 → 1232/1232; Python via shim → run 1 1231/1232 (flaky browser-only M check,
+    regex 8642 in random base64), run 2 1232/1232. No Python bug found by the suite.
+- Next step: none required for F5; optional — ask the suite owners to make section A wait > 2 s (or bump mtime) after
+  rewriting config.php, so the plain PHP baseline does not depend on opcache settings.
