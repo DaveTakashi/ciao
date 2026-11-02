@@ -4253,6 +4253,39 @@ const sec = (n) => console.log('\n== ' + n);
         Av = await P2.evaluate(async () => { const r = await acFlush(); return {r, q:AC.queue.length}; });
         Av2 = (await Aq('access', {token:AT.dave, q:{route:'seen', user:'lucia'}})).j.items.map(x => x.target.code + ':' + x.via);
         ok(Av.r.sent === 1 && Av.q === 0 && Av2.join() === 'ZAA:search', 'A phone: back online the queued view is sent (POST seen)', {ph:Av, srv:Av2});
+        // ---- v12.1 (@@STREAM-V121@@): archives + statuses on the phone search, nested boxes in the location response ----
+        {
+          const T0 = '2026-11-02T09:00:00.000Z';
+          const Vrec = [{type:'archive', id:'arc-st', updated_at:T0, data:{id:'arc-st', name:'Storico', code:'ST', color:'#059669', description:'', sort:1, levels:[], qr_levels:[], created_at:T0, updated_at:T0}},
+            {type:'location', id:'v121-sh', updated_at:T0, data:{id:'v121-sh', parent_id:'', code:'VS1', seg:'VS1', name:'Scaffale prova', kind:'Scaffale', level:0, short_code:'dm26LVsSh01Qx', archive_id:'', created_at:T0, updated_at:T0}},
+            {type:'location', id:'v121-bx', updated_at:T0, data:{id:'v121-bx', parent_id:'v121-sh', code:'VS1-B1', seg:'B1', name:'', kind:'Scatola', level:1, short_code:'dm26LVsBx01Qx', archive_id:'', created_at:T0, updated_at:T0}},
+            {type:'binder', id:'a-3', updated_at:T0, data:Object.assign(AB('a-3', 'ZAC', {tags:'accessi,bilanci', company_name:'Zanzara Bilanci Srl'}), {archive_id:'arc-st', updated_at:T0})},
+            {type:'binder', id:'a-1', updated_at:T0, data:Object.assign(AB('a-1', 'ZAA'), {location_id:'v121-bx', location_code:'VS1-B1', updated_at:T0})},
+            {type:'status_event', id:'se-v121-1', updated_at:T0, data:{id:'se-v121-1', at:T0, target_type:'binder', target_id:'a-1', doc_id:'', status_id:'to_client', holder:'Cliente Prova', due_date:'', date:'', note:'', via:'desktop', box_id:'', batch_id:'', code:'ZAA', doc_text:'', user:'Dave', device:'pc', undo_of:''}}];
+          const Vp = await Aq('push', {token:AT.mario, body:{records:Vrec, tombstones:[], deviceId:'dev-a-pc', operator:'Dave'}});
+          const Vl = await Aq('location', {token:AT.lucia, q:{id:'v121-sh'}});
+          ok(Vp.s === 200 && Vl.s === 200 && (Vl.j.binders || []).length === 0 && Vl.j.nested_count === 1 && Vl.j.nested_binders[0].speaking_code === 'ZAA' && Vl.j.nested_binders[0].location_code === 'VS1-B1',
+            'v12.1 server: a shelf lists the binders of the boxes nested in it (nested_binders, nested_count), binders[] stays "directly here"', {push:Vp.j && Vp.j.ok, loc:Vl.j && {b:Vl.j.binders, n:Vl.j.nested_count, nb:Vl.j.nested_binders}});
+          const Vv = await P2.evaluate(async () => { SR.ph.loaded = false; await srPhLoad(true);
+            const ids = (q) => { SR.ph.q = q; return srPhRun().list.map(b => b.speaking_code).join(); };
+            const D = document.createElement('div'); SR.ph.q = ''; D.innerHTML = srPhListHTML();
+            const chips = Array.from(D.querySelectorAll('#sr-ph-chips .sr-pchip')).map(x => x.textContent);
+            const r = {arch:(S.archives || []).map(a => a.code).join(), ev:(S.statusEvents || []).length, chips, st:ids('archivio:st'), ap:ids('archivio:ap'), out:ids('stato:fuori'), holder:ids('cliente prova')};
+            SR.ph.q = 'zanzara'; D.innerHTML = srPhListHTML();
+            r.badges = Array.from(D.querySelectorAll('#sr-ph-list .sr-pc')).map(x => x.querySelector('.sr-pc-code').textContent + ':' + ((x.querySelector('.sr-pc-ar') || {}).textContent || ''));
+            r.w = document.documentElement.scrollWidth <= innerWidth + 1;
+            return r; });
+          ok(Vv.arch === 'ST' && Vv.chips.includes('Storico') && Vv.chips.includes('Archivio principale') && Vv.st === 'ZAC' && Vv.ap.split(',').sort().join() === 'ZAA,ZAB' && Vv.badges.includes('ZAC:ST') && Vv.badges.includes('ZAA:AP') && Vv.w,
+            'v12.1 phone search: archives come from the server (one chip per archive, "archivio:" filter, archive badge on each card)', Vv);
+          ok(Vv.ev === 1 && Vv.out.split(',').includes('ZAA') && Vv.out.split(',').includes('ZAB') && Vv.holder === 'ZAA', 'v12.1 phone search: "stato:fuori" also counts the new statuses (given to the client), the old "Fuori" state still works, the holder is searchable', Vv);
+          const Pb = await Apage(); await Pb.goto(AO + '/studio-de/scan.html?lang=it&q=dm26LVsSh01Qx'); await Pb.waitForTimeout(1800);
+          const Vb = await Pb.evaluate(() => ({view:SC.view, tip:(document.getElementById('sqp-box-n') || {}).textContent || '', n:typeof SC.loc === 'object' && SC.loc ? (SC.loc.nested_binders || []).length : -1}));
+          ok(Vb.n === 1 && /1 faldoni che contiene, compresi quelli nelle scatole interne/.test(Vb.tip), 'v12.1 phone: "Applica a tutta la scatola" on a shelf counts the binders of the nested boxes', Vb);
+          await Pb.close();
+          // put the A data back as it was (later checks count the binders by archive_state only)
+          await Aq('push', {token:AT.mario, body:{records:[{type:'binder', id:'a-1', updated_at:'2026-11-02T09:30:00.000Z', data:Object.assign(AB('a-1', 'ZAA'), {updated_at:'2026-11-02T09:30:00.000Z'})},
+            {type:'status_event', id:'se-v121-2', updated_at:'2026-11-02T09:30:00.000Z', data:{id:'se-v121-2', at:'2026-11-02T09:30:00.000Z', target_type:'binder', target_id:'a-1', doc_id:'', status_id:'', holder:'', due_date:'', date:'', note:'', via:'undo', box_id:'', batch_id:'', code:'ZAA', doc_text:'', user:'Dave', device:'pc', undo_of:'se-v121-1'}}], tombstones:[], deviceId:'dev-a-pc', operator:'Dave'}});
+        }
         // inactivity timeout → PIN again
         Av = await P2.evaluate(async () => { sessionStorage.clear(); VAULT.dek = null; RM.now = () => Date.now() + 31 * 86400000; const r = await rmResume(SC.P.auth); RM.now = () => Date.now(); return {r, reason:RM.reason, rec:!!localStorage.getItem('docmap_v26_remember')}; });
         const P3 = await Apage(); Av2 = await Ago(P3, 'dm26AcZAAQx');
@@ -4809,6 +4842,17 @@ const sec = (n) => console.log('\n== ' + n);
       return r;
     });
     ok(Vg.hooks && Vg.outHas && Vg.outNo2 && Vg.byLabel && Vg.holder && Vg.badge && Vg.chip && Vg.back, 'v12: "stato:fuori", the status name and the holder find a binder given to the client; it disappears once returned', Vg);
+    const Vn = await p.evaluate(() => {
+      const mk = (o) => Object.assign({id:uuid(), parent_id:'', name:'', kind:'', level:0, archive_id:'', created_at:nowISO(), updated_at:nowISO()}, o);
+      const sh = mk({code:'VN1', seg:'VN1'}), bx = mk({code:'VN1-B1', seg:'B1', parent_id:sh.id, level:1});
+      S.locations.push(sh, bx); if (typeof locTouch === 'function') locTouch();
+      const b1 = S.binders[2], b2 = S.binders[3], keep = [b1.location_id, b2.location_id];
+      b1.location_id = bx.id; b2.location_id = sh.id;
+      const got = sqBoxBinders(sh).map(b => b.id).sort().join(), only = sqBoxBinders(bx).map(b => b.id).join();
+      b1.location_id = keep[0]; b2.location_id = keep[1]; S.locations.splice(S.locations.indexOf(sh), 2); if (typeof locTouch === 'function') locTouch();
+      return {got, want:[b1.id, b2.id].sort().join(), only, b1:b1.id};
+    });
+    ok(Vn.got === Vn.want && Vn.only === Vn.b1, 'v12.1: a status on a shelf applies to its binders and to those of the boxes nested in it; a box only to its own', Vn);
     ok(Vg.arch && Vg.last && Vg.lastNone, 'v12: "archivio:<name>" finds the binders of the archive; the status card reads the last access from the access log', Vg);
   }
   console.log('\nerrors:', errs.length ? errs.join('\n') : 'none');

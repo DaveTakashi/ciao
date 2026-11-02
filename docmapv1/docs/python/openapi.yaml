@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: DocMap 2026 — API del database online condiviso
-  version: "api 1 · schema server 3 · DocMap 26.12.0"
+  version: "api 1 · schema server 3 · DocMap 26.12.1"
   summary: Contratto di server-php/api.php (v10.1 + v11 + v12), da riprodurre 1:1 in Python.
   description: |
     Descrizione OpenAPI 3.1 di `docmapv1/server-php/api.php` (implementazione di riferimento, `DM_API = 'docmap-php'`,
@@ -719,6 +719,8 @@ components:
         children: {type: array, items: {$ref: "#/components/schemas/Brief"}, description: "Figli diretti, ordine naturale per seg"}
         binders: {type: array, maxItems: 500, items: {$ref: "#/components/schemas/BinderBrief"}, description: "Faldoni con location_id = questa ubicazione, per codice parlante"}
         count: {type: integer, description: "Totale dei faldoni (anche oltre i 500 elencati)"}
+        nested_binders: {type: array, maxItems: 1000, items: {allOf: [{$ref: "#/components/schemas/BinderBrief"}, {type: object, properties: {location_id: {type: string}, location_code: {type: string}}}]}, description: "v12.1: faldoni delle ubicazioni annidate sotto questa (tutto il sottoalbero, esclusa questa), per codice ubicazione e codice parlante. Le azioni sulla scatola e la Verifica rientro del telefono usano binders + nested_binders."}
+        nested_count: {type: integer, description: "v12.1: totale dei faldoni annidati (anche oltre i 1000 elencati)"}
         status_events: {type: array, maxItems: 2000, items: {$ref: "schema/status_event.schema.json"}, description: "v12: movimenti della scatola, dei faldoni che contiene e di quelli usciti con lei (box_id), in ordine cronologico: servono alla Verifica rientro del telefono."}
         status_types: {type: [array, "null"], items: {type: object}, description: "v12: come in BinderResponse."}
     ResolveResponse:

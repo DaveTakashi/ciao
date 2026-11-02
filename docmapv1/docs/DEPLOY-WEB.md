@@ -10,7 +10,10 @@ online. Con `--no-server` si ottiene il sito statico della v10 (dati solo nel br
 
 ## 0. Database online su SiteGround (riassunto)
 
-1. Site Tools › Sicurezza › **Directory protette**: proteggi `public_html/studio-de/` con utente e password.
+1. **Non** proteggere `public_html/studio-de/` con Site Tools › Sicurezza › **Directory protette** (scelta di Dave, 2026-11-02):
+   i telefoni la dimenticano e chiederebbero utente e password a ogni QR. La cartella contiene solo il programma; i dati
+   sono protetti da token personali, PIN o "Ricordami", cifratura e blocco dopo 5 token errati (`SICUREZZA.md` §5b).
+   Se una cartella protetta esiste già, toglila dopo aver installato la v12.
 2. Carica il contenuto di `deploy/studio-de/` in `public_html/studio-de/` (anche i `.htaccess`).
 3. Apri `https://docmap.pr-it.it/studio-de/server-php/setup.php` **una volta**: cartella dati (proposta: fuori da
    `public_html`, es. `/home/customer/www/docmap.pr-it.it/docmap-data`), persone e ruoli → genera chiave AES-256 e

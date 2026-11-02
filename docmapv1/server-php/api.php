@@ -13,7 +13,7 @@
      push   {records, tombstones, settings?, activity_log?, deviceId, operator}   editor
                                          per-record LAST-WRITE-WINS by updated_at → {applied, same, rejected[], seq, server_time}
      binder &qr=<short_code> | &code=<speaking_code>   viewer   {binder, etag, siblings[], status_events[], status_types}
-     location &qr=<dm26L…> | &id= | &code=<path code>   viewer   {location, etag, path[], children[], binders[], count, status_events[], status_types}   (v11; v12 status_*)
+     location &qr=<dm26L…> | &id= | &code=<path code>   viewer   {location, etag, path[], children[], binders[], count, nested_binders[], nested_count, status_events[], status_types}   (v11; v12 status_*; v12.1 nested_*)
      resolve &qr=<short code>                         viewer   {type:'binder'|'location', …}: one QR, either kind (v11)
      patch  {id, patch, base_updated_at, force?, log?}  editor  → {binder, etag} · 409 {error, current, current_etag}
                                          v11: patch may carry location_id (+ location_code, recomputed here from the location)
@@ -554,21 +554,28 @@ function loc_pack(PDO $db, array $c, array $row): array {
     $d = rec_data($c, $r); array_unshift($path, ['id' => $r['id'], 'code' => (string)($d['code'] ?? ''), 'name' => (string)($d['name'] ?? ''), 'kind' => (string)($d['kind'] ?? ''), 'seg' => (string)($d['seg'] ?? ''), 'level' => (int)($d['level'] ?? 0)]);
     $pid = (string)($d['parent_id'] ?? '');
   }
-  $kids = []; $binders = []; $n = 0;
+  $kids = []; $binders = []; $n = 0; $nested = []; $nn = 0; $par = []; $lcode = [];
   // payloads are encrypted: children and binders are found by decrypting the records of the two types (fine for a studio archive)
-  foreach ($db->query("SELECT * FROM records WHERE type = 'location' AND deleted = 0") as $r) { $d = rec_data($c, $r); if ((string)($d['parent_id'] ?? '') === $row['id']) $kids[] = ['id' => $r['id'], 'code' => (string)($d['code'] ?? ''), 'name' => (string)($d['name'] ?? ''), 'kind' => (string)($d['kind'] ?? ''), 'seg' => (string)($d['seg'] ?? ''), 'level' => (int)($d['level'] ?? 0)]; }
+  foreach ($db->query("SELECT * FROM records WHERE type = 'location' AND deleted = 0") as $r) { $d = rec_data($c, $r); $par[$r['id']] = (string)($d['parent_id'] ?? ''); $lcode[$r['id']] = (string)($d['code'] ?? ''); if ((string)($d['parent_id'] ?? '') === $row['id']) $kids[] = ['id' => $r['id'], 'code' => (string)($d['code'] ?? ''), 'name' => (string)($d['name'] ?? ''), 'kind' => (string)($d['kind'] ?? ''), 'seg' => (string)($d['seg'] ?? ''), 'level' => (int)($d['level'] ?? 0)]; }
+  // v12.1: every location nested below this one (boxes on a shelf, shelves in a cabinet…)
+  $ch = []; foreach ($par as $lid => $pp) $ch[$pp][] = $lid;
+  $sub = []; $todo = [$row['id']];
+  while ($todo) { $x = array_pop($todo); foreach ($ch[$x] ?? [] as $lid) if (!isset($sub[$lid]) && $lid !== $row['id']) { $sub[$lid] = 1; $todo[] = $lid; } }
   foreach ($db->query("SELECT * FROM records WHERE type = 'binder' AND deleted = 0") as $r) {
-    $d = rec_data($c, $r); if ((string)($d['location_id'] ?? '') !== $row['id']) continue;
+    $d = rec_data($c, $r); $bl = (string)($d['location_id'] ?? '');
+    if ($bl !== '' && isset($sub[$bl])) { $nn++; if (count($nested) < 1000) $nested[] = ['id' => $r['id'], 'speaking_code' => (string)($d['speaking_code'] ?? ''), 'company_name' => (string)($d['company_name'] ?? ''), 'binder_title' => (string)($d['binder_title'] ?? ''), 'color_hex' => (string)($d['color_hex'] ?? ''), 'short_code' => (string)($d['short_code'] ?? ''), 'location_id' => $bl, 'location_code' => $lcode[$bl] ?? '']; continue; }
+    if ($bl !== $row['id']) continue;
     $n++; if (count($binders) < 500) $binders[] = ['id' => $r['id'], 'speaking_code' => (string)($d['speaking_code'] ?? ''), 'company_name' => (string)($d['company_name'] ?? ''), 'binder_title' => (string)($d['binder_title'] ?? ''), 'color_hex' => (string)($d['color_hex'] ?? ''), 'short_code' => (string)($d['short_code'] ?? '')];
   }
   usort($kids, fn($a, $b) => strnatcasecmp($a['seg'], $b['seg']));
   usort($binders, fn($a, $b) => strnatcasecmp($a['speaking_code'], $b['speaking_code']));
+  usort($nested, fn($a, $b) => strnatcasecmp($a['location_code'], $b['location_code']) ?: strnatcasecmp($a['speaking_code'], $b['speaking_code']));
   // v12: statuses of the box, of the binders in it and of the binders that left with it (return check on the phone)
   $bk = hidx($c, 'stbox/' . $row['id']);
-  $sk = [st_key($c, 'location', $row['id'])]; foreach ($binders as $x) $sk[] = st_key($c, 'binder', $x['id']);
+  $sk = [st_key($c, 'location', $row['id'])]; foreach ($binders as $x) $sk[] = st_key($c, 'binder', $x['id']); foreach ($nested as $x) $sk[] = st_key($c, 'binder', $x['id']);
   foreach (st_events($db, $c, [], $bk, DM_STATUS_PER_TARGET * 10) as $e) if (($e['target_type'] ?? '') !== 'location') $sk[] = st_key($c, 'binder', (string)($e['target_id'] ?? ''));   // binders that left with the box: their later events too
   $sev = st_events($db, $c, $sk, $bk, DM_STATUS_PER_TARGET * 10);
-  return ['location' => $l, 'etag' => $row['updated_at'], 'path' => $path, 'children' => $kids, 'binders' => $binders, 'count' => $n, 'status_events' => $sev, 'status_types' => st_types($db, $c)];
+  return ['location' => $l, 'etag' => $row['updated_at'], 'path' => $path, 'children' => $kids, 'binders' => $binders, 'count' => $n, 'nested_binders' => $nested, 'nested_count' => $nn, 'status_events' => $sev, 'status_types' => st_types($db, $c)];
 }
 function loc_find(PDO $db, array $c, string $qr, string $id, string $code): ?array {
   if ($id !== '') { if (!valid_id($id)) fail(400, 'invalid', 'id'); $r = rec_load($db, 'location', $id); return $r && !(int)$r['deleted'] ? $r : null; }

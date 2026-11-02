@@ -213,10 +213,16 @@ function sqOpenBulk(){
   if (!list.length){ toast(t('sq_nothing_sel'), 'warn'); return; }
   sqOpenSheet({targets:list.map(sqTargetBinder), kind:'binder', title:t('sq_bulk_t', {n:list.length}), via:'bulk', action:'status.bulk', client:new Set(list.map(b => b.company_name)).size === 1 ? list[0].company_name : ''});
 }
-/** A box (location) and every binder directly in it, one batch (action status.box). */
+/** v12.1: the binders of a box INCLUDING the boxes nested in it (shelf › boxes, cabinet › shelves › boxes). */
+function sqBoxBinders(l){
+  if (!l) return [];
+  const ids = new Set([l.id].concat(typeof locDescendants === 'function' ? locDescendants(l.id) : []));
+  return S.binders.filter(b => b.location_id && ids.has(b.location_id));
+}
+/** A box (location) and every binder in it or in the boxes nested in it, one batch (action status.box). */
 function sqOpenBox(locId){
   const l = typeof locById === 'function' ? locById(locId) : null; if (!l) return;
-  const bs = S.binders.filter(b => b.location_id === l.id);
+  const bs = sqBoxBinders(l);
   sqOpenSheet({targets:[sqTargetLoc(l)].concat(bs.map(b => Object.assign(sqTargetBinder(b), {box_id:l.id}))), kind:'box', title:t('sq_box_t', {c:l.code}), cur:sqCurrent(sqEv(), 'location', l.id), via:'box', box:{id:l.id, code:l.code}, action:'status.box'});
 }
 
@@ -295,7 +301,7 @@ function sqDashRowsHTML(rows, total){
 function sqRowCtx(key){ return sqRowsAll().find(r => r.key === key) || null; }
 function sqRowOpen(key, statusId){
   const r = sqRowCtx(key); if (!r) return;
-  if (r.kind === 'location'){ if (statusId) return sqQuickApply({targets:[sqTargetLoc(r.l)].concat(S.binders.filter(b => b.location_id === r.l.id && sqIsOut(sqPresence(sqBCur(b), sqTy())) && (sqBCur(b) || {}).box_id === r.l.id).map(b => Object.assign(sqTargetBinder(b), {box_id:r.l.id}))), kind:'box', box:{id:r.l.id, code:r.l.code}, via:'box', action:'status.box'}, statusId); return sqOpenBox(r.l.id); }
+  if (r.kind === 'location'){ if (statusId) return sqQuickApply({targets:[sqTargetLoc(r.l)].concat(sqBoxBinders(r.l).filter(b => sqIsOut(sqPresence(sqBCur(b), sqTy())) && (sqBCur(b) || {}).box_id === r.l.id).map(b => Object.assign(sqTargetBinder(b), {box_id:r.l.id}))), kind:'box', box:{id:r.l.id, code:r.l.code}, via:'box', action:'status.box'}, statusId); return sqOpenBox(r.l.id); }
   if (r.kind === 'document'){ if (statusId) return sqQuickApply({targets:[sqTargetDoc(r.b, r.b.contents_items.find(x => x.id === r.doc_id))], kind:'document', client:r.b.company_name, title:t('sq_sheet_t', {c:r.code + ' › ' + r.doc}), cur:r.ev}, statusId); return sqOpenDoc(r.b.id, r.doc_id); }
   if (statusId) return sqQuickApply({targets:[sqTargetBinder(r.b)], kind:'binder', client:r.b.company_name, title:t('sq_sheet_t', {c:r.code}), cur:r.ev}, statusId);
   sqOpenBinder(r.b.id);
@@ -353,7 +359,7 @@ function sqModeInput(raw){
   let targets = [], label = '', box = null;
   if (p.type === 'location'){
     const l = (S.locations || []).find(x => x.short_code === p.code);
-    if (l){ targets = [sqTargetLoc(l)].concat(S.binders.filter(b => b.location_id === l.id).map(b => Object.assign(sqTargetBinder(b), {box_id:l.id}))); label = t('sq_tt_location') + ' ' + l.code; box = {id:l.id, code:l.code}; }
+    if (l){ targets = [sqTargetLoc(l)].concat(sqBoxBinders(l).map(b => Object.assign(sqTargetBinder(b), {box_id:l.id}))); label = t('sq_tt_location') + ' ' + l.code; box = {id:l.id, code:l.code}; }
   } else if (p.type === 'binder' || p.type === 'text'){
     const b = S.binders.find(x => p.type === 'binder' ? x.short_code === p.code : String(x.speaking_code).toUpperCase() === p.code);
     if (b){ const cur = sqBCur(b); if (cur && cur.status_id === M.ty.id && (cur.holder || '') === (M.vals.holder || '')){ M.msg = {kind:'warn', text:t('sq_mode_dup', {c:b.speaking_code})}; if (typeof dmScanFeedback === 'function') dmScanFeedback('warn'); return sqModeDraw(); }
@@ -472,7 +478,7 @@ function sqChangedSince(since, exclude){
   });
   wrap('topbarHTML', (o) => function(){ const h = o.apply(this, arguments); return S.view === 'status' ? h.replace('data-a="nav" data-v="archive" class=""', 'data-a="nav" data-v="archive" class="on"') : h; });
   wrap('viewSettings', (o) => function(){ return o.apply(this, arguments) + sqSettingsHTML(); });
-  // Ubicazioni (06h): status of the selected box + "Stato della scatola…" (the box and every binder directly in it)
+  // Ubicazioni (06h): status of the selected box + "Stato della scatola…" (the box and every binder in it, nested boxes included — v12.1)
   wrap('locDetailHTML', (o) => function(){
     const h = o.apply(this, arguments), l = typeof LUI !== 'undefined' && typeof locById === 'function' ? locById(LUI.sel) : null; if (!l) return h;
     const k = h.indexOf('<span class="tb-sp"></span>'); if (k < 0) return h;

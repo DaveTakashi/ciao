@@ -1,6 +1,6 @@
 # DocMap — sicurezza: cosa protegge l'MVP e cosa no
 
-> Valido per la 26.12.0 (v12): §1–§5 descrivono il client (dalla v10), §5b il database online (v10.1), §5c il
+> Valido per la 26.12.1 (v12): §1–§5 descrivono il client (dalla v10), §5b il database online (v10.1), §5c il
 > registro sincronizzazioni (v11), §5d l'accesso senza PIN e il registro accessi (v12).
 
 > Sintesi onesta. L'MVP crea **le basi** (interfacce, formati, cifratura nel browser); il **sistema di sicurezza vero**
@@ -90,7 +90,10 @@ Livelli, dall'esterno verso l'interno:
 
 1. **HTTPS** (certificato SiteGround, "HTTPS forzato") + header di sicurezza del `.htaccess` (CSP `default-src 'self'`,
    HSTS, nosniff, no-referrer, noindex).
-2. **Protezione con password della cartella** (SiteGround › Directory protette, HTTP Basic): chi non ha utente e
+2. **Protezione con password della cartella** (SiteGround › Directory protette, HTTP Basic) — **dalla v12 non si usa** (decisione di
+   Dave, 2026-11-02): i telefoni la dimenticano e la richiederebbero a ogni QR, togliendo il vantaggio di "Ricordami". La
+   cartella contiene solo il programma; restano i livelli 1, 3 e 4. Il programma la supporta ancora (campi facoltativi
+   nella scheda Server online) per chi la vuole. Testo storico: chi non ha utente e
    password non scarica nemmeno il programma né raggiunge l'API. Il browser la chiede una volta per dispositivo.
 3. **Token dell'app** per ogni persona/dispositivo (`X-DocMap-Token`), con ruolo `viewer` / `editor` / `admin` controllato
    **dal server** su ogni rotta (un viewer non può scrivere). Sul server solo lo SHA-256 (`config.php` o tabella
