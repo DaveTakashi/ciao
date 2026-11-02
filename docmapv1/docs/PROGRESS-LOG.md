@@ -107,3 +107,12 @@
   `TRUSTED_LICENCE_KEYS`; (3) confermare le decisioni D1–D7 di `ROADMAP.md` §5 e la scelta HTTPS in LAN.
 - Lavori successivi possibili senza Dave: backup cifrati con passphrase nell'installer; aggancio nativo
   `DOCMAP_TEST_SERVER_CMD` in `suite.js` (file del thread v12).
+
+## 2026-11-02 11:05 · F5 · v12.1 (26.12.1) portata in Python
+
+- Fatto: merge di v12.1 (ab1de62) e porting in `server-python/docmap_server/api.py` (`loc_pack`): risposta `location`
+  con `nested_binders` (faldoni di tutte le ubicazioni sotto quella richiesta, con `location_id` e `location_code`,
+  ordinati per `location_code` e `speaking_code`, massimo 1000), `nested_count`, ed eventi di stato dei faldoni annidati.
+- Prove: `diff_test.py` 7 OK (senza la modifica fallisce sulle risposte `location`: le coppie esistenti coprono già
+  ubicazioni annidate); `test_licence.py` 9 OK; `validate_python.py` "all checks passed". Suite Playwright non rifatta.
+- Prossimo passo: invariato (prova Windows, chiave dell'hub, backup cifrati, `.exe`).

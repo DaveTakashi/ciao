@@ -962,14 +962,35 @@ def loc_pack(ctx, row):
         d = rec_data(ctx, r)
         path.insert(0, _brief(r, d))
         pid = php_str(pget(d, "parent_id", ""))
-    kids, binders, n = [], [], 0
+    kids, binders, n, nested, nn, par, lcode = [], [], 0, [], 0, {}, {}
     for r in db.execute("SELECT * FROM records WHERE type = 'location' AND deleted = 0").fetchall():
         d = rec_data(ctx, r)
+        par[r["id"]] = php_str(pget(d, "parent_id", ""))
+        lcode[r["id"]] = php_str(pget(d, "code", ""))
         if php_str(pget(d, "parent_id", "")) == row["id"]:
             kids.append(_brief(r, d))
+    # v12.1: every location nested below this one (boxes on a shelf, shelves in a cabinet...)
+    ch = {}
+    for lid, pp in par.items():
+        ch.setdefault(pp, []).append(lid)
+    sub, todo = set(), [row["id"]]
+    while todo:
+        x = todo.pop()
+        for lid in ch.get(x, []):
+            if lid not in sub and lid != row["id"]:
+                sub.add(lid)
+                todo.append(lid)
     for r in db.execute("SELECT * FROM records WHERE type = 'binder' AND deleted = 0").fetchall():
         d = rec_data(ctx, r)
-        if php_str(pget(d, "location_id", "")) != row["id"]:
+        bl = php_str(pget(d, "location_id", ""))
+        if bl != "" and bl in sub:
+            nn += 1
+            if len(nested) < 1000:
+                nested.append({"id": r["id"], "speaking_code": php_str(pget(d, "speaking_code", "")), "company_name": php_str(pget(d, "company_name", "")),
+                               "binder_title": php_str(pget(d, "binder_title", "")), "color_hex": php_str(pget(d, "color_hex", "")),
+                               "short_code": php_str(pget(d, "short_code", "")), "location_id": bl, "location_code": lcode.get(bl, "")})
+            continue
+        if bl != row["id"]:
             continue
         n += 1
         if len(binders) < 500:
@@ -979,14 +1000,15 @@ def loc_pack(ctx, row):
     from functools import cmp_to_key
     kids.sort(key=cmp_to_key(lambda a, b: strnatcasecmp(a["seg"], b["seg"])))
     binders.sort(key=cmp_to_key(lambda a, b: strnatcasecmp(a["speaking_code"], b["speaking_code"])))
+    nested.sort(key=cmp_to_key(lambda a, b: strnatcasecmp(a["location_code"], b["location_code"]) or strnatcasecmp(a["speaking_code"], b["speaking_code"])))
     # v12: statuses of the box, of the binders in it and of the binders that left with it (return check on the phone)
     bk = ctx.hidx("stbox/" + row["id"])
-    sk = [st_key(ctx, "location", row["id"])] + [st_key(ctx, "binder", x["id"]) for x in binders]
+    sk = [st_key(ctx, "location", row["id"])] + [st_key(ctx, "binder", x["id"]) for x in binders] + [st_key(ctx, "binder", x["id"]) for x in nested]
     for e in st_events(ctx, [], bk, DM_STATUS_PER_TARGET * 10):
         if pget(e, "target_type", "") != "location":
             sk.append(st_key(ctx, "binder", php_str(pget(e, "target_id", ""))))
     sev = st_events(ctx, sk, bk, DM_STATUS_PER_TARGET * 10)
-    return {"location": l, "etag": row["updated_at"], "path": path, "children": kids, "binders": binders, "count": n, "status_events": sev, "status_types": st_types(ctx)}
+    return {"location": l, "etag": row["updated_at"], "path": path, "children": kids, "binders": binders, "count": n, "nested_binders": nested, "nested_count": nn, "status_events": sev, "status_types": st_types(ctx)}
 
 
 def loc_find(ctx, qr, id_, code):
