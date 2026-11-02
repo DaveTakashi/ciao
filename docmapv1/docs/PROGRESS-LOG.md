@@ -53,3 +53,14 @@
   "vecchio server" è Python v11).
 - Prossimo passo: F4 installazione in sede su Windows (provare `run_windows.bat` di `hub/` e `server-python/` su un PC
   vero, servizio Windows, backup automatico), poi F5 quando la v12 cambia `api.php`.
+
+## 2026-11-02 00:55 · F5 · Avviso dal thread v12
+
+- Il thread v12 annuncia (non ancora pubblicato su `claude/project-thread-cz53ct` alle 00:55) queste modifiche al server
+  da portare in Python: `DM_SCHEMA 3` con tabella `access_log`; tipi record `archive` e `status_event` (solo aggiunte,
+  annullo con `undo_of`, LWW); rotte `access`, `last_seen`, `seen` con parametro `via`; opzioni config
+  `access_keep_days`, `access_dedupe_seconds`, `remember_minutes`; `me.remember_minutes`; `binder`/`location` con
+  `status_events` e `status_types`; nuove `features` in `ping`; CSV a 30 colonne (`archive_id`), SQLite locale schema 9.
+  Riferimento: `docs/API-CONTRACT.md` §11 e §12, `openapi.yaml`, `archive.schema.json`, `status_event.schema.json`.
+- Prossimo passo: quando è pubblicato, merge del branch v12 in `claude/project-thread-iqsptc` e porting in `server-python/`
+  con estensione di `diff_test.py`.
