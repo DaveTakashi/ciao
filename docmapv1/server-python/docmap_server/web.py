@@ -18,7 +18,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request as SRequest
 from starlette.responses import Response as SResponse
 
-from .api import Request, handle
+from .api import Request, handle, parse_query
 from .phpcompat import php_int
 from .phpconfig import read_config_file
 
@@ -70,8 +70,12 @@ def static_response(root: str, path: str):
     root = os.path.abspath(root).rstrip("/\\") or "/"
     rel = path.replace("\\", "/")
     file = os.path.normpath(os.path.join(root, rel.lstrip("/"))) if rel.strip("/") else root
-    if os.path.commonpath([os.path.abspath(file), root]) != root:
-        return SResponse(b"", status_code=400)
+    try:
+        inside = os.path.commonpath([os.path.abspath(file), root]) == root
+    except ValueError:   # Windows: another drive
+        inside = False
+    if not inside:
+        return SResponse(b"", status_code=400, headers={"Content-Type": "text/html; charset=UTF-8"})
     name = rel.rstrip("/").rsplit("/", 1)[-1]
     if name.startswith(".ht"):
         return _plain(403, "Forbidden")
@@ -136,7 +140,6 @@ def create_app(config_path: str, root: str | None = None, api_paths=DEFAULT_API_
             headers = {}
             for k, v in request.headers.raw:
                 headers[k.decode("latin-1").lower()] = v.decode("utf-8", "surrogateescape")
-            from .api import parse_query
             req = Request(request.method.upper(), parse_query(request.scope.get("query_string", b"")), headers, body,
                           request.client.host if request.client else None)
             res = await run_in_threadpool(handle, req, config_path)

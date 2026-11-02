@@ -27,3 +27,15 @@ Newest entries last. Resume from the last "Next step".
   → "RESULT: all checks passed" (262 OK; validate_schemas.py imported unchanged, step 4 swapped for the Python server).
 - Added requirements.txt, README.md (IT), run_windows.bat (CRLF), run_unix.sh, .gitattributes.
 - Next step: review leftovers (Windows path edge cases in static_response, robustness), final commit.
+
+## 2026-11-02 — final state (all proofs green)
+- Commands (from the repo root) and last results:
+  - `python3 docmapv1/server-python/tests/diff_test.py` → Ran 5 tests, OK (149 + 28 + 9 + 5 request pairs identical,
+    9 tables identical after decryption). Also OK with Python 3.11 (`/usr/bin/python3.11` venv + requirements.txt).
+  - `NODE_PATH=/opt/node22/lib/node_modules python3 docmapv1/server-python/tests/validate_python.py` → "RESULT: all checks passed" (262 OK).
+  - Concurrency smoke: 40 parallel pushes × 50 records → 2000 applied, no "database is locked".
+- Known differences (README "Differenze note"): ping `php` = "Python 3.x"; PHP relative date strings ("now", "@123")
+  not parsed (treated as invalid = 0); byte-cut UTF-8 in substr() stored as U+FFFD (same JSON output).
+- Licence hook: docmap_server/licence.py current_mode() → 'full'; 'read_only' makes write routes answer 403 licence_read_only.
+- Next step (optional): hook DOCMAP_TEST_SERVER_CMD into tests/suite.js (not ours to edit: other team) so the Playwright
+  suite W/X/J can run against `python -m docmap_server serve --config {config} --port {port} --root {root}`.

@@ -1184,14 +1184,10 @@ def r_tokens(ctx):
 
 
 def valid_user_name(user: str) -> bool:
-    """/^[\\p{L}\\p{N} ._@-]{1,60}$/u"""
+    """/^[\\p{L}\\p{N} ._@-]{1,60}$/u on an already trimmed name (letters / digits of any script, space . _ @ -)."""
     import unicodedata
-    if not (1 <= len(user) <= 60) and not (len(user) == 61 and user.endswith("\n")):
+    if not 1 <= len(user) <= 60:
         return False
-    if user.endswith("\n"):
-        user = user[:-1]
-        if not user:
-            return False
     try:
         user.encode("utf-8")
     except UnicodeEncodeError:
@@ -1252,7 +1248,7 @@ def handle(req: Request, config_path: str) -> Response:
                 fail(405, "method", "use POST")
             if method not in ("GET", "POST"):
                 fail(405, "method", "use GET or POST")
-            db = open_db(ctx)
+            open_db(ctx)
             who = auth(ctx, READS.get(route) or WRITES[route])
             if route in WRITES and licence.current_mode() != "full":
                 fail(403, "licence_read_only", licence.READ_ONLY_MESSAGE)
@@ -1286,7 +1282,6 @@ def handle(req: Request, config_path: str) -> Response:
                 res = r_token_revoke(ctx)
             if etag:
                 ctx.header("ETag", '"' + php_str(res["etag"]) + '"')
-            del db
             return ctx.out(200, res)
         except ApiError as e:
             err = {"code": e.code_name, "message": e.message}
