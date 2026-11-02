@@ -66,3 +66,17 @@ Newest entries last. Resume from the last "Next step".
 - Python pure (DOCMAP_SHIM_LEGACY_PHP=0): 1092 passed, 1 failed — "J: v10.1 API … schema 1, no journal" (inherent: the
   "old server" is then the v11 Python). No Python bugs found; api.py unchanged by F2.
 - Next step: optional — get a DOCMAP_TEST_SERVER_CMD hook into suite.js (other team) so the shim is not needed.
+
+## 2026-11-02 — F5 v12 parity (api.php v12, merged in 16270a2)
+- api.py: DM_SCHEMA 3 (MIGRATIONS[3] = access_log + 5 indexes, existence-keyed like PHP), DM_TYPES + archive, status_event;
+  rec_write status_event HMAC indexes (k_short 'st/b|l/<target>', k_code 'stbox/<box>'); st_key/st_events/st_types →
+  binder/location `status_events` + `status_types`; acc_via/acc_write/acc_after_read/acc_prune/acc_meta/acc_target_where,
+  routes access (editor own / admin all + ip), last_seen (viewer), seen (POST viewer, ≤500, dedupe ± window); `via` on
+  binder/location/resolve (logged after a successful read, never fails the read); config defaults access_keep_days 365,
+  access_dedupe_seconds 120, remember_minutes null; me.remember_minutes (is_numeric → (int) else null); ping features.
+- Licence: `seen` exempt from licence_read_only (LICENCE_AUDIT_WRITES): an audit record of a read, like the access_log row of a
+  binder read. status_event/archive pushes are blocked like any push. access/last_seen are reads.
+- diff_test.py: + test_1b_v12 (88 pairs + content asserts), test_5 now v10.1 → schema 3, + test_6_upgrade_v11 (v11.1 api.php of
+  32c3485: copies upgraded by PHP v12 / Python v12 compared incl. decrypted DB; one folder upgraded by Python then served by PHP
+  v12 and the reverse; v11.1 PHP still serves the schema-3 file). dump_db decrypts access_log.meta.
+  Mutation check: wrong event order / wrong via whitelist / seen ± window bounds (inclusive) are all caught (read-dedupe `at >=` vs `>` is not: sub-ms timing).

@@ -1,5 +1,10 @@
 # DocMap — server Python (porting 1:1 di `server-php/api.php`)
 
+> **Parità v12** (DocMap 26.12.0): stesso contratto di `api.php` v12 — `schema` 3 (tabella `access_log`, aggiunta in
+> place da un database v11 o v10.1), tipi di record `archive` e `status_event`, rotte `access`, `last_seen`, `seen`,
+> parametro `via` di `binder` / `location` / `resolve`, `status_events` e `status_types` nelle risposte di `binder` e
+> `location`, `me.remember_minutes`, `ping.features` = `journal, device_info, locations, archives, access_log, status_events`.
+
 Questo è il database online condiviso di DocMap riscritto in Python (FastAPI + uvicorn + cryptography).
 Fa **esattamente** quello che fa `server-php/api.php`: stesse rotte (`?r=<rotta>` su un solo indirizzo), stessi
 parametri, stesso JSON, stessi codici HTTP ed `error.code`, stessi header (CORS, `ETag`, `no-store`…), stessa
@@ -45,10 +50,19 @@ Il server legge, nell'ordine: l'opzione `--config <file>`, la variabile d'ambien
 {"data_dir": "C:\\DocMapData", "aes_key": "<32 byte in base64>",
  "tokens": [{"user": "davide", "role": "admin", "token_sha256": "<64 hex>"}],
  "allowed_origins": ["null"], "max_fails": 5, "lock_seconds": 60, "max_body_mb": 20, "studio_name": "",
- "journal_keep_days": 0, "journal_pulls": "changes"}
+ "journal_keep_days": 0, "journal_pulls": "changes",
+ "access_keep_days": 365, "access_dedupe_seconds": 120, "remember_minutes": null}
 ```
 
 Il significato delle chiavi è quello di `server-php/config.sample.php` (e di `docs/python/PORTING.md` §2).
+
+Opzioni nuove della v12 (tutte facoltative, stessi valori predefiniti del PHP):
+
+| Chiave | Predefinito | Cosa fa |
+|---|---|---|
+| `access_keep_days` | `365` | giorni di registro accessi conservati; le righe più vecchie si tolgono al massimo una volta al giorno; `0` = per sempre (e `seen` accetta visite di qualsiasi data) |
+| `access_dedupe_seconds` | `120` | la stessa persona, dallo stesso dispositivo, sullo stesso record e nello stesso modo (`via`) entro questo tempo = una riga sola; per `seen`, un elemento rimandato con `at` entro ± questo tempo è registrato una volta; `0` = ogni lettura |
+| `remember_minutes` | `null` | restituito da `me`: minuti di inattività dopo cui il telefono chiede di nuovo il PIN (`null` = decide il dispositivo, `0` = sempre, `480` = 8 ore, `43200` = 30 giorni, `-1` = finché non si esce). Un valore non numerico vale `null`, un numero con decimali è troncato (come `is_numeric` / `(int)` del PHP) |
 
 ### Prima installazione (al posto di `setup.php`)
 
@@ -100,7 +114,11 @@ Con il controllo attivo:
 - lo stato è tenuto in memoria e ricontrollato al massimo ogni 10 minuti, oppure subito se il file cambia;
 - `full` / `grace` (tolleranza) → tutto funziona; `read_only` / `invalid` → le scritture (`push`, `patch`,
   `token_create`, `token_revoke`, `journal_restore`) rispondono **403 `licence_read_only`**, mentre letture, `pull` ed
-  esportazioni funzionano sempre (la licenza non blocca mai i dati);
+  esportazioni funzionano sempre (la licenza non blocca mai i dati). v12: i record `archive` e `status_event` passano da
+  `push` e quindi sono bloccati come gli altri; `access` e `last_seen` sono letture e funzionano; **`seen`** (POST) è
+  un record di controllo ("chi ha guardato cosa"), non una modifica dei dati: **funziona anche in sola lettura**, come
+  la riga di `access_log` che ogni lettura di `binder` / `location` / `resolve` scrive (costante `LICENCE_AUDIT_WRITES`
+  in `api.py`). I `status_event` non contano nel limite `limits.binders`;
 - limiti: un `push` che creerebbe faldoni oltre `limits.binders` (intero push rifiutato) e un `token_create` per un nuovo
   utente oltre `limits.users` (utenti = nomi distinti con un token attivo) rispondono **403 `licence_limit`**; modificare
   o eliminare resta sempre possibile;
@@ -132,7 +150,8 @@ Suite Playwright completa (`docmapv1/tests/suite.js`, non modificata) con il Pyt
 `diff_test.py` avvia `php -S … tests/php-router.php` e il server Python con la stessa chiave e gli stessi token, manda a
 entrambi la stessa sequenza di richieste e confronta stato, JSON e header; poi confronta i due `docmap.sqlite`
 (decifrati), apre la cartella dati del PHP con il Python e viceversa, prova il blocco per IP e l'aggiornamento di un
-database v10.1. Stato e risultati: `PROGRESS.md`.
+database v10.1 (1 → 2 → 3) e di un database v11.1 (2 → 3, anche con PHP v12 e Python v12 sulla stessa cartella dati).
+Stato e risultati: `PROGRESS.md`.
 
 ## Differenze note rispetto al PHP
 
