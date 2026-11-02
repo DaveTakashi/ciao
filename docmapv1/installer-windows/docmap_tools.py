@@ -718,6 +718,9 @@ def build_package(out: str, make_zip: bool = False, repo_docmap: str | None = No
     shutil.copytree(os.path.join(srv_src, "docmap_server"), os.path.join(out, "server", "docmap_server"),
                     ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
     shutil.copyfile(os.path.join(srv_src, "requirements.txt"), os.path.join(out, "server", "requirements.txt"))
+    guida_sync = os.path.join(srv_src, "GUIDA-SYNC-WEB-LOCALE.md")
+    if os.path.isfile(guida_sync):   # guida del ponte web <-> locale (sync-remote), accanto alla guida di installazione
+        shutil.copyfile(guida_sync, os.path.join(out, "GUIDA-SYNC-WEB-LOCALE.md"))
     wheels = os.path.join(HERE, "wheels")
     if os.path.isdir(wheels):
         shutil.copytree(wheels, os.path.join(out, "server", "wheels"))
