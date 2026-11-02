@@ -2602,7 +2602,7 @@ const sec = (n) => console.log('\n== ' + n);
       ['config.php', 'setup.php.disabled'].forEach(f => { const x = Wpath.join(WSP, f); if (fs.existsSync(x)) fs.renameSync(x, x + '.prev-run'); });
       const WDATA = Wpath.resolve(__dirname, 'shots', 'srv-data', String(Date.now()));
       const WPORT = 18300 + (process.pid % 500), WO = 'http://127.0.0.1:' + WPORT, WAPI = WO + '/studio-de/server-php/api.php';
-      const Wsrv = Wcp.spawn('php', ['-S', '127.0.0.1:' + WPORT, '-t', WR, Wpath.resolve(__dirname, 'php-router.php')], {stdio:'ignore'});
+      const Wsrv = Wcp.spawn('php', ['-d', 'opcache.revalidate_freq=0', '-S', '127.0.0.1:' + WPORT, '-t', WR, Wpath.resolve(__dirname, 'php-router.php')], {stdio:'ignore'});
       const Wsleep = (ms) => new Promise(r => setTimeout(r, ms));
       const Wq = async (route, o) => {
         o = o || {}; const h = Object.assign({}, o.headers || {});
@@ -3044,7 +3044,7 @@ const sec = (n) => console.log('\n== ' + n);
       fs.writeFileSync(Xpath.join(XSP, 'api.php'), Xold);   // start with the v10.1 server
       const XDATA = Xpath.resolve(__dirname, 'shots', 'srvx-data', String(Date.now()));
       const XPORT = 18900 + (process.pid % 500), XO = 'http://127.0.0.1:' + XPORT, XAPI = XO + '/studio-de/server-php/api.php';
-      const Xsrv = Xcp.spawn('php', ['-S', '127.0.0.1:' + XPORT, '-t', XR, Xpath.resolve(__dirname, 'php-router.php')], {stdio:'ignore'});
+      const Xsrv = Xcp.spawn('php', ['-d', 'opcache.revalidate_freq=0', '-S', '127.0.0.1:' + XPORT, '-t', XR, Xpath.resolve(__dirname, 'php-router.php')], {stdio:'ignore'});
       const Xsleep = (ms) => new Promise(r => setTimeout(r, ms));
       const Xq = async (route, o) => {
         o = o || {}; const h = {};
@@ -3203,7 +3203,7 @@ const sec = (n) => console.log('\n== ' + n);
       // the v10.1 API first (same data folder, same key): the data the user has today
       fs.writeFileSync(Jpath.join(JSP, 'api.php'), Jcp.execFileSync('git', ['show', '68ae170:docmapv1/server-php/api.php'], {cwd:Jpath.resolve(__dirname, '..')}));
       const JPORT = 18850 + (process.pid % 300), JO = 'http://127.0.0.1:' + JPORT, JAPI = JO + '/studio-de/server-php/api.php';
-      const Jsrv = Jcp.spawn('php', ['-S', '127.0.0.1:' + JPORT, '-t', JR_, Jpath.resolve(__dirname, 'php-router.php')], {stdio:'ignore'});
+      const Jsrv = Jcp.spawn('php', ['-d', 'opcache.revalidate_freq=0', '-S', '127.0.0.1:' + JPORT, '-t', JR_, Jpath.resolve(__dirname, 'php-router.php')], {stdio:'ignore'});
       const Jsleep = (ms) => new Promise(r => setTimeout(r, ms));
       const Jq = async (route, o) => {
         o = o || {}; const h = Object.assign({}, o.headers || {});
@@ -3884,7 +3884,7 @@ const sec = (n) => console.log('\n== ' + n);
       fs.writeFileSync(Qpath.join(QSP, 'config.php'), "<?php\nif (!defined('DOCMAP_API')) { http_response_code(404); exit; }\nreturn ['data_dir' => " + JSON.stringify(QDATA) + ", 'aes_key' => '" + Qcrypto.randomBytes(32).toString('base64') + "',\n  'tokens' => [" +
         [['dave', 'admin'], ['anna', 'editor'], ['lia', 'viewer']].map(([u, r]) => "['user' => '" + u + "', 'role' => '" + r + "', 'token_sha256' => '" + sha(QT[u]) + "']").join(', ') + "],\n  'allowed_origins' => ['null'], 'max_fails' => 50, 'studio_name' => 'Studio Stati Prova'];\n");
       const QPORT = 19450 + (process.pid % 300), QO = 'http://127.0.0.1:' + QPORT, QAPI = QO + '/studio-de/server-php/api.php';
-      const Qsrv = Qcp.spawn('php', ['-S', '127.0.0.1:' + QPORT, '-t', QR_, Qpath.resolve(__dirname, 'php-router.php')], {stdio:'ignore'});
+      const Qsrv = Qcp.spawn('php', ['-d', 'opcache.revalidate_freq=0', '-S', '127.0.0.1:' + QPORT, '-t', QR_, Qpath.resolve(__dirname, 'php-router.php')], {stdio:'ignore'});
       const Qsleep = (ms) => new Promise(r => setTimeout(r, ms));
       const Qq = async (route, o) => { o = o || {}; const h = {}; if (o.token) h['X-DocMap-Token'] = o.token; if (o.body !== undefined) h['Content-Type'] = 'application/json';
         const r = await fetch(QAPI + '?r=' + route + (o.q ? '&' + new URLSearchParams(o.q).toString() : ''), {method:o.body !== undefined ? 'POST' : 'GET', headers:h, body:o.body === undefined ? undefined : JSON.stringify(o.body)}); let j = null; try { j = await r.json(); } catch(e){} return {s:r.status, j}; };
@@ -4129,7 +4129,7 @@ const sec = (n) => console.log('\n== ' + n);
       fs.writeFileSync(Apath.join(ASP, 'config.php'), Acfg(ADATA));
       fs.writeFileSync(Apath.join(ASP, 'api.php'), Agit('58a53e0'));   // the v11 / v11.1 API first: the server the studio has today
       const APORT = 19100 + (process.pid % 300), AO = 'http://127.0.0.1:' + APORT, AAPI = AO + '/studio-de/server-php/api.php';
-      const Asrv = Acp.spawn('php', ['-S', '127.0.0.1:' + APORT, '-t', AR, Apath.resolve(__dirname, 'php-router.php')], {stdio:'ignore'});
+      const Asrv = Acp.spawn('php', ['-d', 'opcache.revalidate_freq=0', '-S', '127.0.0.1:' + APORT, '-t', AR, Apath.resolve(__dirname, 'php-router.php')], {stdio:'ignore'});
       const Asleep = (ms) => new Promise(r => setTimeout(r, ms));
       const Aq = async (route, o) => {
         o = o || {}; const h = Object.assign({}, o.headers || {});
@@ -4677,7 +4677,7 @@ const sec = (n) => console.log('\n== ' + n);
       ['config.php', 'setup.php.disabled'].forEach(f => { const x = Cpath.join(CSP, f); if (fs.existsSync(x)) fs.renameSync(x, x + '.prev-run-' + Date.now()); });
       const CDATA = Cpath.resolve(__dirname, 'shots', 'srvc-data', String(Date.now()));
       const CPORT = 19400 + (process.pid % 300), CO = 'http://127.0.0.1:' + CPORT, CAPI = CO + '/studio-de/server-php/api.php';
-      const Csrv = Ccp.spawn('php', ['-S', '127.0.0.1:' + CPORT, '-t', CR, Cpath.resolve(__dirname, 'php-router.php')], {stdio:'ignore'});
+      const Csrv = Ccp.spawn('php', ['-d', 'opcache.revalidate_freq=0', '-S', '127.0.0.1:' + CPORT, '-t', CR, Cpath.resolve(__dirname, 'php-router.php')], {stdio:'ignore'});
       const Csleep = (ms) => new Promise(r => setTimeout(r, ms));
       const Cq_ = async (route, o) => { o = o || {}; const h = {}; if (o.token) h['X-DocMap-Token'] = o.token; if (o.body !== undefined) h['Content-Type'] = 'application/json';
         const r = await fetch(CAPI + '?r=' + route + (o.q ? '&' + new URLSearchParams(o.q).toString() : ''), {method:o.body !== undefined ? 'POST' : 'GET', headers:h, body:o.body === undefined ? undefined : JSON.stringify(o.body)});
