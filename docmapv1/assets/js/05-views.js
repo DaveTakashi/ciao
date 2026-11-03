@@ -41,6 +41,7 @@ function filteredBinders(){
     if (UI.fLoc && typeof locBinderIn === 'function' && !locBinderIn(b, UI.fLoc)) return false;   // v11: location filter (06h-locations.js)
     if (typeof archBinderVisible === 'function' && !archBinderVisible(b)) return false;   // v12: archive chosen in the top-bar switcher (06l-archives.js)
     if (UI.fInfo && !infoMatch(b, UI.fInfo)) return false;   // filter set from Informazioni
+    if (UI.fSelOnly && !(typeof BK !== 'undefined' && BK.on) && !b.selected_for_print) return false;   // v12.5: archive "Solo selezionati" (not in the bulk grid, which has its own)
     if (!q) return true;
     const hay = [b.speaking_code, b.multi_code, b.company_name, b.company_city, b.ref_year, b.extra_codes, b.category, b.binder_title, b.location_code, b.tags, b.short_code, contentsToPipe(b.contents_items), t('s_' + b.archive_state), b.contacts, b.notes, ciSearchWords(b), typeof locBinderSearchText === 'function' ? locBinderSearchText(b) : ''].join(' ').toLowerCase();
     return q.split(/\s+/).every(w => hay.indexOf(w) >= 0);
@@ -76,6 +77,8 @@ function renderArchiveResults(){
   const bb = $('#bulkbar');
   if (bb) bb.innerHTML = '<button class="btn btn-sm" data-a="sel-all">' + ic('check') + esc(t('sel_all')) + '</button><button class="btn btn-sm" data-a="sel-none">' + esc(t('sel_none')) + '</button>' +
     '<span class="small muted" style="margin:0 6px">' + esc(t('queue_sel', {n:selN})) + '</span>' +
+    (selN || UI.fSelOnly ? '<button class="btn btn-sm' + (UI.fSelOnly ? ' btn-dark' : '') + '" data-a="arch-only-sel" id="arch-only-sel" aria-pressed="' + !!UI.fSelOnly + '" title="' + esc(t('arch_only_sel_d')) + '">' + esc(t(UI.fSelOnly ? 'arch_only_sel_off' : 'arch_only_sel')) + '</button>' : '') +
+    (selN ? '<button class="btn btn-sm" data-a="bulk-open-sel" id="btn-bulk-sel" title="' + esc(t('bk_open_sel_d')) + '">' + ic('table') + esc(t('bk_open_sel', {n:selN})) + '</button>' : '') +
     '<span style="flex:1"></span><button class="btn btn-sm btn-danger" data-a="del-sel"' + (selN ? '' : ' disabled') + '>' + ic('trash') + esc(t('del_sel')) + '</button>' +
     '<button class="btn btn-sm btn-dark" data-a="nav" data-v="print"' + (selN ? '' : ' disabled') + '>' + ic('printer') + esc(t('go_print')) + '</button>';
   const box = $('#arch-results'); if (!box) return;

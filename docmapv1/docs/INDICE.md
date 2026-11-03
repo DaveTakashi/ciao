@@ -1,6 +1,6 @@
 # Indice della documentazione DocMap
 
-> Mappa di tutti i documenti di `docmapv1/` (versione **26.12.4**): a cosa serve ognuno, chi lo deve leggere e in che
+> Mappa di tutti i documenti di `docmapv1/` (versione **26.12.5**): a cosa serve ognuno, chi lo deve leggere e in che
 > ordine. I percorsi sono relativi a `docmapv1/`.
 
 ## Chi legge cosa
@@ -44,6 +44,7 @@
 | [`AGGIORNAMENTO-v10-v12.md`](AGGIORNAMENTO-v10-v12.md) | **Guida diretta dalla v10.0 alla v12** (salta v10.1, v11, v11.1): backup, server facoltativo, stessa cartella, controlli, rollback. |
 | [`GUIDA-SINCRONIZZAZIONE.md`](GUIDA-SINCRONIZZAZIONE.md) | **Quale sincronizzazione usare** (server o file) e i passi PC locale ⇄ web app ⇄ telefoni in entrambi i sensi. |
 | [`AGGIORNARE-IL-SERVER.md`](AGGIORNARE-IL-SERVER.md) | **Aggiornare il server senza perdere niente**: cosa non toccare (`config.php`, dati), 5 passi, Verifica dopo l'aggiornamento, cosa fare se è andato storto. |
+| [`AGGIORNAMENTO-v12.4-v12.5.md`](AGGIORNAMENTO-v12.4-v12.5.md) | **Guida dalla v12.4 alla v12.5**: solo file del programma (selezione che resta, Solo selezionati, ristampa delle sole etichette modificate). |
 | [`AGGIORNAMENTO-v12.3-v12.4.md`](AGGIORNAMENTO-v12.3-v12.4.md) | **Guida dalla v12.3 alla v12.4**: codice di accesso facoltativo, 👁 sulle password, verifica del server. |
 | [`AGGIORNAMENTO-v12.2-v12.3.md`](AGGIORNAMENTO-v12.2-v12.3.md) | **Guida dalla v12.2 alla v12.3**: solo file del programma (etichettatrici, striscia ubicazione, adesivi piccoli). |
 | [`AGGIORNAMENTO-v12.1-v12.2.md`](AGGIORNAMENTO-v12.1-v12.2.md) | **Guida dalla v12.1 alla v12.2**: solo file del programma. |
