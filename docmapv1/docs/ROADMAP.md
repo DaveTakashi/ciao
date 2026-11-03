@@ -1,6 +1,6 @@
 # Roadmap DocMap: dall'MVP a Python, hub e vendita
 
-> Stato al 2026-11-02. Scritta dopo l'audit del layer Python «ArchivioSmartHub» e le risposte di Dave del 2026-11-01.
+> Stato al 2026-11-03 (app v12.5, hub 0.3, strumenti installazione 1.2.0). Scritta dopo l'audit del layer Python «ArchivioSmartHub» e le risposte di Dave del 2026-11-01.
 > Documento di strategia completo (perché, prezzi, architettura): Claude Doc «DocMap: strategia Python, architettura e
 > business». Avanzamento passo per passo: [`PROGRESS-LOG.md`](PROGRESS-LOG.md) (**leggilo per ripartire**).
 
@@ -33,12 +33,12 @@ Ogni fase ha un **cancello**: non si passa alla successiva finché non è vero.
 | # | Fase | Contenuto | Cancello | Stato |
 |---|---|---|---|---|
 | F0 | Roadmap e registro | questo file, `PROGRESS-LOG.md`, aggiornamento del documento di strategia | documenti nel repository | fatto |
-| F1 | **Server Python 1:1** | `server-python/` (FastAPI + Uvicorn + `cryptography`): tutte le rotte di `API-CONTRACT.md`, stessa cifratura, stessi hash, stesso `docmap.sqlite`, legge `config.php` esistente o `config.json` | test differenziali PHP ⇄ Python verdi + `validate_schemas.py` verde contro Python | in corso |
+| F1 | **Server Python 1:1** | `server-python/` (FastAPI + Uvicorn + `cryptography`): tutte le rotte di `API-CONTRACT.md`, stessa cifratura, stessi hash, stesso `docmap.sqlite`, legge `config.php` esistente o `config.json` | test differenziali PHP ⇄ Python verdi + `validate_schemas.py` verde contro Python | fatto (parità con PHP v12.5, diff_test verde) |
 | F2 | Aggancio della suite | variabile `DOCMAP_TEST_SERVER=python` che fa girare le sezioni W/X/J della suite contro Python (PORTING §9.1) | sezioni W, X, J verdi con Python | **fatto** con lo shim `server-python/tests/php-shim` (suite.js non modificata); aggancio nativo `DOCMAP_TEST_SERVER_CMD` da concordare con il thread della suite |
 | F3 | **Hub locale + licenze** | `hub/`: chiavi Ed25519 sul PC di Dave, emissione licenze firmate (piano, scadenza, limiti, funzioni, rivenditore, marchio), registro istanze, pagina locale; verifica nel server Python (tolleranza 30 giorni, poi sola lettura, **mai blocco dei dati**) | licenza emessa dall'hub accettata dal server; scaduta → sola lettura; manomessa → rifiutata | **fatto** su Linux (hub 39 test, server 9 test); da provare su Windows; manca la chiave pubblica di produzione in `TRUSTED_LICENCE_KEYS` |
 | F4 | Installazione in sede (Windows) | script di avvio e servizio Windows, cartella fissa `C:\DocMap\`, backup cifrato automatico, guida | Dave installa su un PC di prova seguendo solo la guida | **scritto** in `installer-windows/` (37 test su Linux); mai eseguito su Windows; backup non ancora cifrati |
 | F5 | Allineamento v12 | portare in Python le modifiche server della v12 (stati/eventi, login persistente, ubicazioni annidate, ricerca) appena il thread v12 le rilascia | suite v12 verde contro Python | **fatto** (2026-11-02): suite 1232/1232 contro Python; da ripetere a ogni modifica di `api.php` |
-| F6 | Primi clienti | 3-5 studi + il cliente rivenditore; istanze create a mano con licenza dall'hub | almeno 3 paganti | da fare |
+| F6 | Primi clienti | 3-5 studi + il cliente rivenditore; istanze create a mano con licenza dall'hub | almeno 3 paganti | **pronto il percorso**: `cliente nuovo` nel hub + pacchetto personale + sito + sync automatica, guida `GUIDA-NUOVO-CLIENTE.md`; manca la prova reale su Windows/SiteGround |
 | F7 | Hub v1 | aggiornamenti firmati a ondate con rollback, battito delle istanze, backup cifrati raccolti, pannello rivenditore | aggiornare 10 istanze con un comando; ripristino di prova riuscito | da fare |
 | F8 | Pagamenti e crediti AI | rinnovo in app (pagamento ospitato tipo Stripe Checkout → licenza nuova), fattura elettronica SDI, gateway AI con crediti prepagati e ricarico | primo rinnovo pagato senza intervento manuale | da fare |
 | F9 | VPS UE e cloud | hub e istanze cloud su VPS (o sul server privato di Dave) | migrazione dell'hub senza perdita | futuro |
