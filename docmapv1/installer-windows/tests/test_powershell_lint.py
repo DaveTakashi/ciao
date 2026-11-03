@@ -155,7 +155,7 @@ class PowerShellLint(unittest.TestCase):
     def test_scripts_present(self):
         names = {os.path.basename(s) for s in SCRIPTS}
         self.assertTrue({"installa.ps1", "comune.ps1", "backup.ps1", "ripristina.ps1", "aggiorna.ps1", "disinstalla.ps1",
-                         "licenza.ps1"} <= names, names)
+                         "licenza.ps1", "kit-emergenza.ps1"} <= names, names)
         for f in T.INSTALLER_FILES:
             self.assertTrue(os.path.isfile(os.path.join(INST, f)), f)
 
@@ -215,7 +215,8 @@ class PowerShellLint(unittest.TestCase):
         self.assertTrue(used, "nessun comando trovato")
         used = {u for u in used if not u.startswith("-")}
         self.assertEqual(used - cmds, set())
-        for c in ("backup", "ripristina", "verifica-zip", "ping", "config-js", "cert", "pagina-indirizzo", "controlla-pacchetto"):
+        for c in ("backup", "ripristina", "verifica-zip", "ping", "config-js", "cert", "pagina-indirizzo", "controlla-pacchetto",
+                  "verifica-backup", "kit-emergenza", "stato-kit", "recupera-chiave", "passphrase-backup"):
             self.assertIn(c, used)
 
     def test_install_copies_every_package_file(self):
@@ -223,6 +224,16 @@ class PowerShellLint(unittest.TestCase):
         m = re.search(r"foreach \(\$f in @\(('[^)]*)\)\)", src, re.S)
         listed = set(re.findall(r"'([^']+)'", m.group(1)))
         self.assertEqual(set(T.INSTALLER_FILES) - listed, set())
+
+    def test_secrets_never_on_command_line(self):
+        """Passphrase e codice di recupero passano solo da variabili d'ambiente (mai negli argomenti, visibili a tutti nei
+        processi) e vengono tolte alla fine."""
+        for s in SCRIPTS:
+            src = read(s).decode("utf-8-sig")
+            self.assertNotRegex(src, r"Invoke-Tools\s+@\([^)]*\$(pp|env:DOCMAP_PASSPHRASE|env:DOCMAP_CODICE)", s)
+            for var in ("DOCMAP_PASSPHRASE", "DOCMAP_CODICE"):
+                if "$env:%s =" % var in src:
+                    self.assertIn("Remove-Item Env:%s" % var, src, "%s: %s non tolta" % (os.path.basename(s), var))
 
     def test_bat_wrapper(self):
         bat = read(os.path.join(INST, "installa.bat")).decode("ascii")

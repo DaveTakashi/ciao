@@ -70,8 +70,10 @@ try {
     Write-Titolo '3/9  Backup'
     if ($aggiornamento) {
         Write-Info 'DocMap e gia installato: questo e un AGGIORNAMENTO. Dati e configurazione restano come sono.'
-        # sqlite3 è nella libreria standard: il backup funziona anche con il Python di sistema, a server acceso
-        $code = Invoke-Tools @('backup') -python $sysPy -tools $tools
+        # il backup è cifrato: serve 'cryptography', che c'è nel Python del server (venv) installato la volta prima
+        $pyBackup = $sysPy
+        if ((Test-Path -LiteralPath $p.VenvPython) -and ((Invoke-Native $p.VenvPython @('-c', 'import cryptography') -Cattura) -eq 0)) { $pyBackup = $p.VenvPython }
+        $code = Invoke-Tools @('backup') -python $pyBackup -tools $tools
         if ($code -ne 0) { throw 'Backup non riuscito: aggiornamento annullato, nulla e stato cambiato.' }
         Write-Ok "Backup fatto in $($p.Backup)"
     } else {
@@ -121,10 +123,19 @@ try {
 
     if (-not (Test-Path -LiteralPath $p.Config)) {
         if (Test-Path -LiteralPath (Join-Path $p.Dati 'docmap.sqlite')) {
-            # database senza configurazione: una chiave nuova non lo aprirebbe. Si rimette la config dal backup.
-            throw ("C'e gia un database in $($p.Dati) ma manca $($p.Config). Non creo una chiave nuova: " +
-                   "rimetti config.json da un backup (cartella config dello zip) oppure usa ripristina.ps1, poi rilancia installa.bat.")
+            # database senza configurazione: una chiave nuova non lo aprirebbe. Si recupera la chiave dal Kit di emergenza.
+            Write-Avviso "C'e gia un database in $($p.Dati) ma manca $($p.Config): una chiave nuova non lo aprirebbe."
+            $recuperata = $false
+            if (-not $NonChiedere -and (Read-SiNo 'Hai il Kit di emergenza (file .docmap-key + foglio con il codice di recupero)?' $true)) {
+                $recuperata = Invoke-RecuperoKit ''
+            }
+            if (-not $recuperata) {
+                throw ("Non creo una chiave nuova. Rimetti la chiave con il Kit di emergenza (rilancia installa.bat e rispondi si, " +
+                       "oppure kit-emergenza.ps1 -Recupera) o da un backup (ripristina.ps1), poi rilancia installa.bat.")
+            }
         }
+    }
+    if (-not (Test-Path -LiteralPath $p.Config)) {
         while ($true) {
             if (-not $Admin) {
                 if ($NonChiedere) { $Admin = 'admin' } else {
@@ -157,6 +168,11 @@ try {
     } else {
         Write-Ok "Configurazione esistente mantenuta: $($p.Config)"
     }
+    # passphrase dei backup cifrati (una volta; gli aggiornamenti la lasciano com'è)
+    if ((Invoke-Tools @('passphrase-backup', '--crea') -Cattura) -ne 0) { throw ('Passphrase dei backup: ' + ($script:UltimoOutput -join ' ')) }
+    try { $ppInfo = ($script:UltimoOutput -join "`n") | ConvertFrom-Json } catch { $ppInfo = $null }
+    if ($ppInfo -and $ppInfo.creata) { Write-Ok 'Passphrase dei backup creata (i backup sono cifrati): finira sul foglio del Kit di emergenza.' }
+    else { Write-Ok 'Passphrase dei backup gia presente.' }
 
     # ------------------------------------------------------------ 7. programma web e certificato
     Write-Titolo '7/9  Indirizzo e certificato della rete locale'
@@ -200,6 +216,22 @@ try {
     Write-Ok 'Il server risponde (ping).'
     Limit-Versioni 3
     [void](Invoke-Tools @('pagina-indirizzo') -Cattura)
+
+    # ------------------------------------------------------------ Kit di emergenza (chiave del database)
+    $statoKit = 'mancante'
+    if ((Invoke-Tools @('stato-kit') -Cattura) -eq 0) { try { $statoKit = (($script:UltimoOutput -join "`n") | ConvertFrom-Json).stato } catch { } }
+    if ($statoKit -ne 'ok') {
+        Write-Titolo 'Ultimo passo, importante: il Kit di emergenza'
+        Write-Info 'La chiave del database e la passphrase dei backup esistono SOLO su questo PC. Se il PC si rompe e non le hai'
+        Write-Info 'da parte, database e backup non si possono piu leggere. Il kit e un foglio da stampare + un file cifrato.'
+        if ($statoKit -eq 'da-rifare') { Write-Avviso 'Il kit che hai e vecchio (passphrase o chiave cambiate dopo): va rifatto.' }
+        if ($NonChiedere -or (Read-SiNo 'Creo adesso il Kit di emergenza da stampare?' $true)) {
+            [void](New-KitEmergenza -NonAprire:$NonChiedere)
+            if (-not $NonChiedere) { Wait-Invio 'Stampa la pagina che si e aperta, poi premi Invio.' }
+        } else {
+            Write-Avviso 'Fallo appena puoi: C:\DocMap\strumenti\kit-emergenza.ps1 (il backup giornaliero lo ricorda nel registro).'
+        }
+    }
 
     Write-Host ''
     Write-Host '  ===========================================================' -ForegroundColor Green

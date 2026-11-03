@@ -65,6 +65,14 @@ function Read-SiNo([string]$domanda, [bool]$predefinito = $true) {
     }
 }
 
+# Chiede un segreto (passphrase, codice di recupero) senza mostrarlo sullo schermo.
+function Read-Segreto([string]$domanda) {
+    $sec = Read-Host "  $domanda" -AsSecureString
+    $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec)
+    try { return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
+    finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+}
+
 function Wait-Invio([string]$t = 'Premi Invio per chiudere.') {
     if ([Environment]::UserInteractive -and -not $script:Silenzioso) { [void](Read-Host "  $t") }
 }
@@ -288,7 +296,8 @@ function Install-Versione([string]$sorgente, [string]$ts) {
     Copy-Item -LiteralPath (Join-Path $sorgente 'server') -Destination $p.Server -Recurse
     New-Item -ItemType Directory -Path $p.Strumenti -Force | Out-Null
     foreach ($f in @('installa.bat', 'installa.ps1', 'comune.ps1', 'backup.ps1', 'ripristina.ps1', 'aggiorna.ps1', 'disinstalla.ps1',
-                     'licenza.ps1', 'docmap_tools.py', 'GUIDA-INSTALLAZIONE.md', 'VERSIONE.txt')) {
+                     'licenza.ps1', 'kit-emergenza.ps1', 'docmap_tools.py', 'GUIDA-INSTALLAZIONE.md', 'GUIDA-SYNC-WEB-LOCALE.md',
+                     'VERSIONE.txt')) {
         $src = Join-Path $sorgente $f
         if (Test-Path -LiteralPath $src) { Copy-Item -LiteralPath $src -Destination $p.Strumenti }
     }
@@ -322,6 +331,67 @@ function Install-Pacchetti {
     }
     $code = Invoke-Native $p.VenvPython @('-m', 'pip', 'install', '--disable-pip-version-check', '-q', '-r', $req)
     return ($code -eq 0)
+}
+
+# ------------------------------------------------------------------ kit di emergenza (chiave del database)
+
+# Crea il Kit di emergenza in C:\DocMap\config\kit-emergenza\ (cartella solo amministratori): file .docmap-key (cifrato,
+# si può copiare ovunque) + pagina .html da stampare con codice di recupero e passphrase dei backup.
+function New-KitEmergenza([switch]$NonAprire) {
+    $p = Get-DocMapPaths
+    $out = Join-Path $p.ConfigDir ('kit-emergenza\DocMap-kit-' + (Get-Timestamp) + '.docmap-key')
+    $code = Invoke-Tools @('kit-emergenza', '--out', $out) -Cattura
+    if ($code -ne 0) { Write-Errore ('Kit di emergenza non creato: ' + ($script:UltimoOutput -join ' ')); return $null }
+    $k = ($script:UltimoOutput -join "`n") | ConvertFrom-Json
+    Write-Ok 'Kit di emergenza creato.'
+    Write-Info "  Pagina da STAMPARE:  $($k.pagina)"
+    Write-Info "  File da copiare:     $($k.kit)"
+    Write-Host ''
+    Write-Avviso '1. Stampa la pagina (2 copie) e mettila in cassaforte: contiene il codice di recupero e la passphrase dei backup.'
+    Write-Avviso '2. Copia il file .docmap-key su una chiavetta o sul NAS (anche per email a te stesso: e cifrato).'
+    Write-Avviso '3. Dopo la stampa elimina la pagina .html dal PC (il file .docmap-key invece puo restare).'
+    Write-Info ("Impronte da confrontare col foglio: chiave " + $k.impronta_chiave + ", passphrase " + $k.impronta_passphrase + '.')
+    if (-not $NonAprire) { Start-Process -FilePath $k.pagina -ErrorAction SilentlyContinue }
+    return $k
+}
+
+# Ricostruisce config.json da un Kit di emergenza (chiede il codice di recupero, 3 tentativi). $true se riuscito.
+function Invoke-RecuperoKit([string]$kit, [switch]$Sostituisci) {
+    if (-not $kit) { $kit = (Read-Host '  Percorso del file .docmap-key (es. E:\DocMap-kit-20261103_101500.docmap-key)').Trim('" ') }
+    if (-not $kit -or -not (Test-Path -LiteralPath $kit)) { Write-Errore "File del kit non trovato: $kit"; return $false }
+    try {
+        for ($i = 1; $i -le 3; $i++) {
+            if (-not $env:DOCMAP_CODICE) { $env:DOCMAP_CODICE = Read-Segreto 'Codice di recupero (riquadro 1 del foglio stampato)' }
+            if ($Sostituisci) { $code = Invoke-Tools @('recupera-chiave', '--kit', $kit, '--sostituisci') -Cattura }
+            else { $code = Invoke-Tools @('recupera-chiave', '--kit', $kit) -Cattura }
+            $out = ($script:UltimoOutput -join "`n")
+            if ($code -eq 0) {
+                $r = $null
+                try { $r = $out | ConvertFrom-Json } catch { }
+                Write-Ok 'Chiave del database recuperata: config.json ricostruito.'
+                if ($r -and $r.database) {
+                    if ($r.database.chiave -eq 'ok') { Write-Ok ('Il database si apre con la chiave recuperata (record letti: ' + $r.database.record_letti + ').') }
+                    else { Write-Avviso ('Controllo del database con la chiave recuperata: ' + $r.database.chiave) }
+                }
+                return $true
+            }
+            if ($code -eq 3) { Write-Errore 'Codice di recupero sbagliato.'; Remove-Item Env:DOCMAP_CODICE -ErrorAction SilentlyContinue; continue }
+            if (($out -match "un'altra chiave") -and -not $Sostituisci) {
+                Write-Avviso $out
+                $ok = Read-Host '  Per sostituire la configurazione attuale (viene conservata) scrivi SOSTITUISCI'
+                if ($ok -cne 'SOSTITUISCI') { Write-Info 'Annullato: nulla e stato cambiato.'; return $false }
+                $Sostituisci = $true
+                $i--
+                continue
+            }
+            Write-Errore $out
+            return $false
+        }
+        Write-Errore 'Tre tentativi sbagliati: controlla il foglio del Kit di emergenza e riprova.'
+        return $false
+    } finally {
+        Remove-Item Env:DOCMAP_CODICE -ErrorAction SilentlyContinue
+    }
 }
 
 # Tiene le ultime $tieni copie in _versioni (le più vecchie vanno in _versioni\_da-eliminare, da svuotare a mano).

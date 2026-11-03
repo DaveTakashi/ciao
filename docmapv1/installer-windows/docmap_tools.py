@@ -1406,7 +1406,7 @@ def ping_wait(url, cafile=None, seconds=60.0, insecure=False):
 # ---------------------------------------------------------------- pacchetto (sul PC di sviluppo)
 
 INSTALLER_FILES = ["installa.bat", "installa.ps1", "comune.ps1", "backup.ps1", "ripristina.ps1", "aggiorna.ps1",
-                   "disinstalla.ps1", "licenza.ps1", "docmap_tools.py", "GUIDA-INSTALLAZIONE.md"]
+                   "disinstalla.ps1", "licenza.ps1", "kit-emergenza.ps1", "docmap_tools.py", "GUIDA-INSTALLAZIONE.md"]
 
 
 def build_package(out: str, make_zip: bool = False, repo_docmap: str | None = None) -> dict:
