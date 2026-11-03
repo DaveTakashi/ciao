@@ -101,6 +101,17 @@ class HubWebApp:
             raise VaultLocked("Cassaforte chiusa: aprila dalla pagina Cassaforte.")
         return self.vault_key
 
+    def make_auto_token(self) -> str:
+        self._auto = (secrets.token_urlsafe(32), time.time() + 120)
+        return self._auto[0]
+
+    def use_auto_token(self, t: str) -> bool:
+        tok, exp = getattr(self, "_auto", (None, 0))
+        if tok and t and exp > time.time() and hmac.compare_digest(t, tok):
+            self._auto = (None, 0)
+            return True
+        return False
+
     def check_passphrase(self, p: str) -> bool:
         return hmac.compare_digest(_hash(p or "", self._salt), self._pw_hash)
 
@@ -185,6 +196,11 @@ def make_handler(app: HubWebApp):
             sess = app.session(self._sid())
             if url.path == "/login":
                 return self._login_page()
+            if url.path == "/auto":
+                if app.use_auto_token(q.get("t", "")):
+                    sid, _ = app.new_session()
+                    return self._redirect("/", {"Set-Cookie": f"{COOKIE}={sid}; HttpOnly; SameSite=Strict; Path=/"})
+                return self._redirect("/login")
             if not sess:
                 return self._redirect("/login")
             if url.path == "/":
@@ -413,9 +429,12 @@ def make_server(hub: Hub, passphrase: str, host: str = "127.0.0.1", port: int = 
 
 
 def serve(hub: Hub, passphrase: str, host: str = "127.0.0.1", port: int = 8765,
-          open_browser: bool = True) -> int:
+          open_browser: bool = True, auto_login: bool = False) -> int:
     httpd = make_server(hub, passphrase, host, port)
     url = f"http://127.0.0.1:{httpd.server_address[1]}/"
+    if auto_login:
+        # accesso automatico: one-time link that opens the page already signed in (valid 2 minutes, once)
+        url += "auto?t=" + httpd.app.make_auto_token()  # type: ignore[attr-defined]
     print(f"Pagina dell'hub: {url}  (solo da questo PC). Ctrl+C per chiudere.")
     if open_browser:
         threading.Timer(0.5, lambda: webbrowser.open(url)).start()

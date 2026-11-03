@@ -1,5 +1,10 @@
 # DocMap Hub — licenze, ambienti, cassaforte, deploy, nuovo cliente (v0.3)
 
+> **Novità 0.3.1** — wiki completa: [`../docs/WIKI-HUB.md`](../docs/WIKI-HUB.md) (anche `WIKI-HUB.html`).
+> `accesso-automatico attiva` = la passphrase si scrive una volta sola (anche per il tuo agente, vedi
+> [`AGENTE-OPERATIVO.md`](AGENTE-OPERATIVO.md)); `info` = cartella del programma (si sostituisce) e cartella dati (non si
+> tocca); deploy: la cartella FTP sbagliata viene riconosciuta e corretta.
+
 Il **hub** è il programma con cui Dave gestisce **tutte** le installazioni DocMap dal suo PC: emette e rinnova le
 licenze, tiene in una **cassaforte cifrata** le credenziali di ogni installazione, gestisce per ogni installazione
 gli ambienti **production**, **staging** e **demo**, pubblica la web app via **FTPS/SFTP** con backup e ripristino

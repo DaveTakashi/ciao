@@ -205,3 +205,15 @@
   trovati sul server; il pulsante «Conferma il deploy» è ora sopra l'elenco (prima era in fondo a 82 righe).
 - Segnaposto/aiuti: cartella "come la vede l'account FTP", es. `/studio-rossi`.
 - Test: hub 74 OK (1 saltato IPv6), con FTP/FTPS reali (pyftpdlib) e il nuovo `tests/test_v03_ftp_root.py` (3).
+
+## 2026-11-03 16:30 — Hub 0.3.1: accesso automatico, info, wiki
+
+- `accesso-automatico attiva|disattiva|stato` (`docmap_hub/autoaccess.py`): passphrase di firma (e della cassaforte,
+  se diversa) chieste una volta, verificate, salvate in `%APPDATA%\DocMapHub\accesso-automatico.json` cifrate con
+  Windows DPAPI (altrove file 0600). Le variabili d'ambiente vincono. La pagina web si apre già dentro (link monouso,
+  2 minuti). `vault change-passphrase` aggiorna il file (per passare a UNA passphrase).
+- `info`: versione, cartella programma (sostituibile) e dati (da non toccare), impostazioni che puntano a cartelle sparite.
+- `docs/WIKI-HUB.md` + `WIKI-HUB.html` (tutte le funzioni, ricette, comandi, regole per l'agente),
+  `hub/AGENTE-OPERATIVO.md`.
+- Test: hub 79 OK (1 saltato IPv6), nuovo `tests/test_v031_autoaccess.py` (5). DPAPI mai provato su Windows reale
+  (se non va, ripiega su file 0600 con avviso).

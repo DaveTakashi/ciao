@@ -308,7 +308,8 @@ def cmd_backup(hub: Hub, args) -> int:
 def cmd_web(hub: Hub, args) -> int:
     from .web import serve
     p = get_passphrase(args)
-    return serve(hub, p, host="127.0.0.1", port=args.port, open_browser=not args.no_browser)
+    return serve(hub, p, host="127.0.0.1", port=args.port, open_browser=not args.no_browser,
+                 auto_login=bool(getattr(args, "auto_access", False)))
 
 
 # ---------------------------------------------------------------------------
@@ -427,6 +428,11 @@ def cmd_vault_change_passphrase(hub: Hub, args) -> int:
         raise CliError("Le due passphrase non coincidono.")
     n = Vault(hub.registry).change_passphrase(old, new)
     out(f"Passphrase cambiata; {n} segreti cifrati di nuovo. Fai subito un backup.")
+    from . import autoaccess
+    st = autoaccess.load(hub.dir)
+    if st:
+        autoaccess.save(hub.dir, st["signing"], None if new == st["signing"] else new)
+        out("Accesso automatico aggiornato con la nuova passphrase.")
     return 0
 
 
@@ -865,6 +871,69 @@ def cmd_cliente_elenco(hub: Hub, args) -> int:
     return 0
 
 
+def cmd_info(hub: Hub, args) -> int:
+    from . import autoaccess
+    prog = Path(__file__).resolve().parent.parent
+    out(f"DocMap Hub {__version__}")
+    out(f"Programma (si può sostituire a ogni aggiornamento): {prog}")
+    out(f"Dati (NON toccare: chiavi, registro, cassaforte, clienti): {hub.dir}")
+    out(f"Chiave di firma attiva: {hub.keys.active_id or 'nessuna (keygen)'}")
+    out(f"Accesso automatico: {'attivo' if autoaccess.path(hub.dir).exists() else 'spento'}")
+    for k in ("installer_dir", "docmap_dir", "server_python_dir"):
+        v = hub.registry.get_setting(k)
+        if v:
+            warn = "" if Path(v).exists() else "  ← NON ESISTE PIÙ: settings unset " + k
+            out(f"Impostazione {k} = {v}{warn}")
+    return 0
+
+
+def cmd_auto(hub: Hub, args) -> int:
+    """accesso-automatico attiva|disattiva|stato"""
+    from . import autoaccess
+    from .vault import Vault
+    action = args.azione
+    if action == "stato":
+        st = autoaccess.load(hub.dir)
+        if st:
+            out(f"Accesso automatico: ATTIVO ({'cifrato con Windows DPAPI per questo utente' if st['method'] == 'dpapi' else 'file leggibile solo da questo utente'}).")
+            out(f"File: {autoaccess.path(hub.dir)}")
+            out("I comandi e la pagina dell'hub non chiedono più la passphrase. Per spegnerlo: accesso-automatico disattiva")
+        else:
+            out("Accesso automatico: spento (le passphrase vengono chieste). Per accenderlo: accesso-automatico attiva")
+        return 0
+    if action == "disattiva":
+        out("Accesso automatico spento: file rimosso." if autoaccess.remove(hub.dir) else "Era già spento.")
+        hub.registry.log("auto_access.off")
+        return 0
+    # attiva
+    if not hub.keys.active_id:
+        raise CliError("Prima crea la chiave di firma: keygen")
+    sign = os.environ.get(ENV_PASSPHRASE) or getpass.getpass("Passphrase della chiave di firma: ")
+    try:
+        hub.keys.load_private(sign)
+    except KeyError_ as exc:
+        raise CliError(f"Passphrase della chiave di firma errata ({exc}).")
+    vault_pw = None
+    v = Vault(hub.registry)
+    if v.initialized:
+        if v.check(sign):
+            vault_pw = None  # same passphrase
+        else:
+            vault_pw = os.environ.get("DOCMAP_HUB_VAULT_PASSPHRASE") or getpass.getpass(
+                "Passphrase della cassaforte (è diversa da quella della firma): ")
+            if not v.check(vault_pw):
+                raise CliError("Passphrase della cassaforte errata.")
+    info = autoaccess.save(hub.dir, sign, vault_pw)
+    hub.registry.log("auto_access.on", details={"method": info["method"]})
+    out(f"Accesso automatico ATTIVO. File: {info['path']} "
+        f"({'cifrato con Windows DPAPI: vale solo per questo utente di Windows' if info['method'] == 'dpapi' else 'permessi 0600'}).")
+    out("Da ora comandi e pagina dell'hub non chiedono più la passphrase (anche al tuo agente).")
+    out("Rischio: chi usa questo account di Windows può firmare licenze e leggere la cassaforte. Spegnere: accesso-automatico disattiva")
+    if vault_pw:
+        out("Suggerimento: per avere UNA sola passphrase, 'vault change-passphrase' e scegli la stessa della chiave di firma.")
+    return 0
+
+
 # ---------------------------------------------------------------------------
 # Parser
 # ---------------------------------------------------------------------------
@@ -884,6 +953,9 @@ def build_parser() -> argparse.ArgumentParser:
         return p
 
     add("init", cmd_init, "crea la cartella dati e il registro")
+    p = add("accesso-automatico", cmd_auto, "ricorda le passphrase su questo PC (niente più richieste; opzionale)")
+    p.add_argument("azione", choices=["attiva", "disattiva", "stato"])
+    add("info", cmd_info, "versione, cartella del programma e cartella dati (cosa conservare negli aggiornamenti)")
     p = add("keygen", cmd_keygen, "crea la chiave di firma Ed25519 (protetta da passphrase)")
     p.add_argument("--rotate", action="store_true", help="sostituisce la chiave attiva (la vecchia resta per la verifica)")
     p = add("keys", None, "chiavi di firma")
@@ -1152,6 +1224,9 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     try:
         with Hub(args.dir) as hub:
+            if args.fn is not cmd_auto and not getattr(args, "passphrase_file", None):
+                from . import autoaccess
+                args.auto_access = autoaccess.apply_to_environ(hub.dir)
             return int(args.fn(hub, args) or 0)
     except (CliError, KeyError_, RegistryError, L.LicenceError, OSError, ValueError) as exc:
         print(f"Errore: {exc}", file=sys.stderr)
