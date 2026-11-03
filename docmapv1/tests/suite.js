@@ -1396,7 +1396,7 @@ const sec = (n) => console.log('\n== ' + n);
   // English UI + help topic
   await p.evaluate(() => { S.lang = 'en'; renderAll(); });
   Ev = await p.evaluate(() => ({h:document.querySelector('.page-h h1').textContent, th:document.querySelector('.bk-tbl thead').textContent, bar:document.querySelector('#bk-selbar').textContent, help:!!helpTopic('bulk'), btn:document.querySelector('#bk-close').textContent}));
-  ok(/Bulk edit/.test(Ev.h) && /Client/.test(Ev.th) && /Category/.test(Ev.th) && /Select all/.test(Ev.bar) && /Back to the archive/.test(Ev.btn) && Ev.help, 'bulk: English UI + help topic "bulk"', Ev);
+  ok(/Bulk edit/.test(Ev.h) && /Client/.test(Ev.th) && /Category/.test(Ev.th) && /Select (all|visible)/.test(Ev.bar) && /Back to the archive/.test(Ev.btn) && Ev.help, 'bulk: English UI + help topic "bulk"', Ev);
   await p.evaluate(() => { S.lang = 'it'; renderAll(); });
   // phone width: the grid scrolls, not the page
   await p.setViewportSize({width:390, height:800}); await p.waitForTimeout(150);
@@ -5087,6 +5087,83 @@ const sec = (n) => console.log('\n== ' + n);
       const pw = [...document.querySelectorAll('input[type="password"]')], wrapped = pw.every(i => i.parentNode.classList.contains('pw-wrap') && i.parentNode.querySelector('.pw-eye'));
       const r = {n:pw.length, wrapped, ids:pw.map(i => i.id)}; S.view = 'archive'; renderAll(); return r; });
     ok(E.n >= 1 && E.wrapped, 'v12.4: every password / passphrase field of the app gets the show/hide button', E);
+  }
+  // @@STREAM-V125@@
+  sec('v12.5: selection that survives searches, "Solo selezionati", reprint only the changed labels');
+  {
+    const Vstart = await p.evaluate(() => {
+      while (topModal()) closeModal(true);
+      S.lang = 'it'; S.view = 'archive'; S.archiveView = 'table'; UI.q = ''; UI.fState = UI.fRoom = UI.fCat = ''; UI.fInfo = null; UI.fSelOnly = false;
+      window.__v125pq = S.binders.filter(b => b.selected_for_print).map(b => b.id);
+      S.binders.forEach(b => { b.selected_for_print = false; });
+      const taken = S.binders.map(b => b.short_code);
+      ['Alfa', 'Beta', 'Gamma', 'Delta'].forEach((n, i) => { const sc = newShortCode(taken); taken.push(sc); S.binders.push(normalizeBinder({speaking_code:'VSEL' + (i + 1), company_name:'Colore Sbagliato ' + n + ' Srl', category:'Ordinaria', binder_title:'Titolo ' + n, color_hex:'#2563EB', short_code:sc, selected_for_print:i === 0 || i === 2})); });
+      commit(); renderAll(); return nowISO();
+    });
+    let V = await p.evaluate(() => ({btn:(document.querySelector('#btn-bulk-sel') || {}).textContent || '', only:!!document.querySelector('#arch-only-sel')}));
+    ok(/Modifica i selezionati \(2\)/.test(V.btn) && V.only, 'v12.5 archive: ticked binders → "Modifica i selezionati (2)" and "Solo selezionati"', V);
+    await p.click('#arch-only-sel'); await p.waitForTimeout(80);
+    V = await p.evaluate(() => ({rows:document.querySelectorAll('#arch-results tbody tr').length, pressed:document.querySelector('#arch-only-sel').getAttribute('aria-pressed')}));
+    ok(V.rows === 2 && V.pressed === 'true', 'v12.5 archive: "Solo selezionati" shows only the ticked binders', V);
+    await p.click('#arch-only-sel'); await p.waitForTimeout(80);
+    ok(await p.evaluate(() => !UI.fSelOnly && document.querySelectorAll('#arch-results tbody tr').length === filteredBinders().length && filteredBinders().length > 2), 'v12.5 archive: pressed again → every binder again');
+    await p.click('#btn-bulk-sel'); await p.waitForTimeout(150);
+    V = await p.evaluate(() => ({on:BK.on, only:BK.onlySel, n:BK.list.length, codes:BK.list.map(b => b.speaking_code).join(), sel:BK.sel.size, note:!!document.querySelector('#bk-only-note')}));
+    ok(V.on && V.only && V.n === 2 && V.codes === 'VSEL1,VSEL3' && V.sel === 2 && V.note, 'v12.5: "Modifica i selezionati" opens the grid with only those rows, all ticked', V);
+    // a new search leaves "Solo selezionati" but keeps the ticks; ticks hidden by the search are counted
+    await p.fill('[data-bk-q]', 'VSEL2'); await p.waitForTimeout(300);
+    V = await p.evaluate(() => ({only:BK.onlySel, n:BK.list.length, sel:BK.sel.size, bar:document.querySelector('#bk-selbar').textContent}));
+    ok(!V.only && V.n === 1 && V.sel === 2 && /2 non visibili/.test(V.bar), 'v12.5: searching keeps the selection and says how many selected rows are hidden', V);
+    await p.click('#bk-body input[data-bk-sel]'); await p.waitForTimeout(50);
+    await p.fill('[data-bk-q]', ''); await p.waitForTimeout(300);
+    V = await p.evaluate(() => ({sel:[...BK.sel].map(id => S.binders.find(b => b.id === id).speaking_code).sort().join(), n:BK.list.length, chk:document.querySelectorAll('#bk-body input[data-bk-sel]:checked').length}));
+    ok(V.sel === 'VSEL1,VSEL2,VSEL3' && V.n > 3 && V.chk >= 3, 'v12.5: search, tick, clear the search → all three ticks still there', V);
+    // header checkbox off: removes only the visible rows
+    await p.fill('[data-bk-q]', 'VSEL1'); await p.waitForTimeout(300);
+    await p.click('[data-bk-all]'); await p.waitForTimeout(50);
+    V = await p.evaluate(() => BK.sel.size);
+    ok(V === 2, 'v12.5: unticking the header removes only the visible rows from the selection', V);
+    await p.click('[data-bk-all]'); await p.waitForTimeout(50);
+    // apply a colour while the search hides two selected rows → all three change
+    await p.selectOption('#bk-op', 'color'); await p.waitForTimeout(40);
+    await p.evaluate(() => { const v = document.querySelector('#bk-op-v'); v.value = '#dc2626'; });
+    await p.click('#bk-apply'); await p.waitForTimeout(60);
+    V = await p.evaluate(() => S.binders.filter(b => /^VSEL/.test(b.speaking_code)).map(b => b.speaking_code + ':' + bkVal(b, 'color_hex') + ':' + b.color_hex).join());
+    ok(/VSEL1:#DC2626:#2563EB/.test(V) && /VSEL2:#DC2626:#2563EB/.test(V) && /VSEL3:#DC2626:#2563EB/.test(V) && /VSEL4:#2563EB:#2563EB/.test(V), 'v12.5: "Imposta colore" changes every selected row, also those hidden by the search (staged)', V);
+    // "Solo selezionati" in the grid
+    await p.click('#bk-only'); await p.waitForTimeout(80);
+    V = await p.evaluate(() => ({only:BK.onlySel, codes:BK.list.map(b => b.speaking_code).join(), q:UI.q}));
+    ok(V.only && V.codes === 'VSEL1,VSEL2,VSEL3', 'v12.5: "Solo selezionati" shows every selected row whatever the search', V);
+    // colour cell: the suggestions show swatches
+    await p.evaluate(() => { const r = BK.rows.findIndex(x => x.b && x.b.speaking_code === 'VSEL2'); const c = bkCols().findIndex(x => x.k === 'color_hex'); bkMove(r, c); bkFocusGrid(); });
+    await p.keyboard.type('#'); await p.waitForTimeout(120);
+    V = await p.evaluate(() => ({edit:!!BK.edit, sw:document.querySelectorAll('.ta-opt .ta-sw').length}));
+    await p.keyboard.press('Escape'); if (await p.evaluate(() => !!BK.edit)) await p.keyboard.press('Escape');
+    ok(V.edit && V.sw > 0, 'v12.5: editing a colour cell lists the colours with a swatch', V);
+    // per-row change, then save
+    await p.evaluate(() => { const b = S.binders.find(x => x.speaking_code === 'VSEL2'); bkApply([{id:b.id, patch:{color_hex:'#16A34A'}}]); bkAfterChange(); });
+    await p.click('#bk-save'); await p.waitForTimeout(150);
+    V = await p.evaluate(() => ({cols:S.binders.filter(b => /^VSEL/.test(b.speaking_code)).map(b => b.speaking_code + ':' + b.color_hex).join(), last:(document.querySelector('#bk-last') || {}).textContent || ''}));
+    ok(V.cols === 'VSEL1:#DC2626,VSEL2:#16A34A,VSEL3:#DC2626,VSEL4:#2563EB' && /Salvati 3 faldoni/.test(V.last) && /Stampa solo queste 3 etichette/.test(V.last), 'v12.5: one save for every row, then "Stampa solo queste 3 etichette"', V);
+    // reprint: another binder is in the print queue → confirm, then only the changed ones are queued
+    await p.evaluate(() => { S.binders.find(b => b.speaking_code === 'VSEL4').selected_for_print = true; });
+    await p.click('#bk-last-print'); await p.waitForTimeout(100);
+    V = await p.evaluate(() => (document.querySelector('.modal') || {}).textContent || '');
+    ok(/Mettere in stampa solo i 3 faldoni modificati/.test(V), 'v12.5: other binders in the print queue → asks first', V.slice(0, 200));
+    await p.click('.modal-f button:has-text("Stampa solo i modificati")'); await p.waitForTimeout(200);
+    V = await p.evaluate(() => ({view:S.view, on:BK.on, q:printQueueBinders().map(b => b.speaking_code).join()}));
+    ok(V.view === 'print' && !V.on && V.q === 'VSEL1,VSEL2,VSEL3', 'v12.5: the print view opens with only the 3 changed binders', V);
+    // English
+    V = await p.evaluate(() => { S.lang = 'en'; S.view = 'archive'; renderAll(); const r = (document.querySelector('#btn-bulk-sel') || {}).textContent || ''; S.lang = 'it'; renderAll(); return r; });
+    ok(/Edit selected \(3\)/.test(V), 'v12.5: English labels', V);
+    await p.evaluate(async (start) => {
+      while (topModal()) closeModal(true);
+      BK.on = false; BK.draft.clear(); BK.hist = []; BK.sel.clear(); BK.onlySel = false; BK.last = null; BK.savedUndo = null; UI.q = ''; UI.fSelOnly = false;
+      S.binders = S.binders.filter(b => !/^VSEL\d$/.test(b.speaking_code));
+      const pq = new Set(window.__v125pq || []); S.binders.forEach(b => { b.selected_for_print = pq.has(b.id); });
+      DB.db.run('DELETE FROM activity_log WHERE at >= ?', [start]); LOG.entries = LOG.entries.filter(e => e.at < start); LOG.pending = []; logSavePending();
+      commit(); S.view = 'archive'; renderAll(); dbSyncFromState('t'); await dbPersist();
+    }, Vstart);
   }
   console.log('\nerrors:', errs.length ? errs.join('\n') : 'none');
   if (errs.length) fails += errs.length;

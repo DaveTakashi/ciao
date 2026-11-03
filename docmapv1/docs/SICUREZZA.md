@@ -1,6 +1,6 @@
 # DocMap — sicurezza: cosa protegge l'MVP e cosa no
 
-> Valido per la 26.12.4 (v12): §1–§5 descrivono il client (dalla v10), §5b il database online (v10.1), §5c il
+> Valido per la 26.12.5 (v12): §1–§5 descrivono il client (dalla v10), §5b il database online (v10.1), §5c il
 > registro sincronizzazioni (v11), §5d l'accesso senza PIN e il registro accessi (v12).
 
 > Sintesi onesta. L'MVP crea **le basi** (interfacce, formati, cifratura nel browser); il **sistema di sicurezza vero**

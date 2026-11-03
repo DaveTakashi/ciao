@@ -1,6 +1,6 @@
 # DocMap 2026 — manuale d'uso (passo passo)
 
-> Per chi usa DocMap ogni giorno nello studio. Versione **26.12.4**. Ogni capitolo è una cosa da fare, in passi brevi.
+> Per chi usa DocMap ogni giorno nello studio. Versione **26.12.5**. Ogni capitolo è una cosa da fare, in passi brevi.
 > I nomi tra **grassetto** sono scritti esattamente come sui pulsanti (interfaccia in italiano).
 > Descrizione completa di ogni funzione: [`RIFERIMENTO-FUNZIONI.md`](RIFERIMENTO-FUNZIONI.md) · parole: [`GLOSSARIO.md`](GLOSSARIO.md) ·
 > prove da fare a mano: [`CHECKLIST-COLLAUDO.md`](CHECKLIST-COLLAUDO.md).
@@ -80,11 +80,21 @@ Dove si trovano le cose:
 2. Premi **Modifica massiva**: si apre una griglia tipo Excel.
 3. Per cambiare una cella: spostati con frecce, Tab e Invio, poi scrivi. Esc annulla la cella.
 4. Per cambiare più righe insieme:
-   - spuntale (Spazio, oppure Maiusc+clic);
+   - spuntale (Spazio, oppure Maiusc+clic). **La spunta resta** anche se cambi ricerca: cerca, spunta, cancella la
+     ricerca, cerca il successivo, spunta… La barra dice quanti selezionati la ricerca sta nascondendo;
+   - **Solo selezionati** mostra solo le righe spuntate (tutte modificabili); **Mostra tutti** torna alla lista completa;
    - scegli l'operazione: **Imposta categoria**, **Aggiungi tag**, **Rimuovi tag**, **Imposta stato**, **Imposta colore** o **Imposta posizione (prefisso)**;
    - premi **Applica a {n} selezionati**. Ctrl+D copia la cella attiva in giù.
 5. Le celle cambiate restano gialle finché non premi **Salva modifiche (n)** (o Ctrl+S). Codici doppi o vuoti bloccano il salvataggio.
 6. **Annulla tutto** scarta le modifiche in sospeso. **Torna all'archivio** chiude la griglia.
+7. Dopo il salvataggio compare **Stampa solo queste N etichette**: mette in stampa solo i faldoni appena cambiati
+   (se in stampa ce n'erano altri chiede prima) e apre Stampa Etichette.
+8. Scorciatoia dall'**Archivio**: spunta i faldoni e premi **Modifica i selezionati (N)**; **Solo selezionati** mostra
+   nell'elenco solo quelli spuntati.
+
+Esempio, etichette stampate con il colore sbagliato: Modifica massiva › cerca e spunta i faldoni › **Solo selezionati** ›
+**Imposta colore** (uguale per tutti) oppure la cella **Colore** riga per riga › **Salva modifiche** › **Stampa solo
+queste N etichette**.
 
 ## 4. Stampare le etichette e il PDF
 

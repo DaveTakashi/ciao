@@ -169,7 +169,7 @@ function taRender(){
   const q = TA.q;
   TA.pop.innerHTML = (q ? '' : '<div class="ta-h">' + esc(t('ta_top')) + '</div>') +
     TA.items.map((c, i) => '<div class="ta-opt' + (i === TA.active ? ' on' : '') + '" role="option" id="ta-opt-' + i + '" data-ta-i="' + i + '" aria-selected="' + (i === TA.active) + '">' +
-      '<div class="ta-main"><span class="ta-v' + (c.mono ? ' mono' : '') + '">' + taHL(c.label || c.value, q) + '</span>' + (c.meta ? '<span class="ta-m">' + taHL(c.meta, q) + '</span>' : '') + '</div>' +
+      '<div class="ta-main">' + (c.sw ? '<span class="ta-sw" style="background:' + esc(normHex(c.sw) || '#FFFFFF') + '"></span>' : '') + '<span class="ta-v' + (c.mono ? ' mono' : '') + '">' + taHL(c.label || c.value, q) + '</span>' + (c.meta ? '<span class="ta-m">' + taHL(c.meta, q) + '</span>' : '') + '</div>' +
       (c.count ? '<span class="ta-n" title="' + esc(t('ta_used', {n:c.count})) + '">×' + c.count + '</span>' : (c.tag ? '<span class="ta-tag">' + esc(c.tag) + '</span>' : '')) + '</div>').join('');
   taMarkActive();
 }

@@ -45,7 +45,15 @@ Object.assign(I18N.it, {
   bk_c_tags:'Tag', bk_c_company_city:'Luogo', bk_c_location_code:'Posizione', bk_c_archive_state:'Stato', bk_c_color_hex:'Colore', bk_c_extra_codes:'Codici extra',
   bk_c_contacts:'Contatti', bk_c_notes:'Note', bk_c_room_code:'Stanza',
   bk_keys:'Tasti: ↑↓←→ Tab Invio · scrivi o F2 per modificare · Esc annulla · Spazio seleziona · Ctrl+D copia in giù · Ctrl+C/Ctrl+V · Ctrl+Z annulla · Ctrl+S salva',
-  'lga_binder.bulk_edit':'Modifica massiva'
+  'lga_binder.bulk_edit':'Modifica massiva',
+  // v12.5: selection that survives searches, "Solo selezionati", reprint only the changed labels
+  bk_sel_vis:'Seleziona i visibili ({n})', bk_sel_hidden:'{n} non visibili con questa ricerca', bk_only:'Solo selezionati', bk_only_on:'Mostra tutti',
+  bk_only_note:'Vedi solo i {n} faldoni selezionati (ricerca e filtri ignorati). Modificali riga per riga oppure tutti insieme, poi Salva.',
+  bk_sel_hint2:'Cerca, spunta, cancella la ricerca e continua a spuntare: la selezione resta. Poi premi «Solo selezionati».',
+  bk_last:'Salvati {n} faldoni.', bk_last1:'Salvato 1 faldone.', bk_last_print1:'Stampa solo questa etichetta', bk_last_print:'Stampa solo queste {n} etichette', bk_last_sel:'Seleziona questi {n}', bk_last_x:'Chiudi',
+  bk_pq_t:'Mettere in stampa solo i {n} faldoni modificati?', bk_pq_d:'Ora in stampa ci sono {m} faldoni selezionati: verranno tolti dalla stampa e restano solo i {n} appena modificati.', bk_pq_ok:'Stampa solo i modificati',
+  bk_open_sel:'Modifica i selezionati ({n})', bk_open_sel_d:'Apre la Modifica massiva con solo i faldoni spuntati',
+  arch_only_sel:'Solo selezionati', arch_only_sel_off:'Mostra tutti', arch_only_sel_d:'Mostra solo i faldoni spuntati (la spunta resta anche cambiando ricerca)'
 });
 Object.assign(I18N.en, {
   bk_open:'Bulk edit', bk_open_d:'Spreadsheet-like grid to categorise and edit many binders at once',
@@ -66,7 +74,14 @@ Object.assign(I18N.en, {
   bk_c_tags:'Tags', bk_c_company_city:'Place', bk_c_location_code:'Position', bk_c_archive_state:'State', bk_c_color_hex:'Colour', bk_c_extra_codes:'Extra codes',
   bk_c_contacts:'Contacts', bk_c_notes:'Notes', bk_c_room_code:'Room',
   bk_keys:'Keys: ↑↓←→ Tab Enter · type or F2 to edit · Esc cancels · Space selects · Ctrl+D fill down · Ctrl+C/Ctrl+V · Ctrl+Z undo · Ctrl+S save',
-  'lga_binder.bulk_edit':'Bulk edit'
+  'lga_binder.bulk_edit':'Bulk edit',
+  bk_sel_vis:'Select visible ({n})', bk_sel_hidden:'{n} hidden by this search', bk_only:'Selected only', bk_only_on:'Show all',
+  bk_only_note:'Showing only the {n} selected binders (search and filters ignored). Edit them row by row or all at once, then Save.',
+  bk_sel_hint2:'Search, tick, clear the search and keep ticking: the selection stays. Then press "Selected only".',
+  bk_last:'{n} binders saved.', bk_last1:'1 binder saved.', bk_last_print1:'Print only this label', bk_last_print:'Print only these {n} labels', bk_last_sel:'Select these {n}', bk_last_x:'Close',
+  bk_pq_t:'Print only the {n} changed binders?', bk_pq_d:'{m} binders are selected for printing now: they leave the print queue and only the {n} just changed stay.', bk_pq_ok:'Print only the changed ones',
+  bk_open_sel:'Edit selected ({n})', bk_open_sel_d:'Opens Bulk edit with only the ticked binders',
+  arch_only_sel:'Selected only', arch_only_sel_off:'Show all', arch_only_sel_d:'Show only the ticked binders (ticks stay when the search changes)'
 });
 
 /** Grid columns. ta = ED_SOURCES key for the typeahead; multi = comma list; hide = hidden by default. */
@@ -75,13 +90,13 @@ const BULK_COLS = [
   {k:'company_name', w:210, ta:'company_name', req:1},
   {k:'multi_code', w:100, ta:'multi_code', mono:1},
   {k:'category', w:140, ta:'category'},
+  {k:'color_hex', w:104, color:1, mono:1},   // v12.5: next to the category (wrong colours are the usual fix)
   {k:'binder_title', w:210},
   {k:'ref_year', w:72, ta:'ref_year', mono:1},
   {k:'tags', w:160, ta:'tags', multi:1, joiner:','},
   {k:'company_city', w:130, ta:'company_city'},
   {k:'location_code', w:124, ta:'quickloc', mono:1, loc:1},
   {k:'archive_state', w:118, sel:1},
-  {k:'color_hex', w:104, color:1, mono:1},
   {k:'extra_codes', w:140, ta:'extra_codes', multi:1, hide:1},
   {k:'contacts', w:170, ta:'contacts', multi:1, hide:1},
   {k:'notes', w:220, hide:1}
@@ -90,7 +105,7 @@ const BK_LOC = ['room_code', 'cabinet_code', 'shelf_code', 'sector_code'];
 const BK_GROUPS = ['', 'category', 'company_name', 'archive_state', 'room_code'];
 const BK = {
   on:false, draft:new Map(), hist:[], sel:new Set(), list:[], rows:[], cur:{r:-1, c:0}, sort:{k:'', dir:1}, group:'',
-  edit:null, anchor:-1, op:'category', rowH:34, errs:new Map(), clip:null, savedUndo:null, raf:0, win:[0, 0], qT:0
+  edit:null, anchor:-1, op:'category', rowH:34, errs:new Map(), clip:null, savedUndo:null, raf:0, win:[0, 0], qT:0, onlySel:false, last:null
 };
 const bulkOn = () => BK.on;
 const bkHasAuto = () => typeof window.colorAssign === 'function' || typeof window.applyAutoColor === 'function';
@@ -176,14 +191,16 @@ function bkValidate(){
 const bkErrCount = () => { let n = 0; BK.errs.forEach(e => { n += Object.keys(e).length; }); return n; };
 
 /* ---------------- rows: filter → sort → group ---------------- */
+/** v12.5: the selection survives searches and filters; "Solo selezionati" shows every selected binder, whatever the search. */
 function bkBuildRows(){
-  const list = filteredBinders();
+  const all = new Set(S.binders.map(b => b.id));
+  BK.sel.forEach(id => { if (!all.has(id)) BK.sel.delete(id); });   // deleted binders leave the selection
+  if (BK.onlySel && !BK.sel.size) BK.onlySel = false;
+  const list = BK.onlySel ? S.binders.filter(b => BK.sel.has(b.id)) : filteredBinders();
   const k = BK.sort.k, dir = BK.sort.dir, g = BK.group;
   const ord = list.map((b, i) => ({b, i}));
   if (k || g) ord.sort((x, y) => (g ? naturalCmp(bkVal(x.b, g) || '￿', bkVal(y.b, g) || '￿') : 0) || (k ? dir * naturalCmp(bkVal(x.b, k), bkVal(y.b, k)) : 0) || x.i - y.i);
   BK.list = ord.map(x => x.b);
-  const ids = new Set(BK.list.map(b => b.id));
-  BK.sel.forEach(id => { if (!ids.has(id)) BK.sel.delete(id); });   // selection follows the filters
   const rows = [];
   let grp = null;
   BK.list.forEach(b => {
@@ -307,13 +324,17 @@ function bkRenderSelBar(){
   else if (BK.op === 'color') val = '<input type="color" class="bk-color" id="bk-op-v" value="#2563EB" aria-label="' + esc(t('bk_c_color_hex')) + '">';
   else if (BK.op === 'color_auto') val = '<span class="small muted">' + esc(t('bk_op_auto_d')) + '</span>';
   else val = '<input class="inp" id="bk-op-v" autocomplete="off"' + (BK.op === 'loc' ? ' placeholder="' + esc(t('bk_op_loc_ph')) + '"' : '') + '>';
-  el.innerHTML = '<span class="bk-seln"><b>' + esc(t('bk_sel', {n})) + '</b></span>' +
-    '<button class="btn btn-sm" data-a="bk-sel-all">' + ic('check') + esc(t('bk_sel_all')) + '</button>' +
+  const vis = new Set(BK.list.map(b => b.id)); let hid = 0; BK.sel.forEach(id => { if (!vis.has(id)) hid++; });
+  el.innerHTML = '<span class="bk-seln" id="bk-seln"><b>' + esc(t('bk_sel', {n})) + '</b>' + (hid ? ' <span class="bk-hid">· ' + esc(t('bk_sel_hidden', {n:hid})) + '</span>' : '') + '</span>' +
+    (BK.onlySel ? '' : '<button class="btn btn-sm" data-a="bk-sel-all" id="bk-sel-all">' + ic('check') + esc(t('bk_sel_vis', {n:BK.list.length})) + '</button>') +
     '<button class="btn btn-sm" data-a="bk-sel-none"' + (n ? '' : ' disabled') + '>' + esc(t('bk_sel_none')) + '</button>' +
+    (n || BK.onlySel ? '<button class="btn btn-sm' + (BK.onlySel ? ' btn-dark' : '') + '" data-a="bk-only" id="bk-only" aria-pressed="' + BK.onlySel + '">' + ic(BK.onlySel ? 'list' : 'filter') + esc(t(BK.onlySel ? 'bk_only_on' : 'bk_only')) + '</button>' : '') +
     (n ? '<span class="bk-opbox"><select class="inp" id="bk-op" aria-label="' + esc(t('bk_op')) + '">' + ops.map(o => '<option value="' + o + '"' + (o === BK.op ? ' selected' : '') + '>' + esc(t('bk_op_' + o)) + '</option>').join('') + '</select>' + val +
       '<button class="btn btn-sm btn-primary" data-a="bk-apply" id="bk-apply">' + ic('check') + esc(t('bk_apply', {n})) + '</button>' +
       '<button class="btn btn-sm" data-a="bk-fill" title="' + esc(t('bk_fill_d')) + '">↓ ' + esc(t('bk_fill')) + '</button></span>'
-      : '<span class="small muted bk-hint">' + esc(t('bk_sel_hint')) + '</span>');
+      : '<span class="small muted bk-hint">' + esc(t('bk_sel_hint2')) + '</span>') +
+    (BK.onlySel ? '<div class="bk-only-note small" id="bk-only-note">' + ic('info') + esc(t('bk_only_note', {n})) + '</div>' : '') +
+    bkLastHTML();
   const v = $('#bk-op-v');
   if (v && v.tagName === 'INPUT' && v.type !== 'color'){
     const src = {category:ED_SOURCES.category, tag_add:ED_SOURCES.tags, tag_rm:bkSelTags, loc:ED_SOURCES.quickloc, year:ED_SOURCES.ref_year, city:ED_SOURCES.company_city}[BK.op];
@@ -321,8 +342,17 @@ function bkRenderSelBar(){
     v.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.defaultPrevented){ e.preventDefault(); bkApplyOp(); } });
   }
 }
+/** v12.5: after a save, the binders just changed can go straight to print (shown above the grid, away from the toasts). */
+function bkLastHTML(){
+  const L = BK.last && BK.last.filter(id => bkById(id));
+  if (!L || !L.length || BK.draft.size) return '';
+  return '<div class="bk-last" id="bk-last">' + ic('check') + '<b>' + esc(t(L.length === 1 ? 'bk_last1' : 'bk_last', {n:L.length})) + '</b><span style="flex:1"></span>' +
+    '<button class="btn btn-sm" data-a="bk-last-x">' + esc(t('bk_last_x')) + '</button>' +
+    '<button class="btn btn-sm" data-a="bk-last-sel">' + ic('check') + esc(t('bk_last_sel', {n:L.length})) + '</button>' +
+    '<button class="btn btn-sm btn-primary" data-a="bk-last-print" id="bk-last-print">' + ic('printer') + esc(t(L.length === 1 ? 'bk_last_print1' : 'bk_last_print', {n:L.length})) + '</button></div>';
+}
 /** Tags present in the selected rows (source for "Rimuovi tag"). */
-function bkSelTags(){ return edCount([].concat(...BK.list.filter(b => BK.sel.has(b.id)).map(b => taTokens(bkVal(b, 'tags')))).filter(x => x.toLowerCase() !== DEMO_TAG)); }
+function bkSelTags(){ return edCount([].concat(...bkSelected().map(b => taTokens(bkVal(b, 'tags')))).filter(x => x.toLowerCase() !== DEMO_TAG)); }
 function bkRenderSaveBar(){
   const el = $('#bk-savebar'); if (!el) return;
   const n = BK.draft.size;
@@ -344,7 +374,7 @@ function bkRefresh(rebuild){
   bkRenderTable(); bkRenderSelBar(); bkRenderSaveBar();
 }
 /** After a staged change: rows stay where they are (no re-sort), cells and bars update. */
-function bkAfterChange(){ bkRenderBody(true); bkRenderSaveBar(); const all = $('[data-bk-all]'); if (all) all.checked = BK.list.length > 0 && BK.list.every(b => BK.sel.has(b.id)); }
+function bkAfterChange(){ bkRenderBody(true); bkRenderSaveBar(); if (BK.last && $('#bk-last')) bkRenderSelBar(); const all = $('[data-bk-all]'); if (all) all.checked = BK.list.length > 0 && BK.list.every(b => BK.sel.has(b.id)); }
 
 /* ---------------- cursor & navigation ---------------- */
 const bkCurRow = () => BK.rows[BK.cur.r] && BK.rows[BK.cur.r].b;
@@ -370,7 +400,7 @@ function bkEnsureVisibleX(){
 }
 function bkFocusGrid(){ const g = $('#bk-grid'); if (g && document.activeElement !== g) g.focus({preventScroll:true}); }
 function bkToggleSel(id, on){ if (on === undefined) on = !BK.sel.has(id); if (on) BK.sel.add(id); else BK.sel.delete(id); }
-function bkSelChanged(){ bkRenderBody(true); bkRenderSelBar(); const all = $('[data-bk-all]'); if (all) all.checked = BK.list.length > 0 && BK.list.every(b => BK.sel.has(b.id)); }
+function bkSelChanged(){ if (BK.onlySel && !BK.sel.size){ BK.onlySel = false; bkRefresh(); return; } bkRenderBody(true); bkRenderSelBar(); const all = $('[data-bk-all]'); if (all) all.checked = BK.list.length > 0 && BK.list.every(b => BK.sel.has(b.id)); }
 
 function bkGridKey(e){
   if (e.target !== e.currentTarget || BK.edit) return;   // keys inside a cell editor are handled by the editor
@@ -432,7 +462,7 @@ function bkGridClick(e){
     BK.anchor = r; bkSelChanged(); return;
   }
   const all = e.target.closest('input[data-bk-all]');
-  if (all){ if (all.checked) BK.list.forEach(b => BK.sel.add(b.id)); else BK.sel.clear(); bkSelChanged(); }
+  if (all){ BK.list.forEach(b => { if (all.checked) BK.sel.add(b.id); else BK.sel.delete(b.id); }); bkSelChanged(); }
 }
 
 /* ---------------- cell editor ---------------- */
@@ -465,9 +495,9 @@ function bkStartEdit(initial){
   if (inp.tagName === 'INPUT'){ const n = inp.value.length; try { if (initial != null) inp.setSelectionRange(n, n); else inp.select(); } catch(err){} if (initial != null && inp._ta) taOpen(inp); }
 }
 function bkColorSource(){
-  const l = edCount(S.binders.map(b => b.color_hex)).map(c => Object.assign(c, {mono:true}));
+  const l = edCount(S.binders.map(b => b.color_hex)).map(c => Object.assign(c, {mono:true, sw:c.value}));
   const known = new Set(l.map(c => c.value.toUpperCase()));
-  COLORS.forEach(c => { if (!known.has(c)) l.push({value:c, count:0, mono:true}); });
+  COLORS.forEach(c => { if (!known.has(c)) l.push({value:c, count:0, mono:true, sw:c}); });
   return l;
 }
 function bkEditKey(e){
@@ -528,7 +558,7 @@ function bkColorHook(b, patch, how){
 }
 
 /* ---------------- multi-row operations ---------------- */
-function bkSelected(){ return BK.list.filter(b => BK.sel.has(b.id)); }
+function bkSelected(){ return S.binders.filter(b => BK.sel.has(b.id)); }   // v12.5: also the selected rows hidden by the search
 function bkApplyOp(){
   const sel = bkSelected(); if (!sel.length){ toast(t('bk_need_sel'), 'warn'); return; }
   const op = BK.op, vEl = $('#bk-op-v'), raw = vEl ? vEl.value : '';
@@ -606,6 +636,7 @@ function bkSave(){
     {count:items.length, fields:Array.from(fields), binders:items});
   commit();
   BK.savedUndo = UNDO;
+  BK.last = items.map(x => x.id);   // v12.5: "Stampa solo queste etichette"
   bkRefresh();
   undoToast(t('bk_saved', {n:items.length}));
   bkFocusGrid();
@@ -625,21 +656,45 @@ function bkDiscard(after){
   if (!BK.draft.size) return go();
   confirmAction({plain:true, title:t('bk_discard_t'), detail:t('bk_discard_d', {n:BK.draft.size}), okLabel:t('bk_discard_ok'), onOk:go});
 }
+/** v12.5: the changed binders become the print queue (confirm when others were queued), then the print view. */
+function bkPrintLast(){
+  const ids = new Set((BK.last || []).filter(id => bkById(id))); if (!ids.size) return;
+  const others = S.binders.filter(b => b.selected_for_print && !ids.has(b.id)).length;
+  const go = () => {
+    S.binders.forEach(b => { b.selected_for_print = ids.has(b.id); });
+    BK.on = false; BK.sel.clear(); BK.onlySel = false; BK.last = null; BK.edit = null; taClose();
+    S.view = 'print'; savePrefs(); renderAll(); window.scrollTo(0, 0);
+  };
+  if (!others) return go();
+  confirmAction({plain:true, title:t('bk_pq_t', {n:ids.size}), detail:t('bk_pq_d', {n:ids.size, m:others + S.binders.filter(b => b.selected_for_print && ids.has(b.id)).length}), okLabel:t('bk_pq_ok'), onOk:go});
+}
+/** v12.5: open the grid with only the binders ticked in the archive (the print selection). */
+function bulkOpenSelected(){
+  const ids = printQueueBinders().map(b => b.id);
+  bulkOpen(); if (!ids.length) return;
+  ids.forEach(id => BK.sel.add(id)); BK.onlySel = true; bkRefresh(); bkFocusGrid();
+}
 function bulkOpen(){
-  BK.on = true; BK.sel.clear(); BK.cur = {r:-1, c:0}; BK.anchor = -1; BK.edit = null;
+  BK.on = true; BK.sel.clear(); BK.onlySel = false; BK.last = null; BK.cur = {r:-1, c:0}; BK.anchor = -1; BK.edit = null;
   S.view = 'archive'; renderView(); window.scrollTo(0, 0); bkFocusGrid();
 }
-function bulkClose(){ bkDiscard(() => { BK.on = false; BK.sel.clear(); BK.edit = null; taClose(); renderView(); }); }
+function bulkClose(){ bkDiscard(() => { BK.on = false; BK.sel.clear(); BK.onlySel = false; BK.last = null; BK.edit = null; taClose(); renderView(); }); }
 
 const BULK_ACTIONS = {
   'bulk-open': () => bulkOpen(),
   'bulk-close': () => bulkClose(),
+  'bulk-open-sel': () => bulkOpenSelected(),
+  'arch-only-sel': () => { UI.fSelOnly = !UI.fSelOnly; renderArchiveResults(); },
+  'bk-only': () => { BK.onlySel = !BK.onlySel && BK.sel.size > 0; BK.cur = {r:-1, c:BK.cur.c}; bkRefresh(); const g = $('#bk-grid'); if (g) g.scrollTop = 0; bkFocusGrid(); },
+  'bk-last-print': () => bkPrintLast(),
+  'bk-last-sel': () => { (BK.last || []).forEach(id => { if (bkById(id)) BK.sel.add(id); }); BK.last = null; bkRefresh(); },
+  'bk-last-x': () => { BK.last = null; bkRenderSelBar(); },
   'bk-sort': (el) => {
     const k = el.dataset.k;
     if (BK.sort.k !== k) BK.sort = {k, dir:1}; else if (BK.sort.dir > 0) BK.sort.dir = -1; else BK.sort = {k:'', dir:1};
     bkRefresh(); bkFocusGrid();
   },
-  'bk-sel-all': () => { BK.list.forEach(b => BK.sel.add(b.id)); bkSelChanged(); },
+  'bk-sel-all': () => { BK.list.forEach(b => BK.sel.add(b.id)); bkSelChanged(); },   // v12.5: adds the visible rows, keeps the others
   'bk-sel-none': () => { BK.sel.clear(); bkSelChanged(); },
   'bk-grp-sel': (el) => { const row = BK.rows[+el.dataset.r]; if (!row || !row.ids) return; const all = row.ids.every(id => BK.sel.has(id)); row.ids.forEach(id => bkToggleSel(id, !all)); bkSelChanged(); },
   'bk-apply': () => bkApplyOp(),
@@ -653,11 +708,12 @@ const BULK_ACTIONS = {
 /* ---------------- toolbar inputs (own data attributes: the archive's data-bind would re-render the hidden table) ---------------- */
 document.addEventListener('input', (e) => {
   const el = e.target;
-  if (el.hasAttribute && el.hasAttribute('data-bk-q')){ UI.q = el.value; clearTimeout(BK.qT); BK.qT = setTimeout(() => { if (BK.on) bkRefresh(); }, 120); }
+  if (el.hasAttribute && el.hasAttribute('data-bk-q')){ UI.q = el.value; BK.onlySel = false;   // v12.5: a new search leaves "Solo selezionati" (the ticks stay)
+    clearTimeout(BK.qT); BK.qT = setTimeout(() => { if (BK.on) bkRefresh(); }, 120); }
 });
 document.addEventListener('change', (e) => {
   const el = e.target; if (!el.dataset) return;
-  if (el.dataset.bkF){ UI[el.dataset.bkF] = el.value; bkRefresh(); }
+  if (el.dataset.bkF){ UI[el.dataset.bkF] = el.value; BK.onlySel = false; bkRefresh(); }
   else if (el.hasAttribute('data-bk-group')){ BK.group = el.value; bkRefresh(); }
   else if (el.dataset.bkCol){
     const keys = new Set(bkCols().map(c => c.k)); if (el.checked) keys.add(el.dataset.bkCol); else keys.delete(el.dataset.bkCol);
@@ -677,7 +733,7 @@ window.addEventListener('beforeunload', (e) => { if (BK.draft.size){ e.preventDe
 document.addEventListener('DOMContentLoaded', () => {
   if (typeof HELP_TOPICS === 'undefined') return;
   HELP_TOPICS.push({ id:'bulk', guide:null, tags:['archive'], related:['info', 'log'],
-    title:{it:'Modifica massiva: categorizzare tanti faldoni insieme', en:'Bulk edit: categorise many binders at once'},
-    body:{it:'<p>In <b>Archivio</b> premi <b>Modifica massiva</b>: si apre una griglia tipo foglio di calcolo con una riga per faldone (rispetta ricerca e filtri dell\'archivio).</p><ul><li><b>Muoversi</b>: frecce, Tab, Invio, Pag su/giù. <b>Modificare</b>: scrivi direttamente, oppure Invio/F2 o doppio clic. Esc annulla la cella. I suggerimenti propongono i valori già usati (ad es. la grafia esatta del cliente), così non nascono doppioni.</li><li><b>Più righe insieme</b>: spunta le righe (Spazio, Maiusc+clic, Maiusc+frecce, Ctrl+A o il riquadro del gruppo) e scegli <b>Imposta categoria</b>, <b>Aggiungi/Rimuovi tag</b>, <b>Imposta stato</b>, <b>Imposta colore</b>, <b>Imposta posizione (prefisso)</b>… poi <b>Applica</b>. <b>Ctrl+D</b> copia il valore della cella attiva nelle righe selezionate.</li><li><b>Ordina</b> cliccando l\'intestazione di colonna; <b>Raggruppa</b> per categoria, cliente, stato o stanza; scegli le <b>Colonne</b> da vedere.</li><li>Le modifiche restano <b>in sospeso</b> (celle evidenziate) finché non premi <b>Salva modifiche</b> (o Ctrl+S). Ctrl+Z annulla l\'ultima modifica in sospeso; <b>Annulla tutto</b> le scarta. Codici parlanti doppi o vuoti bloccano il salvataggio.</li><li>Il salvataggio è un\'unica operazione: si annulla in un colpo dal messaggio <b>Annulla</b> ed è scritta nel Registro attività con i campi cambiati per ogni faldone.</li></ul>',
-          en:'<p>In <b>Archive</b> press <b>Bulk edit</b>: a spreadsheet-like grid opens with one row per binder (it follows the archive search and filters).</p><ul><li><b>Move</b>: arrows, Tab, Enter, Page up/down. <b>Edit</b>: just type, or Enter/F2 or double-click. Esc cancels the cell. Suggestions offer the values already in use (e.g. the exact client spelling), so no duplicates appear.</li><li><b>Many rows at once</b>: tick rows (Space, Shift+click, Shift+arrows, Ctrl+A or the group box) and choose <b>Set category</b>, <b>Add/Remove tag</b>, <b>Set state</b>, <b>Set colour</b>, <b>Set position (prefix)</b>… then <b>Apply</b>. <b>Ctrl+D</b> copies the active cell value into the selected rows.</li><li><b>Sort</b> by clicking a column header; <b>Group by</b> category, client, state or room; pick the <b>Columns</b> to show.</li><li>Changes stay <b>pending</b> (highlighted cells) until you press <b>Save changes</b> (or Ctrl+S). Ctrl+Z undoes the last pending change; <b>Discard all</b> drops them. Duplicate or empty speaking codes block the save.</li><li>Saving is a single operation: one <b>Undo</b> from the message restores everything, and it is written to the Activity log with the changed fields of each binder.</li></ul>'} });
+    title:{it:'Modifica massiva: categorizzare e correggere tanti faldoni insieme', en:'Bulk edit: categorise and fix many binders at once'},
+    body:{it:'<p>In <b>Archivio</b> premi <b>Modifica massiva</b>: si apre una griglia tipo foglio di calcolo con una riga per faldone (rispetta ricerca e filtri dell\'archivio).</p><ul><li><b>Muoversi</b>: frecce, Tab, Invio, Pag su/giù. <b>Modificare</b>: scrivi direttamente, oppure Invio/F2 o doppio clic. Esc annulla la cella. I suggerimenti propongono i valori già usati (ad es. la grafia esatta del cliente), così non nascono doppioni.</li><li><b>Più righe insieme</b>: spunta le righe (Spazio, Maiusc+clic, Maiusc+frecce, Ctrl+A o il riquadro del gruppo) e scegli <b>Imposta categoria</b>, <b>Aggiungi/Rimuovi tag</b>, <b>Imposta stato</b>, <b>Imposta colore</b>, <b>Imposta posizione (prefisso)</b>… poi <b>Applica</b>. <b>Ctrl+D</b> copia il valore della cella attiva nelle righe selezionate.</li><li><b>La selezione resta</b> anche cambiando ricerca: cerca, spunta, cancella la ricerca, cerca il successivo, spunta… Poi <b>Solo selezionati</b> mostra solo le righe spuntate. Le operazioni valgono per tutti i selezionati, anche quelli nascosti dalla ricerca. Dall\'Archivio, con dei faldoni spuntati, <b>Modifica i selezionati</b> apre la griglia direttamente con quelli.</li><li>Dopo il salvataggio, <b>Stampa solo queste N etichette</b> mette in stampa solo i faldoni appena cambiati (utile per ristampare etichette con il colore sbagliato).</li><li><b>Ordina</b> cliccando l\'intestazione di colonna; <b>Raggruppa</b> per categoria, cliente, stato o stanza; scegli le <b>Colonne</b> da vedere.</li><li>Le modifiche restano <b>in sospeso</b> (celle evidenziate) finché non premi <b>Salva modifiche</b> (o Ctrl+S). Ctrl+Z annulla l\'ultima modifica in sospeso; <b>Annulla tutto</b> le scarta. Codici parlanti doppi o vuoti bloccano il salvataggio.</li><li>Il salvataggio è un\'unica operazione: si annulla in un colpo dal messaggio <b>Annulla</b> ed è scritta nel Registro attività con i campi cambiati per ogni faldone.</li></ul>',
+          en:'<p>In <b>Archive</b> press <b>Bulk edit</b>: a spreadsheet-like grid opens with one row per binder (it follows the archive search and filters).</p><ul><li><b>Move</b>: arrows, Tab, Enter, Page up/down. <b>Edit</b>: just type, or Enter/F2 or double-click. Esc cancels the cell. Suggestions offer the values already in use (e.g. the exact client spelling), so no duplicates appear.</li><li><b>Many rows at once</b>: tick rows (Space, Shift+click, Shift+arrows, Ctrl+A or the group box) and choose <b>Set category</b>, <b>Add/Remove tag</b>, <b>Set state</b>, <b>Set colour</b>, <b>Set position (prefix)</b>… then <b>Apply</b>. <b>Ctrl+D</b> copies the active cell value into the selected rows.</li><li><b>The selection stays</b> when the search changes: search, tick, clear the search, search the next one, tick… Then <b>Selected only</b> shows just the ticked rows. Operations apply to every selected row, also those hidden by the search. From the Archive, with binders ticked, <b>Edit selected</b> opens the grid with just those.</li><li>After saving, <b>Print only these N labels</b> queues only the binders just changed (handy to reprint labels with the wrong colour).</li><li><b>Sort</b> by clicking a column header; <b>Group by</b> category, client, state or room; pick the <b>Columns</b> to show.</li><li>Changes stay <b>pending</b> (highlighted cells) until you press <b>Save changes</b> (or Ctrl+S). Ctrl+Z undoes the last pending change; <b>Discard all</b> drops them. Duplicate or empty speaking codes block the save.</li><li>Saving is a single operation: one <b>Undo</b> from the message restores everything, and it is written to the Activity log with the changed fields of each binder.</li></ul>'} });
 });

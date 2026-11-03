@@ -45,7 +45,7 @@ di SiteGround verrebbe chiesta di nuovo a ogni QR. I dati restano protetti da co
 
 1. Chiudi DocMap, copia la nuova `docmapv1` **sopra quella vecchia, nella stessa cartella**, con lo stesso browser.
 2. Riapri `index.html` e controlla in ⚙ › Impostazioni › Dati e sicurezza › **Informazioni su DocMap**: versione
-   **26.12.4** (o 26.12.0 … 26.12.3), database locale schema **9**, server schema **3** (pulsante **Verifica server**).
+   **26.12.5** (o 26.12.0 … 26.12.4), database locale schema **9**, server schema **3** (pulsante **Verifica server**).
 3. Numero di faldoni, clienti e ubicazioni uguale a quello annotato.
 4. **Sincronizza con il server**.
 
