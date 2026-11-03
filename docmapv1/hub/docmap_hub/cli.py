@@ -873,7 +873,7 @@ def cmd_cliente_elenco(hub: Hub, args) -> int:
 
 def cmd_info(hub: Hub, args) -> int:
     from . import autoaccess
-    prog = Path(__file__).resolve().parent.parent
+    prog = Path(__file__).resolve().parent.parent.parent  # the folder that holds hub\, installer-windows\, …
     out(f"DocMap Hub {__version__}")
     out(f"Programma (si può sostituire a ogni aggiornamento): {prog}")
     out(f"Dati (NON toccare: chiavi, registro, cassaforte, clienti): {hub.dir}")
