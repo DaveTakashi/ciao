@@ -1,4 +1,4 @@
-# DocMap Hub — licenze, ambienti, cassaforte, deploy (v0.2)
+# DocMap Hub — licenze, ambienti, cassaforte, deploy, nuovo cliente (v0.3)
 
 Il **hub** è il programma con cui Dave gestisce **tutte** le installazioni DocMap dal suo PC: emette e rinnova le
 licenze, tiene in una **cassaforte cifrata** le credenziali di ogni installazione, gestisce per ogni installazione
@@ -21,6 +21,20 @@ Cosa fa:
 
 Regola d'oro (D5): una licenza **non blocca mai i dati**. Scaduta → 30 giorni di tolleranza
 → poi **sola lettura**: lo studio continua a consultare, stampare ed esportare l'archivio.
+
+> **Nuovo cliente in pochi passi (v0.3)**: guida completa **[`docs/GUIDA-NUOVO-CLIENTE.md`](../docs/GUIDA-NUOVO-CLIENTE.md)**.
+> In breve:
+>
+> 1. una volta: `run_windows.bat init`, `keygen`, `vault init`, `export-public-key --out chiave-pubblica.json`, `backup` (su USB);
+> 2. `run_windows.bat cliente nuovo --nome "Studio Rossi" --piva IT… --piano studio --installazioni sede|online|entrambe
+>    [--url-online https://docmap.pr-it.it/studio-rossi/ --url-staging … --ftp-host … --ftp-utente … --ftp-cartella …]`
+>    (oppure la scheda **Nuovo cliente** della pagina) → in `%APPDATA%\DocMapHub\clienti\studio-rossi\`: pacchetto
+>    personale per la sede (licenza + chiave pubblica + nome + modello della sincronizzazione), siti per l'hosting,
+>    **scheda cliente** da stampare (senza segreti). Rilanciarlo non crea doppioni; `--rigenera` rifà i pacchetti;
+> 3. online: `deploy --env staging` → `setup.php` (aggiungi `ponte-sync,editor`) → token in cassaforte
+>    (`cliente token-ponte --salva`) → `promote` → setup.php su production;
+> 4. sede: zip su chiavetta → `installa.bat` (licenza automatica, Kit di emergenza, sincronizzazione ogni 10 minuti);
+> 5. `cliente scheda --cliente "Studio Rossi" [--con-segreti]`, `cliente elenco`; rinnovi: `licence renew`.
 
 ---
 
@@ -582,3 +596,14 @@ che vuol dire comunque raggiungibile.
 
 Nella pagina: scheda *Stato* → *Controlla tutto adesso*: il controllo gira in sottofondo e la pagina non si blocca.
 
+## 13. Nuovo cliente (`cliente nuovo`, v0.3)
+
+| Comando | Cosa fa |
+|---|---|
+| `cliente nuovo --nome … --piano … [--piva] [--email] [--rivenditore] [--custodia-chiave on] --installazioni sede\|online\|entrambe [--url-online] [--url-staging] [--url-sede] [--ftp-protocollo ftps\|sftp] [--ftp-host --ftp-utente --ftp-password ? --ftp-porta --ftp-cartella --ftp-cartella-staging] [--nome-studio] [--rigenera] [--senza-pacchetti] [--con-segreti]` | cliente (ritrovato da P.IVA o nome), installazioni `<nome> — sede` / `<nome> — online`, ambienti (sede: production studio-python; online: production + staging web-php), FTP in cassaforte, licenze (solo se non ce n'è una valida), poi `clienti/<slug>/`: `sede/DocMap-<slug>-sede.zip` (installer-windows `pacchetto --chiave-pubblica --licenza --nome-studio --sync-modello`), `online/<env>/sito` + zip (tools/build_deploy.py, invocato e mai modificato), `scheda-cliente.html`, `licenze/`, `chiave-pubblica.json`, `sync-modello.json`, `cliente.json`, la guida |
+| `cliente scheda --cliente X [--con-segreti]` | rifà la scheda stampabile; con `--con-segreti` (passphrase della cassaforte) scrive a parte `scheda-cliente-CON-SEGRETI.html` (permessi 0600, registrato nel log) |
+| `cliente token-ponte --cliente X --salva \| --esporta FILE` | token di `ponte-sync` mostrato da setup.php → cassaforte; esportato su file nuovo (0600, mai sovrascritto) per `configura-sync.ps1 -TokenFile` |
+| `cliente elenco` | clienti, installazioni, prima scadenza, cartella |
+| `settings set installer_dir …` | dove sta `installer-windows` (predefinito: accanto a `hub/`) |
+
+Non fatto (da fare a mano, vedi la guida §5): più sedi per lo stesso cliente con `cliente nuovo`.

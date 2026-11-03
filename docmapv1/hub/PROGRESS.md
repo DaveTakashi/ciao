@@ -29,3 +29,19 @@
 
 ## Test
 `cd docmapv1/hub && DOCMAP_HUB_TEST_DEPS=<cartella con pyftpdlib e pyOpenSSL> python -m unittest discover -s tests -v` — ultimo risultato: 61 test OK, 1 saltato (IPv6 ::1 non disponibile nel contenitore) — Python 3.13, cryptography 50, pyftpdlib 2.2, pyOpenSSL 26.4, fastapi+uvicorn per gli ambienti locali, Linux. Senza `DOCMAP_HUB_TEST_DEPS` i test FTP/FTPS vengono saltati.
+
+## 2026-11-03 — v0.3: `cliente nuovo`
+- `docmap_hub/onboarding.py`: ClienteNuovo (validazione prima di toccare il registro), Onboarding.run (cliente da P.IVA/nome,
+  istanze con `notes=onboarding:sede|online`, ambienti, FTP in cassaforte, licenze solo se manca una valida, uscite in
+  `clienti/<slug>/`), scheda_html (nessun asset esterno, nessun segreto; con segreti solo su richiesta, file 0600),
+  token del ponte (`save_bridge_token`, `export_bridge_token` O_EXCL 0600). CLI `cliente nuovo|scheda|token-ponte|elenco`,
+  setting `installer_dir`; pagina `/clienti` (job in background) e `/clienti/<slug>/scheda`.
+- build_deploy.py e installer-windows sono invocati come processi, mai modificati.
+- Test `tests/test_v03_onboarding.py` (10): sede+online+staging con FTP `local`; pacchetto con trusted_keys.json, licenza,
+  modello sync, cliente.json, guida; il server impacchettato installa la licenza → `(full)`, `abilita-licenza`, e senza
+  trusted_keys.json → `(invalid)`; siti con base path giusti; `deploy --dry-run` sullo staging creato; scheda senza segreti
+  né asset esterni; rilancio idempotente (stesso zip, nessuna licenza nuova), P.IVA scritta diversamente, `--rigenera` →
+  `_trash`; varianti solo sede / solo online (dominio del cliente, base `/`); 5 errori di validazione; token del ponte e
+  scheda con segreti; pagina web (CSRF, errore immediato, job, scheda servita, percorso `..` rifiutato).
+- Totale: `python -m unittest discover -s tests` → 71 test OK (5 saltati).
+- Limite noto: una sola sede e un solo sito per cliente con il wizard (le altre sedi a mano, guida §5).

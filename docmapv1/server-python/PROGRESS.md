@@ -115,3 +115,12 @@ Newest entries last. Resume from the last "Next step".
 - Guide `GUIDA-SYNC-WEB-LOCALE.md` (Italian: tokens, C:\DocMap\sync + icacls, profile, dry-run, schtasks every 10 min as
   SYSTEM via sincronizza.bat, conflicts, logs, errors, security); README section.
 - Next step: try it on the studio Windows PC against the real SiteGround site (dry-run first).
+
+## 2026-11-03 — Chiavi fidate da `docmap_server/trusted_keys.json`; versione 26.12.5
+- `licence.py`: `load_trusted_keys_file()` (cache per mtime/dimensione, max 64 KB, BOM ammesso, key id e base64 32 byte
+  controllati, chiavi non valide ignorate con log `docmap.licence`, JSON rovinato → {} con log); `trusted_keys()` = file +
+  costante (la costante vince sullo stesso id); `licence status/install` avvisano se non c'è nessuna chiave. Modello delle
+  minacce nel docstring e nel README.
+- `api.py`: DM_APP_VERSION 26.12.5 (merge dell'app v12.5, il PHP ha lo stesso valore).
+- Test nuovo `tests/test_trusted_keys.py` (9). Risultati: diff_test 7 OK, test_licence 9 OK, test_trusted_keys 9 OK,
+  test_setup 2 OK, test_sync_remote 10 OK, validate_python "RESULT: all checks passed".

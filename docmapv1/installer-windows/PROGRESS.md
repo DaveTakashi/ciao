@@ -140,3 +140,17 @@ NODE_PATH=/opt/node22/lib/node_modules python3 docmapv1/server-python/tests/vali
   con Python 3.13 e con Python 3.11 (venv + requirements.txt).
 - 2026-11-02 · lint PowerShell, ping senza proxy, correzioni (cast della versione di Python, argomenti vuoti in PS 5.1,
   cartella corrente prima di spostare `strumenti`, database senza config), PROGRESS completo.
+
+## 2026-11-03 — strumenti 1.2.0: pacchetto personale, licenza automatica, ponte web ⇄ studio
+- `docmap_tools.py`: `pacchetto --chiave-pubblica/--licenza/--nome-studio/--sync-modello/--cliente-json/--documento`
+  (chiave validata, licenza verificata con il licence_verify impacchettato, modello rifiutato se contiene token),
+  `info-pacchetto`, `abilita-licenza`, `configura-sync` (token del sito da DOCMAP_SYNC_TOKEN_WEB / file / chiesto; codice
+  `ponte-sync` editor nella config del server come impronta SHA-256; profilo 0600 + `sincronizza.bat`; stato spostato in
+  `sync\_vecchi` se cambia il sito). Percorso `sync` in `paths()`.
+- PowerShell: `installa.ps1` (cliente.json → nome dello studio, licenza installata solo se non ce n'è già una, poi
+  `abilita-licenza`, modello in `C:\DocMap\sync`, stato licenza, sincronizzazione facoltativa `-TokenSyncFile`/`-SenzaSync`),
+  `comune.ps1` (`Set-AclProgramma`, `Install-LicenzaPacchetto`, `Show-StatoLicenza`, `Register-SyncTask`,
+  `Invoke-ConfiguraSync`, `Install-Versione` conserva `trusted_keys.json`), nuovo `configura-sync.ps1` (`-TokenFile`, `-Ogni`,
+  `-Disattiva`), `licenza.ps1 -Attiva`, `disinstalla.ps1` toglie anche l'attività del ponte.
+- Test: `tests/test_pacchetto_cliente.py` (12) + lint aggiornato → 70 test OK (1 saltato, pwsh).
+- Non provato su Windows: icacls su `C:\DocMap` senza /T, attività del ponte, `Read-Host -AsSecureString` del token.

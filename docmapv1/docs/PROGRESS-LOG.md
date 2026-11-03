@@ -175,3 +175,22 @@
   non installato nel contenitore).
 - Prossimo passo: Dave prova sul suo PC `run_windows.bat server-check`, `vault init`, un ambiente staging locale e un
   `deploy --dry-run` verso una cartella di prova su SiteGround.
+
+## 2026-11-03 — Nuovo cliente in pochi passi (hub 0.3, strumenti 1.2.0, chiavi fidate senza modificare il codice)
+- **Server Python**: le chiavi pubbliche delle licenze si leggono anche da `docmap_server/trusted_keys.json` (accanto al
+  codice, non nei dati; stesso formato di `export-public-key`). File rovinato o chiave non valida → ignorati con una riga
+  nel registro, mai fatale. `licence status` mostra le chiavi fidate. `DM_APP_VERSION` 26.12.5 (unione con l'app v12.5).
+- **Installer 1.2.0**: `pacchetto --chiave-pubblica --licenza --nome-studio --sync-modello --documento` = pacchetto
+  personale del cliente (cartella `cliente\`, nessun segreto); `installa.ps1` installa la licenza e attiva
+  `licence_required`, mostra lo stato, propone la sincronizzazione; nuovo `configura-sync.ps1` (token del sito nascosto o
+  da file, codice `ponte-sync` creato sul server della sede, profilo in `C:\DocMap\sync` solo amministratori, prova
+  `--dry-run`, attività "DocMap Sync Web-Locale" ogni 10 minuti); `licenza.ps1 -Attiva` per i rinnovi; `C:\DocMap`
+  modificabile solo dagli amministratori; un aggiornamento con pacchetto generico conserva `trusted_keys.json`.
+- **Hub 0.3**: `cliente nuovo` (riga di comando e scheda **Nuovo cliente** della pagina): cliente, installazioni sede/online,
+  ambienti production/staging, FTP in cassaforte, licenze, pacchetto per la sede, siti per l'hosting (build_deploy.py
+  invocato), **scheda cliente** stampabile senza segreti; idempotente, `--rigenera`; `cliente scheda [--con-segreti]`,
+  `cliente token-ponte --salva/--esporta`, `cliente elenco`.
+- **Guida**: `docs/GUIDA-NUOVO-CLIENTE.md` (passi 0–8, dove sta ogni codice), copiata nel pacchetto e nella cartella del cliente.
+- Test (Linux): hub 71 (5 saltati: FTP/SFTP/IPv6), installer 70 (1 saltato: pwsh), server: diff_test 7, test_licence 9,
+  test_trusted_keys 9, test_setup 2, test_sync_remote 10, validate_python "all checks passed".
+- Non provato: Windows reale (icacls, attività del ponte, licenza automatica), hosting reale, telefoni.
