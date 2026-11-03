@@ -59,7 +59,7 @@ pre{background:var(--box);padding:10px 12px;border-radius:6px;overflow-x:auto} p
 </ul>
 </div>
 </nav><main><h1 id="wiki-di-docmap-hub">Wiki di DocMap Hub</h1>
-<p>Vale per <strong>hub 0.3.1</strong>, <strong>DocMap 26.12.5 (app v12.5)</strong> e <strong>strumenti di installazione 1.2.0</strong>. Data: 3 novembre 2026.</p>
+<p>Vale per <strong>hub 0.3.2</strong>, <strong>DocMap 26.12.5 (app v12.5)</strong> e <strong>strumenti di installazione 1.2.0</strong>. Data: 3 novembre 2026.</p>
 <p>È scritta per due lettori:</p>
 <ul>
 <li><strong>Dave</strong>: ogni capitolo dice cosa fare, in che ordine e cosa aspettarsi.</li>
@@ -532,8 +532,16 @@ run_windows.bat cliente elenco
 licenze emesse, cassaforte (cifrata). Non contiene <code>clienti\</code> (si rigenera) né l'accesso automatico.</p>
 <hr />
 <h2 id="7-la-pagina-web-del-hub">7. La pagina web del hub</h2>
-<p>Doppio clic su <code>C:\DocMapHub\hub\run_windows.bat</code> → si apre <code>http://127.0.0.1:8765/</code> (solo da questo PC). Con
+<p>Doppio clic su <code>C:\DocMapHub\hub\run_windows.bat</code> → si apre il browser sulla pagina del hub (solo da questo PC). Con
 l'accesso automatico entri direttamente.</p>
+<p><strong>Porta della pagina.</strong> Il hub usa una porta poco comune, <strong>47823</strong>, che nessun altro programma usa di solito. Se è
+occupata (per esempio da un altro server che hai lanciato, o da un secondo hub aperto) prova da solo la 47824, poi la
+47825 e così via, poi una porta a caso tra 47000 e 48999. Nella finestra nera scrive quali porte erano occupate e quale
+ha scelto, e <strong>la ricorda</strong>: la volta dopo riparte da quella. L'indirizzo della pagina aperta in quel momento è anche
+nel file <code>%APPDATA%\DocMapHub\pagina-hub.txt</code> (utile al tuo agente), e <code>run_windows.bat info</code> lo mostra.
+Per fissare tu una porta: <code>run_windows.bat settings set web.port 47900</code> (se è occupata passa comunque alla successiva);
+per una volta sola: <code>run_windows.bat web --port 47900</code>. Le porte degli ambienti locali (18400–18999) sono un'altra
+cosa e non si sovrappongono mai a questa.</p>
 <table>
 <thead>
 <tr>
@@ -760,7 +768,7 @@ Codici di uscita: <code>0</code> riuscito, <code>1</code> errore (messaggio su s
 <tr>
 <td><code>settings show\|set</code></td>
 <td>impostazioni</td>
-<td><code>installer_dir</code>, <code>docmap_dir</code>, <code>server_python_dir</code>, <code>server_python_exe</code>, <code>ports.range</code></td>
+<td><code>installer_dir</code>, <code>docmap_dir</code>, <code>server_python_dir</code>, <code>server_python_exe</code>, <code>ports.range</code>, <code>web.port</code></td>
 </tr>
 <tr>
 <td><code>server-check</code></td>
@@ -779,7 +787,7 @@ Codici di uscita: <code>0</code> riuscito, <code>1</code> errore (messaggio su s
 </tr>
 <tr>
 <td><code>web</code></td>
-<td>pagina locale</td>
+<td>pagina locale (porta 47823 o la successiva libera, ricordata)</td>
 <td><code>--port</code>, <code>--no-browser</code></td>
 </tr>
 </tbody>
@@ -843,10 +851,11 @@ pacchetto personale di <code>cliente nuovo</code>, oppure <code>licence show &lt
 <h3 id="106-la-pagina-del-hub-chiede-ancora-la-passphrase">10.6 La pagina del hub chiede ancora la passphrase</h3>
 <p>Accesso automatico spento o file illeggibile (creato da un altro utente Windows): <code>accesso-automatico attiva</code>.</p>
 <h3 id="107-porta-occupata">10.7 Porta occupata</h3>
-<p><code>ports list</code> mostra chi la usa; <code>env start</code> sposta da solo l'ambiente su una porta libera.</p>
+<p>Pagina del hub: sceglie da sola la porta libera successiva (capitolo 7). Ambienti locali: <code>ports list</code> mostra chi la
+usa; <code>env start</code> sposta da solo l'ambiente su una porta libera.</p>
 <hr />
 <h2 id="11-cosa-non-e-ancora-provato">11. Cosa non è ancora provato</h2>
-<p>Provato con test automatici su Linux (hub 79 test, compresi FTP e FTPS reali su un server di prova). <strong>Non ancora</strong> su:
+<p>Provato con test automatici su Linux (hub 82 test, compresi FTP e FTPS reali su un server di prova). <strong>Non ancora</strong> su:
 Windows reale (accesso automatico con DPAPI, pagina del hub, <code>installa.bat</code>, sincronizzazione automatica),
 deploy FTPS verso SiteGround, telefoni con il certificato dello studio. La licenza del sito online viene emessa ma il
 server PHP non la controlla ancora.</p></main></div></body></html>
