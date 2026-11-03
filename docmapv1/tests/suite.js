@@ -2727,7 +2727,7 @@ const sec = (n) => console.log('\n== ' + n);
         ok(await W1p.evaluate(() => !!document.getElementById('vault-lock') && /non valido|not valid/.test(document.getElementById('vl-err').textContent) && !localStorage.getItem('docmap_v26_auth')), 'W: a wrong access code is refused before any local user is created');
         // v12.4: the typed values stay (nothing to retype), "continue without a code" appears, every password field has the eye button
         Wv = await W1p.evaluate(() => ({pin:document.getElementById('vl-pin').value, pin2:document.getElementById('vl-pin2').value, tok:document.getElementById('vl-token').value, user:document.getElementById('vl-user').value,
-          skip:!!document.getElementById('vl-skip'), eyes:document.querySelectorAll('#vault-lock .pw-eye').length, opt:/facoltativo/.test(document.querySelector('label[for="vl-token"]').textContent)}));
+          skip:!!document.getElementById('vl-skip'), eyes:document.querySelectorAll('#vault-lock .pw-eye').length, opt:/facoltativo|optional/.test(document.querySelector('label[for="vl-token"]').textContent)}));
         await W1p.click('#vault-lock .pw-wrap:has(#vl-pin) .pw-eye'); await W1p.waitForTimeout(60);
         Wv.shown = await W1p.evaluate(() => document.getElementById('vl-pin').type === 'text' && document.querySelector('.pw-wrap:has(#vl-pin) .pw-eye').getAttribute('aria-pressed') === 'true');
         await W1p.click('#vault-lock .pw-wrap:has(#vl-pin) .pw-eye'); await W1p.waitForTimeout(60);
