@@ -342,7 +342,7 @@ function srvCardInner(){
   if (auto){
     return '<div class="row between"><h2 style="margin:0">' + ic('globe') + ' ' + esc(t('sv_h')) + (typeof helpDot === 'function' ? helpDot('server') : '') + '</h2>' + srvStatusHTML().replace('id="srv-status"', 'id="srv-status-card"') + '</div>' +
       '<div class="small muted">' + esc(t('sv_mode_auto')) + ' · <span class="mono">' + esc(dmServerUrl(dmConfig().apiBase)) + '</span></div>' + info + fix +
-      '<div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-primary" data-a="srv-sync">' + ic('sync') + esc(t('sv_sync_now')) + '</button>' + tokBtn + '</div>' +
+      '<div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-primary" data-a="srv-sync">' + ic('sync') + esc(t('sv_sync_now')) + '</button>' + '<button class="btn" data-a="srv-check" id="srv-check">' + ic('check') + esc(t('sv_chk_btn')) + '</button>' + tokBtn + '</div>' +
       '<div class="row" style="gap:8px;align-items:flex-end;flex-wrap:wrap"><div class="field" style="min-width:260px"><label for="srv-newtok">' + esc(t('sv_newtok')) + '</label><input class="inp mono" id="srv-newtok" type="password" autocomplete="off"></div><button class="btn" data-a="srv-newtok">' + esc(t('sv_newtok_btn')) + '</button></div>';
   }
   const [bu, bp] = String(lc.basic || ':').split(/:(.*)/s);
@@ -352,7 +352,7 @@ function srvCardInner(){
     '<details' + (lc.basic ? ' open' : '') + '><summary class="small">' + esc(t('sv_basic')) + '</summary><div class="grid g2" style="gap:10px;margin-top:6px"><div class="field"><label for="srv-buser">' + esc(t('sv_buser')) + '</label><input class="inp" id="srv-buser" value="' + esc(lc.basic ? bu : '') + '" autocomplete="off"></div>' +
       '<div class="field"><label for="srv-bpass">' + esc(t('sv_bpass')) + '</label><input class="inp" id="srv-bpass" type="password" value="' + esc(lc.basic ? bp || '' : '') + '" autocomplete="off"></div></div><div class="hint">' + esc(t('sv_basic_hint')) + '</div></details>' +
     '<div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn" data-a="srv-save">' + ic('save') + esc(t('sv_save')) + '</button><button class="btn" data-a="srv-test">' + ic('check') + esc(t('sv_test')) + '</button>' +
-      '<button class="btn btn-lg btn-primary" data-a="srv-sync" id="srv-sync">' + ic('sync') + esc(t('sv_sync')) + '</button>' + tokBtn + '</div>' + (conf ? info : '');
+      '<button class="btn btn-lg btn-primary" data-a="srv-sync" id="srv-sync">' + ic('sync') + esc(t('sv_sync')) + '</button>' + '<button class="btn" data-a="srv-check" id="srv-check">' + ic('check') + esc(t('sv_chk_btn')) + '</button>' + tokBtn + '</div>' + (conf ? info : '');
 }
 function srvSaveLocal(){
   const v = (id) => String(($('#' + id) || {}).value || '').trim();
@@ -392,6 +392,7 @@ const SRV_ACTIONS = {
     catch(e){ const m = e.code === 'offline' ? t('sv_e_off') : srvErrText(e) || t('sv_e_denied'); toast(m, 'err', 9000); }
   },
   'srv-tokens': () => srvTokensModal(),
+  'srv-check': () => { if (dmConfig().mode !== 'web') srvSaveLocal(); return srvUpdateCheck(); },
   'srv-tok-create': async () => {
     const conf = srvConf(), u = String(($('#srv-tok-user') || {}).value || '').trim(), r = ($('#srv-tok-role') || {}).value || 'editor'; if (!conf || !u) return;
     try { const x = await srvClient(conf).call('token_create', {method:'POST', body:{user:u, role:r}});
@@ -429,3 +430,114 @@ const SRV_ACTIONS = {
 document.addEventListener('DOMContentLoaded', () => {
   if (typeof ACTIONS !== 'undefined') Object.assign(ACTIONS, SRV_ACTIONS);
 });
+
+/* ---------------- v12.4: "Verifica dopo l'aggiornamento" ----------------
+   One button (Sincronizzazione › Server online) after the server files were replaced: it checks, in order, that the
+   server answers, which DocMap release its files are (ping app_version), the database schema (migrations run by
+   themselves on the first call), config.php and the access code (route me), and how many records the server holds
+   compared with this device. It never writes: "Sincronizza ora" aligns what differs. Pure step builder: srvCheckSteps(). */
+const SRV_EXPECT_SCHEMA = 3;
+function srvVerCmp(a, b){ const pa = String(a || '').split('.').map(n => +n || 0), pb = String(b || '').split('.').map(n => +n || 0); for (let i = 0; i < 3; i++){ if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) < (pb[i] || 0) ? -1 : 1; } return 0; }
+function srvLocalCounts(){
+  const live = (a) => (a || []).filter(x => x && !x.deleted);
+  return {binder:live(S.binders).filter(b => !isDemo(b)).length, client:live(S.clients).length, location:typeof locArr === 'function' ? locArr().length : live(S.locations).length, archive:live(S.archives).length};
+}
+/** Steps [{k, st:'ok'|'warn'|'bad'|'info', text}] from the raw answers (r.ping, r.pingErr, r.me, r.meErr, r.counts, r.local, r.pending). */
+function srvCheckSteps(r){
+  const out = [], add = (k, st, key, p) => out.push({k, st, text:t(key, p || {})});
+  if (!r.ping){ add('ping', 'bad', 'sv_chk_noping', {m:r.pingErr || ''}); return out; }
+  add('ping', 'ok', 'sv_chk_ping', {php:r.ping.php || '?'});
+  const sv = r.ping.app_version || '', c = sv ? srvVerCmp(sv, APP_VERSION) : -1;
+  if (!sv) add('ver', 'warn', 'sv_chk_ver_old', {a:APP_VERSION});
+  else if (c < 0) add('ver', 'warn', 'sv_chk_ver_lt', {s:sv, a:APP_VERSION});
+  else if (c > 0) add('ver', 'warn', 'sv_chk_ver_gt', {s:sv, a:APP_VERSION});
+  else add('ver', 'ok', 'sv_chk_ver_ok', {s:sv});
+  add('schema', +r.ping.schema === SRV_EXPECT_SCHEMA ? 'ok' : 'warn', +r.ping.schema === SRV_EXPECT_SCHEMA ? 'sv_chk_schema_ok' : 'sv_chk_schema_x', {s:r.ping.schema, e:SRV_EXPECT_SCHEMA});
+  if (!r.me){
+    const sc = r.meErr && r.meErr.server_code, msg = r.meErr && r.meErr.message || '';
+    if (r.noToken) add('me', 'warn', 'sv_chk_notok');
+    else if (sc === 'config' && /does not match/i.test(msg)) add('me', 'bad', 'sv_chk_key');
+    else if (sc === 'config') add('me', 'bad', 'sv_chk_config', {m:msg});
+    else if (sc === 'crypto') add('me', 'bad', 'sv_chk_key');
+    else add('me', 'bad', 'sv_chk_denied', {m:(typeof srvErrText === 'function' && srvErrText(r.meErr)) || msg});
+    return out;
+  }
+  add('me', 'ok', 'sv_chk_me', {u:r.me.user, r:t('au_role_' + (r.me.role || 'viewer'))});
+  if (r.counts){
+    const sc = r.counts, lc = r.local, keys = ['binder', 'client', 'location', 'archive'];
+    const line = (o) => keys.map(k => t('sv_chk_n_' + k, {n:o[k] || 0})).join(' · ');
+    add('data', 'info', 'sv_chk_data', {s:line(sc), l:line(lc)});
+    const total = keys.reduce((n, k) => n + (sc[k] || 0), 0), ltot = keys.reduce((n, k) => n + (lc[k] || 0), 0);
+    if (!total && ltot) add('align', 'warn', 'sv_chk_empty');
+    else if (keys.some(k => (sc[k] || 0) !== (lc[k] || 0)) || r.pending) add('align', 'warn', 'sv_chk_diff', {n:r.pending || 0});
+    else add('align', 'ok', 'sv_chk_same');
+  }
+  return out;
+}
+async function srvCheckGather(){
+  const conf = srvConf(), base = conf ? conf.url : srvAuto() ? dmServerUrl(dmConfig().apiBase) : srvNormUrl((srvLocalConf() || {}).url || '');
+  const r = {local:srvLocalCounts(), pending:conf ? srvPending() : 0};
+  if (!base){ r.pingErr = t('sv_e_cfg'); return r; }
+  const lc = srvLocalConf() || {};
+  try { r.ping = await new DMServer(base, '', {simple:!srvAuto(), basic:lc.basic || ''}).call('ping', {timeout:15000}); }
+  catch(e){ r.pingErr = e.code === 'offline' ? t('sv_e_off') : (e.message || e.code); return r; }
+  if (!conf){ r.noToken = true; return r; }
+  const cl = srvClient(conf);
+  try { r.me = await cl.call('me'); } catch(e){ r.meErr = e; return r; }
+  try {
+    const n = {binder:0, client:0, location:0, archive:0}; let since = 0;
+    for (let i = 0; i < 25; i++){
+      const p = await cl.call('pull', {q:{since, log_since:9007199254740991}});
+      (p.records || []).forEach(x => { if (x.type in n && !(x.type === 'binder' && x.data && isDemo(x.data))) n[x.type]++; });
+      since = p.seq || since; if (!p.more) break;
+    }
+    r.counts = n;
+  } catch(e){ r.countErr = e.message || e.code; }
+  return r;
+}
+async function srvUpdateCheck(){
+  const ico = {ok:'check', warn:'alert', bad:'x', info:'info'};
+  const body = (steps) => '<div class="stack" id="srv-chk"><p class="small muted" style="margin:0">' + esc(t('sv_chk_p')) + '</p>' +
+    (steps ? steps.map(x => '<div class="q-row ' + (x.st === 'info' ? '' : x.st) + '" data-k="' + x.k + '">' + ic(ico[x.st]) + '<span>' + esc(x.text) + '</span></div>').join('') : '<div class="small" id="srv-chk-wait">' + esc(t('sv_chk_wait')) + '</div>') +
+    '<div class="hint">' + esc(t('sv_chk_guide')) + '</div></div>';
+  openModal({title:t('sv_chk_t'), size:'lg', body:body(null), buttons:[{label:t('close'), cls:'btn', action:'modal-close'}]});
+  const r = await srvCheckGather(), steps = srvCheckSteps(r);
+  SRV.lastCheck = {at:nowISO(), steps};
+  const box = document.getElementById('srv-chk'); if (!box) return steps;
+  box.outerHTML = body(steps);
+  const canSync = steps.some(x => x.k === 'align' && x.st === 'warn') && srvConf();
+  const f = topModal() && topModal().querySelector('.modal-f');
+  if (f && canSync && !f.querySelector('#srv-chk-sync')){ const b = document.createElement('button'); b.className = 'btn btn-primary'; b.id = 'srv-chk-sync'; b.innerHTML = ic('sync') + esc(t('sv_sync_now')); b.onclick = () => { closeModal(true); SRV_ACTIONS['srv-sync'](); }; f.appendChild(b); }
+  return steps;
+}
+if (typeof I18N !== 'undefined'){
+  Object.assign(I18N.it, { sv_chk_btn:'Verifica dopo l\'aggiornamento', sv_chk_t:'Verifica del server dopo l\'aggiornamento', sv_chk_wait:'Controllo in corso…',
+    sv_chk_p:'Controlla il server senza modificare niente: file, database, codice di accesso e quanti dati ci sono rispetto a questo dispositivo.',
+    sv_chk_guide:'Guida: docs/AGGIORNARE-IL-SERVER.md. Le migrazioni del database sono automatiche: non serve nessun pulsante.',
+    sv_chk_noping:'Il server non risponde ({m}). Controlla l\'indirizzo e che la cartella server-php sia stata caricata.', sv_chk_ping:'Il server risponde (PHP {php}).',
+    sv_chk_ver_ok:'File del server aggiornati: versione {s}, uguale a questa app.', sv_chk_ver_lt:'I file del server sono della versione {s}, questa app è la {a}: carica il contenuto di deploy/studio-de sopra quello vecchio.',
+    sv_chk_ver_gt:'I file del server sono della versione {s}, più nuova di questa app ({a}): aggiorna anche questo PC.', sv_chk_ver_old:'I file del server sono di una versione precedente alla 26.12.4: carica il contenuto di deploy/studio-de (questa app è la {a}).',
+    sv_chk_schema_ok:'Database del server allo schema {s} (aggiornato da solo).', sv_chk_schema_x:'Database del server allo schema {s}, atteso {e}: carica i file nuovi del server.',
+    sv_chk_notok:'Questo dispositivo non ha ancora un codice di accesso: incollalo in "Nuovo codice di accesso" e ripeti la verifica.',
+    sv_chk_config:'Il server non trova config.php o la cartella dei dati ({m}). Se la cartella è stata cancellata e ricaricata, recupera config.php dal backup: NON rieseguire setup.php.',
+    sv_chk_key:'La chiave del server non corrisponde al database: config.php è stato rigenerato. Rimetti il config.php originale dal backup; i dati non sono persi.',
+    sv_chk_denied:'Il codice di accesso non è accettato: {m}', sv_chk_me:'Codice di accesso valido: {u} ({r}).',
+    sv_chk_data:'Sul server: {s}. Su questo dispositivo: {l}.', sv_chk_n_binder:'{n} faldoni', sv_chk_n_client:'{n} clienti', sv_chk_n_location:'{n} ubicazioni', sv_chk_n_archive:'{n} archivi',
+    sv_chk_empty:'Il server è vuoto ma questo dispositivo ha dei dati. Se prima il server ne aveva, config.php o la cartella dei dati sono stati sostituiti (vedi la guida). Altrimenti premi Sincronizza ora per caricarli.',
+    sv_chk_diff:'Server e dispositivo non coincidono ({n} modifiche in attesa qui): premi Sincronizza ora per allinearli.', sv_chk_same:'Server e dispositivo coincidono.' });
+  Object.assign(I18N.en, { sv_chk_btn:'Check after the update', sv_chk_t:'Server check after the update', sv_chk_wait:'Checking…',
+    sv_chk_p:'Checks the server without changing anything: files, database, access code and how much data it holds compared with this device.',
+    sv_chk_guide:'Guide: docs/AGGIORNARE-IL-SERVER.md. Database migrations run by themselves: no button needed.',
+    sv_chk_noping:'The server does not answer ({m}). Check the address and that the server-php folder was uploaded.', sv_chk_ping:'The server answers (PHP {php}).',
+    sv_chk_ver_ok:'Server files up to date: version {s}, same as this app.', sv_chk_ver_lt:'The server files are version {s}, this app is {a}: upload the content of deploy/studio-de over the old one.',
+    sv_chk_ver_gt:'The server files are version {s}, newer than this app ({a}): update this PC too.', sv_chk_ver_old:'The server files are older than 26.12.4: upload the content of deploy/studio-de (this app is {a}).',
+    sv_chk_schema_ok:'Server database at schema {s} (upgraded by itself).', sv_chk_schema_x:'Server database at schema {s}, expected {e}: upload the new server files.',
+    sv_chk_notok:'This device has no access code yet: paste it in "New access code" and run the check again.',
+    sv_chk_config:'The server cannot find config.php or the data folder ({m}). If the folder was deleted and uploaded again, restore config.php from the backup: do NOT run setup.php again.',
+    sv_chk_key:'The server key does not match the database: config.php was generated again. Put back the original config.php from the backup; the data is not lost.',
+    sv_chk_denied:'The access code is not accepted: {m}', sv_chk_me:'Access code valid: {u} ({r}).',
+    sv_chk_data:'On the server: {s}. On this device: {l}.', sv_chk_n_binder:'{n} binders', sv_chk_n_client:'{n} clients', sv_chk_n_location:'{n} locations', sv_chk_n_archive:'{n} archives',
+    sv_chk_empty:'The server is empty but this device has data. If the server had data before, config.php or the data folder were replaced (see the guide). Otherwise press Sync now to upload it.',
+    sv_chk_diff:'Server and device differ ({n} changes waiting here): press Sync now to align them.', sv_chk_same:'Server and device match.' });
+}
+

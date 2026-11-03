@@ -2725,6 +2725,15 @@ const sec = (n) => console.log('\n== ' + n);
         ok(await W1p.isVisible('#vault-lock #vl-token') && await W1p.evaluate(() => !(S && S.binders)), 'W: web app (apiBase): first run asks device user + PIN + server access code, nothing loaded');
         await W1p.fill('#vl-user', 'mario.tel'); await W1p.fill('#vl-pin', '5732'); await W1p.fill('#vl-pin2', '5732'); await W1p.fill('#vl-token', 'sbagliato'); await W1p.click('#vl-go'); await W1p.waitForTimeout(1200);
         ok(await W1p.evaluate(() => !!document.getElementById('vault-lock') && /non valido|not valid/.test(document.getElementById('vl-err').textContent) && !localStorage.getItem('docmap_v26_auth')), 'W: a wrong access code is refused before any local user is created');
+        // v12.4: the typed values stay (nothing to retype), "continue without a code" appears, every password field has the eye button
+        Wv = await W1p.evaluate(() => ({pin:document.getElementById('vl-pin').value, pin2:document.getElementById('vl-pin2').value, tok:document.getElementById('vl-token').value, user:document.getElementById('vl-user').value,
+          skip:!!document.getElementById('vl-skip'), eyes:document.querySelectorAll('#vault-lock .pw-eye').length, opt:/facoltativo/.test(document.querySelector('label[for="vl-token"]').textContent)}));
+        await W1p.click('#vault-lock .pw-wrap:has(#vl-pin) .pw-eye'); await W1p.waitForTimeout(60);
+        Wv.shown = await W1p.evaluate(() => document.getElementById('vl-pin').type === 'text' && document.querySelector('.pw-wrap:has(#vl-pin) .pw-eye').getAttribute('aria-pressed') === 'true');
+        await W1p.click('#vault-lock .pw-wrap:has(#vl-pin) .pw-eye'); await W1p.waitForTimeout(60);
+        Wv.hidden = await W1p.evaluate(() => document.getElementById('vl-pin').type === 'password');
+        ok(Wv.pin === '5732' && Wv.pin2 === '5732' && Wv.tok === 'sbagliato' && Wv.user === 'mario.tel' && Wv.skip && Wv.eyes === 3 && Wv.opt && Wv.shown && Wv.hidden,
+          'v12.4 W: wrong code keeps user, PIN and code in the form, offers "Continua senza codice"; the eye shows / hides the PIN with a tap; the code is marked optional', Wv);
         await new Promise(r => setTimeout(r, 2200));   // the wrong token above counted one failure: let any lock expire
         await W1p.fill('#vl-pin', '5732'); await W1p.fill('#vl-pin2', '5732'); await W1p.fill('#vl-token', WT.mario); await W1p.click('#vl-go'); await W1p.waitForTimeout(3500);
         Wv = await W1p.evaluate(() => { while (topModal()) closeModal(true); return {lock:!!document.getElementById('vault-lock'), n:S.binders.length, codes:S.binders.map(b => b.speaking_code).sort().join(','), role:dmProviders().auth.currentUser().role, st:(document.getElementById('srv-status') || {}).textContent,
@@ -2733,6 +2742,24 @@ const sec = (n) => console.log('\n== ' + n);
           'W: after login the web app loads the data from the server (no demo binders), role from the token, cache + token encrypted in the vault', Wv);
         ok(/Online · sincronizzato/.test(Wv.st || ''), 'W: top bar shows "Online · sincronizzato"', Wv.st);
         await W1p.screenshot({path:Wpath.join(__dirname, 'shots', 'w_web_online.png')});
+        // ---- v12.4: first sign-in WITHOUT the access code, code added later, then "Verifica dopo l'aggiornamento" ----
+        {
+          const W4 = await b.newContext({viewport:{width:1366, height:768}}), W4p = await W4.newPage();
+          W4p.on('pageerror', e => errs.push('W4 PAGEERR ' + e.message)); W4p.on('dialog', d => d.accept());
+          await W4p.goto(WO + '/studio-de/index.html'); await W4p.waitForTimeout(800);
+          await W4p.fill('#vl-user', 'nina.pc'); await W4p.fill('#vl-pin', '6420'); await W4p.fill('#vl-pin2', '6420'); await W4p.click('#vl-go'); await W4p.waitForTimeout(2500);
+          let W4v = await W4p.evaluate(() => { while (topModal()) closeModal(true); return {lock:!!document.getElementById('vault-lock'), user:(dmProviders().auth.currentUser() || {}).username, st:SRV.state, fix:SRV.fix, tok:!!DocMapVault.srvToken()}; });
+          await W4p.evaluate(() => { S.view = 'sync'; renderAll(); }); await W4p.waitForTimeout(200);
+          W4v.card = await W4p.evaluate(() => !!document.querySelector('#srv-card #srv-newtok') && !!document.getElementById('srv-check') && !!document.querySelector('#srv-card .pw-eye'));
+          W4v.chk0 = await W4p.evaluate(async () => { const st = await srvUpdateCheck(); while (topModal()) closeModal(true); return st.map(x => x.k + ':' + x.st).join(','); });
+          await W4p.fill('#srv-newtok', WT.dave); await W4p.click('[data-a="srv-newtok"]'); await W4p.waitForTimeout(3500);
+          W4v.after = await W4p.evaluate(() => ({tok:!!DocMapVault.srvToken(), user:SRV.user, n:S.binders.length, wap:S.binders.some(b => b.speaking_code === 'WAP1')}));
+          W4v.chk = await W4p.evaluate(async () => { const st = await srvUpdateCheck(); const r = {keys:st.map(x => x.k + ':' + x.st).join(','), modal:!!document.getElementById('srv-chk'), data:(st.find(x => x.k === 'data') || {}).text || ''}; while (topModal()) closeModal(true); return r; });
+          ok(!W4v.lock && W4v.user === 'nina.pc' && !W4v.tok && W4v.st === 'denied' && W4v.fix === 'tok' && W4v.card && /^ping:ok,ver:ok,schema:ok,me:warn$/.test(W4v.chk0) &&
+            W4v.after.tok && W4v.after.user && W4v.after.wap && /^ping:ok,ver:ok,schema:ok,me:ok,data:info,align:(ok|warn)$/.test(W4v.chk.keys) && W4v.chk.modal && /faldoni/.test(W4v.chk.data),
+            'v12.4 W: first sign-in without the access code works (user created, server waits for the code); code pasted later loads the data; "Verifica dopo l\'aggiornamento" checks ping, app_version, schema, code and data', W4v);
+          await W4.close();
+        }
         await W1p.evaluate(() => { const b = S.binders.find(x => x.speaking_code === 'WV2'); b.notes = 'Nota online W1'; commit(); });
         await W1p.waitForTimeout(400);
         const Wst1 = await W1p.evaluate(() => (document.getElementById('srv-status') || {}).textContent);
@@ -5020,6 +5047,46 @@ const sec = (n) => console.log('\n== ' + n);
       (window.__T2.saved || []).forEach(([id, loc, sel]) => { const b = S.binders.find(x => x.id === id); if (b){ b.location_id = loc; b.selected_for_print = sel; } });
       S.view = 'archive'; renderAll();
     });
+  }
+  // @@STREAM-V124@@
+  sec('v12.4: update check steps, setup.php never pairs an existing database with a new key, eye on every password field');
+  {
+    const T = await p.evaluate(() => {
+      const st = (r) => srvCheckSteps(Object.assign({local:{binder:3, client:2, location:0, archive:0}, pending:0}, r)).map(x => x.k + ':' + x.st).join(',');
+      const ping = {ok:true, schema:3, php:'8.3', app_version:APP_VERSION}, me = {user:'dave', role:'admin'};
+      const c = {binder:3, client:2, location:0, archive:0};
+      return {
+        down:st({pingErr:'x'}), old:st({ping:Object.assign({}, ping, {app_version:undefined}), me, counts:c}), lt:st({ping:Object.assign({}, ping, {app_version:'26.12.3'}), me, counts:c}),
+        gt:st({ping:Object.assign({}, ping, {app_version:'27.0.0'}), me, counts:c}), same:st({ping, me, counts:c}), diff:st({ping, me, counts:Object.assign({}, c, {binder:1})}), pend:st({ping, me, counts:c, pending:2}),
+        empty:st({ping, me, counts:{binder:0, client:0, location:0, archive:0}}), key:st({ping, meErr:{server_code:'config', message:'aes_key does not match the existing database'}}),
+        cfg:st({ping, meErr:{server_code:'config', message:'config.php missing'}}), notok:st({ping, noToken:true}), schema:st({ping:Object.assign({}, ping, {schema:2}), me, counts:c}),
+        keyText:srvCheckSteps({ping, meErr:{server_code:'config', message:'aes_key does not match'}, local:{}}).pop().text, cmp:[srvVerCmp('26.12.4', '26.12.10'), srvVerCmp('26.12.4', '26.12.4'), srvVerCmp('27.0.0', '26.12.4')].join()};
+    });
+    ok(T.down === 'ping:bad' && /ver:warn/.test(T.old) && /ver:warn/.test(T.lt) && /ver:warn/.test(T.gt) && T.same === 'ping:ok,ver:ok,schema:ok,me:ok,data:info,align:ok' && /align:warn/.test(T.diff) && /align:warn/.test(T.pend) &&
+      /align:warn/.test(T.empty) && /me:bad$/.test(T.key) && /me:bad$/.test(T.cfg) && /me:warn$/.test(T.notok) && /schema:warn/.test(T.schema) && /config\.php originale/.test(T.keyText) && T.cmp === '-1,0,1',
+      'v12.4: "Verifica dopo l\'aggiornamento" steps: server down, server files older / newer than the app, schema, key mismatch, missing config, no code, empty server, differences', T);
+    // setup.php: with a docmap.sqlite in the chosen data folder it refuses (409) instead of generating a new key
+    const Spath = require('path'), Sroot = Spath.resolve(__dirname, '..'), Stmp = fs.mkdtempSync(Spath.join(require('os').tmpdir(), 'dm-setup-'));
+    fs.mkdirSync(Spath.join(Stmp, 'server-php')); fs.copyFileSync(Spath.join(Sroot, 'server-php', 'setup.php'), Spath.join(Stmp, 'server-php', 'setup.php'));
+    const Sdata = Spath.join(Stmp, 'data'); fs.mkdirSync(Sdata); fs.writeFileSync(Spath.join(Sdata, 'docmap.sqlite'), 'old database');
+    const Sport = 18000 + Math.floor(Math.random() * 900);
+    const Sphp = require('child_process').spawn('php', ['-d', 'opcache.revalidate_freq=0', '-S', '127.0.0.1:' + Sport, '-t', Stmp], {stdio:'ignore'});
+    await new Promise(r => setTimeout(r, 700));
+    let Sv = {};
+    try {
+      const r1 = await fetch('http://127.0.0.1:' + Sport + '/server-php/setup.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'data_dir=' + encodeURIComponent(Sdata) + '&users=' + encodeURIComponent('dave,admin')});
+      Sv.s1 = r1.status; Sv.t1 = /già un database/.test(await r1.text()); Sv.noCfg = !fs.existsSync(Spath.join(Stmp, 'server-php', 'config.php'));
+      fs.renameSync(Spath.join(Sdata, 'docmap.sqlite'), Spath.join(Sdata, 'old.sqlite.bak'));
+      const r2 = await fetch('http://127.0.0.1:' + Sport + '/server-php/setup.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'data_dir=' + encodeURIComponent(Sdata) + '&users=' + encodeURIComponent('dave,admin')});
+      const t2 = await r2.text(); Sv.s2 = r2.status; Sv.dl = /id="cfg-dl" download="config\.php" href="data:application\/octet-stream;base64,/.test(t2); Sv.cfg = fs.existsSync(Spath.join(Stmp, 'server-php', 'config.php'));
+    } catch(e){ Sv.err = String(e); }
+    Sphp.kill();
+    ok(Sv.s1 === 409 && Sv.t1 && Sv.noCfg && Sv.s2 === 200 && Sv.dl && Sv.cfg, 'v12.4 setup.php: an existing docmap.sqlite in the data folder → refuses (409), no new key; after moving it away the set-up runs and offers the config.php download', Sv);
+    // eye on every password field of the desktop app (sync view: file passphrase, server code)
+    const E = await p.evaluate(async () => { while (topModal()) closeModal(true); S.view = 'sync'; renderAll(); await new Promise(r => setTimeout(r, 80));
+      const pw = [...document.querySelectorAll('input[type="password"]')], wrapped = pw.every(i => i.parentNode.classList.contains('pw-wrap') && i.parentNode.querySelector('.pw-eye'));
+      const r = {n:pw.length, wrapped, ids:pw.map(i => i.id)}; S.view = 'archive'; renderAll(); return r; });
+    ok(E.n >= 1 && E.wrapped, 'v12.4: every password / passphrase field of the app gets the show/hide button', E);
   }
   console.log('\nerrors:', errs.length ? errs.join('\n') : 'none');
   if (errs.length) fails += errs.length;

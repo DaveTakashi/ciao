@@ -1,6 +1,6 @@
 # DocMap — contratto API del database online condiviso
 
-> Versione dell'app 26.12.3 (v12.3): `api` = `docmap-php`, `version` 1, `schema` 3.
+> Versione dell'app 26.12.4 (v12.4): `api` = `docmap-php`, `version` 1, `schema` 3.
 > Nato con la v10.1; la v11 ha aggiunto ubicazioni e registro sincronizzazioni, la v12 il registro accessi (§11:
 > rotte `access`, `last_seen`, `seen`, parametro `via`, `me.remember_minutes`). Solo campi e rotte in più, ignorati dai client vecchi.
 
@@ -34,7 +34,7 @@
 
 | Rotta | Metodo | Ruolo | Richiesta | Risposta 200 |
 |---|---|---|---|---|
-| `ping` | GET | nessuno | – | `{"ok":true,"api":"docmap-php","version":1,"schema":3,"features":["journal","device_info","locations","archives","access_log","status_events"],"server_time":"…","php":"8.3"}` (funziona anche senza `config.php`; serve all'avviso di orologio sfasato) |
+| `ping` | GET | nessuno | – | `{"ok":true,"api":"docmap-php","version":1,"schema":3,"features":["journal","device_info","locations","archives","access_log","status_events"],"server_time":"…","php":"8.3","app_version":"26.12.4"}` (v12.4: `app_version` = versione di DocMap dei file del server, la confronta "Verifica dopo l'aggiornamento"; funziona anche senza `config.php`; serve all'avviso di orologio sfasato) |
 | `me` | GET | viewer | – | `{"user":"mario","role":"editor","token_id":"cfg:1","studio_name":"…","server_time":"…","remember_minutes":null}` (v12: `remember_minutes` di `config.php`, §11) |
 | `pull` | GET | viewer | `since=<seq>` (0 = tutto) · `log_since=<seq>` | vedi §3 |
 | `push` | POST | editor | vedi §4 | `{"applied":n,"same":n,"rejected":[…],"settings_applied":bool,"logged":n,"seq":n,"server_time":"…"}` |

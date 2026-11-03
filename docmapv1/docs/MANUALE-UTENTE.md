@@ -1,6 +1,6 @@
 # DocMap 2026 — manuale d'uso (passo passo)
 
-> Per chi usa DocMap ogni giorno nello studio. Versione **26.12.3**. Ogni capitolo è una cosa da fare, in passi brevi.
+> Per chi usa DocMap ogni giorno nello studio. Versione **26.12.4**. Ogni capitolo è una cosa da fare, in passi brevi.
 > I nomi tra **grassetto** sono scritti esattamente come sui pulsanti (interfaccia in italiano).
 > Descrizione completa di ogni funzione: [`RIFERIMENTO-FUNZIONI.md`](RIFERIMENTO-FUNZIONI.md) · parole: [`GLOSSARIO.md`](GLOSSARIO.md) ·
 > prove da fare a mano: [`CHECKLIST-COLLAUDO.md`](CHECKLIST-COLLAUDO.md).
@@ -164,7 +164,7 @@ Il QR stampato contiene `https://qr7.it/dm26XXXXXXXX`. Il sistema qr7.it deve sa
 4. Premi **Torna alle etichette dei faldoni** per tornare ai faldoni.
 5. Riesporta il manifest (§5): contiene anche le scatole.
 
-Scorciatoie (v12.3), nella scheda di un'ubicazione:
+Scorciatoie (v12.4), nella scheda di un'ubicazione:
 - **Stampa QR: questa e quelle dentro** stampa l'ubicazione e tutte quelle che contiene (armadio, scaffali, scatole);
 - **Stampa tutti i QR** (in alto, sopra l'albero) stampa le etichette di tutte le ubicazioni;
 - **Striscia: ubicazione + faldoni** apre l'etichettatrice con la scatola e subito dopo i suoi faldoni (§19).
@@ -304,8 +304,11 @@ Dettagli tecnici: [`DEPLOY-WEB.md`](DEPLOY-WEB.md) e il `README-DEPLOY.md` dentr
 
 1. Sul telefono apri `https://docmap.pr-it.it/studio-de/`, oppure inquadra il QR di un faldone. Entra con la password della cartella, se c'è.
 2. Compare **Primo accesso su questo telefono** se hai aperto un QR, oppure **Primo accesso su questo dispositivo** se hai aperto l'indirizzo dell'app. Inserisci:
-   - un nome utente e un PIN di questo dispositivo;
-   - il **codice di accesso** ricevuto dall'amministratore.
+   - un nome utente e un PIN di questo dispositivo (il pulsante 👁 accanto al campo mostra quello che scrivi; un altro tocco lo nasconde);
+   - il **codice di accesso** ricevuto dall'amministratore. È **facoltativo** (v12.4): se non lo hai ancora lascia vuoto e
+     aggiungilo dopo da Sincronizzazione › Server online › **Nuovo codice di accesso** (sul telefono compare da solo la
+     schermata **Codice di accesso**). Se il codice è sbagliato, quello che hai scritto resta nei campi e puoi
+     scegliere **Continua senza codice**.
 3. Da quel momento basta il PIN; con **Ricordami su questo dispositivo** (già spuntato) i QR si aprono senza PIN (§15). Lo stato si vede in alto:
    - "Online · sincronizzato";
    - "In attesa (N)": modifiche da inviare;
@@ -384,10 +387,14 @@ Segui sempre la guida della versione (`docs/AGGIORNAMENTO-vX-vY.md`) e le regole
 
 1. **Backup**: con la versione vecchia fai **Sincronizza con il server**, **Salva backup** e **Scarica docmap.sqlite** su ogni PC. Annota il numero di faldoni e clienti. Scarica anche la copia dal server (§11).
 2. **Prima il server, poi i PC, poi i telefoni.**
-3. **Server**:
-   - carica la nuova cartella `deploy/studio-de/` sopra la vecchia, senza cancellare `server-php/config.php` né la cartella dati;
-   - non rieseguire `setup.php`;
-   - prova `api.php?r=ping`.
+3. **Server** (guida passo passo: [`AGGIORNARE-IL-SERVER.md`](AGGIORNARE-IL-SERVER.md)):
+   - carica il **contenuto** della nuova `deploy/studio-de/` **sopra** la vecchia, sovrascrivendo. **Non cancellare la
+     cartella prima**: con lei sparirebbe `server-php/config.php`, la chiave del database;
+   - non rieseguire `setup.php` (dalla v12.4 si rifiuta se trova un database già esistente);
+   - il database del server si aggiorna da solo alla prima chiamata: non c'è nessun pulsante di migrazione da premere;
+   - sul PC: Sincronizzazione › Server online › **Verifica dopo l'aggiornamento**. Dice se i file del server sono della
+     versione giusta, se il database è aggiornato, se il codice di accesso va, e confronta i dati del server con quelli
+     del PC; se non coincidono premi **Sincronizza ora**.
 4. **PC**:
    - chiudi DocMap e copia i nuovi file **sopra quelli vecchi, nella stessa cartella**, con lo stesso browser;
    - riapri `index.html`;
@@ -520,7 +527,7 @@ Quando un'azione tocca **10 o più faldoni** (stato a una selezione, ubicazione 
 modifica in blocco) DocMap chiede conferma e dice quanti sono, i primi codici e se hai selezionato **tutto
 l'archivio**. Sotto i 10 parte subito e resta il pulsante **Annulla** per qualche secondo.
 
-## 19. Etichettatrici a nastro e a rotolo, adesivi piccoli (v12.3)
+## 19. Etichettatrici a nastro e a rotolo, adesivi piccoli (v12.4)
 
 ### 19.1 Etichettatrice (Brother P-touch / QL, Dymo, Zebra, Epson, Niimbot…)
 1. **Stampa Etichette** › in alto **Etichettatrice / rotolo** (per tornare: **Fogli A4**).

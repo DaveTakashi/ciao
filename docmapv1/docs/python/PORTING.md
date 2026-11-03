@@ -1,7 +1,7 @@
 # Porting di `server-php/api.php` in Python (FastAPI), 1:1
 
 > Per il team Python. Lingua: italiano; identificatori, rotte e campi in inglese come nel codice.
-> Riferimento verificato: `server-php/api.php` di DocMap **26.12.3** (`DM_API 'docmap-php'`, `DM_API_VERSION 1`,
+> Riferimento verificato: `server-php/api.php` di DocMap **26.12.4** (`DM_API 'docmap-php'`, `DM_API_VERSION 1`,
 > `DM_SCHEMA 3`). Contratto macchina: [`openapi.yaml`](openapi.yaml). Forme dei record: [`SCHEMI.md`](SCHEMI.md) e
 > [`schema/`](schema/). Testo umano del contratto: [`../API-CONTRACT.md`](../API-CONTRACT.md).
 >

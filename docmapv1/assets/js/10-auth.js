@@ -592,7 +592,9 @@ class RemoteDataProvider {
     device user (it encrypts this device's cache), store the token in the vault. */
 async function srvSetupDevice(o){
   const cfg = dmConfig(), tok = String(o.token || '').trim();
-  if (!tok) throw new DMError('invalid', 'token');
+  // v12.4: the access code is optional at first sign-in — the user is created on this device and the code is added
+  // later (Sincronizzazione › Server online › Nuovo codice di accesso, or the phone's "Codice di accesso" screen)
+  if (!tok){ const A0 = dmProviders().auth; await A0.setupFirstAdmin({username:o.username, display_name:o.display_name || o.username, secret:o.secret}); A0._u = undefined; A0.emit(); return null; }
   let me;
   try { me = await new DMServer(cfg.apiBase, tok).call('me'); }
   catch(e){ if (e.code === 'unauthorized' || e.code === 'forbidden') throw new DMError('unauthorized', 'server_token', e.data); throw e; }
@@ -874,6 +876,8 @@ Object.assign(I18N.it, {
   vl_admin_only:'Solo un amministratore può gestire gli utenti.', vl_enter:'Entra', vl_checking:'Verifica…', vl_bad:'Nome utente o PIN non corretti.', vl_locked:'Troppi tentativi: riprova tra {s} secondi.', vl_err:'Errore: {m}', vl_e_last:'Deve restare almeno un amministratore attivo: senza, i dati cifrati non si potrebbero più aprire.',
   vl_token:'Codice di accesso al server', vl_token_hint:'Il codice (token) che ti ha dato l\'amministratore: si inserisce una volta sola su questo dispositivo e resta cifrato qui.',
   vl_setup_srv_p:'Crea l\'utente di questo dispositivo e inserisci il tuo codice di accesso: i dati arrivano dal database online dello studio. Il PIN protegge la copia cifrata salvata su questo dispositivo.',
+  vl_token_opt:'facoltativo', vl_token_later:'Se non lo hai ancora lascia vuoto: lo aggiungi dopo da Sincronizzazione › Server online.', vl_skip_tok:'Continua senza codice (lo aggiungo dopo)',
+  vl_e_token_skip:'Correggilo, oppure continua senza: il tuo utente e il PIN restano quelli scritti.', pw_show:'Mostra', pw_hide:'Nascondi',
   vl_e_token:'Codice di accesso non valido o revocato.', vl_e_offline:'Server non raggiungibile: controlla la connessione e riprova.', vl_srv_note:'Versione online: i dati sono nel database condiviso dello studio (cifrato) e, cifrati, in questo browser.'
 });
 Object.assign(I18N.en, {
@@ -885,6 +889,8 @@ Object.assign(I18N.en, {
   vl_admin_only:'Only an administrator can manage users.', vl_enter:'Sign in', vl_checking:'Checking…', vl_bad:'Wrong username or PIN.', vl_locked:'Too many attempts: try again in {s} seconds.', vl_err:'Error: {m}', vl_e_last:'At least one active administrator must remain: without one the encrypted data could no longer be opened.',
   vl_token:'Server access code', vl_token_hint:'The code (token) your administrator gave you: entered once on this device and kept encrypted here.',
   vl_setup_srv_p:'Create this device\'s user and enter your access code: the data comes from the studio\'s online database. The PIN protects the encrypted copy kept on this device.',
+  vl_token_opt:'optional', vl_token_later:'If you do not have it yet leave it empty: add it later in Sync › Online server.', vl_skip_tok:'Continue without a code (I will add it later)',
+  vl_e_token_skip:'Fix it, or continue without one: your user and PIN stay as typed.', pw_show:'Show', pw_hide:'Hide',
   vl_e_token:'Access code not valid or revoked.', vl_e_offline:'Server unreachable: check the connection and try again.', vl_srv_note:'Online version: the data lives in the studio\'s shared (encrypted) database and, encrypted, in this browser.'
 });
 const VL = { busy:false, err:'', reset:false };
@@ -920,11 +926,12 @@ function vaultLockRender(){
       : mode === 'setup' ? '<h1>' + esc(t('vl_setup_h')) + '</h1><p>' + esc(t(c.apiBase ? 'vl_setup_srv_p' : 'vl_setup_p')) + '</p>' +
         '<div class="field"><label for="vl-user">' + esc(t('au_user')) + '</label><input class="inp" id="vl-user" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="' + esc(t('au_user_ph')) + '"></div>' +
         '<div class="field"><label for="vl-name">' + esc(t('au_name')) + '</label><input class="inp" id="vl-name" placeholder="' + esc(t('au_name_ph')) + '"></div>' + pinF('vl-pin', 'au_secret', 'new-password') + pinF('vl-pin2', 'au_secret2', 'new-password') + '<div class="hint">' + esc(t('au_secret_hint')) + '</div>' +
-        (c.apiBase ? '<div class="field"><label for="vl-token">' + esc(t('vl_token')) + '</label><input class="inp mono" id="vl-token" type="password" autocomplete="off" spellcheck="false"></div><div class="hint">' + esc(t('vl_token_hint')) + '</div>' : '')
+        (c.apiBase ? '<div class="field"><label for="vl-token">' + esc(t('vl_token')) + ' <span class="muted">(' + esc(t('vl_token_opt')) + ')</span></label><input class="inp mono" id="vl-token" type="password" autocomplete="off" spellcheck="false"></div><div class="hint">' + esc(t('vl_token_hint')) + ' ' + esc(t('vl_token_later')) + '</div>' : '')
       : '<h1>' + esc(t('vl_orphan_h')) + '</h1><p>' + esc(t('vl_orphan_p')) + '</p>') +
     '<div class="err-t" id="vl-err" role="alert">' + esc(VL.err) + '</div>' +
     (mode === 'orphan' ? '<button type="button" class="btn btn-danger" data-vl-reset>' + esc(VL.reset ? t('vl_reset_sure') : t('vl_reset')) + '</button>'
-      : '<button type="submit" class="btn btn-primary btn-lg" id="vl-go"' + (VL.busy ? ' disabled' : '') + '>' + esc(VL.busy ? t('vl_checking') : mode === 'setup' ? t('vl_create') : t('vl_enter')) + '</button>') +
+      : '<button type="submit" class="btn btn-primary btn-lg" id="vl-go"' + (VL.busy ? ' disabled' : '') + '>' + esc(VL.busy ? t('vl_checking') : mode === 'setup' ? t('vl_create') : t('vl_enter')) + '</button>' +
+        (mode === 'setup' && c.apiBase && VL.tokErr ? '<button type="button" class="btn" id="vl-skip" data-vl-skip>' + esc(t('vl_skip_tok')) + '</button>' : '')) +
     '<div class="tiny muted">' + esc(t(c.apiBase ? 'vl_srv_note' : 'vl_web_note')) + '</div></form>';
   const f = el.querySelector('#vl-user'), pn = el.querySelector('#vl-pin');
   setTimeout(() => { const x = f && !f.value ? f : pn; if (x) x.focus(); }, 30);
@@ -932,13 +939,16 @@ function vaultLockRender(){
 async function vaultLockSubmit(form){
   if (VL.busy) return;
   const A = dmProviders().auth, v = (id) => (document.getElementById(id) || {}).value || '';
-  const mode = form.dataset.vl, user = v('vl-user'), pin = v('vl-pin'), dname = v('vl-name'), token = v('vl-token');   // read before the busy re-render
-  VL.err = '';
+  const mode = form.dataset.vl, user = v('vl-user'), pin = v('vl-pin'), pin2 = v('vl-pin2'), dname = v('vl-name'), token = VL.skipTok ? '' : v('vl-token');   // read before the busy re-render
+  VL.skipTok = false; VL.err = ''; VL.tokErr = false;
+  // v12.4: a re-render (error, busy) never empties what the user typed
+  const refill = () => { [['vl-user', user], ['vl-name', dname], ['vl-pin', pin], ['vl-pin2', pin2], ['vl-token', tokenTyped]].forEach(([id, val]) => { const el = document.getElementById(id); if (el && val) el.value = val; }); };
+  const tokenTyped = v('vl-token');
   if (mode === 'setup'){
-    if (authNormSecret(pin).length < AUTH_MIN_SECRET){ VL.err = t('au_e_secret'); return vaultLockRender(); }
-    if (pin !== v('vl-pin2')){ VL.err = t('au_e_match'); return vaultLockRender(); }
+    if (authNormSecret(pin).length < AUTH_MIN_SECRET){ VL.err = t('au_e_secret'); vaultLockRender(); return refill(); }
+    if (pin !== pin2){ VL.err = t('au_e_match'); vaultLockRender(); return refill(); }
   }
-  VL.busy = true; vaultLockRender();
+  VL.busy = true; vaultLockRender(); refill();
   try {
     if (mode === 'setup' && dmConfig().apiBase) await srvSetupDevice({username:user, display_name:dname, secret:pin, token});
     else if (mode === 'setup') await A.setupFirstAdmin({username:user, display_name:dname, secret:pin});
@@ -948,16 +958,18 @@ async function vaultLockSubmit(form){
     await VL.run();
   } catch(e){
     VL.busy = false;
-    VL.err = e.code === 'locked' ? t('vl_locked', {s:(e.data && e.data.retry_in) || 60}) : e.message === 'username' ? t('au_e_user') : e.message === 'server_token' || e.message === 'token' ? t('vl_e_token') :
+    VL.tokErr = mode === 'setup' && (e.message === 'server_token' || e.message === 'token' || e.code === 'offline');
+    VL.err = e.code === 'locked' ? t('vl_locked', {s:(e.data && e.data.retry_in) || 60}) : e.message === 'username' ? t('au_e_user') : e.message === 'server_token' || e.message === 'token' ? t('vl_e_token') + (mode === 'setup' ? ' ' + t('vl_e_token_skip') : '') :
       e.code === 'offline' ? t('vl_e_offline') : e.code === 'unauthorized' ? t('vl_bad') : t('vl_err', {m:e.message || e.code});
     vaultLockRender();
-    if (mode === 'login' || mode === 'setup'){ const u = document.getElementById('vl-user'); if (u) u.value = user; const n = document.getElementById('vl-name'); if (n) n.value = dname; }
+    if (mode === 'login' || mode === 'setup'){ refill(); const tk = document.getElementById('vl-token'); if (tk && tokenTyped) tk.value = tokenTyped; }
   }
 }
 document.addEventListener('submit', (e) => { const f = e.target; if (f && f.dataset && f.dataset.vl && f.closest('#vault-lock')){ e.preventDefault(); vaultLockSubmit(f); } }, true);
 document.addEventListener('click', (e) => {
   const lb = e.target.closest && e.target.closest('#vault-lock [data-vl-lang]');
   if (lb){ S.lang = lb.dataset.vlLang; try { localStorage.setItem('docmap_v26_scan_lang', S.lang); } catch(err){} return vaultLockRender(); }
+  if (e.target.closest && e.target.closest('#vault-lock [data-vl-skip]')){ const f = e.target.closest('form'); VL.skipTok = true; return vaultLockSubmit(f); }
   if (e.target.closest && e.target.closest('#vault-lock [data-vl-reset]')){
     if (!VL.reset){ VL.reset = true; return vaultLockRender(); }
     [VAULT_LS, VAULT_PREV_LS, VAULT_LOG_LS].forEach(k => { try { localStorage.removeItem(k); } catch(err){} });
@@ -1042,3 +1054,39 @@ document.addEventListener('DOMContentLoaded', () => {
         '<li><b>Mobile preview</b> (in the QR window and the binder form) opens the page in a new tab on this PC.</li>' +
         '<li><b>Online version (v10.1)</b>: with the studio\'s shared database (<span class="kbd">server-php</span>) the phone reads and saves on the server directly: the first time it creates the phone user, a PIN and pastes the <b>access code</b> given by the administrator. Without a server the protection only applies to this browser (see <span class="kbd">docs/SICUREZZA.md</span>).</li></ul>'} });
 });
+
+/* ---------------- v12.4: show / hide every password, PIN and access-code field (a tap, not press-and-hold) ----------------
+   Every <input type="password"> of the page (desktop, web app lock screen, phone) gets an eye button; the field keeps its
+   id and value, so the forms and the tests read it as before. */
+const PW_EYE = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>';
+const PW_EYE_OFF = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.9 4.2A10.4 10.4 0 0 1 12 4c6.4 0 10 8 10 8a17.6 17.6 0 0 1-2.2 3.2"/><path d="M6.6 6.6C3.8 8.4 2 12 2 12s3.6 8 10 8a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="m2 2 20 20"/></svg>';
+function pwRevealScan(root){
+  (root || document).querySelectorAll('input[type="password"]:not([data-pw])').forEach(inp => {
+    inp.dataset.pw = '1';
+    const w = document.createElement('span'); w.className = 'pw-wrap';
+    inp.parentNode.insertBefore(w, inp); w.appendChild(inp);
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'pw-eye'; b.dataset.pwFor = inp.id || '';
+    b.setAttribute('aria-pressed', 'false'); b.setAttribute('aria-label', t('pw_show')); b.title = t('pw_show'); b.innerHTML = PW_EYE;
+    w.appendChild(b);
+  });
+}
+function pwRevealToggle(b){
+  const inp = b.parentNode && b.parentNode.querySelector('input'); if (!inp) return;
+  const show = inp.type === 'password';
+  inp.type = show ? 'text' : 'password';
+  b.setAttribute('aria-pressed', String(show)); b.setAttribute('aria-label', t(show ? 'pw_hide' : 'pw_show')); b.title = t(show ? 'pw_hide' : 'pw_show'); b.innerHTML = show ? PW_EYE_OFF : PW_EYE;
+  try { inp.focus({preventScroll:true}); const n = inp.value.length; inp.setSelectionRange(n, n); } catch(e){}
+}
+if (typeof document !== 'undefined'){
+  const css = document.createElement('style'); css.id = 'pw-reveal-css';
+  css.textContent = '.pw-wrap{position:relative;display:block;width:100%}.pw-wrap>input{width:100%;box-sizing:border-box;padding-right:46px!important}' +
+    '.pw-eye{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:38px;height:38px;border:0;border-radius:8px;background:transparent;color:#475569;display:grid;place-items:center;cursor:pointer;padding:0}' +
+    '.pw-eye:hover{background:rgba(15,23,42,.06)}.pw-eye:focus-visible{outline:2px solid #2563EB;outline-offset:1px}.pw-eye[aria-pressed="true"]{color:#2563EB}';
+  (document.head || document.documentElement).appendChild(css);
+  document.addEventListener('click', (e) => { const b = e.target.closest && e.target.closest('.pw-eye'); if (b){ e.preventDefault(); e.stopPropagation(); pwRevealToggle(b); } }, true);
+  let pwPending = false;
+  const pwObs = new MutationObserver(() => { if (pwPending) return; pwPending = true; (window.requestAnimationFrame || setTimeout)(() => { pwPending = false; pwRevealScan(document); }); });
+  const start = () => { pwRevealScan(document); pwObs.observe(document.body, {childList:true, subtree:true}); };
+  if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
+}
+

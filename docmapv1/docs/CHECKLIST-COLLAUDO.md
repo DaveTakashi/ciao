@@ -15,7 +15,7 @@ Data: ________  Versione: ________  Chi: ________
 Se hai poco tempo fai solo queste, nell'ordine; i dettagli sono nei paragrafi indicati.
 
 - [ ] **Aggiornamento** del PC dalla v10.0 seguendo [`AGGIORNAMENTO-v10-v12.md`](AGGIORNAMENTO-v10-v12.md): stessi faldoni e clienti di prima (§8).
-- [ ] **Server**: carica `deploy/studio-de/`, `api.php?r=ping` risponde `"schema":3`; togli la protezione cartella di SiteGround (§3).
+- [ ] **Server**: carica `deploy/studio-de/` **sopra** la cartella (senza cancellarla), `api.php?r=ping` risponde `"schema":3` e `"app_version"`; togli la protezione cartella di SiteGround (§3). Poi dal PC **Verifica dopo l'aggiornamento**: tutte le righe verdi ([`AGGIORNARE-IL-SERVER.md`](AGGIORNARE-IL-SERVER.md)).
 - [ ] **Stampa** di un foglio MRINK143 con 8 etichette e lettura dei QR con il telefono (§1).
 - [ ] **Android**: primo accesso, poi chiudi Chrome e inquadra un altro QR → si apre **senza PIN** (§4.1).
 - [ ] **iPhone**: lo stesso con Safari (§4.2).

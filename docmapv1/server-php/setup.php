@@ -38,10 +38,23 @@ $docroot = rtrim((string)($_SERVER['DOCUMENT_ROOT'] ?? ''), '/');
 $defDir = $docroot !== '' ? dirname($docroot) . '/docmap-data' : __DIR__ . '/data';
 $https = (($_SERVER['HTTPS'] ?? '') !== '' && $_SERVER['HTTPS'] !== 'off') || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
 
+/* v12.4: an existing database is NEVER paired with a new key. This happens when the app folder was deleted and uploaded
+   again (config.php, which is not in the zip, went with it): a new aes_key could not read the old data. */
+function existing_db(string $dir): string { foreach (['docmap.sqlite', 'docmap.sqlite-wal'] as $f) if (is_file(rtrim($dir, '/\\') . '/' . $f)) return rtrim($dir, '/\\') . '/' . $f; return ''; }
+function existing_db_page(string $file): void {
+  page('C\'è già un database: non creo una chiave nuova',
+    '<div class="err">Nella cartella scelta c\'è già il database di DocMap (<code>' . h($file) . '</code>). Una chiave nuova non potrebbe leggerlo.</div>' .
+    '<p><b>Di solito è successo questo:</b> la cartella dell\'app è stata cancellata e caricata di nuovo, e con lei è sparito <code>server-php/config.php</code> (non è nello zip).</p>' .
+    '<ol><li>Recupera <code>config.php</code> dal backup di SiteGround (Site Tools › Sicurezza › Backup › ripristino di file) o dalla copia che hai scaricato alla prima installazione.</li>' .
+    '<li>Rimettilo in <code>' . h(__DIR__) . '/</code>: i dati tornano subito, con gli stessi codici di accesso.</li>' .
+    '<li>Solo se vuoi davvero ricominciare da zero (i dati vecchi diventano illeggibili): rinomina o sposta i file <code>docmap.sqlite*</code> di quella cartella e ricarica questa pagina.</li></ol>' .
+    '<p>Per i prossimi aggiornamenti: carica i file <b>sopra</b> quelli vecchi, senza cancellare la cartella (guida <code>docs/AGGIORNARE-IL-SERVER.md</code>).</p>', 409);
+}
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+  if (($ex = existing_db($defDir)) !== '' || ($ex = existing_db(__DIR__ . '/data')) !== '') { existing_db_page($ex); exit; }
   page('Configura il database online di DocMap',
     ($https ? '' : '<div class="warn">La pagina non è in HTTPS: attiva il certificato SSL prima di continuare (i token viaggerebbero in chiaro).</div>') .
-    '<div class="warn"><b>Prima</b> attiva la protezione con password di SiteGround sulla cartella dell\'app (Site Tools › Sicurezza › Directory protette). Questa pagina genera le chiavi una sola volta e poi si disattiva.</div>' .
+    '<div class="warn">Questa pagina genera la chiave del database e i codici di accesso <b>una sola volta</b>, poi si disattiva. Alla fine scarica la copia di <code>config.php</code> e conservala: senza quella chiave i dati non si leggono.</div>' .
     '<form method="post" autocomplete="off">' .
     '<label for="data_dir">Cartella del database (meglio <b>fuori</b> da public_html)</label><input id="data_dir" name="data_dir" value="' . h($defDir) . '">' .
     '<small>Proposta: la cartella accanto a public_html. Se scegli una cartella dentro il sito, usa <code>' . h(__DIR__ . '/data') . '</code>, già protetta dal suo .htaccess.</small>' .
@@ -66,6 +79,7 @@ foreach (preg_split('/\r\n|\r|\n/', (string)($_POST['users'] ?? '')) as $line) {
   $users[] = [$name, $role];
 }
 if (!array_filter($users, fn($u) => $u[1] === 'admin')) $err[] = 'Serve almeno una persona con ruolo admin.';
+if (!$err && ($ex = existing_db($dir)) !== '') { existing_db_page($ex); exit; }
 if (!$err && !is_dir($dir) && !@mkdir($dir, 0700, true)) $err[] = 'Impossibile creare la cartella ' . $dir . '.';
 if (!$err && !is_writable($dir)) $err[] = 'La cartella ' . $dir . ' non è scrivibile.';
 if ($err) { page('Correggi e riprova', '<div class="err">' . implode('<br>', array_map('h', $err)) . '</div><p><a href="setup.php">Indietro</a></p>', 422); exit; }
@@ -98,6 +112,7 @@ page('Fatto: database online configurato',
   '<div class="warn"><b>Copia adesso i codici di accesso</b>: non verranno più mostrati (sul server resta solo la loro impronta SHA-256). Consegna a ogni persona solo il suo.</div>' .
   '<table id="tokens"><tr><th>Persona</th><th>Ruolo</th><th>Codice di accesso (token)</th></tr>' .
   implode('', array_map(fn($r) => '<tr data-user="' . h($r[0]) . '" data-role="' . h($r[1]) . '"><td>' . h($r[0]) . '</td><td>' . h($r[1]) . '</td><td class="tok">' . h($r[2]) . '</td></tr>', $shown)) . '</table>' .
-  '<p>Database: <code>' . h($dir) . '/docmap.sqlite</code> (creato al primo uso). Chiave AES-256 e token salvati in <code>server-php/config.php</code>: <b>scaricane una copia</b> via FTP / File Manager e conservala al sicuro.</p>' .
+  '<p>Database: <code>' . h($dir) . '/docmap.sqlite</code> (creato al primo uso). Chiave AES-256 e token salvati in <code>server-php/config.php</code>: <b>scaricane una copia</b> e conservala al sicuro (non nella cartella del sito).</p>' .
+  '<p><a id="cfg-dl" download="config.php" href="data:application/octet-stream;base64,' . base64_encode($php) . '" style="display:inline-block;padding:10px 16px;border-radius:10px;background:#0F172A;color:#fff;font-weight:700;text-decoration:none">Scarica la copia di config.php</a></p>' .
   '<p>Questa pagina ' . ($disabled ? 'è stata rinominata in <code>setup.php.disabled</code> e ' : '') . 'non funziona più finché esiste config.php.</p>' .
   '<p>Prossimo passo: apri <a href="' . h($base) . '">l\'app</a>, crea l\'utente di questo dispositivo e incolla il tuo codice di accesso.</p>');
