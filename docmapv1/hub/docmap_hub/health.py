@@ -27,7 +27,8 @@ def targets(hub, vk: VaultKey | None = None) -> list[dict]:
     runner = LocalRunner(hub.dir, hub.registry)
     out = []
     for e in hub.registry.list_environments():
-        t = {"env_id": e["id"], "kind": e["kind"], "api_url": e.get("api_url"), "basic": None, "local": None}
+        t = {"env_id": e["id"], "kind": e["kind"], "api_url": e.get("api_url"), "basic": None, "local": None,
+             "ca": (e.get("settings") or {}).get("ca") or None}
         if e["kind"] == "local-python":
             info = runner._read_pid(e)
             alive = bool(info) and pid_alive(int(info.get("pid", 0)))
@@ -51,7 +52,7 @@ def probe_all(tlist: list[dict], timeout: float = 5.0, workers: int = 8) -> dict
             if t["local"] is not None:
                 return {"ok": False, "error": "spento", "state": "stopped"}
             return {"ok": False, "error": "manca l'indirizzo dell'API", "state": "unknown"}
-        r = ping(t["api_url"], timeout=timeout, basic_auth=t["basic"])
+        r = ping(t["api_url"], timeout=timeout, basic_auth=t["basic"], cafile=t.get("ca"))
         r["state"] = "running" if r["ok"] else ("protected" if r.get("status") == 401 else "unreachable")
         return r
     if not tlist:

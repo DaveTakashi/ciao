@@ -30,6 +30,7 @@ import subprocess
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
@@ -144,10 +145,15 @@ def ping(api_url: str, timeout: float = 3.0, basic_auth: tuple[str, str] | None 
         tok = base64.b64encode(f"{basic_auth[0]}:{basic_auth[1]}".encode()).decode()
         req.add_header("Authorization", "Basic " + tok)
     ctx = ssl.create_default_context(cafile=cafile) if url.startswith("https:") else None
+    host = (urllib.parse.urlsplit(url).hostname or "").lower()
+    handlers: list = [urllib.request.HTTPSHandler(context=ctx)] if ctx else []
+    if host in ("127.0.0.1", "localhost", "::1"):
+        handlers.append(urllib.request.ProxyHandler({}))  # never send local traffic to a system proxy
+    opener = urllib.request.build_opener(*handlers)
     t0 = time.monotonic()
     out = {"ok": False, "app_version": None, "status": None, "error": None, "ms": None}
     try:
-        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+        with opener.open(req, timeout=timeout) as resp:
             body = resp.read(65536)
             out["status"] = resp.status
             data = json.loads(body.decode("utf-8", "replace"))

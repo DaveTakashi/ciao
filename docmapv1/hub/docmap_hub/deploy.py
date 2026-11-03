@@ -502,7 +502,8 @@ def _ftp_secret(vault: Vault, vk: VaultKey, env: dict) -> dict:
 def deploy(hub, vk: VaultKey | None, instance: str, env_name: str, *, dry_run: bool = False,
            insecure_ftp: bool = False, overwrite_htaccess: bool = False, trust_host_key: bool = False,
            pinger=None, health_tries: int = 5, health_delay: float = 3.0, build: Build | None = None,
-           remote: Remote | None = None, log=lambda m: None, _promote_of: str | None = None) -> dict:
+           remote: Remote | None = None, log=lambda m: None, _promote_of: str | None = None,
+           expect_code_hash: str | None = None) -> dict:
     reg = hub.registry
     env = reg.get_environment(instance, env_name)
     if env["kind"] != "web-php":
@@ -520,6 +521,10 @@ def deploy(hub, vk: VaultKey | None, instance: str, env_name: str, *, dry_run: b
         log("Costruisco il deploy con tools/build_deploy.py …")
         build = build_for(hub, env)
     log(f"Versione costruita: {build.version} · codice {build.code_hash[:12]}")
+    if expect_code_hash and expect_code_hash != build.code_hash:
+        if own_build:
+            build.cleanup()
+        raise DeployError("Il codice è cambiato dopo la prova (dry-run): rifai la prova e conferma di nuovo.")
     own_remote = remote is None
     deploy_id = reg.add_deploy(env["id"], build.version, build.code_hash, dry_run)
     result: dict = {"deploy_id": deploy_id, "env": env["name"], "version": build.version,
@@ -675,7 +680,10 @@ def promote(hub, vk: VaultKey | None, instance: str, **kw) -> dict:
     if not staging.get("verified_version") or not staging.get("verified_code_hash"):
         raise DeployError("Nessuna versione verificata su staging: fai prima 'deploy --env staging' "
                           "e prova lo staging.")
-    build = kw.pop("build", None) or build_for(hub, prod)
+    build = kw.pop("build", None)
+    own = build is None
+    if own:
+        build = build_for(hub, prod)
     try:
         if build.version != staging["verified_version"] or build.code_hash != staging["verified_code_hash"]:
             raise DeployError(
@@ -685,4 +693,5 @@ def promote(hub, vk: VaultKey | None, instance: str, **kw) -> dict:
                 "Rifai prima il deploy su staging e provalo.")
         return deploy(hub, vk, instance, "production", build=build, _promote_of=staging["id"], **kw)
     finally:
-        build.cleanup()
+        if own:
+            build.cleanup()

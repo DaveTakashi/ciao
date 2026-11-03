@@ -486,7 +486,7 @@ def cmd_env_list(hub: Hub, args) -> int:
 def cmd_env_add(hub: Hub, args) -> int:
     from .envs import EnvManager
     e = EnvManager(hub).add_remote(args.instance, args.name, args.kind, args.url, args.api_url, args.base_path,
-                                   args.slug, args.domain, args.studio_name, args.notes)
+                                   args.slug, args.domain, args.studio_name, args.notes, ca=args.ca)
     out(f"Ambiente registrato: {e['name']} ({e['kind']})  API: {e.get('api_url')}")
     if e["kind"] == "web-php":
         out("Passo successivo: credenziali FTP nella cassaforte, es.:")
@@ -649,10 +649,20 @@ def _print_plan(r: dict) -> None:
             out(f"  ? {o}")
 
 
-def _deploy_common(hub, args, fn, **extra):
+def _deploy_common(hub, args, fn, env_for_build: str):
+    from .deploy import build_for
     vk = get_vault_key(hub, args)
-    kw = dict(insecure_ftp=args.insecure_ftp, overwrite_htaccess=args.overwrite_htaccess,
-              trust_host_key=args.trust_host_key, log=out, **extra)
+    out("Costruisco il deploy con tools/build_deploy.py …")
+    build = build_for(hub, hub.registry.get_environment(args.instance, env_for_build))
+    try:
+        kw = dict(insecure_ftp=args.insecure_ftp, overwrite_htaccess=args.overwrite_htaccess,
+                  trust_host_key=args.trust_host_key, log=out, build=build)
+        return _deploy_steps(hub, args, fn, vk, kw)
+    finally:
+        build.cleanup()
+
+
+def _deploy_steps(hub, args, fn, vk, kw):
     dry = fn(hub, vk, args.instance, dry_run=True, **kw)
     _print_plan(dry)
     if args.dry_run:
@@ -676,12 +686,12 @@ def cmd_deploy(hub: Hub, args) -> int:
 
     def fn(h, vk, inst, **kw):
         return deploy(h, vk, inst, args.env, **kw)
-    return _deploy_common(hub, args, fn)
+    return _deploy_common(hub, args, fn, args.env)
 
 
 def cmd_promote(hub: Hub, args) -> int:
     from .deploy import promote
-    return _deploy_common(hub, args, promote)
+    return _deploy_common(hub, args, promote, "production")
 
 
 def cmd_status(hub: Hub, args) -> int:
@@ -760,7 +770,7 @@ def cmd_server_check(hub: Hub, args) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="python -m docmap_hub",
-                                 description="DocMap Hub: emissione e registro delle licenze DocMap.")
+                                 description="DocMap Hub: licenze, ambienti (produzione/staging/demo), cassaforte, porte e deploy.")
     ap.add_argument("--version", action="version", version=f"DocMap Hub {__version__}")
     ap.add_argument("--dir", help="cartella dati dell'hub (predefinita: %%APPDATA%%\\DocMapHub "
                                   "o ~/.docmap-hub, oppure variabile DOCMAP_HUB_DIR)")
@@ -916,6 +926,7 @@ def build_parser() -> argparse.ArgumentParser:
     q.add_argument("--domain")
     q.add_argument("--studio-name")
     q.add_argument("--notes")
+    q.add_argument("--ca", help="studio-python: certificato della CA dello studio (DocMap-CA-studio.crt)")
     q = add("set", cmd_env_set, "modifica indirizzi e impostazioni di deploy di un ambiente", es)
     env_ref(q)
     for k in ("--url", "--api-url", "--base-path", "--slug", "--domain", "--studio-name"):

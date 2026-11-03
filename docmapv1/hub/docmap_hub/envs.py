@@ -35,14 +35,15 @@ def _now_dt() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def api_url_from(url: str | None) -> str | None:
-    """https://host/studio-de/ → https://host/studio-de/server-php/api.php"""
+def api_url_from(url: str | None, kind: str = "web-php") -> str | None:
+    """web-php: https://host/studio-de/ → …/studio-de/server-php/api.php;
+    studio-python (installer-windows): https://192.168.1.10:8443/ → …:8443/api"""
     if not url:
         return None
     u = url.strip()
     if u.endswith("api.php") or u.rstrip("/").endswith("/api"):
         return u
-    return u.rstrip("/") + "/server-php/api.php"
+    return u.rstrip("/") + ("/api" if kind == "studio-python" else "/server-php/api.php")
 
 
 class EnvManager:
@@ -55,7 +56,7 @@ class EnvManager:
     # -- create ------------------------------------------------------------
     def add_remote(self, instance: str, name: str, kind: str, url: str, api_url: str | None = None,
                    base_path: str | None = None, slug: str | None = None, domain: str | None = None,
-                   studio_name: str | None = None, notes: str | None = None) -> dict:
+                   studio_name: str | None = None, notes: str | None = None, ca: str | None = None) -> dict:
         if kind not in ("web-php", "studio-python"):
             raise EnvError("Con 'env add' si registrano ambienti remoti (web-php o studio-python); "
                            "per un ambiente sul PC del hub usa 'env create-local'.")
@@ -70,7 +71,9 @@ class EnvManager:
                         "domain": domain or f"{parts.scheme}://{parts.netloc}",
                         "slug": slug or (parts.path.strip("/").split("/")[-1] or "studio"),
                         "studio_name": studio_name or ""}
-        return self.reg.add_environment(instance, name, kind, url=url, api_url=api_url or api_url_from(url),
+        if ca:
+            settings["ca"] = ca  # certificate of the studio CA (installer-windows), for HTTPS checks
+        return self.reg.add_environment(instance, name, kind, url=url, api_url=api_url or api_url_from(url, kind),
                                         settings=settings, notes=notes)
 
     def create_local(self, instance: str, name: str, vk: VaultKey | None, studio_name: str = "",
@@ -128,7 +131,7 @@ class EnvManager:
                 tok = self.vault.get(vk, env["id"], "admin_token", rows[0]["label"], reason=f"clone-data ({label})")
         side = {"label": label, "url": url, "token": "", "token_env": f"DOCMAP_HUB_SYNC_{key.upper()}_TOKEN",
                 "basic_user": "", "basic_pass": "", "basic_pass_env": f"DOCMAP_HUB_SYNC_{key.upper()}_BASIC_PASS",
-                "ca": "", "insecure_lan": False}
+                "ca": (env.get("settings") or {}).get("ca", ""), "insecure_lan": False}
         envv = {side["token_env"]: tok["token"]}
         ba = self.vault.get(vk, env["id"], "basic_auth", reason=f"clone-data ({label})", required=False)
         if ba:

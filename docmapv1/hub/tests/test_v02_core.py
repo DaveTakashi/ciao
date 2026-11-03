@@ -315,6 +315,29 @@ class TestCliV02(unittest.TestCase):
         self.assertEqual(self.c("settings", "set", "ports.range", "1-2")[0], 1)
         self.assertEqual(self.c("env")[0], 2)  # group without action → help
 
+    def test_cli_deploy_dry_run_and_studio_env(self):
+        self.assertEqual(self.c("vault", "init")[0], 0)
+        self.c("customer", "add", "--name", "Studio Verdi")
+        self.c("instance", "add", "--customer", "Studio Verdi", "--label", "PC Verdi")
+        self.assertEqual(self.c("env", "add", "--instance", "PC Verdi", "--name", "staging", "--kind", "web-php",
+                                "--url", "https://h.invalid/studio-ve/")[0], 0)
+        rc, o, e = self.c("env", "add", "--instance", "PC Verdi", "--name", "production", "--kind", "studio-python",
+                          "--url", "https://192.168.1.10:8443/", "--ca", "C:/DocMap/certificati/DocMap-CA-studio.crt")
+        self.assertEqual(rc, 0, e)
+        self.assertIn("https://192.168.1.10:8443/api", o)
+        site = Path(self._td.name) / "site"
+        site.mkdir()
+        self.assertEqual(self.c("vault", "set", "--instance", "PC Verdi", "--env", "staging", "--kind", "ftp",
+                                "--field", "protocol=local", "--field", f"remote_path={site}")[0], 0)
+        rc, o, e = self.c("deploy", "--instance", "PC Verdi", "--env", "staging", "--dry-run")
+        self.assertEqual(rc, 0, e)
+        self.assertIn("Prova (dry-run)", o)
+        self.assertIn("+ 404.html", o)
+        self.assertEqual(list(site.iterdir()), [])
+        rc, _, e = self.c("promote", "--instance", "PC Verdi", "--dry-run")
+        self.assertEqual(rc, 1)
+        self.assertIn("web-php", e)
+
 
 if __name__ == "__main__":
     unittest.main()

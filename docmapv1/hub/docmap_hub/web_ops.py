@@ -523,14 +523,21 @@ def _job_start(h, job, env_id):
 def _job_deploy(h, job, vk, params, dry):
     from .deploy import deploy
     r = deploy(h, vk, params["instance"], params["env"], dry_run=dry, insecure_ftp=params["insecure_ftp"],
-               overwrite_htaccess=params["overwrite_htaccess"], log=job.log)
+               overwrite_htaccess=params["overwrite_htaccess"], log=job.log,
+               expect_code_hash=None if dry else params.get("code_hash"))
+    if dry:
+        params["code_hash"] = r.get("code_hash")  # the confirmed deploy must publish this exact code
     return r
 
 
 def _job_promote(h, job, vk, params, dry):
     from .deploy import promote
-    return promote(h, vk, params["instance"], dry_run=dry, insecure_ftp=params["insecure_ftp"],
-                   overwrite_htaccess=params["overwrite_htaccess"], log=job.log)
+    r = promote(h, vk, params["instance"], dry_run=dry, insecure_ftp=params["insecure_ftp"],
+                overwrite_htaccess=params["overwrite_htaccess"], log=job.log,
+                expect_code_hash=None if dry else params.get("code_hash"))
+    if dry:
+        params["code_hash"] = r.get("code_hash")
+    return r
 
 
 def _job_check(h, job, tl):
