@@ -14,7 +14,10 @@ from __future__ import annotations
 import hashlib
 import hmac
 import html
+import random
 import secrets
+import sys
+import socket
 import threading
 import time
 import urllib.parse
@@ -417,25 +420,92 @@ def make_handler(app: HubWebApp):
     return Handler
 
 
-def make_server(hub: Hub, passphrase: str, host: str = "127.0.0.1", port: int = 8765) -> HTTPServer:
+# The hub page port: unusual on purpose (nothing common lives there); if busy, the next one, then a random one
+# in 47000-48999. The chosen port is remembered (setting "web.port") and tried first next time.
+WEB_DEFAULT_PORT = 47823
+WEB_SETTING = "web.port"
+WEB_RANDOM_RANGE = (47000, 48999)
+
+
+class _HubHTTPServer(HTTPServer):
+    # Windows: SO_REUSEADDR would let us bind over another program's port: never.
+    allow_reuse_address = not sys.platform.startswith("win")
+
+    def server_bind(self):
+        if sys.platform.startswith("win") and hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        super().server_bind()
+
+
+def web_port_candidates(hub: Hub, port: int | None) -> list[int]:
+    from .ports import NEVER
+    try:
+        remembered = int(hub.registry.get_setting(WEB_SETTING) or 0)
+    except ValueError:
+        remembered = 0
+    first = port or remembered or WEB_DEFAULT_PORT
+    seq = [first] + [first + i for i in range(1, 31)]
+    if remembered and remembered != first:
+        seq.insert(1, remembered)
+    if WEB_DEFAULT_PORT not in seq:
+        seq.append(WEB_DEFAULT_PORT)
+    rnd = random.Random()
+    seq += [rnd.randint(*WEB_RANDOM_RANGE) for _ in range(40)]
+    out, seen = [], set()
+    for p in seq:
+        if 1024 <= p <= 65535 and p not in NEVER and p not in seen:
+            seen.add(p)
+            out.append(p)
+    return out
+
+
+def make_server(hub: Hub, passphrase: str, host: str = "127.0.0.1", port: int | None = None) -> HTTPServer:
     if host not in ("127.0.0.1", "localhost"):
         raise ValueError("La pagina dell'hub si apre solo su 127.0.0.1.")
     app = HubWebApp(hub, passphrase)
-    httpd = HTTPServer(("127.0.0.1", port), make_handler(app))
+    if port == 0:  # tests: any free port chosen by the system
+        httpd = _HubHTTPServer(("127.0.0.1", 0), make_handler(app))
+    else:
+        from .ports import is_free
+        httpd, tried = None, []
+        for cand in web_port_candidates(hub, port):
+            if not is_free(cand):
+                tried.append(cand)
+                continue
+            try:
+                httpd = _HubHTTPServer(("127.0.0.1", cand), make_handler(app))
+                break
+            except OSError:
+                tried.append(cand)
+        if httpd is None:
+            raise OSError(f"Nessuna porta libera per la pagina dell'hub (provate {len(tried)}).")
+        app.busy_ports = tried
+        chosen = httpd.server_address[1]
+        if hub.registry.get_setting(WEB_SETTING) != str(chosen):
+            hub.registry.set_setting(WEB_SETTING, str(chosen), log=False)
     app.port = httpd.server_address[1]
     httpd.app = app  # type: ignore[attr-defined]
     hub.registry.log("web.start", details={"port": app.port})
     return httpd
 
 
-def serve(hub: Hub, passphrase: str, host: str = "127.0.0.1", port: int = 8765,
+def serve(hub: Hub, passphrase: str, host: str = "127.0.0.1", port: int | None = None,
           open_browser: bool = True, auto_login: bool = False) -> int:
     httpd = make_server(hub, passphrase, host, port)
     url = f"http://127.0.0.1:{httpd.server_address[1]}/"
     if auto_login:
         # accesso automatico: one-time link that opens the page already signed in (valid 2 minutes, once)
         url += "auto?t=" + httpd.app.make_auto_token()  # type: ignore[attr-defined]
+    busy = getattr(httpd.app, "busy_ports", [])  # type: ignore[attr-defined]
+    if busy:
+        print(f"Porte occupate da altri programmi: {', '.join(map(str, busy[:10]))}"
+              f"{' …' if len(busy) > 10 else ''} → uso la {httpd.server_address[1]} (la ricordo per la prossima volta).")
     print(f"Pagina dell'hub: {url}  (solo da questo PC). Ctrl+C per chiudere.")
+    marker = hub.dir / "pagina-hub.txt"
+    try:
+        marker.write_text(f"http://127.0.0.1:{httpd.server_address[1]}/\n", "utf-8")
+    except OSError:
+        pass
     if open_browser:
         threading.Timer(0.5, lambda: webbrowser.open(url)).start()
     try:
@@ -444,4 +514,8 @@ def serve(hub: Hub, passphrase: str, host: str = "127.0.0.1", port: int = 8765,
         print("\nHub chiuso.")
     finally:
         httpd.server_close()
+        try:
+            marker.unlink()
+        except OSError:
+            pass
     return 0

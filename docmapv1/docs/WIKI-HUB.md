@@ -1,6 +1,6 @@
 # Wiki di DocMap Hub
 
-Vale per **hub 0.3.1**, **DocMap 26.12.5 (app v12.5)** e **strumenti di installazione 1.2.0**. Data: 3 novembre 2026.
+Vale per **hub 0.3.2**, **DocMap 26.12.5 (app v12.5)** e **strumenti di installazione 1.2.0**. Data: 3 novembre 2026.
 
 È scritta per due lettori:
 
@@ -378,8 +378,17 @@ licenze emesse, cassaforte (cifrata). Non contiene `clienti\` (si rigenera) né 
 
 ## 7. La pagina web del hub
 
-Doppio clic su `C:\DocMapHub\hub\run_windows.bat` → si apre `http://127.0.0.1:8765/` (solo da questo PC). Con
+Doppio clic su `C:\DocMapHub\hub\run_windows.bat` → si apre il browser sulla pagina del hub (solo da questo PC). Con
 l'accesso automatico entri direttamente.
+
+**Porta della pagina.** Il hub usa una porta poco comune, **47823**, che nessun altro programma usa di solito. Se è
+occupata (per esempio da un altro server che hai lanciato, o da un secondo hub aperto) prova da solo la 47824, poi la
+47825 e così via, poi una porta a caso tra 47000 e 48999. Nella finestra nera scrive quali porte erano occupate e quale
+ha scelto, e **la ricorda**: la volta dopo riparte da quella. L'indirizzo della pagina aperta in quel momento è anche
+nel file `%APPDATA%\DocMapHub\pagina-hub.txt` (utile al tuo agente), e `run_windows.bat info` lo mostra.
+Per fissare tu una porta: `run_windows.bat settings set web.port 47900` (se è occupata passa comunque alla successiva);
+per una volta sola: `run_windows.bat web --port 47900`. Le porte degli ambienti locali (18400–18999) sono un'altra
+cosa e non si sovrappongono mai a questa.
 
 | Scheda | Cosa fai |
 |---|---|
@@ -437,11 +446,11 @@ Codici di uscita: `0` riuscito, `1` errore (messaggio su stderr che inizia con "
 | `promote` | staging → production | `--instance`, `--dry-run`, `--yes` |
 | `status` | stato di tutto | `--json` |
 | `check-all` | ping di tutti gli ambienti | `--timeout`, `--no-secrets` |
-| `settings show\|set` | impostazioni | `installer_dir`, `docmap_dir`, `server_python_dir`, `server_python_exe`, `ports.range` |
+| `settings show\|set` | impostazioni | `installer_dir`, `docmap_dir`, `server_python_dir`, `server_python_exe`, `ports.range`, `web.port` |
 | `server-check` | server-python pronto? | |
 | `log` | registro operazioni | `--limit` |
 | `backup` | zip di sicurezza | `--out` |
-| `web` | pagina locale | `--port`, `--no-browser` |
+| `web` | pagina locale (porta 47823 o la successiva libera, ricordata) | `--port`, `--no-browser` |
 
 Variabili d'ambiente utili: `DOCMAP_HUB_DIR` (cartella dati), `DOCMAP_HUB_PASSPHRASE`, `DOCMAP_HUB_VAULT_PASSPHRASE`,
 `DOCMAP_HUB_FTP_PASSWORD`, `DOCMAP_HUB_BRIDGE_TOKEN`, `DOCMAP_HUB_VAULT_NEW_PASSPHRASE`, `DOCMAP_HUB_NO_AUTO=1`
@@ -524,13 +533,14 @@ Accesso automatico spento o file illeggibile (creato da un altro utente Windows)
 
 ### 10.7 Porta occupata
 
-`ports list` mostra chi la usa; `env start` sposta da solo l'ambiente su una porta libera.
+Pagina del hub: sceglie da sola la porta libera successiva (capitolo 7). Ambienti locali: `ports list` mostra chi la
+usa; `env start` sposta da solo l'ambiente su una porta libera.
 
 ---
 
 ## 11. Cosa non è ancora provato
 
-Provato con test automatici su Linux (hub 79 test, compresi FTP e FTPS reali su un server di prova). **Non ancora** su:
+Provato con test automatici su Linux (hub 82 test, compresi FTP e FTPS reali su un server di prova). **Non ancora** su:
 Windows reale (accesso automatico con DPAPI, pagina del hub, `installa.bat`, sincronizzazione automatica),
 deploy FTPS verso SiteGround, telefoni con il certificato dello studio. La licenza del sito online viene emessa ma il
 server PHP non la controlla ancora.

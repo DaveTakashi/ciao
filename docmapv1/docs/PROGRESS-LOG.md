@@ -217,3 +217,11 @@
   `hub/AGENTE-OPERATIVO.md`.
 - Test: hub 79 OK (1 saltato IPv6), nuovo `tests/test_v031_autoaccess.py` (5). DPAPI mai provato su Windows reale
   (se non va, ripiega su file 0600 con avviso).
+
+## 2026-11-03 17:00 — Hub 0.3.2: porta della pagina che non si scontra
+
+- La pagina del hub parte dalla porta **47823** (poco comune; prima 8765). Se è occupata prova le 30 successive, poi
+  40 a caso tra 47000 e 48999; scrive quali erano occupate e quale usa; la ricorda (`settings web.port`) e riparte da
+  lì. Su Windows niente SO_REUSEADDR (con SO_EXCLUSIVEADDRUSE): non può "rubare" la porta di un altro programma.
+  Indirizzo corrente in `%APPDATA%\DocMapHub\pagina-hub.txt` e in `info`.
+- Test: hub 82 OK (1 saltato IPv6), nuovo `tests/test_v032_webport.py` (3).

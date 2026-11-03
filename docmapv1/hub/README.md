@@ -21,7 +21,7 @@ Cosa fa:
 - **emette** file di licenza firmati (`*.docmap-licence`) e li **rinnova**;
 - (v0.2) **ambienti** production / staging / demo per ogni installazione, **cassaforte** delle credenziali,
   **deploy** FTPS/SFTP sicuro, **porte** automatiche, **pannello di stato**;
-- offre una **pagina locale** (`http://127.0.0.1:8765/`) per fare tutto dal browser (schede *Licenze*,
+- offre una **pagina locale** (`http://127.0.0.1:47823/`; se la porta è occupata il hub prende da solo la successiva libera e la ricorda) per fare tutto dal browser (schede *Licenze*,
   *Istanze & ambienti*, *Cassaforte*, *Deploy*, *Porte*, *Stato*).
 
 Regola d'oro (D5): una licenza **non blocca mai i dati**. Scaduta → 30 giorni di tolleranza

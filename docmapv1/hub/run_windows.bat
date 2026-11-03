@@ -1,6 +1,6 @@
 @echo off
 rem DocMap Hub - avvio su Windows.
-rem   run_windows.bat              apre la pagina locale (http://127.0.0.1:8765/)
+rem   run_windows.bat              apre la pagina locale (http://127.0.0.1:47823/ o la porta libera successiva)
 rem   run_windows.bat <comando>    esegue un comando, es.: run_windows.bat licence list
 setlocal
 cd /d "%~dp0"

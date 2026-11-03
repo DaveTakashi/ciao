@@ -745,7 +745,7 @@ def cmd_settings_show(hub: Hub, args) -> int:
     return 0
 
 
-SETTING_KEYS = ("server_python_dir", "server_python_exe", "docmap_dir", "installer_dir", "ports.range")
+SETTING_KEYS = ("server_python_dir", "server_python_exe", "docmap_dir", "installer_dir", "ports.range", "web.port")
 
 
 def cmd_settings_set(hub: Hub, args) -> int:
@@ -879,6 +879,11 @@ def cmd_info(hub: Hub, args) -> int:
     out(f"Dati (NON toccare: chiavi, registro, cassaforte, clienti): {hub.dir}")
     out(f"Chiave di firma attiva: {hub.keys.active_id or 'nessuna (keygen)'}")
     out(f"Accesso automatico: {'attivo' if autoaccess.path(hub.dir).exists() else 'spento'}")
+    from .web import WEB_DEFAULT_PORT, WEB_SETTING
+    running = hub.dir / "pagina-hub.txt"
+    out(f"Pagina dell'hub: porta {hub.registry.get_setting(WEB_SETTING) or WEB_DEFAULT_PORT}"
+        + (f" (aperta ora: {running.read_text('utf-8').strip()})" if running.exists() else "")
+        + "; se è occupata il hub ne sceglie da solo un'altra")
     for k in ("installer_dir", "docmap_dir", "server_python_dir"):
         v = hub.registry.get_setting(k)
         if v:
@@ -1035,7 +1040,8 @@ def build_parser() -> argparse.ArgumentParser:
     q = add("backup", cmd_backup, "crea un archivio .zip con chiavi, registro e licenze emesse")
     q.add_argument("--out", help="percorso del file .zip (predefinito: <cartella dati>/backups/)")
     q = add("web", cmd_web, "pagina di amministrazione locale (solo 127.0.0.1)")
-    q.add_argument("--port", type=int, default=8765)
+    q.add_argument("--port", type=int, default=None,
+                   help="porta preferita (predefinita: l'ultima usata, poi 47823); se è occupata prova le successive")
     q.add_argument("--no-browser", action="store_true")
 
     # -- v0.2 ------------------------------------------------------------
