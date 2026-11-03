@@ -38,13 +38,13 @@ def out(msg: str = "") -> None:
     print(msg)
 
 
-def get_passphrase(args, confirm: bool = False) -> str:
+def get_passphrase(args, confirm: bool = False, prompt: str = "Passphrase della chiave di firma: ") -> str:
     if getattr(args, "passphrase_file", None):
         return Path(args.passphrase_file).read_text("utf-8").strip("\r\n")
     env = os.environ.get(ENV_PASSPHRASE)
     if env:
         return env
-    p = getpass.getpass("Passphrase della chiave di firma: ")
+    p = getpass.getpass(prompt)
     if confirm:
         if getpass.getpass("Ripeti la passphrase: ") != p:
             raise CliError("Le due passphrase non coincidono.")
@@ -312,6 +312,449 @@ def cmd_web(hub: Hub, args) -> int:
 
 
 # ---------------------------------------------------------------------------
+# v0.2: vault, environments, ports, deploy, status
+# ---------------------------------------------------------------------------
+
+VAULT_PROMPT = "Passphrase della cassaforte (di solito la stessa della chiave di firma): "
+
+
+def vault_passphrase(args, confirm: bool = False) -> str:
+    from .vault import vault_passphrase_from_env
+    return vault_passphrase_from_env() or get_passphrase(args, confirm=confirm, prompt=VAULT_PROMPT)
+
+
+def get_vault_key(hub: Hub, args):
+    from .vault import Vault
+    v = Vault(hub.registry)
+    if not v.initialized:
+        raise CliError("Cassaforte non ancora creata: esegui prima 'vault init'.")
+    return v.unlock(vault_passphrase(args))
+
+
+def confirm_yes(args, question: str) -> bool:
+    if getattr(args, "yes", False):
+        return True
+    try:
+        ans = input(question + " Scrivi 'si' per confermare: ")
+    except EOFError:
+        return False
+    return ans.strip().lower() in ("si", "sì", "s", "yes", "y")
+
+
+def _fields(args) -> dict:
+    data: dict = {}
+    if getattr(args, "json_file", None):
+        data.update(json.loads(Path(args.json_file).read_text("utf-8-sig")))
+    if getattr(args, "content_file", None):
+        data["content"] = Path(args.content_file).read_text("utf-8-sig")
+        data.setdefault("format", "php" if args.content_file.lower().endswith(".php") else "json")
+    for f in getattr(args, "field", None) or []:
+        if "=" not in f:
+            raise CliError(f"Campo non valido: '{f}' (usa nome=valore; valore '?' = lo scrivo senza mostrarlo).")
+        k, v = f.split("=", 1)
+        if v == "?":
+            v = getpass.getpass(f"{k}: ")
+        data[k.strip()] = v
+    return data
+
+
+def cmd_vault_init(hub: Hub, args) -> int:
+    from .vault import Vault
+    p = vault_passphrase(args, confirm=True)
+    Vault(hub.registry).init(p)
+    out("Cassaforte creata. I segreti sono cifrati (AES-256-GCM) con una chiave ricavata dalla passphrase (scrypt).")
+    if hub.keys.active_id and not hub.keys.check_passphrase(p):
+        out("Nota: questa passphrase è DIVERSA da quella della chiave di firma: conservale entrambe. Per la pagina "
+            "web imposta DOCMAP_HUB_VAULT_PASSPHRASE oppure sblocca la cassaforte dalla pagina.")
+    return 0
+
+
+def cmd_vault_status(hub: Hub, args) -> int:
+    from .vault import Vault
+    v = Vault(hub.registry)
+    out(f"Cassaforte: {'creata' if v.initialized else 'non ancora creata (vault init)'}")
+    out(f"Segreti custoditi: {len(v.list())}")
+    for c in hub.registry.list_customers():
+        out(f"  {c['name']}: custodia chiave (key escrow) {'ATTIVA' if c.get('key_escrow') else 'spenta'}")
+    return 0
+
+
+def cmd_vault_set(hub: Hub, args) -> int:
+    from .vault import Vault
+    env = hub.registry.get_environment(args.instance, args.env)
+    data = _fields(args)
+    vk = get_vault_key(hub, args)
+    r = Vault(hub.registry).put(vk, env["id"], args.kind, data, args.label or "")
+    out(f"Segreto salvato: {r['kind']}" + (f" ({r['label']})" if r["label"] else "")
+        + f" per {env['name']} · campi: {', '.join(r['fields'])}")
+    return 0
+
+
+def cmd_vault_list(hub: Hub, args) -> int:
+    from .vault import Vault
+    iid = hub.registry.get_instance(args.instance)["id"] if args.instance else None
+    table([[s["customer_name"], s["instance_label"], s["env_name"], s["kind"], s["label"], s["updated_at"]]
+           for s in Vault(hub.registry).list(instance_id=iid)],
+          ["cliente", "installazione", "ambiente", "tipo", "etichetta", "aggiornato"])
+    return 0
+
+
+def cmd_vault_reveal(hub: Hub, args) -> int:
+    from .vault import Vault
+    env = hub.registry.get_environment(args.instance, args.env)
+    vk = get_vault_key(hub, args)  # always asks the passphrase again
+    data = Vault(hub.registry).get(vk, env["id"], args.kind, args.label or "", reason=args.reason or "reveal (cli)")
+    out(json.dumps(data, indent=2, ensure_ascii=False))
+    return 0
+
+
+def cmd_vault_delete(hub: Hub, args) -> int:
+    from .vault import Vault
+    env = hub.registry.get_environment(args.instance, args.env)
+    if not confirm_yes(args, f"Elimino il segreto {args.kind} di {env['name']}?"):
+        out("Annullato.")
+        return 1
+    ok = Vault(hub.registry).delete(env["id"], args.kind, args.label or "")
+    out("Segreto eliminato." if ok else "Nessun segreto con questi dati.")
+    return 0 if ok else 1
+
+
+def cmd_vault_change_passphrase(hub: Hub, args) -> int:
+    from .vault import Vault
+    old = vault_passphrase(args)
+    new = os.environ.get("DOCMAP_HUB_VAULT_NEW_PASSPHRASE") or getpass.getpass("Nuova passphrase della cassaforte: ")
+    if not os.environ.get("DOCMAP_HUB_VAULT_NEW_PASSPHRASE") and getpass.getpass("Ripeti: ") != new:
+        raise CliError("Le due passphrase non coincidono.")
+    n = Vault(hub.registry).change_passphrase(old, new)
+    out(f"Passphrase cambiata; {n} segreti cifrati di nuovo. Fai subito un backup.")
+    return 0
+
+
+def cmd_vault_export(hub: Hub, args) -> int:
+    from .vault import Vault
+    data = Vault(hub.registry).export_data()
+    Path(args.out).write_text(json.dumps(data, indent=1), "utf-8", newline="\n")
+    hub.registry.log("vault.export", details={"file": str(args.out), "secrets": len(data["secrets"])})
+    out(f"Esportazione (ancora cifrata) scritta in {args.out}: {len(data['secrets'])} segreti.")
+    return 0
+
+
+def cmd_vault_import(hub: Hub, args) -> int:
+    from .vault import Vault
+    data = json.loads(Path(args.file).read_text("utf-8"))
+    vk = get_vault_key(hub, args)
+    ep = os.environ.get("DOCMAP_HUB_VAULT_IMPORT_PASSPHRASE") or getpass.getpass(
+        "Passphrase della cassaforte da cui viene il file: ")
+    r = Vault(hub.registry).import_data(vk, data, ep, overwrite=args.overwrite)
+    out(f"Importati {r['imported']}, già presenti {r['skipped']}, senza ambiente {r['missing_env']}, "
+        f"rifiutati per custodia spenta {r.get('refused_escrow', 0)}.")
+    return 0
+
+
+def cmd_customer_set(hub: Hub, args) -> int:
+    from .vault import Vault
+    if args.key_escrow is not None:
+        on = args.key_escrow == "on"
+        v = Vault(hub.registry)
+        if not on:
+            n = v.escrowed_count(args.customer)
+            if n and not args.purge:
+                raise CliError(f"La cassaforte contiene {n} configurazioni del database di questo cliente: "
+                               "aggiungi --purge per eliminarle insieme allo spegnimento della custodia.")
+            if n:
+                v.purge_escrow(args.customer)
+                out(f"Eliminate {n} configurazioni del database dalla cassaforte.")
+        c = hub.registry.set_key_escrow(args.customer, on)
+        out(f"{c['name']}: custodia della chiave {'ATTIVA' if on else 'spenta'}.")
+        if on:
+            out("Ricorda: serve il consenso scritto del cliente (nomina a responsabile del trattamento, GDPR art. 28).")
+    return 0
+
+
+def _env_rows(envs):
+    return [[e["customer_name"], e["instance_label"], e["name"], e["kind"], e.get("port") or "",
+             e["status"], e.get("app_version") or "", e.get("url") or e.get("api_url") or "",
+             (e.get("expires_at") or "")[:10]] for e in envs]
+
+
+def cmd_env_list(hub: Hub, args) -> int:
+    table(_env_rows(hub.registry.list_environments(args.instance)),
+          ["cliente", "installazione", "ambiente", "tipo", "porta", "stato", "versione", "indirizzo", "scade"])
+    return 0
+
+
+def cmd_env_add(hub: Hub, args) -> int:
+    from .envs import EnvManager
+    e = EnvManager(hub).add_remote(args.instance, args.name, args.kind, args.url, args.api_url, args.base_path,
+                                   args.slug, args.domain, args.studio_name, args.notes)
+    out(f"Ambiente registrato: {e['name']} ({e['kind']})  API: {e.get('api_url')}")
+    if e["kind"] == "web-php":
+        out("Passo successivo: credenziali FTP nella cassaforte, es.:")
+        out(f"  vault set --instance \"{args.instance}\" --env {e['name']} --kind ftp --field host=ftp.esempio.it "
+            "--field user=... --field password=? --field remote_path=/public_html/studio-de")
+    return 0
+
+
+def cmd_env_set(hub: Hub, args) -> int:
+    e = hub.registry.get_environment(args.instance, args.name)
+    s = dict(e.get("settings") or {})
+    for k in ("base_path", "slug", "domain", "studio_name"):
+        if getattr(args, k) is not None:
+            s[k] = getattr(args, k)
+    fields = {"settings": s}
+    if args.url is not None:
+        fields["url"] = args.url
+    if args.api_url is not None:
+        fields["api_url"] = args.api_url
+    e = hub.registry.update_environment(e["id"], log_action="env.update", **fields)
+    out(f"Ambiente aggiornato: {e['name']}  url={e.get('url')}  api={e.get('api_url')}  impostazioni={e['settings']}")
+    return 0
+
+
+def cmd_env_create_local(hub: Hub, args) -> int:
+    from .envs import EnvManager
+    vk = get_vault_key(hub, args)
+    r = EnvManager(hub).create_local(args.instance, args.name, vk, args.studio_name or "", build_app=not args.no_app)
+    e = r["env"]
+    out(f"Ambiente locale creato: {e['name']} · porta riservata {e.get('port')} · cartella "
+        f"{hub.dir / 'envs' / e['instance_id'] / e['name']}")
+    out("Codici di accesso custoditi nella cassaforte: " + ", ".join(f"{t['user']} ({t['role']})" for t in r["tokens"]))
+    if r.get("app") and r["app"].get("error"):
+        out(f"Attenzione: web app non costruita ({r['app']['error']}); l'API funziona lo stesso.")
+    out(f"Avvialo con: env start --instance \"{args.instance}\" --name {e['name']}")
+    return 0
+
+
+def cmd_env_start(hub: Hub, args) -> int:
+    from .runner import LocalRunner
+    e = hub.registry.get_environment(args.instance, args.name)
+    r = LocalRunner(hub.dir, hub.registry).start(e)
+    if r.get("already"):
+        out(f"Già in esecuzione su http://127.0.0.1:{r['port']}/ (versione {r.get('app_version')}).")
+    else:
+        if r.get("moved_from"):
+            out(f"La porta {r['moved_from']} era occupata da un altro programma: spostato sulla {r['port']}.")
+        out(f"Avviato: http://127.0.0.1:{r['port']}/  (API {r['api_url']}, versione {r.get('app_version')})")
+    return 0
+
+
+def cmd_env_stop(hub: Hub, args) -> int:
+    from .runner import LocalRunner
+    e = hub.registry.get_environment(args.instance, args.name)
+    r = LocalRunner(hub.dir, hub.registry).stop(e)
+    out("Fermato." if r["stopped"] else "Non era in esecuzione.")
+    return 0
+
+
+def cmd_env_status(hub: Hub, args) -> int:
+    from .runner import LocalRunner
+    e = hub.registry.get_environment(args.instance, args.name)
+    if e["kind"] != "local-python":
+        from .runner import ping
+        r = ping(e["api_url"], timeout=args.timeout) if e.get("api_url") else {"ok": False, "error": "manca api_url"}
+        out(json.dumps(r, indent=2, ensure_ascii=False))
+        return 0 if r.get("ok") else 1
+    r = LocalRunner(hub.dir, hub.registry).status(e)
+    out(f"Stato: {r['state']} · porta {r['port']} · pid {r['pid']} · versione {r.get('app_version')}")
+    return 0 if r["state"] == "running" else 1
+
+
+def cmd_env_clone(hub: Hub, args) -> int:
+    from .envs import EnvManager
+    vk = get_vault_key(hub, args)
+    r = EnvManager(hub).clone_data(args.instance, args.src, args.dst, vk, dry_run=args.dry_run)
+    rep = r["report"]
+    out(f"Copia dati {r['from']} → {r['to']} ({'prova, nulla scritto' if args.dry_run else 'eseguita'}), "
+        f"uscita {r['exit']}")
+    res = (rep or {}).get("result", {}).get("a_to_b") if isinstance(rep, dict) else None
+    if res:
+        out(json.dumps(res, indent=1, ensure_ascii=False))
+    return 0 if r["exit"] in (0, 1) else 2
+
+
+def cmd_env_demo_create(hub: Hub, args) -> int:
+    from .envs import EnvManager
+    vk = get_vault_key(hub, args)
+    src = None if (args.src or "").lower() in ("", "none", "nessuno") else args.src
+    r = EnvManager(hub).demo_create(args.instance, args.days, vk, src, args.label)
+    out(f"Demo creata: {r['env']['name']} · scade {r['expires_at'][:10]} · porta {r['env'].get('port')}")
+    if r["clone"]:
+        out(f"Dati copiati da {r['clone']['from']} (uscita {r['clone']['exit']}).")
+    out("Alla scadenza 'env purge-expired' la ferma e sposta i suoi dati in _trash.")
+    return 0
+
+
+def cmd_env_purge(hub: Hub, args) -> int:
+    from .envs import EnvManager
+    r = EnvManager(hub).purge_expired()
+    for x in r:
+        out(f"Archiviato: {x['env']['name']} → {x['archived_to']}")
+    if not r:
+        out("Nessun ambiente scaduto.")
+    return 0
+
+
+def cmd_env_delete(hub: Hub, args) -> int:
+    from .envs import EnvManager
+    e = hub.registry.get_environment(args.instance, args.name)
+    if e["name"] != "production" and not confirm_yes(
+            args, f"Elimino l'ambiente {e['name']} ({e['kind']}): dati locali spostati in _trash, segreti eliminati."):
+        out("Annullato.")
+        return 1
+    r = EnvManager(hub).delete(args.instance, args.name, production=args.production, confirm=args.confirm)
+    out(f"Ambiente {r['env']['name']} eliminato dal registro."
+        + (f" Dati archiviati in {r['archived_to']}." if r["archived_to"] else "")
+        + (" Il sito remoto NON è stato toccato." if r["remote_untouched"] else ""))
+    return 0
+
+
+def cmd_ports_list(hub: Hub, args) -> int:
+    from .ports import PortManager
+    pm = PortManager(hub.registry)
+    a, b = pm.range
+    out(f"Intervallo: {a}-{b}")
+    table([[r["port"], r["instance_label"], r["env_name"], r["status"], "libera" if r["free_now"] else "in uso",
+            r["reserved_at"]] for r in pm.list()], ["porta", "installazione", "ambiente", "stato", "adesso", "riservata"])
+    return 0
+
+
+def cmd_ports_set_range(hub: Hub, args) -> int:
+    from .ports import PortManager
+    a, b = PortManager(hub.registry).set_range(args.start, args.end)
+    out(f"Intervallo delle porte: {a}-{b}. Gli ambienti fuori intervallo si spostano al prossimo avvio.")
+    return 0
+
+
+def cmd_ports_check(hub: Hub, args) -> int:
+    from .ports import PortManager, is_free
+    owner = PortManager(hub.registry).owner(args.port)
+    out(f"Porta {args.port}: {'libera' if is_free(args.port) else 'IN USO'}" +
+        (f" · riservata a {owner}" if owner else ""))
+    return 0
+
+
+def _print_plan(r: dict) -> None:
+    p = r.get("plan") or {}
+    out(f"Ambiente {r['env']}: versione sul server {r.get('remote_version') or '?'} → da pubblicare {r['version']}")
+    out(f"Da caricare ({len(p.get('upload', []))}):")
+    for it in p.get("upload", [])[:40]:
+        out(f"  + {it['path']}  [{it['why']}]")
+    if len(p.get("upload", [])) > 40:
+        out(f"  … e altri {len(p['upload']) - 40}")
+    for it in p.get("protected", []):
+        out(f"  = {it['path']}  PROTETTO: {it['why']}")
+    if p.get("obsolete"):
+        out(f"File sul server non più nel programma (NON cancellati): {len(p['obsolete'])}")
+        for o in p["obsolete"][:10]:
+            out(f"  ? {o}")
+
+
+def _deploy_common(hub, args, fn, **extra):
+    vk = get_vault_key(hub, args)
+    kw = dict(insecure_ftp=args.insecure_ftp, overwrite_htaccess=args.overwrite_htaccess,
+              trust_host_key=args.trust_host_key, log=out, **extra)
+    dry = fn(hub, vk, args.instance, dry_run=True, **kw)
+    _print_plan(dry)
+    if args.dry_run:
+        out("Prova (dry-run): nulla è stato modificato sul server.")
+        return 0
+    if not dry["plan"]["upload"]:
+        out("Niente da caricare: il server è già aggiornato.")
+        return 0
+    if not confirm_yes(args, "Procedo con backup, caricamento e controllo?"):
+        out("Annullato: nulla è stato modificato.")
+        return 1
+    r = fn(hub, vk, args.instance, dry_run=False, **kw)
+    out(f"Backup del server prima del caricamento: {r.get('backup_dir')}")
+    if r.get("config_php_untouched") is False:
+        out("ATTENZIONE: config.php sul server risulta cambiato durante il deploy!")
+    return 0
+
+
+def cmd_deploy(hub: Hub, args) -> int:
+    from .deploy import deploy
+
+    def fn(h, vk, inst, **kw):
+        return deploy(h, vk, inst, args.env, **kw)
+    return _deploy_common(hub, args, fn)
+
+
+def cmd_promote(hub: Hub, args) -> int:
+    from .deploy import promote
+    return _deploy_common(hub, args, promote)
+
+
+def cmd_status(hub: Hub, args) -> int:
+    from .health import status_rows
+    rows = status_rows(hub)
+    if args.json:
+        out(json.dumps(rows, indent=1, ensure_ascii=False))
+        return 0
+    table([[r["customer"], r["instance"], r["env"], r["kind"], r["status"],
+            {True: "sì", False: "no", None: "?"}[r["reachable"]], r["app_version"] or "",
+            (r["licence_expires_at"] or "nessuna")[:10] + (f" ({r['licence_days_left']} gg)"
+                                                         if r["licence_days_left"] is not None else ""),
+            (r["last_backup_at"] or "")[:16], (r["last_check"] or "")[:16]] for r in rows],
+          ["cliente", "installazione", "ambiente", "tipo", "stato", "raggiungibile", "versione", "licenza",
+           "ultimo backup", "ultimo controllo"])
+    return 0
+
+
+def cmd_check_all(hub: Hub, args) -> int:
+    from .health import check_all
+    from .vault import Vault
+    vk = None
+    if not args.no_secrets and Vault(hub.registry).initialized and (
+            os.environ.get(ENV_PASSPHRASE) or os.environ.get("DOCMAP_HUB_VAULT_PASSPHRASE")
+            or getattr(args, "passphrase_file", None)):
+        vk = get_vault_key(hub, args)
+    res = check_all(hub, vk, timeout=args.timeout)
+    ok = sum(1 for r in res.values() if r.get("ok"))
+    out(f"Controllati {len(res)} ambienti: {ok} rispondono.")
+    return cmd_status(hub, argparse.Namespace(json=False))
+
+
+def cmd_settings_show(hub: Hub, args) -> int:
+    from .runner import RunnerError, server_python_dir, server_python_exe
+    from .ports import PortManager
+    for k, v in hub.registry.settings().items():
+        out(f"{k} = {v}")
+    try:
+        d = server_python_dir(hub.registry)
+        out(f"(server-python in uso: {d} · python: {server_python_exe(hub.registry, d)})")
+    except RunnerError as exc:
+        out(f"(server-python: {exc})")
+    a, b = PortManager(hub.registry).range
+    out(f"(porte: {a}-{b})")
+    return 0
+
+
+SETTING_KEYS = ("server_python_dir", "server_python_exe", "docmap_dir", "ports.range")
+
+
+def cmd_settings_set(hub: Hub, args) -> int:
+    if args.key not in SETTING_KEYS:
+        raise CliError(f"Impostazione sconosciuta: {args.key} (usa {', '.join(SETTING_KEYS)}).")
+    if args.key == "ports.range":
+        from .ports import parse_range
+        parse_range(args.value)
+    hub.registry.set_setting(args.key, None if args.value == "" else args.value)
+    out(f"{args.key} = {args.value}")
+    return 0
+
+
+def cmd_server_check(hub: Hub, args) -> int:
+    from .runner import check_server_python
+    r = check_server_python(hub.registry)
+    out(f"server-python: {r['server_python_dir']}")
+    out(f"python:        {r['python']}")
+    out("Pronto: fastapi, uvicorn e cryptography presenti." if r["ok"] else
+        f"NON pronto: {r['error']}. Esegui una volta run_windows.bat nella cartella server-python "
+        "(crea .venv con i pacchetti).")
+    return 0 if r["ok"] else 1
+
+
+# ---------------------------------------------------------------------------
 # Parser
 # ---------------------------------------------------------------------------
 
@@ -411,6 +854,137 @@ def build_parser() -> argparse.ArgumentParser:
     q = add("web", cmd_web, "pagina di amministrazione locale (solo 127.0.0.1)")
     q.add_argument("--port", type=int, default=8765)
     q.add_argument("--no-browser", action="store_true")
+
+    # -- v0.2 ------------------------------------------------------------
+    p = sub.choices["customer"]
+    cs = [a for a in p._actions if isinstance(a, argparse._SubParsersAction)][0]
+    q = add("set", cmd_customer_set, "modifica un cliente (custodia della chiave)", cs)
+    q.add_argument("--customer", required=True)
+    q.add_argument("--key-escrow", choices=["on", "off"],
+                   help="on = l'hub può custodire config/aes_key (serve il consenso del cliente)")
+    q.add_argument("--purge", action="store_true", help="con --key-escrow off: elimina le configurazioni custodite")
+
+    def env_ref(q, name_opt="--name"):
+        q.add_argument("--instance", required=True, help="id (o prefisso) o nome dell'installazione")
+        q.add_argument(name_opt, required=True, dest="name" if name_opt == "--name" else name_opt.strip("-"),
+                       help="production, staging o demo-…")
+
+    p = add("vault", None, "cassaforte delle credenziali (cifrata)")
+    vs = p.add_subparsers(dest="sub", metavar="azione")
+    add("init", cmd_vault_init, "crea la cassaforte", vs)
+    add("status", cmd_vault_status, "stato della cassaforte e della custodia chiavi", vs)
+    q = add("set", cmd_vault_set, "salva o sostituisce un segreto", vs)
+    q.add_argument("--instance", required=True)
+    q.add_argument("--env", required=True)
+    q.add_argument("--kind", required=True, choices=["db_config", "admin_token", "superadmin", "ftp", "basic_auth", "note"])
+    q.add_argument("--label", default="")
+    q.add_argument("--field", action="append", help="nome=valore (ripetibile); valore ? = digitato senza mostrarlo")
+    q.add_argument("--json-file", help="campi da un file JSON")
+    q.add_argument("--content-file", help="db_config: file config.json / config.php")
+    q = add("list", cmd_vault_list, "elenca i segreti (senza mostrarli)", vs)
+    q.add_argument("--instance")
+    q = add("reveal", cmd_vault_reveal, "mostra un segreto (chiede la passphrase, resta nel registro)", vs)
+    q.add_argument("--instance", required=True)
+    q.add_argument("--env", required=True)
+    q.add_argument("--kind", required=True)
+    q.add_argument("--label", default="")
+    q.add_argument("--reason", help="motivo (scritto nel registro delle operazioni)")
+    q = add("delete", cmd_vault_delete, "elimina un segreto", vs)
+    q.add_argument("--instance", required=True)
+    q.add_argument("--env", required=True)
+    q.add_argument("--kind", required=True)
+    q.add_argument("--label", default="")
+    q.add_argument("--yes", action="store_true")
+    add("change-passphrase", cmd_vault_change_passphrase, "cambia la passphrase della cassaforte", vs)
+    q = add("export", cmd_vault_export, "esporta la cassaforte (resta cifrata)", vs)
+    q.add_argument("--out", required=True)
+    q = add("import", cmd_vault_import, "importa un'esportazione (anche da un altro hub)", vs)
+    q.add_argument("file")
+    q.add_argument("--overwrite", action="store_true")
+
+    p = add("env", None, "ambienti delle installazioni: production, staging, demo-…")
+    es = p.add_subparsers(dest="sub", metavar="azione")
+    q = add("list", cmd_env_list, "elenca gli ambienti", es)
+    q.add_argument("--instance")
+    q = add("add", cmd_env_add, "registra un ambiente remoto (web-php o studio-python)", es)
+    env_ref(q)
+    q.add_argument("--kind", required=True, choices=["web-php", "studio-python"])
+    q.add_argument("--url", required=True, help="indirizzo dell'app, es. https://docmap.pr-it.it/studio-de/")
+    q.add_argument("--api-url", help="predefinito: <url>server-php/api.php")
+    q.add_argument("--base-path")
+    q.add_argument("--slug")
+    q.add_argument("--domain")
+    q.add_argument("--studio-name")
+    q.add_argument("--notes")
+    q = add("set", cmd_env_set, "modifica indirizzi e impostazioni di deploy di un ambiente", es)
+    env_ref(q)
+    for k in ("--url", "--api-url", "--base-path", "--slug", "--domain", "--studio-name"):
+        q.add_argument(k)
+    q = add("create-local", cmd_env_create_local, "crea un ambiente local-python sul PC del hub", es)
+    env_ref(q)
+    q.add_argument("--studio-name")
+    q.add_argument("--no-app", action="store_true", help="non costruire la web app (solo API)")
+    for name, fn, h in (("start", cmd_env_start, "avvia un ambiente locale"),
+                        ("stop", cmd_env_stop, "ferma un ambiente locale"),
+                        ("status", cmd_env_status, "stato di un ambiente")):
+        q = add(name, fn, h, es)
+        env_ref(q)
+        if name == "status":
+            q.add_argument("--timeout", type=float, default=5.0)
+    q = add("clone-data", cmd_env_clone, "copia i dati da un ambiente a uno locale (una direzione)", es)
+    q.add_argument("--instance", required=True)
+    q.add_argument("--from", dest="src", required=True)
+    q.add_argument("--to", dest="dst", required=True)
+    q.add_argument("--dry-run", action="store_true")
+    q = add("demo", None, "ambienti demo temporanei", es)
+    ds = q.add_subparsers(dest="sub2", metavar="azione")
+    q = add("create", cmd_env_demo_create, "crea una demo con i dati di un ambiente, a scadenza", ds)
+    q.add_argument("--instance", required=True)
+    q.add_argument("--days", type=int, default=7)
+    q.add_argument("--from", dest="src", default="production", help="ambiente da copiare ('none' = demo vuota)")
+    q.add_argument("--label", help="nome dopo demo- (predefinito: data + codice)")
+    add("purge-expired", cmd_env_purge, "ferma gli ambienti scaduti e sposta i dati in _trash", es)
+    q = add("delete", cmd_env_delete, "elimina un ambiente (dati locali in _trash; il sito remoto non si tocca)", es)
+    env_ref(q)
+    q.add_argument("--yes", action="store_true")
+    q.add_argument("--production", action="store_true")
+    q.add_argument("--confirm", help="per production: il nome esatto dell'installazione")
+
+    p = add("ports", None, "porte degli ambienti locali")
+    ps = p.add_subparsers(dest="sub", metavar="azione")
+    add("list", cmd_ports_list, "porte riservate e se sono libere adesso", ps)
+    q = add("set-range", cmd_ports_set_range, "cambia l'intervallo (predefinito 18400-18999)", ps)
+    q.add_argument("start", type=int)
+    q.add_argument("end", type=int)
+    q = add("check", cmd_ports_check, "dice se una porta è libera", ps)
+    q.add_argument("port", type=int)
+
+    for name, fn, h in (("deploy", cmd_deploy, "pubblica la web app su un ambiente web-php (FTPS/SFTP)"),
+                        ("promote", cmd_promote, "pubblica in production la versione verificata su staging")):
+        q = add(name, fn, h)
+        q.add_argument("--instance", required=True)
+        if name == "deploy":
+            q.add_argument("--env", required=True)
+        q.add_argument("--dry-run", action="store_true", help="mostra solo cosa cambierebbe")
+        q.add_argument("--yes", action="store_true", help="non chiede conferma dopo il piano")
+        q.add_argument("--insecure-ftp", action="store_true", help="consente FTP senza cifratura (sconsigliato)")
+        q.add_argument("--overwrite-htaccess", action="store_true",
+                       help="sostituisce anche i .htaccess modificati a mano sul server")
+        q.add_argument("--trust-host-key", action="store_true", help="SFTP: memorizza la chiave di un server nuovo")
+
+    q = add("status", cmd_status, "stato di tutte le installazioni e i loro ambienti")
+    q.add_argument("--json", action="store_true")
+    q = add("check-all", cmd_check_all, "controlla adesso tutti gli ambienti (ping con timeout)")
+    q.add_argument("--timeout", type=float, default=5.0)
+    q.add_argument("--no-secrets", action="store_true", help="non usa le password delle cartelle protette")
+
+    p = add("settings", None, "impostazioni del hub")
+    ss = p.add_subparsers(dest="sub", metavar="azione")
+    add("show", cmd_settings_show, "mostra le impostazioni", ss)
+    q = add("set", cmd_settings_set, "imposta un valore (vuoto = predefinito)", ss)
+    q.add_argument("key", help=", ".join(SETTING_KEYS))
+    q.add_argument("value")
+    add("server-check", cmd_server_check, "controlla che server-python sia pronto per gli ambienti locali")
     return ap
 
 
@@ -429,7 +1003,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         with Hub(args.dir) as hub:
             return int(args.fn(hub, args) or 0)
-    except (CliError, KeyError_, RegistryError, L.LicenceError) as exc:
+    except (CliError, KeyError_, RegistryError, L.LicenceError, OSError, ValueError) as exc:
         print(f"Errore: {exc}", file=sys.stderr)
         return 1
     except KeyboardInterrupt:

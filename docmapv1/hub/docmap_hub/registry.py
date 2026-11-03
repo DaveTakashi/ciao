@@ -8,6 +8,7 @@ Migrations are additive only (never drop a column or table) and recorded in
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 import uuid
 from datetime import datetime, timezone
@@ -69,9 +70,73 @@ MIGRATIONS: list[tuple[int, list[str]]] = [
             details_json TEXT
         )""",
     ]),
-    # Future migrations: append (2, ["ALTER TABLE ... ADD COLUMN ..."]) here.
+    # v0.2: environments (production / staging / demo-*), port reservations, encrypted vault,
+    # deploy history, hub settings, per-customer key escrow flag (default OFF).
+    (2, [
+        "ALTER TABLE customers ADD COLUMN key_escrow INTEGER NOT NULL DEFAULT 0",
+        """CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )""",
+        """CREATE TABLE IF NOT EXISTS environments (
+            id TEXT PRIMARY KEY,
+            instance_id TEXT NOT NULL REFERENCES instances(id),
+            name TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            url TEXT,
+            api_url TEXT,
+            port INTEGER,
+            status TEXT NOT NULL DEFAULT 'new',
+            app_version TEXT,
+            deployed_version TEXT,
+            verified_version TEXT,
+            verified_code_hash TEXT,
+            verified_at TEXT,
+            last_check TEXT,
+            last_check_json TEXT,
+            last_deploy_at TEXT,
+            last_backup_at TEXT,
+            expires_at TEXT,
+            settings_json TEXT,
+            notes TEXT,
+            created_at TEXT NOT NULL,
+            UNIQUE(instance_id, name)
+        )""",
+        """CREATE TABLE IF NOT EXISTS port_reservations (
+            port INTEGER PRIMARY KEY,
+            env_id TEXT NOT NULL UNIQUE REFERENCES environments(id),
+            reserved_at TEXT NOT NULL
+        )""",
+        """CREATE TABLE IF NOT EXISTS secrets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            env_id TEXT NOT NULL REFERENCES environments(id),
+            kind TEXT NOT NULL,
+            label TEXT NOT NULL DEFAULT '',
+            nonce BLOB NOT NULL,
+            ciphertext BLOB NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(env_id, kind, label)
+        )""",
+        """CREATE TABLE IF NOT EXISTS deploys (
+            id TEXT PRIMARY KEY,
+            env_id TEXT NOT NULL,
+            version TEXT,
+            code_hash TEXT,
+            dry_run INTEGER NOT NULL DEFAULT 0,
+            status TEXT NOT NULL,
+            started_at TEXT NOT NULL,
+            finished_at TEXT,
+            details_json TEXT
+        )""",
+    ]),
+    # Future migrations: append (3, ["ALTER TABLE ... ADD COLUMN ..."]) here.
 ]
 SCHEMA_VERSION = MIGRATIONS[-1][0]
+
+
+ENV_KINDS = ("web-php", "local-python", "studio-python")
+ENV_NAME_RE = re.compile(r"production|staging|demo-[a-z0-9][a-z0-9-]{0,39}")
 
 
 class RegistryError(Exception):
@@ -92,7 +157,7 @@ class Registry:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         # check_same_thread=False: the web page serves requests one at a time from a
         # worker thread; access stays serialised.
-        self.conn = sqlite3.connect(str(self.path), check_same_thread=False)
+        self.conn = sqlite3.connect(str(self.path), check_same_thread=False, timeout=15)
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA foreign_keys = ON")
         self.migrate()
@@ -284,3 +349,147 @@ class Registry:
             args = (self.get_instance(instance)["id"],)
         sql += " ORDER BY l.expires_at DESC, l.issued_at DESC"
         return [dict(r) for r in self.conn.execute(sql, tuple(args))]
+
+    # -- settings (v0.2) ---------------------------------------------------
+    def get_setting(self, key: str, default: str | None = None) -> str | None:
+        r = self.conn.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
+        return r[0] if r and r[0] is not None else default
+
+    def set_setting(self, key: str, value: str | None, log: bool = True) -> None:
+        with self.conn:
+            if value is None:
+                self.conn.execute("DELETE FROM settings WHERE key=?", (key,))
+            else:
+                self.conn.execute("INSERT INTO settings(key, value) VALUES(?, ?) "
+                                  "ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, str(value)))
+            if log and not key.startswith("vault."):
+                self.log("setting.set", "setting", key, {"value": value}, commit=False)
+
+    def settings(self) -> dict:
+        return {r[0]: r[1] for r in self.conn.execute(
+            "SELECT key, value FROM settings WHERE key NOT LIKE 'vault.%' ORDER BY key")}
+
+    # -- key escrow (v0.2) -------------------------------------------------
+    def set_key_escrow(self, customer: str, on: bool) -> dict:
+        c = self.get_customer(customer)
+        with self.conn:
+            self.conn.execute("UPDATE customers SET key_escrow=? WHERE id=?", (1 if on else 0, c["id"]))
+            self.log("customer.key_escrow", "customer", c["id"], {"key_escrow": bool(on)}, commit=False)
+        return self.get_customer(c["id"])
+
+    def customer_of_env(self, env: dict) -> dict:
+        inst = self.get_instance(env["instance_id"])
+        return self.get_customer(inst["customer_id"])
+
+    # -- environments (v0.2) -----------------------------------------------
+    def add_environment(self, instance: str, name: str, kind: str, *, url: str | None = None,
+                        api_url: str | None = None, settings: dict | None = None,
+                        expires_at: str | None = None, notes: str | None = None) -> dict:
+        inst = self.get_instance(instance)
+        name = (name or "").strip().lower()
+        if not ENV_NAME_RE.fullmatch(name):
+            raise RegistryError("Nome di ambiente non valido: usa production, staging oppure demo-<nome> "
+                                "(lettere minuscole, cifre e trattini).")
+        if kind not in ENV_KINDS:
+            raise RegistryError(f"Tipo di ambiente non valido: {kind} (usa {', '.join(ENV_KINDS)}).")
+        if self.conn.execute("SELECT 1 FROM environments WHERE instance_id=? AND name=?",
+                             (inst["id"], name)).fetchone():
+            raise RegistryError(f"L'installazione '{inst['label']}' ha già un ambiente '{name}'.")
+        eid = "env-" + uuid.uuid4().hex[:12]
+        with self.conn:
+            self.conn.execute(
+                "INSERT INTO environments(id,instance_id,name,kind,url,api_url,status,expires_at,settings_json,"
+                "notes,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                (eid, inst["id"], name, kind, url, api_url, "new", expires_at,
+                 json.dumps(settings or {}, ensure_ascii=False, sort_keys=True), notes, _now()))
+            self.log("env.add", "environment", eid, {"instance_id": inst["id"], "name": name, "kind": kind,
+                                                     "url": url, "api_url": api_url, "expires_at": expires_at},
+                     commit=False)
+        return self.get_environment(eid)
+
+    @staticmethod
+    def _env_row(r) -> dict:
+        d = dict(r)
+        d["settings"] = json.loads(d.get("settings_json") or "{}")
+        d["last_check_data"] = json.loads(d["last_check_json"]) if d.get("last_check_json") else None
+        return d
+
+    def get_environment(self, ref: str, name: str | None = None) -> dict:
+        """By env id, or by (instance ref, env name)."""
+        if name is None:
+            r = self.conn.execute("SELECT * FROM environments WHERE id=?", ((ref or "").strip(),)).fetchone()
+            if not r:
+                raise RegistryError(f"Ambiente non trovato: '{ref}'.")
+            return self._env_row(r)
+        inst = self.get_instance(ref)
+        r = self.conn.execute("SELECT * FROM environments WHERE instance_id=? AND name=?",
+                              (inst["id"], (name or "").strip().lower())).fetchone()
+        if not r:
+            raise RegistryError(f"L'installazione '{inst['label']}' non ha un ambiente '{name}'.")
+        return self._env_row(r)
+
+    def list_environments(self, instance: str | None = None) -> list[dict]:
+        sql = ("SELECT e.*, i.label AS instance_label, c.name AS customer_name, c.id AS customer_id, "
+               "c.key_escrow AS key_escrow, "
+               "(SELECT l.expires_at FROM licences l WHERE l.instance_id=i.id "
+               " ORDER BY l.expires_at DESC, l.issued_at DESC LIMIT 1) AS licence_expires_at "
+               "FROM environments e JOIN instances i ON i.id=e.instance_id JOIN customers c ON c.id=i.customer_id")
+        args: tuple = ()
+        if instance:
+            sql += " WHERE e.instance_id=?"
+            args = (self.get_instance(instance)["id"],)
+        sql += (" ORDER BY c.name COLLATE NOCASE, i.label COLLATE NOCASE, "
+                "CASE e.name WHEN 'production' THEN 0 WHEN 'staging' THEN 1 ELSE 2 END, e.name")
+        return [self._env_row(r) for r in self.conn.execute(sql, args)]
+
+    ENV_UPDATABLE = ("url", "api_url", "port", "status", "app_version", "deployed_version", "verified_version",
+                     "verified_code_hash", "verified_at", "last_check", "last_check_json", "last_deploy_at",
+                     "last_backup_at", "expires_at", "settings_json", "notes")
+
+    def update_environment(self, env_id: str, log_action: str | None = None, **fields) -> dict:
+        bad = set(fields) - set(self.ENV_UPDATABLE) - {"settings"}
+        if bad:
+            raise RegistryError(f"Campi non modificabili: {', '.join(sorted(bad))}")
+        if "settings" in fields:
+            fields["settings_json"] = json.dumps(fields.pop("settings") or {}, ensure_ascii=False, sort_keys=True)
+        if fields:
+            cols = ", ".join(f"{k}=?" for k in fields)
+            with self.conn:
+                self.conn.execute(f"UPDATE environments SET {cols} WHERE id=?", (*fields.values(), env_id))
+                if log_action:
+                    self.log(log_action, "environment", env_id,
+                             {k: v for k, v in fields.items() if k != "last_check_json"}, commit=False)
+        return self.get_environment(env_id)
+
+    def delete_environment_row(self, env_id: str, details: dict | None = None) -> None:
+        """Remove the registry row (secrets and port reservation first). Files are archived by the caller."""
+        env = self.get_environment(env_id)
+        with self.conn:
+            n = self.conn.execute("DELETE FROM secrets WHERE env_id=?", (env_id,)).rowcount
+            self.conn.execute("DELETE FROM port_reservations WHERE env_id=?", (env_id,))
+            self.conn.execute("DELETE FROM environments WHERE id=?", (env_id,))
+            d = {"instance_id": env["instance_id"], "name": env["name"], "kind": env["kind"], "secrets_removed": n}
+            d.update(details or {})
+            self.log("env.delete", "environment", env_id, d, commit=False)
+
+    # -- deploy history (v0.2) ---------------------------------------------
+    def add_deploy(self, env_id: str, version: str | None, code_hash: str | None, dry_run: bool) -> str:
+        did = "dep-" + uuid.uuid4().hex[:12]
+        with self.conn:
+            self.conn.execute(
+                "INSERT INTO deploys(id,env_id,version,code_hash,dry_run,status,started_at) VALUES(?,?,?,?,?,?,?)",
+                (did, env_id, version, code_hash, 1 if dry_run else 0, "running", _now()))
+        return did
+
+    def finish_deploy(self, deploy_id: str, status: str, details: dict | None = None) -> None:
+        with self.conn:
+            self.conn.execute("UPDATE deploys SET status=?, finished_at=?, details_json=? WHERE id=?",
+                              (status, _now(), json.dumps(details or {}, ensure_ascii=False, sort_keys=True,
+                                                          default=str), deploy_id))
+
+    def list_deploys(self, env_id: str | None = None, limit: int = 20) -> list[dict]:
+        sql, args = "SELECT * FROM deploys", ()
+        if env_id:
+            sql, args = sql + " WHERE env_id=?", (env_id,)
+        return [dict(r) for r in self.conn.execute(sql + " ORDER BY started_at DESC, rowid DESC LIMIT ?",
+                                                   (*args, limit))]

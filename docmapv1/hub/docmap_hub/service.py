@@ -182,6 +182,12 @@ class Hub:
                             z.write(f, f"{sub}/{f.name}")
                 if (self.dir / "plans.json").exists():
                     z.write(self.dir / "plans.json", "plans.json")
+                # v0.2: the vault, still encrypted (also inside registry.sqlite3; this copy is for
+                # 'vault import' into another hub). Without the master passphrase it is unreadable.
+                from .vault import Vault
+                z.writestr("vault-export.json", json.dumps(Vault(self.registry).export_data(), indent=1))
+                if (self.dir / "known_hosts").exists():
+                    z.write(self.dir / "known_hosts", "known_hosts")
         self.registry.log("hub.backup", details={"file": str(out)})
         return out
 

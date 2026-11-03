@@ -1,3 +1,3 @@
-"""DocMap Hub: licence keys, registry and issuing (runs on the owner PC)."""
+"""DocMap Hub: licences, environments (production/staging/demo), vault, ports, deploy (runs on the owner PC)."""
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
