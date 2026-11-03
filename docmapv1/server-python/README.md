@@ -130,9 +130,19 @@ Con il controllo attivo:
   (`{"instance_id": "…"}`; se manca, il server adotta l'`instance_id` della prima licenza valida e lo scrive);
 - la firma è verificata con `docmap_server/licence_verify.py`, **copia identica** di `hub/docmap_hub/licence.py`
   (non modificarla qui: si aggiorna ricopiandola; `tests/test_licence.py` controlla che le due copie coincidano);
-- le chiavi pubbliche fidate sono la costante `TRUSTED_LICENCE_KEYS` in `docmap_server/licence.py` (da
-  `export-public-key` del hub). La chiave di configurazione `licence_public_keys` (`{"dmk…": "base64…"}`) serve **solo
-  per test e sviluppo**: non usarla mai da un cliente (chi può modificare la configurazione potrebbe sostituire la chiave);
+- le chiavi pubbliche fidate sono la costante `TRUSTED_LICENCE_KEYS` in `docmap_server/licence.py` **più** il file
+  `docmap_server/trusted_keys.json` accanto al codice, nello stesso formato di `python -m docmap_hub export-public-key`
+  (`{"keys": {"dmk…": "base64…"}}`). Il file lo mette il pacchetto personale del cliente
+  (`installer-windows/docmap_tools.py pacchetto --chiave-pubblica …`, lo fa il hub con `cliente nuovo`): **non serve
+  modificare il codice**. Modello delle minacce: il file sta nella cartella del **codice**, non in quella dei dati; chi
+  può scrivere nel codice può già far eseguire qualsiasi cosa al server (nessun file lì è "meno sicuro" del codice),
+  mentre chi può scrivere solo nei dati (un ripristino, una cartella sincronizzata, l'utente web di un hosting) non può
+  aggiungere chiavi. In studio l'installazione rende `C:\DocMap\server` modificabile solo da amministratori e SYSTEM.
+  Un file rovinato o una chiave non valida vengono **ignorati** (riga nel registro), mai un errore fatale: al massimo la
+  licenza risulta "non valida" → sola lettura, mai dati persi. A parità di `key_id` vince la costante. `licence status`
+  elenca le chiavi fidate e avvisa se non ce n'è nessuna;
+- la chiave di configurazione `licence_public_keys` (`{"dmk…": "base64…"}`) serve **solo per test e sviluppo**: non
+  usarla mai da un cliente (chi può modificare la configurazione potrebbe sostituire la chiave);
 - lo stato è tenuto in memoria e ricontrollato al massimo ogni 10 minuti, oppure subito se il file cambia;
 - `full` / `grace` (tolleranza) → tutto funziona; `read_only` / `invalid` → le scritture (`push`, `patch`,
   `token_create`, `token_revoke`, `journal_restore`) rispondono **403 `licence_read_only`**, mentre letture, `pull` ed
@@ -195,6 +205,7 @@ Note tecniche:
 
 ```sh
 python3 tests/test_licence.py       # licenza: chiavi e licenze create con il hub, server con licence_required
+python3 tests/test_trusted_keys.py  # trusted_keys.json: export del hub accettato, file rovinato / chiavi non valide ignorati
 python3 tests/diff_test.py          # PHP vero e Python fianco a fianco (serve php 8 con pdo_sqlite)
 python3 tests/test_sync_remote.py   # ponte sync-remote: PHP ⇄ Python e Python ⇄ Python veri, HTTPS con la CA dello studio
 NODE_PATH=<node_modules con playwright> python3 tests/validate_python.py   # docs/python/tools/validate_schemas.py contro il Python

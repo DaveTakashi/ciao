@@ -38,6 +38,27 @@ restano in attesa e partiranno alla prima sincronizzazione nell'altra direzione 
 
 ## 3. Preparazione sul PC dello studio (una volta sola)
 
+### 3.0 Il modo automatico (consigliato, dal 2026-11-03)
+
+Se il cliente è stato creato nel hub con `cliente nuovo --installazioni entrambe`, il suo **pacchetto personale**
+contiene già il modello del profilo (indirizzo del sito, nessun codice) e tutto si riduce a:
+
+1. **Sul sito**, durante `setup.php`, aggiungi alle persone la riga `ponte-sync,editor`; copia il token che compare e
+   salvalo nella cassaforte del hub: `python -m docmap_hub cliente token-ponte --cliente "Studio Rossi" --salva`
+   (per portarlo su chiavetta: `… --esporta E:\token-ponte.txt`).
+2. **In studio**, alla fine di `installa.bat` rispondi **s** a *"La configuro adesso?"* e incolla il token (oppure
+   più tardi: `C:\DocMap\strumenti\configura-sync.ps1`, anche con `-TokenFile E:\token-ponte.txt`).
+
+Lo script crea da solo il codice `ponte-sync` sul server dello studio (il §3.1 per il lato studio non serve), la
+cartella `C:\DocMap\sync` protetta (§3.2), il profilo (§3.3), fa la prova senza modifiche (§3.4) e crea l'attività ogni
+10 minuti (§3.6). Il resto di questo capitolo è il **modo manuale**, utile per capire o per un caso particolare.
+
+| Direzione | Come si ottiene con il modo automatico |
+|---|---|
+| web ⇄ studio (entrambe) | predefinita |
+| solo dal web allo studio | dopo la configurazione: `sync-remote C:\DocMap\sync\sync-profile.json --direction a-to-b` a mano, oppure cambia `"direction": "a-to-b"` nel profilo |
+| solo dallo studio al web | come sopra con `b-to-a` |
+
 Serve il server dello studio già installato con `installer-windows` (cartelle `C:\DocMap\venv`, `C:\DocMap\server`,
 `C:\DocMap\certificati`). Tutti i comandi si danno in un **Prompt dei comandi aperto come amministratore**.
 

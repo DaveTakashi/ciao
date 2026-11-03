@@ -34,7 +34,7 @@ Tutto sta in **`C:\DocMap\`** (cartella fissa):
 | Cartella / file | Contenuto | Aggiornamenti |
 |---|---|---|
 | `app\` | il programma web (index.html, scan.html, assets, vendor, docmap.config.js) | sostituita |
-| `server\` | il server Python (`docmap_server`) | sostituita |
+| `server\` | il server Python (`docmap_server`; nel pacchetto personale anche `docmap_server\trusted_keys.json`, le chiavi pubbliche delle licenze) | sostituita (le chiavi restano se il pacchetto nuovo non le ha) |
 | `strumenti\` | gli script (backup, ripristino, kit di emergenza, aggiornamento, licenza, disinstallazione) e questa guida | sostituita |
 | `venv\` | l'ambiente Python del server | pacchetti aggiornati |
 | `config\config.json` | **chiave AES e codici di accesso**: senza questo file il database non si legge | **mai toccato** |
@@ -47,6 +47,7 @@ Tutto sta in **`C:\DocMap\`** (cartella fissa):
 | `impostazioni.json` | porte, nome dello studio, regole dei backup | mai sovrascritto (si aggiungono solo voci nuove) |
 | `LEGGIMI-INDIRIZZO.txt`, `INDIRIZZO-QR.html` | l'indirizzo da usare e i QR da stampare | riscritti a ogni avvio |
 | `_versioni\` | le ultime 3 versioni sostituite (per tornare indietro) | — |
+| `sync\` | (solo se il cliente ha anche il sito online) profilo del ponte web ⇄ studio con i codici, `sincronizza.bat`, stato, `ultimo-esito.txt`, `sync-log\` — **solo amministratori** | **mai toccato** |
 
 In Windows vengono creati:
 
@@ -56,7 +57,13 @@ In Windows vengono creati:
   e, una volta alla settimana, la **verifica** dell'ultimo backup;
 - regole del firewall **"DocMap Server (HTTPS)"** (porta 8443) e **"DocMap Certificato (HTTP)"** (porta 8080), solo per le
   reti **private**;
-- il certificato dello studio tra le "Autorità di certificazione radice attendibili" **di questo PC**.
+- il certificato dello studio tra le "Autorità di certificazione radice attendibili" **di questo PC**;
+- (solo con il sito online) attività pianificata **"DocMap Sync Web-Locale"**: ogni 10 minuti tiene uguali il sito e il
+  server dello studio (§6bis).
+
+Permessi: la cartella `C:\DocMap` è **modificabile solo dagli amministratori** (gli altri utenti del PC possono solo
+leggere: il server gira come SYSTEM e non deve eseguire codice cambiato da un utente normale); `config`, `dati`,
+`backup`, `certificati` e `sync` sono **leggibili solo dagli amministratori**.
 
 Perché HTTPS e un certificato? Il browser permette la cifratura di DocMap (WebCrypto) e la fotocamera solo su pagine
 protette. Un indirizzo `http://192.168.…` non basta: per questo l'installazione crea un **certificato dello studio**,
@@ -64,6 +71,23 @@ valido solo per indirizzi della rete locale (192.168.x.x, 10.x.x.x, 172.16-31.x.
 usato per falsificare siti Internet.
 
 ## 3. Preparare il pacchetto (Dave, sul PC di sviluppo)
+
+**Per un cliente vero usa il pacchetto PERSONALE** fatto dal hub: `python -m docmap_hub cliente nuovo …` (guida
+`docs/GUIDA-NUOVO-CLIENTE.md`) crea `clienti\<cliente>\sede\DocMap-<cliente>-sede.zip` con dentro, in più del
+pacchetto generico: la chiave pubblica delle licenze (`server\docmap_server\trusted_keys.json`), la licenza del
+cliente e i suoi dati (`cliente\`, niente segreti), il modello della sincronizzazione con il sito (se c'è) e la guida.
+Con quel pacchetto `installa.bat` propone da solo il nome dello studio, installa la licenza, attiva il controllo
+(`"licence_required": true`) e alla fine propone di configurare la sincronizzazione.
+
+Lo stesso a mano (senza hub):
+
+```sh
+python3 docmapv1/installer-windows/docmap_tools.py pacchetto --out ../DocMap-studio-rossi --zip \
+    --chiave-pubblica chiavi-pubbliche.json --licenza studio-rossi.docmap-licence --nome-studio "Studio Rossi" \
+    [--sync-modello modello.json] [--documento GUIDA-NUOVO-CLIENTE.md]
+```
+
+Pacchetto generico (senza licenza, per prove o aggiornamenti):
 
 ```sh
 python3 docmapv1/installer-windows/docmap_tools.py pacchetto --out ../DocMap-installer-26.11.1 --zip
@@ -94,12 +118,15 @@ pacchetto viene preparato al volo in una cartella temporanea.
 | 3/9 Backup | "Prima installazione: niente da salvare" (oppure il backup, se è un aggiornamento) | niente |
 | 4/9 Programma | `[OK] Programma in C:\DocMap\app…` | niente |
 | 5/9 Ambiente Python | qualche minuto la prima volta | attendi |
-| 6/9 Studio | *Nome dello studio* e *Nome utente dell'amministratore* | scrivi, per esempio, `Studio Rossi` e `davide` |
+| 6/9 Studio | *Nome dello studio* (con il pacchetto personale è già scritto) e *Nome utente dell'amministratore* | scrivi, per esempio, `Studio Rossi` e `davide` |
 |  | il **codice di accesso** dell'amministratore (una riga `davide admin xxxxxxxx…`) | **copialo** in un posto sicuro, poi Invio |
+|  | (pacchetto personale) `[OK] Licenza installata e controllo della licenza attivato.` | niente |
 | 7/9 Certificato | `[OK] Certificato dello studio…` | niente |
 | 8/9 Firewall | se la rete è "pubblica" chiede di renderla **privata** | rispondi **s** se è la rete dell'ufficio |
 | 9/9 Avvio | `[OK] Il server risponde (ping).` | niente |
 | Kit di emergenza | *Creo adesso il Kit di emergenza da stampare? [S/n]* | **Invio** (sì): si apre una pagina → **stampala (2 copie)**, poi Invio |
+| Licenza | lo stato: `Stato: VALIDA (full)`, cliente, piano, scadenza | controlla che sia **VALIDA** |
+| Sincronizzazione (solo con il sito) | *La configuro adesso? (serve il token del sito web)* | **s**, poi incolla il token `ponte-sync` (non si vede mentre lo scrivi): prova + attività ogni 10 minuti (§6bis) |
 
 5. Alla fine compaiono l'**indirizzo** (es. `https://192.168.1.20:8443/`) e si apre la pagina con i **QR da stampare**.
    Lo stesso testo resta in `C:\DocMap\LEGGIMI-INDIRIZZO.txt`.
@@ -113,7 +140,9 @@ pacchetto viene preparato al volo in una cartella temporanea.
    **Codici di accesso** crei i codici per le altre persone.
 
 Opzioni per chi installa da riga di comando:
-`installa.bat -NomeStudio "Studio Rossi" -Admin davide -Porta 8443 -NonChiedere`.
+`installa.bat -NomeStudio "Studio Rossi" -Admin davide -Porta 8443 -NonChiedere`; con il sito online anche
+`-TokenSyncFile E:\token-ponte.txt` (il token del ponte da un file su chiavetta, creato dal hub con
+`cliente token-ponte --esporta`) oppure `-SenzaSync` (la sincronizzazione si configura dopo con `configura-sync.ps1`).
 
 ## 5. Collegare telefoni e altri PC
 
@@ -147,7 +176,20 @@ certificato dello studio, ma va aggiornato l'indirizzo (segnalibro, Destinazione
 
 ## 6. Licenza
 
-Quando Dave consegna il file `nome-studio.docmap-licence`:
+Con il **pacchetto personale** del hub la prima licenza si installa da sola durante `installa.bat`, che poi attiva il
+controllo (`"licence_required": true`). Le chiavi pubbliche con cui il server verifica le licenze sono nel file
+`C:\DocMap\server\docmap_server\trusted_keys.json` (nella cartella del **programma**, modificabile solo dagli
+amministratori, non in quella dei dati): non serve modificare codice. Una licenza firmata da un'altra chiave viene
+rifiutata e quella attuale resta.
+
+**Rinnovo** (ogni anno, o quando cambia il piano): Dave emette il nuovo file con il hub (`licence renew …`), lo
+porta o lo manda; nello studio:
+
+```bat
+powershell -ExecutionPolicy Bypass -File C:\DocMap\strumenti\licenza.ps1 -File "C:\Users\...\nome-studio.docmap-licence"
+```
+
+(aggiungi `-Attiva` se il controllo della licenza non era ancora attivo). Quando Dave consegna il file `nome-studio.docmap-licence` a mano:
 
 ```bat
 powershell -ExecutionPolicy Bypass -File C:\DocMap\strumenti\licenza.ps1 -File "C:\Users\...\nome-studio.docmap-licence"
@@ -163,7 +205,30 @@ C:\DocMap\venv\Scripts\python.exe -m docmap_server licence install "C:\...\nome-
 Senza `-File` mostra lo stato (`licence status`). Il server vede la licenza nuova senza riavvio. Il controllo della
 licenza è attivo solo se `config.json` contiene `"licence_required": true` (vedi `server-python/README.md`, "Licenza"):
 le installazioni senza quella voce funzionano come oggi. La licenza sta in `C:\DocMap\dati\licence\` ed è inclusa nei
-backup; gli aggiornamenti non la toccano.
+backup; gli aggiornamenti non la toccano (e `installa.bat` rilanciato con il pacchetto personale non sostituisce una
+licenza già presente: per i rinnovi c'è `licenza.ps1`).
+
+## 6bis. Sincronizzazione con il sito online (solo se il cliente ha anche il sito)
+
+Il pacchetto personale contiene il **modello** della sincronizzazione (solo l'indirizzo del sito: nessun codice).
+`installa.bat` lo copia in `C:\DocMap\sync\` e alla fine chiede se configurarla; si può fare anche dopo:
+
+```bat
+powershell -ExecutionPolicy Bypass -File C:\DocMap\strumenti\configura-sync.ps1
+powershell -ExecutionPolicy Bypass -File C:\DocMap\strumenti\configura-sync.ps1 -TokenFile E:\token-ponte.txt
+```
+
+Cosa fa: chiede il **token del sito** per l'utente `ponte-sync` (ruolo *Può modificare*, creato con `setup.php` e
+custodito da Dave nella cassaforte del hub) senza mostrarlo; crea sul server dello studio un codice `ponte-sync` tutto
+suo; scrive `C:\DocMap\sync\sync-profile.json` (cartella solo amministratori) e `sincronizza.bat`; fa una **prova
+senza modifiche** e mostra il riepilogo; poi crea l'attività **"DocMap Sync Web-Locale"** ogni 10 minuti (come
+SYSTEM) e la avvia subito. Con `-TokenFile` alla fine propone di eliminare il file del token.
+
+- Esito dell'ultima sincronizzazione: `C:\DocMap\sync\ultimo-esito.txt`; registro: `C:\DocMap\sync\sync-log\`.
+- Ogni quanto: `configura-sync.ps1 -Ogni 15`. Sospendere: `configura-sync.ps1 -Disattiva` (profilo e stato restano).
+- Cambiare token (revocato o perso): rilancia `configura-sync.ps1` con il token nuovo: lo stato resta se il sito è lo
+  stesso.
+- Cosa passa e cosa no, conflitti, errori: `GUIDA-SYNC-WEB-LOCALE.md`.
 
 ## 7. Backup e ripristino
 
@@ -347,6 +412,10 @@ Registro delle versioni sostituite: `C:\DocMap\_versioni\`. Le copie più vecchi
 
 ## 11. Cosa NON è ancora provato
 
+- (strumenti 1.2.0) su Windows reale: `Set-AclProgramma` (icacls su `C:\DocMap` senza `/T`, eredità verso le
+  sottocartelle), installazione automatica della licenza dal pacchetto personale, `configura-sync.ps1` e l'attività
+  "DocMap Sync Web-Locale" (trigger ogni 10 minuti per 3650 giorni come SYSTEM), `Read-Host -AsSecureString` per il token.
+
 Scritto e controllato su Linux (nessun Windows disponibile durante lo sviluppo). In particolare **non è stato provato**:
 
 - l'esecuzione reale di `installa.ps1`, `aggiorna.ps1`, `ripristina.ps1`, `backup.ps1`, `disinstalla.ps1`,
@@ -377,8 +446,10 @@ della fase F4) e annota in `PROGRESS.md` cosa non torna.
 |---|---|
 | Indirizzo | `C:\DocMap\LEGGIMI-INDIRIZZO.txt`, QR in `C:\DocMap\INDIRIZZO-QR.html` |
 | Porte | 8443 (HTTPS: programma + API `/api`), 8080 (HTTP: solo pagina del certificato) — `impostazioni.json` |
-| Attività | "DocMap Server", "DocMap Backup" (Utilità di pianificazione) |
+| Attività | "DocMap Server", "DocMap Backup", "DocMap Sync Web-Locale" (solo con il sito online) (Utilità di pianificazione) |
 | Firewall | gruppo "DocMap", solo profilo Privato |
-| Strumenti | `C:\DocMap\strumenti\` (`backup.ps1`, `ripristina.ps1`, `kit-emergenza.ps1`, `aggiorna.ps1`, `licenza.ps1`, `disinstalla.ps1`) |
-| Comandi Python | `C:\DocMap\venv\Scripts\python.exe C:\DocMap\strumenti\docmap_tools.py <comando>` (`ping`, `backup`, `elenco-backup`, `verifica-zip`, `verifica-backup`, `passphrase-backup`, `kit-emergenza`, `stato-kit`, `recupera-chiave`, `esporta-in-chiaro`, `indirizzi`, `pagina-indirizzo`, `cert`) |
+| Strumenti | `C:\DocMap\strumenti\` (`backup.ps1`, `ripristina.ps1`, `kit-emergenza.ps1`, `aggiorna.ps1`, `licenza.ps1`, `configura-sync.ps1`, `disinstalla.ps1`) |
+| Comandi Python | `C:\DocMap\venv\Scripts\python.exe C:\DocMap\strumenti\docmap_tools.py <comando>` (`ping`, `backup`, `elenco-backup`, `verifica-zip`, `verifica-backup`, `passphrase-backup`, `kit-emergenza`, `stato-kit`, `recupera-chiave`, `esporta-in-chiaro`, `indirizzi`, `pagina-indirizzo`, `cert`, `info-pacchetto`, `abilita-licenza`, `configura-sync`) |
+| Licenza | `C:\DocMap\dati\licence\`; chiavi fidate `C:\DocMap\server\docmap_server\trusted_keys.json`; rinnovo `licenza.ps1 -File …` |
+| Sincronizzazione | `C:\DocMap\sync\` (profilo, `sincronizza.bat`, `ultimo-esito.txt`, `sync-log\`) |
 | Codici di uscita | 0 ok · 2 errore · 3 passphrase/codice sbagliati (nulla cambiato) · 4 seconda copia non riuscita · 6 verifica non riuscita |

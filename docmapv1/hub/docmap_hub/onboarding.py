@@ -395,7 +395,8 @@ class Onboarding:
                    "--licenza", str(lic), "--nome-studio", studio_name, "--cliente-json", str(info)]
             if sync_model:
                 cmd += ["--sync-modello", str(sync_model)]
-            r = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+            r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600,
+                               env=dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUTF8="1"))
         if r.returncode != 0:
             raise OnboardingError("Pacchetto di installazione non costruito: " + (r.stderr or r.stdout).strip()[-600:])
         rep["created"].append("pacchetto di installazione in sede")
