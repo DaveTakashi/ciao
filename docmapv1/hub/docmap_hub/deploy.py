@@ -160,6 +160,38 @@ class _FTP_TLS(ftplib.FTP_TLS):
         return conn, size
 
 
+def resolve_ftp_root(ftp, root: str) -> tuple[str, str | None]:
+    """Find the site folder as the FTP account sees it.
+
+    Hosting panels (SiteGround and others) show full paths such as ``/docmap.example.it/public_html/studio``,
+    but an FTP account whose home is ``/docmap.example.it/public_html/`` is closed inside it and sees that
+    folder as ``/studio``. If ``root`` does not exist, try its shorter tails (dropping leading folders) and
+    use the first one that exists. Returns (root to use, note for the log or None).
+    """
+    def exists(path: str) -> bool:
+        try:
+            ftp.cwd(path)
+            return True
+        except ftplib.error_perm:
+            return False
+        finally:
+            try:
+                ftp.cwd("/")
+            except Exception:
+                pass
+
+    if root == "/" or exists(root):
+        return root, None
+    parts = [p for p in root.strip("/").split("/") if p]
+    for i in range(1, len(parts)):
+        cand = "/" + "/".join(parts[i:])
+        if exists(cand):
+            return cand, (f"La cartella {root} non esiste per questo account FTP (la sua cartella home è già "
+                          f"dentro il percorso): uso {cand}. Correggi la cartella remota nella cassaforte in {cand}.")
+    return root, (f"La cartella {root} non esiste sul server FTP: verrà creata. Se il sito esiste già, la cartella "
+                  "remota è sbagliata (va scritta come la vede l'account FTP, a partire dalla sua cartella home).")
+
+
 class FTPRemote(Remote):
     def __init__(self, host: str, port: int, user: str, password: str, root: str, *, tls: bool = True,
                  cafile: str | None = None, timeout: float = 30.0):
@@ -188,6 +220,7 @@ class FTPRemote(Remote):
         self.ftp.set_pasv(True)
         self._mlsd = True
         self._dirs: set[str] = set()
+        self.root, self.root_note = resolve_ftp_root(self.ftp, self.root)
 
     def _abs(self, rel: str) -> str:
         return posixpath.join(self.root, rel) if rel else self.root
@@ -537,6 +570,10 @@ def deploy(hub, vk: VaultKey | None, instance: str, env_name: str, *, dry_run: b
             log(f"Mi collego a {sec.get('host', sec.get('remote_path'))} ({sec.get('protocol')}) …")
             remote = open_remote(sec, insecure_ftp=insecure_ftp, known_hosts=hub.dir / "known_hosts",
                                  trust_new_host_key=trust_host_key)
+        note = getattr(remote, "root_note", None)
+        if note:
+            log("ATTENZIONE: " + note)
+            result["root_note"] = note
         remote_files = remote.list_files()
         rman_bytes = remote.read(MANIFEST)
         rman = parse_manifest(rman_bytes.decode("utf-8", "replace")) if rman_bytes else {}
@@ -546,6 +583,7 @@ def deploy(hub, vk: VaultKey | None, instance: str, env_name: str, *, dry_run: b
             import re
             m = re.search(rb"DM_APP_VERSION\s*=\s*'([^']+)'", api)
             remote_version = m.group(1).decode() if m else None
+        log(f"Sul server: {len(remote_files)} file, versione {remote_version or 'sconosciuta (sito nuovo o cartella sbagliata)'}")
         p = plan(build, remote_files, rman, remote.read, overwrite_htaccess)
         result.update(plan=p, remote_version=remote_version, remote_file_count=len(remote_files))
         log(f"Da caricare: {len(p['upload'])} · invariati: {len(p['unchanged'])} · protetti: {len(p['protected'])}"

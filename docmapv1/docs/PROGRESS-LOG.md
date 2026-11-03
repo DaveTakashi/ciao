@@ -194,3 +194,14 @@
 - Test (Linux): hub 71 (5 saltati: FTP/SFTP/IPv6), installer 70 (1 saltato: pwsh), server: diff_test 7, test_licence 9,
   test_trusted_keys 9, test_setup 2, test_sync_remote 10, validate_python "all checks passed".
 - Non provato: Windows reale (icacls, attività del ponte, licenza automatica), hosting reale, telefoni.
+
+## 2026-11-03 16:00 — Hub 0.3.1: cartella FTP "come la vede l'account" (deploy studio-de)
+
+- Problema visto da Dave: l'account FTP `docmap@…` ha la home in `/docmap.pr-it.it/public_html/` (chiuso lì dentro), ma in
+  cassaforte la cartella era `/docmap.pr-it.it/public_html/studio-de/` → il hub non trovava il sito ("? → 26.12.5",
+  82 file nuovi) e, confermando, avrebbe creato un albero di cartelle sbagliato.
+- `deploy.resolve_ftp_root`: se la cartella non esiste prova le sue code più corte (`/public_html/studio-de`, `/studio-de`)
+  e usa la prima che esiste, con avviso; se nessuna esiste avvisa che verrà creata. Il piano mostra file e versione
+  trovati sul server; il pulsante «Conferma il deploy» è ora sopra l'elenco (prima era in fondo a 82 righe).
+- Segnaposto/aiuti: cartella "come la vede l'account FTP", es. `/studio-rossi`.
+- Test: hub 74 OK (1 saltato IPv6), con FTP/FTPS reali (pyftpdlib) e il nuovo `tests/test_v03_ftp_root.py` (3).

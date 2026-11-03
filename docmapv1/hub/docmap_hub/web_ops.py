@@ -243,7 +243,7 @@ def page_vault(app, hidden: str, revealed: dict | None = None) -> str:
         "<label>FTP: host</label><input name='host'><label>FTP: porta</label><input name='port' type='number'>"
         "<label>FTP: protocollo</label><select name='protocol'><option>ftps</option><option>sftp</option>"
         "<option>ftp</option><option>local</option></select>"
-        "<label>FTP: cartella remota</label><input name='remote_path' placeholder='/public_html/studio-de'></div>"
+        "<label>FTP: cartella remota</label><input name='remote_path' placeholder='/studio-de (come la vede l&#39;account FTP)'></div>"
         "<div><label>db_config: contenuto di config.json / config.php (solo con custodia attiva)</label>"
         "<textarea name='content' rows='6'></textarea><label>Nota</label><textarea name='text' rows='3'></textarea>"
         "</div></div><button>Salva cifrato</button></form></section>")
@@ -326,8 +326,8 @@ def page_clienti(app, hidden: str) -> str:
         + "<label for='ftp_protocollo'>Protocollo</label><select id='ftp_protocollo' name='ftp_protocollo'>"
           "<option>ftps</option><option>sftp</option></select>"
         + inp("ftp_host", "Server FTP (facoltativo)", "ftp.esempio.it") + inp("ftp_utente", "Utente FTP")
-        + inp("ftp_password", "Password FTP", typ="password") + inp("ftp_cartella", "Cartella del sito", "/public_html/studio-rossi")
-        + inp("ftp_cartella_staging", "Cartella dello staging", "/public_html/studio-rossi-prova")
+        + inp("ftp_password", "Password FTP", typ="password") + inp("ftp_cartella", "Cartella del sito (come la vede l'account FTP)", "/studio-rossi")
+        + inp("ftp_cartella_staging", "Cartella dello staging", "/studio-rossi-prova")
         + "<label><input type='checkbox' name='rigenera' value='1' style='width:auto'> rifai pacchetti e siti (i vecchi "
           "vanno in _trash)</label></div></div>" + vault_note
         + "<p class='mut'>Crea cliente, installazioni, ambienti e licenze; prepara il pacchetto personale per la sede, il "
@@ -396,18 +396,22 @@ def page_job(app, hidden: str, job: Job) -> str:
         items = "".join(f"<li><code>{_e(i['path'])}</code> — {_e(i['why'])}</li>" for i in p.get("upload", [])[:200])
         prot = "".join(f"<li><code>{_e(i['path'])}</code> — {_e(i['why'])}</li>" for i in p.get("protected", []))
         obs = "".join(f"<li><code>{_e(o)}</code></li>" for o in p.get("obsolete", [])[:50])
-        out.append(f"<section><h2>Piano: {_e(r.get('remote_version') or '?')} → {_e(r.get('version'))}</h2>"
-                   f"<p>Da caricare: <b>{len(p.get('upload', []))}</b> · invariati {len(p.get('unchanged', []))}</p>"
-                   f"<ul>{items}</ul>" + (f"<h2>Protetti (non toccati)</h2><ul>{prot}</ul>" if prot else "")
-                   + (f"<h2>Sul server ma non più nel programma (NON cancellati)</h2><ul>{obs}</ul>" if obs else ""))
+        warn = (f"<p class='invalid'><b>Attenzione:</b> {_e(r['root_note'])}</p>" if r.get("root_note") else "")
         if p.get("upload"):
             action = "/deploy/run" if job.kind == "deploy-plan" else "/promote/run"
-            out.append(f"<form method='post' action='{action}'>{hidden}<input type='hidden' name='job' value='{job.id}'>"
+            confirm = (f"<form method='post' action='{action}'>{hidden}<input type='hidden' name='job' value='{job.id}'>"
                        "<label><input type='checkbox' name='sure' value='1' style='width:auto' required> ho letto il "
                        "piano: procedi con backup, caricamento e controllo</label><button>Conferma il deploy</button>"
-                       "</form>")
+                       "</form><p class='mut'>Questa era solo la prova: sul server non è ancora cambiato niente. "
+                       "Il caricamento parte solo con «Conferma il deploy» (entro 30 minuti).</p>")
         else:
-            out.append("<p>Niente da caricare: il server è già aggiornato.</p>")
+            confirm = "<p>Niente da caricare: il server è già aggiornato.</p>"
+        out.append(f"<section><h2>Piano: {_e(r.get('remote_version') or '?')} → {_e(r.get('version'))}</h2>{warn}"
+                   f"<p>Sul server: {_e(r.get('remote_file_count', 0))} file · da caricare: <b>{len(p.get('upload', []))}</b>"
+                   f" · invariati {len(p.get('unchanged', []))}</p>{confirm}"
+                   f"<details><summary>Elenco dei file</summary><ul>{items}</ul></details>"
+                   + (f"<h2>Protetti (non toccati)</h2><ul>{prot}</ul>" if prot else "")
+                   + (f"<h2>Sul server ma non più nel programma (NON cancellati)</h2><ul>{obs}</ul>" if obs else ""))
         out.append("</section>")
     elif job.status == "ok" and r:
         out.append("<section><h2>Risultato</h2><pre>" + _e(json.dumps(r, indent=1, ensure_ascii=False,
