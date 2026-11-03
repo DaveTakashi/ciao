@@ -15,7 +15,7 @@ Data: ________  Versione: ________  Chi: ________
 Se hai poco tempo fai solo queste, nell'ordine; i dettagli sono nei paragrafi indicati.
 
 - [ ] **Aggiornamento** del PC dalla v10.0 seguendo [`AGGIORNAMENTO-v10-v12.md`](AGGIORNAMENTO-v10-v12.md): stessi faldoni e clienti di prima (§8).
-- [ ] **Server**: carica `deploy/studio-de/`, `api.php?r=ping` risponde `"schema":3`; togli la protezione cartella di SiteGround (§3).
+- [ ] **Server**: carica `deploy/studio-de/` **sopra** la cartella (senza cancellarla), `api.php?r=ping` risponde `"schema":3` e `"app_version"`; togli la protezione cartella di SiteGround (§3). Poi dal PC **Verifica dopo l'aggiornamento**: tutte le righe verdi ([`AGGIORNARE-IL-SERVER.md`](AGGIORNARE-IL-SERVER.md)).
 - [ ] **Stampa** di un foglio MRINK143 con 8 etichette e lettura dei QR con il telefono (§1).
 - [ ] **Android**: primo accesso, poi chiudi Chrome e inquadra un altro QR → si apre **senza PIN** (§4.1).
 - [ ] **iPhone**: lo stesso con Safari (§4.2).
@@ -24,6 +24,8 @@ Se hai poco tempo fai solo queste, nell'ordine; i dettagli sono nei paragrafi in
 - [ ] **Scaffale con scatole** (v12.1): il QR dello scaffale dice "compresi quelli nelle scatole interne".
 - [ ] **Ricerca** sul telefono: `stato:fuori` e, se hai più archivi, il pulsante dell'archivio.
 - [ ] **NFC** (solo Android con Chrome, facoltativo): scrivi un tag e leggilo (§4.1, manuale §6.9).
+- [ ] **Etichettatrice** (v12.3, se ne hai una): una sola etichetta di prova dal formato giusto (manuale §19), poi una **striscia ubicazione** di una scatola con 3 faldoni; il telefono legge tutti i QR. Annota stampante, formato e orientamento che funzionano: ________
+- [ ] **Adesivi piccoli A4** (v12.3, facoltativo): calibrazione del foglio (es. L7651), poi un foglio con **Solo QR** + titolo.
 
 ## 1. Stampante vera con il foglio MRINK143
 

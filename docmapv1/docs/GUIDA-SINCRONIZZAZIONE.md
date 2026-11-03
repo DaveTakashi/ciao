@@ -1,6 +1,6 @@
 # Guida alla sincronizzazione: PC locale ⇄ web app ⇄ telefoni
 
-> Versione 26.12.2. Per chi usa DocMap ogni giorno. Spiega **quale** sincronizzazione usare e i passi in **entrambi i
+> Versione 26.12.4. Per chi usa DocMap ogni giorno. Spiega **quale** sincronizzazione usare e i passi in **entrambi i
 > sensi**. Dettagli tecnici: [`SYNC.md`](SYNC.md) e [`API-CONTRACT.md`](API-CONTRACT.md).
 
 ## 1. Le tre "copie" dell'archivio

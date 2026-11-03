@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: DocMap 2026 — API del database online condiviso
-  version: "api 1 · schema server 3 · DocMap 26.12.2"
+  version: "api 1 · schema server 3 · DocMap 26.12.4"
   summary: Contratto di server-php/api.php (v10.1 + v11 + v12), da riprodurre 1:1 in Python.
   description: |
     Descrizione OpenAPI 3.1 di `docmapv1/server-php/api.php` (implementazione di riferimento, `DM_API = 'docmap-php'`,
@@ -560,6 +560,7 @@ components:
         features: {type: array, items: {type: string}, description: "Oggi [journal, device_info, locations, archives, access_log, status_events] (archives = v12: record di tipo archive; access_log = v12: registro accessi; status_events = v12: record di tipo status_event e campi status_events/status_types in binder e location)"}
         server_time: {$ref: "#/components/schemas/Iso"}
         php: {type: string, description: "Versione di PHP (un server Python può mettere la sua)."}
+        app_version: {type: string, description: "v12.4, facoltativo: versione di DocMap dei file del server (es. 26.12.4). Il client la confronta con la sua in Verifica dopo l'aggiornamento; se manca dice che i file sono precedenti alla 26.12.4."}
     MeResponse:
       type: object
       required: [user, role, token_id, studio_name, server_time]

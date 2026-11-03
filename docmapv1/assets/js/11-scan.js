@@ -221,10 +221,12 @@ async function scSetupSubmit(kind){
   const v = (id) => (document.getElementById(id) || {}).value || '';
   SC.loginErr = '';
   if (kind === 'setup'){
-    if (authNormSecret(v('sc-pin')).length < AUTH_MIN_SECRET){ SC.loginErr = t('sc_e_secret'); return scRender(); }
-    if (v('sc-pin') !== v('sc-pin2')){ SC.loginErr = t('sc_e_match'); return scRender(); }
+    const keep = {u:v('sc-user'), p:v('sc-pin'), p2:v('sc-pin2'), tk:v('sc-token')};
+    const back = () => { scRender(); [['sc-user', keep.u], ['sc-pin', keep.p], ['sc-pin2', keep.p2], ['sc-token', keep.tk]].forEach(([id, val]) => { const el = document.getElementById(id); if (el && val) el.value = val; }); };
+    if (authNormSecret(keep.p).length < AUTH_MIN_SECRET){ SC.loginErr = t('sc_e_secret'); return back(); }
+    if (keep.p !== keep.p2){ SC.loginErr = t('sc_e_match'); return back(); }
   }
-  const vals = {u:v('sc-user'), p:v('sc-pin'), tk:v('sc-token')};
+  const vals = {u:v('sc-user'), p:v('sc-pin'), p2:v('sc-pin2'), tk:v('sc-token')};
   SC.busy = true; scRender();
   try {
     if (kind === 'setup'){ await srvSetupDevice({username:vals.u, secret:vals.p, token:vals.tk}); try { localStorage.setItem(SC_USER_LS, authNormUser(vals.u)); } catch(e){} }
@@ -234,7 +236,7 @@ async function scSetupSubmit(kind){
     SC.busy = false;
     SC.loginErr = e.message === 'username' ? t('sc_e_user') : e.message === 'secret' ? t('sc_e_secret') : e.code === 'offline' ? t('sc_e_offline') : (e.code === 'unauthorized' || e.code === 'forbidden' || e.message === 'token') ? t('sc_e_token') : t('sc_err', {m:e.message || e.code});
     scRender();
-    if (kind === 'setup'){ const u = document.getElementById('sc-user'); if (u) u.value = vals.u; }
+    [['sc-user', vals.u], ['sc-pin', vals.p], ['sc-pin2', vals.p2], ['sc-token', vals.tk]].forEach(([id, val]) => { const el = document.getElementById(id); if (el && val) el.value = val; });   // v12.4: an error never empties the form
   }
 }
 function scInfoHTML(icon, h, p, extra){

@@ -308,6 +308,8 @@ function locDetailHTML(){
       (next ? '<button class="btn btn-sm" data-a="lo-add" data-id="' + esc(l.id) + '" id="lo-add-child">' + ic('plus') + esc(t('lo_add_child', {l:next.toLowerCase()})) + '</button><button class="btn btn-sm" data-a="lo-bulk" data-id="' + esc(l.id) + '" id="lo-bulk">' + ic('layers') + esc(t('lo_bulk')) + '</button>' : '') +
       '<button class="btn btn-sm" data-a="lo-print" data-id="' + esc(l.id) + '" id="lo-print-one">' + ic('printer') + esc(t('lo_print_one')) + '</button>' +
       (leaves.length ? '<button class="btn btn-sm" data-a="lo-print-leaves" data-id="' + esc(l.id) + '" id="lo-print-leaves">' + ic('printer') + esc(t('lo_print_leaves', {n:leaves.length})) + '</button>' : '') +
+      (locChildren(l.id).length ? '<button class="btn btn-sm" data-a="lo-print-tree" data-id="' + esc(l.id) + '" id="lo-print-tree">' + ic('printer') + esc(t('lo_print_tree', {n:locDescendants(l.id).length + 1})) + '</button>' : '') +
+      (typeof tapeOpen === 'function' ? '<button class="btn btn-sm" data-a="tp-open" data-src="strip" data-id="' + esc(l.id) + '" id="lo-strip">' + ic('tag') + esc(t('lo_strip')) + '</button>' : '') +
       '<button class="btn btn-sm btn-dark" data-a="lo-assoc-here" data-id="' + esc(l.id) + '" id="lo-assoc-here">' + ic('scan') + esc(t('lo_assoc_here')) + '</button>' +
       '<span class="tb-sp"></span><button class="btn btn-sm" data-a="lo-move" data-id="' + esc(l.id) + '">' + ic('move') + esc(t('lo_move')) + '</button><button class="btn btn-sm btn-danger" data-a="lo-del" data-id="' + esc(l.id) + '" id="lo-del">' + ic('trash') + esc(t('lo_del')) + '</button></div>' +
     '<div class="grid g2 lo-form">' +
@@ -332,6 +334,7 @@ function locPanelHTML(){
     '<div class="empty lo-empty">' + ic('warehouse', 'lg') + '<h3>' + esc(t('lo_empty_h')) + '</h3><p>' + esc(t('lo_empty_p')) + '</p><div class="row" style="justify-content:center"><button class="btn btn-primary" data-a="lo-bulk" data-id="" id="lo-empty-bulk">' + ic('layers') + esc(t('lo_empty_btn')) + '</button></div></div>';
   return tools + (LUI.assoc.on ? '<div id="lo-assoc-box">' + locAssocHTML() + '</div>' : '<div class="info-intro">' + ic('box') + '<span>' + esc(t('lo_p')) + '</span></div>') +
     '<div class="toolbar lo-selbar"><span class="small muted">' + esc(t('lo_count', {n})) + '</span><span class="tb-sp"></span>' +
+      '<button class="btn btn-sm" data-a="lo-print-all" id="lo-print-all">' + ic('printer') + esc(t('lo_print_all', {n})) + '</button>' +
       '<button class="btn btn-sm" data-a="lo-sel-leaves">' + ic('check') + esc(t('lo_sel_leaves', {l:L[L.length - 1].name})) + '</button><button class="btn btn-sm" data-a="lo-sel-none">' + esc(t('lo_sel_none')) + '</button>' +
       '<button class="btn btn-sm btn-primary" data-a="lo-print-sel" id="lo-print-sel"' + (LUI.checked.size ? '' : ' disabled') + '>' + ic('printer') + esc(t('lo_print_sel')) + ' <span class="qr-n">' + LUI.checked.size + '</span></button></div>' +
     '<div class="lo-grid"><div class="lo-tree" id="lo-tree" role="tree">' + locTreeHTML() + '</div><div class="lo-detail" id="lo-detail">' + locDetailHTML() + '</div></div>';
@@ -537,6 +540,7 @@ function locPrintItem(l){ return {_loc:l, id:'loc:' + l.id, short_code:l.short_c
 function locPrintStart(ids){
   if (S.print.contentMode !== 'loc') S.print.locPrevMode = S.print.contentMode;
   S.print.contentMode = 'loc'; S.print.locIds = ids.slice(); S.print.pages = Object.assign({}, S.print.pages || {}, {sel:'all', order:null, sig:''});
+  if (S.print.tape) S.print.tape.on = false;   // v12.3: these labels are printed on A4 sheets
   savePrefs(); S.view = 'print'; renderAll();
 }
 function renderLocLabel(b, g, P){
@@ -689,6 +693,8 @@ const LOC_ACTIONS = {
   'lo-del': (el) => locDelete(el.dataset.id),
   'lo-print': (el) => locPrintStart([el.dataset.id]),
   'lo-print-leaves': (el) => locPrintStart(locDescendants(el.dataset.id).filter(id => !locChildren(id).length)),
+  'lo-print-tree': (el) => locPrintStart([el.dataset.id].concat(locDescendants(el.dataset.id))),
+  'lo-print-all': () => { const ids = locArr().map(l => l.id); if (ids.length) locPrintStart(ids); },
   'lo-print-sel': () => { const ids = Array.from(LUI.checked).filter(id => locById(id)); if (ids.length) locPrintStart(ids); },
   'lo-sel-leaves': () => { LUI.checked = new Set(locArr().filter(l => !locChildren(l.id).length).map(l => l.id)); locRender(); },
   'lo-sel-none': () => { LUI.checked = new Set(); locRender(); },

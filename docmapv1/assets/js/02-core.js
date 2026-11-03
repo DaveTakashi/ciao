@@ -2,7 +2,7 @@
    DocMap 2026 — core: i18n, state, persistence, data model helpers
    ===================================================================== */
 'use strict';
-const APP_VERSION = '26.12.2';
+const APP_VERSION = '26.12.4';
 const LS_KEY = 'docmap_v26_state';
 const LS_PREV = 'docmap_v26_state_prev';
 const SC_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
@@ -417,6 +417,15 @@ const BUILTIN_PRESETS = [
   {id:'l7169', kind:'die', name:'4 etichette 99,1×139 (Avery L7169 / J8169)', w:99.1, h:139, cols:2, rows:2, marginTop:9.5, marginLeft:4.65, gapX:2.5, gapY:0, radius:2, cut:false},
   {id:'l4760', kind:'die', name:'Dorso faldone 192×38 ×7 (Avery L4760)', w:192, h:38, cols:1, rows:7, marginTop:15.5, marginLeft:9, gapX:0, gapY:0, radius:2, cut:false},
   {id:'l4761', kind:'die', name:'Dorso faldone largo 192×61 ×4 (Avery L4761)', w:192, h:61, cols:1, rows:4, marginTop:26.5, marginLeft:9, gapX:0, gapY:0, radius:2, cut:false},
+  // v12.3: small stickers for documents (QR + one field). Geometry from the manufacturer templates, centred on A4:
+  // check once with "Stampa prova" (calibration) and adjust the offset if needed. mini: too small for the information
+  // label (company names would shrink below 1.6 mm): the "Solo QR" template is the recommended one there.
+  {id:'l7651', kind:'die', mini:1, name:'65 etichette 38,1×21,2 (Avery L7651 / J8651)', w:38.1, h:21.2, cols:5, rows:13, marginTop:10.7, marginLeft:4.75, gapX:2.5, gapY:0, radius:2, cut:false},
+  {id:'l7658', kind:'die', mini:1, name:'189 etichette 25,4×10 (Avery L7658)', w:25.4, h:10, cols:7, rows:27, marginTop:13.5, marginLeft:8.6, gapX:2.5, gapY:0, radius:1, cut:false},
+  {id:'l4732', kind:'die', mini:1, name:'80 etichette 35,6×16,9 (Avery L4732 / J8732)', w:35.6, h:16.9, cols:5, rows:16, marginTop:13.3, marginLeft:11, gapX:2.5, gapY:0, radius:1.5, cut:false},
+  {id:'l7636', kind:'die', mini:1, name:'48 etichette 45,7×21,2 (Avery L7636)', w:45.7, h:21.2, cols:4, rows:12, marginTop:21.3, marginLeft:9.7, gapX:2.6, gapY:0, radius:2, cut:false},
+  {id:'l7654', kind:'die', mini:1, name:'40 etichette 45,7×25,4 (Avery L7654 / J8654)', w:45.7, h:25.4, cols:4, rows:10, marginTop:21.5, marginLeft:9.7, gapX:2.6, gapY:0, radius:2, cut:false},
+  {id:'l7157', kind:'die', mini:1, name:'33 etichette 64×24,3 (Avery L7157 / J8157)', w:64, h:24.3, cols:3, rows:11, marginTop:14.85, marginLeft:6.5, gapX:2.5, gapY:0, radius:2, cut:false},
   {id:'l7167', kind:'die', name:'1 etichetta A4 199,6×289,1 (Avery L7167)', w:199.6, h:289.1, cols:1, rows:1, marginTop:3.95, marginLeft:5.2, gapX:0, gapY:0, radius:2, cut:false},
   {id:'a4-8',  kind:'full', name:'A4 adesivo intero — 8 etichette 97×67 (2×4)', w:97, h:67, cols:2, rows:4, marginTop:14.5, marginLeft:8, gapX:0, gapY:0, radius:0, cut:true},
   {id:'a4-14', kind:'full', name:'A4 adesivo intero — 14 etichette 97×38 (2×7)', w:97, h:38, cols:2, rows:7, marginTop:15.5, marginLeft:8, gapX:0, gapY:0, radius:0, cut:true},

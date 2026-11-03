@@ -973,7 +973,8 @@ const sec = (n) => console.log('\n== ' + n);
   await p.evaluate(() => { document.getElementById('print-root').innerHTML = ''; });
   // every preset × info (± contents label) renders without overflow
   const tBad = [];
-  for (const pr of await p.evaluate(() => BUILTIN_PRESETS.map(x => x.id))) for (const pair of [false, true]){
+  // v12.3 'mini' sheets (A4 stickers ≤ 25 mm high) are for the "Solo QR" template, checked in @@STREAM-V123@@
+  for (const pr of await p.evaluate(() => BUILTIN_PRESETS.filter(x => !x.mini).map(x => x.id))) for (const pair of [false, true]){
     const r = await tMount(pr, {info:{items:2, pair}});
     const over = r.labs.filter(l => l.over || !l.breaksOk || (l.name && l.fs < 1.6));
     if (r.nan || over.length || !r.labs.length || (pair && !r.cl && r.pages < 2)) /* one-label sheets: contents label on the next sheet */ tBad.push({pr, pair, nan:r.nan, n:r.labs.length, over:over.map(l => [l.name.slice(0, 24), l.fs])});
@@ -2724,6 +2725,15 @@ const sec = (n) => console.log('\n== ' + n);
         ok(await W1p.isVisible('#vault-lock #vl-token') && await W1p.evaluate(() => !(S && S.binders)), 'W: web app (apiBase): first run asks device user + PIN + server access code, nothing loaded');
         await W1p.fill('#vl-user', 'mario.tel'); await W1p.fill('#vl-pin', '5732'); await W1p.fill('#vl-pin2', '5732'); await W1p.fill('#vl-token', 'sbagliato'); await W1p.click('#vl-go'); await W1p.waitForTimeout(1200);
         ok(await W1p.evaluate(() => !!document.getElementById('vault-lock') && /non valido|not valid/.test(document.getElementById('vl-err').textContent) && !localStorage.getItem('docmap_v26_auth')), 'W: a wrong access code is refused before any local user is created');
+        // v12.4: the typed values stay (nothing to retype), "continue without a code" appears, every password field has the eye button
+        Wv = await W1p.evaluate(() => ({pin:document.getElementById('vl-pin').value, pin2:document.getElementById('vl-pin2').value, tok:document.getElementById('vl-token').value, user:document.getElementById('vl-user').value,
+          skip:!!document.getElementById('vl-skip'), eyes:document.querySelectorAll('#vault-lock .pw-eye').length, opt:/facoltativo|optional/.test(document.querySelector('label[for="vl-token"]').textContent)}));
+        await W1p.click('#vault-lock .pw-wrap:has(#vl-pin) .pw-eye'); await W1p.waitForTimeout(60);
+        Wv.shown = await W1p.evaluate(() => document.getElementById('vl-pin').type === 'text' && document.querySelector('.pw-wrap:has(#vl-pin) .pw-eye').getAttribute('aria-pressed') === 'true');
+        await W1p.click('#vault-lock .pw-wrap:has(#vl-pin) .pw-eye'); await W1p.waitForTimeout(60);
+        Wv.hidden = await W1p.evaluate(() => document.getElementById('vl-pin').type === 'password');
+        ok(Wv.pin === '5732' && Wv.pin2 === '5732' && Wv.tok === 'sbagliato' && Wv.user === 'mario.tel' && Wv.skip && Wv.eyes === 3 && Wv.opt && Wv.shown && Wv.hidden,
+          'v12.4 W: wrong code keeps user, PIN and code in the form, offers "Continua senza codice"; the eye shows / hides the PIN with a tap; the code is marked optional', Wv);
         await new Promise(r => setTimeout(r, 2200));   // the wrong token above counted one failure: let any lock expire
         await W1p.fill('#vl-pin', '5732'); await W1p.fill('#vl-pin2', '5732'); await W1p.fill('#vl-token', WT.mario); await W1p.click('#vl-go'); await W1p.waitForTimeout(3500);
         Wv = await W1p.evaluate(() => { while (topModal()) closeModal(true); return {lock:!!document.getElementById('vault-lock'), n:S.binders.length, codes:S.binders.map(b => b.speaking_code).sort().join(','), role:dmProviders().auth.currentUser().role, st:(document.getElementById('srv-status') || {}).textContent,
@@ -2732,6 +2742,24 @@ const sec = (n) => console.log('\n== ' + n);
           'W: after login the web app loads the data from the server (no demo binders), role from the token, cache + token encrypted in the vault', Wv);
         ok(/Online · sincronizzato/.test(Wv.st || ''), 'W: top bar shows "Online · sincronizzato"', Wv.st);
         await W1p.screenshot({path:Wpath.join(__dirname, 'shots', 'w_web_online.png')});
+        // ---- v12.4: first sign-in WITHOUT the access code, code added later, then "Verifica dopo l'aggiornamento" ----
+        {
+          const W4 = await b.newContext({viewport:{width:1366, height:768}}), W4p = await W4.newPage();
+          W4p.on('pageerror', e => errs.push('W4 PAGEERR ' + e.message)); W4p.on('dialog', d => d.accept());
+          await W4p.goto(WO + '/studio-de/index.html'); await W4p.waitForTimeout(800);
+          await W4p.fill('#vl-user', 'nina.pc'); await W4p.fill('#vl-pin', '6420'); await W4p.fill('#vl-pin2', '6420'); await W4p.click('#vl-go'); await W4p.waitForTimeout(2500);
+          let W4v = await W4p.evaluate(() => { while (topModal()) closeModal(true); return {lock:!!document.getElementById('vault-lock'), user:(dmProviders().auth.currentUser() || {}).username, st:SRV.state, fix:SRV.fix, tok:!!DocMapVault.srvToken()}; });
+          await W4p.evaluate(() => { S.view = 'sync'; renderAll(); }); await W4p.waitForTimeout(200);
+          W4v.card = await W4p.evaluate(() => !!document.querySelector('#srv-card #srv-newtok') && !!document.getElementById('srv-check') && !!document.querySelector('#srv-card .pw-eye'));
+          W4v.chk0 = await W4p.evaluate(async () => { const st = await srvUpdateCheck(); while (topModal()) closeModal(true); return st.map(x => x.k + ':' + x.st).join(','); });
+          await W4p.fill('#srv-newtok', WT.dave); await W4p.click('[data-a="srv-newtok"]'); await W4p.waitForTimeout(3500);
+          W4v.after = await W4p.evaluate(() => ({tok:!!DocMapVault.srvToken(), user:SRV.user, n:S.binders.length, wap:S.binders.some(b => b.speaking_code === 'WAP1')}));
+          W4v.chk = await W4p.evaluate(async () => { const st = await srvUpdateCheck(); const r = {keys:st.map(x => x.k + ':' + x.st).join(','), modal:!!document.getElementById('srv-chk'), data:(st.find(x => x.k === 'data') || {}).text || ''}; while (topModal()) closeModal(true); return r; });
+          ok(!W4v.lock && W4v.user === 'nina.pc' && !W4v.tok && W4v.st === 'denied' && W4v.fix === 'tok' && W4v.card && /^ping:ok,ver:ok,schema:ok,me:warn$/.test(W4v.chk0) &&
+            W4v.after.tok && W4v.after.user && W4v.after.wap && /^ping:ok,ver:ok,schema:ok,me:ok,data:info,align:(ok|warn)$/.test(W4v.chk.keys) && W4v.chk.modal && /faldoni/.test(W4v.chk.data),
+            'v12.4 W: first sign-in without the access code works (user created, server waits for the code); code pasted later loads the data; "Verifica dopo l\'aggiornamento" checks ping, app_version, schema, code and data', W4v);
+          await W4.close();
+        }
         await W1p.evaluate(() => { const b = S.binders.find(x => x.speaking_code === 'WV2'); b.notes = 'Nota online W1'; commit(); });
         await W1p.waitForTimeout(400);
         const Wst1 = await W1p.evaluate(() => (document.getElementById('srv-status') || {}).textContent);
@@ -4896,6 +4924,169 @@ const sec = (n) => console.log('\n== ' + n);
     await p.setViewportSize({width:1366, height:768});
     ok(Vm.stack && Vm.inside && Vm.sw, 'v12.2: on a phone the QR popup is one column (QR above, data below), nothing leaves the window', Vm);
     ok(Vg.arch && Vg.last && Vg.lastNone, 'v12: "archivio:<name>" finds the binders of the archive; the status card reads the last access from the access log', Vg);
+  }
+  // @@STREAM-V123@@
+  sec('v12.3: tape / roll label printers, format search, location strips, QR + chosen field, small A4 stickers');
+  {
+    const T1 = await p.evaluate(() => {
+      while (topModal()) closeModal(true);
+      const ids = (q) => tapeSearch(q).map(e => e.id);
+      const r = {};
+      r.s1 = ids('62x100')[0] === 'dk-11202' && ids('100×62')[0] === 'dk-11202';
+      r.s2 = ids('24 mm').includes('tze-24') && ids('dymo 99012')[0] === 'dymo-99012' && ids('zebra 4x6')[0] === 'zb-102x152';
+      r.s3 = ids('L7651').includes('l7651') && ids('38,1x21,2')[0] === 'l7651' && tapeSearch('38x21').find(e => e.id === 'l7651').src === 'a4';
+      r.s4 = ids('qwertyzzz').length === 0 && tapeSearch('').length === TAPE_FORMATS.length;
+      const idset = new Set(TAPE_FORMATS.map(f => f.id));
+      r.cat = TAPE_FORMATS.length >= 45 && idset.size === TAPE_FORMATS.length && TAPE_FORMATS.every(f => f.across > 0 && f.along >= 0 && (!f.pa || f.pa <= f.across) && f.brand && f.name);
+      r.brands = ['Brother', 'Dymo', 'Zebra', 'Epson', 'Niimbot', 'Phomemo'].every(b => TAPE_FORMATS.some(f => f.brand === b));
+      r.a4small = ['l7651', 'l7658', 'l4732', 'l7636', 'l7654', 'l7157'].every(id => { const P = BUILTIN_PRESETS.find(x => x.id === id); if (!P || !P.mini || !tplRecommended(labelTemplate('qr'), id)) return false; const right = P.marginLeft + P.cols * P.w + (P.cols - 1) * P.gapX, bottom = P.marginTop + P.rows * P.h + (P.rows - 1) * P.gapY; return right <= 210.01 && bottom <= 297.01 && P.marginLeft >= 3 && P.marginTop >= 3; });
+      return r;
+    });
+    ok(T1.s1 && T1.s2 && T1.s3 && T1.s4 && T1.cat && T1.brands && T1.a4small, 'v12.3: free-text format search (brand, code, "62x100" in any order, "24 mm", decimal comma) over tapes, rolls and A4 sheets; catalogue sane; small A4 sticker sheets fit the page', T1);
+
+    const T2 = await p.evaluate(() => {
+      const saved = S.binders.map(b => [b.id, b.location_id, b.selected_for_print]);
+      locBulkCreate('', [{n:1, prefix:'TPM', start:1}, {n:1, prefix:'A', start:1}, {n:2, prefix:'B', start:1}]);
+      const root = locArr().find(l => l.code === 'TPM1'), boxes = locDescendants(root.id).map(locById).filter(l => !locChildren(l.id).length).sort((a, b) => naturalCmp(a.code, b.code));
+      const bs = S.binders.filter(b => !(S.settings.hideDemo && isDemo(b))).slice(0, 4);
+      bs.forEach((b, i) => { b.location_id = boxes[i % 2].id; });
+      const o = Object.assign(tapeOpts(), {src:'strip', locId:root.id, sub:true, fmt:'tze-24', out:'strip', copies:1, len:0, pa:0, qr:true, main:'code', second:'company', lmain:'code', lsecond:'name'});
+      const it = tapeItems(o);
+      const exp = [root.code, locChildren(root.id)[0].code];
+      boxes.forEach(bx => { exp.push(bx.code); bs.filter(b => b.location_id === bx.id).map(b => b.speaking_code).sort(naturalCmp).forEach(c => exp.push(c)); });
+      const r = {order:it.map(x => x.main).join(',') === exp.join(','), kinds:it[0].kind === 'l' && it[3].kind === 'b' && it[3].second === bs.find(b => b.speaking_code === it[3].main).company_name};
+      r.noSub = tapeItems(Object.assign({}, o, {locId:boxes[0].id, sub:false})).length === 1 + bs.filter(b => b.location_id === boxes[0].id).length;
+      r.locs = tapeItems(Object.assign({}, o, {src:'locs', copies:2})).length === 2 * (2 + boxes.length);
+      bs.forEach(b => b.selected_for_print = true);
+      const sel = tapeItems(Object.assign({}, o, {src:'sel', main:'title', second:'multi'}));
+      r.sel = sel.length === printQueueBinders().length && sel[0].main === (printQueueBinders()[0].binder_title || printQueueBinders()[0].speaking_code);
+      const L = tapeLayout(it, o);
+      r.strip = L.length === 1 && L[0].cells.length === it.length && L[0].h === 24 && L[0].cells.every((c, i, a) => !i || c.x >= a[i - 1].x + a[i - 1].g.W + o.gap - 0.01) && L[0].cells.every(c => Math.abs(c.y - 3) < 0.01);
+      const many = []; for (let i = 0; i < 40; i++) many.push(it[2 + (i % 3)]);
+      r.split = tapeLayout(many, o).every(pg => pg.w <= TAPE_MAX_PAGE + 0.01) && tapeLayout(many, o).length >= 2;
+      const Lp = tapeLayout(it, Object.assign({}, o, {out:'pages'}));
+      r.pages = Lp.length === it.length && new Set(Lp.map(pg => pg.w.toFixed(2))).size === 1;
+      const Lf = tapeLayout(it, Object.assign({}, o, {len:60, out:'pages'}));
+      r.fixed = Lf.every(pg => Math.abs(pg.w - 60) < 0.01);
+      const od = Object.assign({}, o, {fmt:'dk-11201', out:'strip', turn:'auto'}), Pd = tapePages(od);
+      r.die = Pd.length === it.length && Pd.every(pg => pg.w === 29 && pg.h === 90) && /tp-turn/.test(Pd[0].html);
+      const Pn = tapePages(Object.assign({}, od, {turn:'no'}));
+      r.noTurn = Pn[0].w === 90 && Pn[0].h === 29 && !/tp-turn/.test(Pn[0].html);
+      const H = tapePrintHTML(Pd);
+      r.css = /@page\{size:29mm 90mm;margin:0\}/.test(H.css) && /@page tp0\{size:29mm 90mm/.test(H.css) && (H.html.match(/class="tp-page tp0"/g) || []).length === Pd.length;
+      r.mod = tapeModuleMM(tapeLayout(it, Object.assign({}, o, {fmt:'tze-6'}))) < 0.25 && tapeModuleMM(L) >= 0.33;
+      window.__T2 = {saved, rootId:root.id, boxes:boxes.map(b => b.id)};
+      return r;
+    });
+    ok(Object.values(T2).every(Boolean), 'v12.3: location strip = each location then its binders in code order (nested boxes included); copies; strip split ≤ 90 cm; one page per label; fixed length; die-cut pages turned for QL / LabelWriter drivers; named @page sizes; QR module size check', T2);
+
+    // the printed tape PDF: page sizes and QR codes that decode (P-touch 24 mm, one per page; DK-11201 turned)
+    for (const [fmt, out, w, h] of [['tze-24', 'pages', null, 24], ['dk-11201', 'pages', 29, 90], ['tze-24', 'strip', null, 24]]){
+      const info = await p.evaluate(([fmt, out]) => { const o = Object.assign(tapeOpts(), {src:'strip', locId:window.__T2.rootId, sub:true, fmt, out, turn:'auto', len:0, pa:0, qr:true}); const pg = tapePages(o); const P = tapePrintHTML(pg);
+        document.getElementById('page-style').textContent = P.css; document.getElementById('print-root').innerHTML = P.html; return {n:pg.length, url:tapeItems(o)[0].url, w:pg[0].w, h:pg[0].h, c0:tapeLayout(tapeItems(o), o)[0].cells[0].g.W}; }, [fmt, out]);
+      await p.emulateMedia({media:'print'});
+      const pdf = await p.pdf({printBackground:true, preferCSSPageSize:true});
+      await p.emulateMedia({media:'screen'});
+      fs.writeFileSync('shots/tape.pdf', pdf);
+      const meta = JSON.parse(require('child_process').execSync('python3 -c "import pypdfium2 as p,json;d=p.PdfDocument(\'shots/tape.pdf\');d[0].render(scale=300/72).to_pil().convert(\'RGBA\').save(\'shots/tape.png\');print(json.dumps([len(d)]+[round(x/72*25.4,1) for x in d[0].get_size()]))"').toString());
+      const png = PNG.sync.read(fs.readFileSync('shots/tape.png'));
+      const cw = out === 'strip' ? Math.min(png.width, Math.round(png.width * (info.c0 + 1) / info.w)) : png.width;   // the first label of the strip
+      const d = new Uint8ClampedArray(cw * png.height * 4); for (let j = 0; j < png.height; j++){ const st = j * png.width * 4; d.set(png.data.subarray(st, st + cw * 4), j * cw * 4); }
+      const q = jsQR(d, cw, png.height);
+      ok(meta[0] === info.n && Math.abs(meta[1] - info.w) < 0.6 && Math.abs(meta[2] - info.h) < 0.6 && (w == null || Math.abs(meta[1] - w) < 0.6) && Math.abs((w == null ? meta[2] : meta[2]) - h) < 0.6 && q && q.data === info.url,
+        `v12.3 tape PDF ${fmt}/${out}: ${info.n} pages of ${info.w.toFixed(1)}×${info.h.toFixed(1)} mm, the QR of the first label decodes`, {meta, info, qr:q && q.data});
+    }
+    await p.evaluate(() => { document.getElementById('print-root').innerHTML = ''; document.getElementById('page-style').textContent = '@page{size:210mm 297mm;margin:0mm}'; });
+
+    const T3 = await p.evaluate(async () => {
+      const wait = (ms) => new Promise(res => setTimeout(res, ms));
+      const r = {};
+      S.view = 'print'; tapeSet({on:false}); renderAll(); await wait(80);
+      r.sw = !!document.querySelector('#tp-mode') && !!document.querySelector('#pr-pq');
+      const pq = document.getElementById('pr-pq'); pq.value = '38x21'; pq.dispatchEvent(new Event('input', {bubbles:true})); await wait(40);
+      r.filter = [...document.querySelectorAll('.preset-list .preset')].filter(x => !x.hidden).map(x => x.dataset.id).join() === 'l7651';
+      pq.value = ''; pq.dispatchEvent(new Event('input', {bubbles:true}));
+      document.getElementById('tp-mode-tape').click(); await wait(80);
+      r.tape = tapeOpts().on && !!document.getElementById('tp-print') && !!document.getElementById('tp-fmts') && !document.querySelector('#pv-scroll');
+      r.noHs = document.documentElement.scrollWidth <= innerWidth + 1;
+      const q = document.getElementById('tp-q'); q.focus(); q.value = 'dk-11202'; q.dispatchEvent(new Event('input', {bubbles:true})); await wait(200);
+      const first = document.querySelector('#tp-fmts .tp-fmt'); r.search = !!first && first.dataset.id === 'dk-11202' && document.activeElement === q;
+      first.click(); await wait(80);
+      r.pick = tapeOpts().fmt === 'dk-11202' && /DK-11202/.test(document.getElementById('tp-cur').textContent);
+      const sel = document.getElementById('tp-main'); if (sel){ sel.value = 'title'; sel.dispatchEvent(new Event('change', {bubbles:true})); await wait(80); }
+      r.main = tapeOpts().main === 'title';
+      const q2 = document.getElementById('tp-q'); q2.value = 'l7160'; q2.dispatchEvent(new Event('input', {bubbles:true})); await wait(200);
+      const a4 = document.querySelector('#tp-fmts .tp-fmt[data-src="a4"]'); a4.click(); await wait(80);
+      r.a4 = !tapeOpts().on && S.print.presetId === 'l7160' && !!document.querySelector('#pv-scroll');
+      while (document.querySelector('#toasts .toast')) document.querySelector('#toasts .toast').remove();
+      // QR + chosen field on the A4 "Solo QR" template
+      const b = S.binders.find(x => x.binder_title && x.company_name), P = Object.assign({}, S.print, {qrText:'title', qrText2:'company', qrMode:'live'}), g = {w:38.1, h:21.2, radius:2};
+      const h1 = renderQrLabel(b, g, P), h0 = renderQrLabel(b, g, Object.assign({}, P, {qrText:'std'}));
+      r.qrField = h1.includes(esc(b.binder_title)) && h1.includes(esc(b.company_name)) && h1.includes('<svg') && !h1.includes('qr7.it/</div>') && h0.includes('qr7.it/');
+      S.print.contentMode = 'qr'; renderView(); await wait(60);
+      r.qrOpts = !!document.getElementById('qrt-qrText');
+      S.print.contentMode = 'pair'; S.print.qrText = 'std'; savePrefs();
+      // locations panel: print this + inside, print all, strip
+      S.view = 'info'; S.infoTab = 'loc'; LUI.sel = window.__T2.rootId; renderAll(); await wait(80);
+      r.loBtns = !!document.getElementById('lo-print-tree') && !!document.getElementById('lo-strip') && !!document.getElementById('lo-print-all');
+      document.getElementById('lo-print-tree').click(); await wait(80);
+      r.tree = S.view === 'print' && S.print.contentMode === 'loc' && S.print.locIds.length === 1 + locDescendants(window.__T2.rootId).length;
+      S.view = 'info'; renderAll(); await wait(60);
+      document.getElementById('lo-strip').click(); await wait(80);
+      r.strip = S.view === 'print' && tapeOpts().on && tapeOpts().src === 'strip' && tapeOpts().locId === window.__T2.rootId && /TPM1/.test(document.getElementById('tp-pv').textContent);
+      r.help = !!helpTopic('tape');
+      return r;
+    });
+    await p.setViewportSize({width:390, height:844}); await p.waitForTimeout(150);
+    T3.phone = await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
+    await p.setViewportSize({width:1366, height:768});
+    await p.screenshot({path:'shots/v123_tape.png'});
+    ok(Object.values(T3).every(Boolean), 'v12.3: print view switch "Fogli A4 | Etichettatrice"; sheet filter; tape studio search keeps focus and picks; an A4 result goes back to sheets; QR + chosen field; locations "this and inside" / strip buttons; help topic; no horizontal scroll', T3);
+    await p.evaluate(() => {
+      tapeSet({on:false, src:'sel', locId:'', fmt:'tze-24', main:'code', q:''});
+      (window.__T2.saved || []).forEach(([id, loc, sel]) => { const b = S.binders.find(x => x.id === id); if (b){ b.location_id = loc; b.selected_for_print = sel; } });
+      S.view = 'archive'; renderAll();
+    });
+  }
+  // @@STREAM-V124@@
+  sec('v12.4: update check steps, setup.php never pairs an existing database with a new key, eye on every password field');
+  {
+    const T = await p.evaluate(() => {
+      const st = (r) => srvCheckSteps(Object.assign({local:{binder:3, client:2, location:0, archive:0}, pending:0}, r)).map(x => x.k + ':' + x.st).join(',');
+      const ping = {ok:true, schema:3, php:'8.3', app_version:APP_VERSION}, me = {user:'dave', role:'admin'};
+      const c = {binder:3, client:2, location:0, archive:0};
+      return {
+        down:st({pingErr:'x'}), old:st({ping:Object.assign({}, ping, {app_version:undefined}), me, counts:c}), lt:st({ping:Object.assign({}, ping, {app_version:'26.12.3'}), me, counts:c}),
+        gt:st({ping:Object.assign({}, ping, {app_version:'27.0.0'}), me, counts:c}), same:st({ping, me, counts:c}), diff:st({ping, me, counts:Object.assign({}, c, {binder:1})}), pend:st({ping, me, counts:c, pending:2}),
+        empty:st({ping, me, counts:{binder:0, client:0, location:0, archive:0}}), key:st({ping, meErr:{server_code:'config', message:'aes_key does not match the existing database'}}),
+        cfg:st({ping, meErr:{server_code:'config', message:'config.php missing'}}), notok:st({ping, noToken:true}), schema:st({ping:Object.assign({}, ping, {schema:2}), me, counts:c}),
+        keyText:srvCheckSteps({ping, meErr:{server_code:'config', message:'aes_key does not match'}, local:{}}).pop().text, cmp:[srvVerCmp('26.12.4', '26.12.10'), srvVerCmp('26.12.4', '26.12.4'), srvVerCmp('27.0.0', '26.12.4')].join()};
+    });
+    ok(T.down === 'ping:bad' && /ver:warn/.test(T.old) && /ver:warn/.test(T.lt) && /ver:warn/.test(T.gt) && T.same === 'ping:ok,ver:ok,schema:ok,me:ok,data:info,align:ok' && /align:warn/.test(T.diff) && /align:warn/.test(T.pend) &&
+      /align:warn/.test(T.empty) && /me:bad$/.test(T.key) && /me:bad$/.test(T.cfg) && /me:warn$/.test(T.notok) && /schema:warn/.test(T.schema) && /config\.php originale/.test(T.keyText) && T.cmp === '-1,0,1',
+      'v12.4: "Verifica dopo l\'aggiornamento" steps: server down, server files older / newer than the app, schema, key mismatch, missing config, no code, empty server, differences', T);
+    // setup.php: with a docmap.sqlite in the chosen data folder it refuses (409) instead of generating a new key
+    const Spath = require('path'), Sroot = Spath.resolve(__dirname, '..'), Stmp = fs.mkdtempSync(Spath.join(require('os').tmpdir(), 'dm-setup-'));
+    fs.mkdirSync(Spath.join(Stmp, 'server-php')); fs.copyFileSync(Spath.join(Sroot, 'server-php', 'setup.php'), Spath.join(Stmp, 'server-php', 'setup.php'));
+    const Sdata = Spath.join(Stmp, 'data'); fs.mkdirSync(Sdata); fs.writeFileSync(Spath.join(Sdata, 'docmap.sqlite'), 'old database');
+    const Sport = 18000 + Math.floor(Math.random() * 900);
+    const Sphp = require('child_process').spawn('php', ['-d', 'opcache.revalidate_freq=0', '-S', '127.0.0.1:' + Sport, '-t', Stmp], {stdio:'ignore'});
+    await new Promise(r => setTimeout(r, 700));
+    let Sv = {};
+    try {
+      const r1 = await fetch('http://127.0.0.1:' + Sport + '/server-php/setup.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'data_dir=' + encodeURIComponent(Sdata) + '&users=' + encodeURIComponent('dave,admin')});
+      Sv.s1 = r1.status; Sv.t1 = /già un database/.test(await r1.text()); Sv.noCfg = !fs.existsSync(Spath.join(Stmp, 'server-php', 'config.php'));
+      fs.renameSync(Spath.join(Sdata, 'docmap.sqlite'), Spath.join(Sdata, 'old.sqlite.bak'));
+      const r2 = await fetch('http://127.0.0.1:' + Sport + '/server-php/setup.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'data_dir=' + encodeURIComponent(Sdata) + '&users=' + encodeURIComponent('dave,admin')});
+      const t2 = await r2.text(); Sv.s2 = r2.status; Sv.dl = /id="cfg-dl" download="config\.php" href="data:application\/octet-stream;base64,/.test(t2); Sv.cfg = fs.existsSync(Spath.join(Stmp, 'server-php', 'config.php'));
+    } catch(e){ Sv.err = String(e); }
+    Sphp.kill();
+    ok(Sv.s1 === 409 && Sv.t1 && Sv.noCfg && Sv.s2 === 200 && Sv.dl && Sv.cfg, 'v12.4 setup.php: an existing docmap.sqlite in the data folder → refuses (409), no new key; after moving it away the set-up runs and offers the config.php download', Sv);
+    // eye on every password field of the desktop app (sync view: file passphrase, server code)
+    const E = await p.evaluate(async () => { while (topModal()) closeModal(true); S.view = 'sync'; renderAll(); await new Promise(r => setTimeout(r, 80));
+      const pw = [...document.querySelectorAll('input[type="password"]')], wrapped = pw.every(i => i.parentNode.classList.contains('pw-wrap') && i.parentNode.querySelector('.pw-eye'));
+      const r = {n:pw.length, wrapped, ids:pw.map(i => i.id)}; S.view = 'archive'; renderAll(); return r; });
+    ok(E.n >= 1 && E.wrapped, 'v12.4: every password / passphrase field of the app gets the show/hide button', E);
   }
   console.log('\nerrors:', errs.length ? errs.join('\n') : 'none');
   if (errs.length) fails += errs.length;

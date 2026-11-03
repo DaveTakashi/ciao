@@ -1,6 +1,6 @@
 # DocMap 2026 — manuale d'uso (passo passo)
 
-> Per chi usa DocMap ogni giorno nello studio. Versione **26.12.2**. Ogni capitolo è una cosa da fare, in passi brevi.
+> Per chi usa DocMap ogni giorno nello studio. Versione **26.12.4**. Ogni capitolo è una cosa da fare, in passi brevi.
 > I nomi tra **grassetto** sono scritti esattamente come sui pulsanti (interfaccia in italiano).
 > Descrizione completa di ogni funzione: [`RIFERIMENTO-FUNZIONI.md`](RIFERIMENTO-FUNZIONI.md) · parole: [`GLOSSARIO.md`](GLOSSARIO.md) ·
 > prove da fare a mano: [`CHECKLIST-COLLAUDO.md`](CHECKLIST-COLLAUDO.md).
@@ -164,6 +164,11 @@ Il QR stampato contiene `https://qr7.it/dm26XXXXXXXX`. Il sistema qr7.it deve sa
 4. Premi **Torna alle etichette dei faldoni** per tornare ai faldoni.
 5. Riesporta il manifest (§5): contiene anche le scatole.
 
+Scorciatoie (v12.4), nella scheda di un'ubicazione:
+- **Stampa QR: questa e quelle dentro** stampa l'ubicazione e tutte quelle che contiene (armadio, scaffali, scatole);
+- **Stampa tutti i QR** (in alto, sopra l'albero) stampa le etichette di tutte le ubicazioni;
+- **Striscia: ubicazione + faldoni** apre l'etichettatrice con la scatola e subito dopo i suoi faldoni (§19).
+
 ### 6.3 Associare i faldoni alle scatole dal PC (lettore USB o webcam)
 1. **Informazioni** › **Ubicazioni** › **Modalità associazione**. In alternativa premi **Avvia associazione qui** su una scatola.
 2. Con un **lettore QR USB/Bluetooth** che scrive come una tastiera: clicca nel campo **Lettore QR / codice + Invio** e scansiona.
@@ -299,8 +304,11 @@ Dettagli tecnici: [`DEPLOY-WEB.md`](DEPLOY-WEB.md) e il `README-DEPLOY.md` dentr
 
 1. Sul telefono apri `https://docmap.pr-it.it/studio-de/`, oppure inquadra il QR di un faldone. Entra con la password della cartella, se c'è.
 2. Compare **Primo accesso su questo telefono** se hai aperto un QR, oppure **Primo accesso su questo dispositivo** se hai aperto l'indirizzo dell'app. Inserisci:
-   - un nome utente e un PIN di questo dispositivo;
-   - il **codice di accesso** ricevuto dall'amministratore.
+   - un nome utente e un PIN di questo dispositivo (il pulsante 👁 accanto al campo mostra quello che scrivi; un altro tocco lo nasconde);
+   - il **codice di accesso** ricevuto dall'amministratore. È **facoltativo** (v12.4): se non lo hai ancora lascia vuoto e
+     aggiungilo dopo da Sincronizzazione › Server online › **Nuovo codice di accesso** (sul telefono compare da solo la
+     schermata **Codice di accesso**). Se il codice è sbagliato, quello che hai scritto resta nei campi e puoi
+     scegliere **Continua senza codice**.
 3. Da quel momento basta il PIN; con **Ricordami su questo dispositivo** (già spuntato) i QR si aprono senza PIN (§15). Lo stato si vede in alto:
    - "Online · sincronizzato";
    - "In attesa (N)": modifiche da inviare;
@@ -379,10 +387,14 @@ Segui sempre la guida della versione (`docs/AGGIORNAMENTO-vX-vY.md`) e le regole
 
 1. **Backup**: con la versione vecchia fai **Sincronizza con il server**, **Salva backup** e **Scarica docmap.sqlite** su ogni PC. Annota il numero di faldoni e clienti. Scarica anche la copia dal server (§11).
 2. **Prima il server, poi i PC, poi i telefoni.**
-3. **Server**:
-   - carica la nuova cartella `deploy/studio-de/` sopra la vecchia, senza cancellare `server-php/config.php` né la cartella dati;
-   - non rieseguire `setup.php`;
-   - prova `api.php?r=ping`.
+3. **Server** (guida passo passo: [`AGGIORNARE-IL-SERVER.md`](AGGIORNARE-IL-SERVER.md)):
+   - carica il **contenuto** della nuova `deploy/studio-de/` **sopra** la vecchia, sovrascrivendo. **Non cancellare la
+     cartella prima**: con lei sparirebbe `server-php/config.php`, la chiave del database;
+   - non rieseguire `setup.php` (dalla v12.4 si rifiuta se trova un database già esistente);
+   - il database del server si aggiorna da solo alla prima chiamata: non c'è nessun pulsante di migrazione da premere;
+   - sul PC: Sincronizzazione › Server online › **Verifica dopo l'aggiornamento**. Dice se i file del server sono della
+     versione giusta, se il database è aggiornato, se il codice di accesso va, e confronta i dati del server con quelli
+     del PC; se non coincidono premi **Sincronizza ora**.
 4. **PC**:
    - chiudi DocMap e copia i nuovi file **sopra quelli vecchi, nella stessa cartella**, con lo stesso browser;
    - riapri `index.html`;
@@ -514,3 +526,40 @@ richiesta, non il telefono.
 Quando un'azione tocca **10 o più faldoni** (stato a una selezione, ubicazione a una selezione, salvataggio della
 modifica in blocco) DocMap chiede conferma e dice quanti sono, i primi codici e se hai selezionato **tutto
 l'archivio**. Sotto i 10 parte subito e resta il pulsante **Annulla** per qualche secondo.
+
+## 19. Etichettatrici a nastro e a rotolo, adesivi piccoli (v12.4)
+
+### 19.1 Etichettatrice (Brother P-touch / QL, Dymo, Zebra, Epson, Niimbot…)
+1. **Stampa Etichette** › in alto **Etichettatrice / rotolo** (per tornare: **Fogli A4**).
+2. **1 · Formato**: scrivi nella ricerca quello che sai del nastro o del rotolo: marca, nome, sigla o misura, per
+   esempio `24 mm`, `62x100`, `dk-11201`, `dymo 99012`, `zebra 4x6`, `niimbot 50x30`. Le misure valgono in tutti e due
+   i sensi (`100x62` = `62x100`) e con la virgola (`38,1x21,2`). Nella stessa ricerca compaiono anche i fogli A4: se ne
+   scegli uno torni alla stampa su fogli con quel formato.
+   - Nastro continuo: **Lunghezza etichetta** 0 = segue il testo, oppure un numero fisso in mm.
+   - **Altezza stampabile**: 0 = quella tipica del nastro; abbassala se la stampante taglia il bordo.
+3. **2 · Cosa stampare**:
+   - **Faldoni selezionati**: quelli spuntati per la stampa in Archivio;
+   - **Ubicazioni**: un'ubicazione e, se vuoi, tutte quelle che contiene;
+   - **Striscia ubicazione**: l'etichetta della scatola (o dello scaffale) e subito dopo tutti i faldoni che contiene, in
+     ordine di codice, poi la scatola successiva. Le etichette delle ubicazioni hanno la barra nera a sinistra.
+4. **3 · Testo accanto al QR**: scegli il campo principale (codice, titolo, ragione sociale, Codice Multi, ubicazione,
+   indirizzo qr7.it/…) e una seconda riga facoltativa. Puoi anche togliere il QR.
+5. **4 · Uscita**: **Una per pagina** (la stampante taglia dopo ogni etichetta) o **Striscia continua** (tutte di
+   seguito, con le linee di taglio; oltre 90 cm continua in una pagina nuova). **Orientamento della pagina**:
+   automatico; se nell'anteprima di stampa del browser l'etichetta esce di traverso o tagliata, prova l'altro.
+6. **Stampa**: nella finestra del browser scegli la stampante e lo stesso formato carta, margini **Nessuno**, scala
+   **100%**. La prima volta stampa una sola etichetta di prova.
+7. Stampanti tascabili Bluetooth (Niimbot, Phomemo): scegli **Salva come PDF** e stampa il PDF dalla loro app.
+
+Il riquadro sopra l'anteprima dice se il QR è leggibile: con i nastri da 6-9 mm il QR è troppo piccolo per il
+telefono, usa almeno 12 mm (meglio 18-24 mm).
+
+### 19.2 Adesivi piccoli per i documenti su fogli A4
+1. **Stampa Etichette** › **1 · Foglio e preset**: nella casella di ricerca scrivi la sigla o la misura (es. `L7651`,
+   `38x21`, `65 etichette`). Fogli nuovi: Avery L7651 (65 da 38,1×21,2), L7658 (189 da 25,4×10), L4732 (80 da
+   35,6×16,9), L7636 (48 da 45,7×21,2), L7654 (40 da 45,7×25,4), L7157 (33 da 64×24,3).
+2. **3 · Contenuto etichette** › **Solo QR** › **Testo accanto al QR**: lascia "Codice + qr7.it/…" oppure scegli un
+   campo (titolo, ragione sociale, Codice Multi…) e una seconda riga.
+3. Con questi fogli nuovi fai prima una **Stampa prova di calibrazione**: le misure vengono dai modelli dei produttori
+   e una stampante può spostarle di 1-2 mm (si corregge con gli offset).
+

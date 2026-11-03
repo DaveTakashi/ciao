@@ -196,6 +196,11 @@ Il database è il file `docmap.sqlite` nella cartella dei dati (più `docmap.sql
 
 Rigenera la cartella (`python3 docmapv1/tools/build_deploy.py`) e ricarica tutti i file sovrascrivendo:
 `config.php` e la cartella dei dati **non** sono nel pacchetto e restano come sono. Il programma non cancella nulla.
+
+**Non cancellare mai la cartella dell'app prima di caricare quella nuova**: con lei sparirebbe `server-php/config.php`,
+cioè la chiave del database. Se è successo, non rieseguire `setup.php` (si rifiuta, se trova il database): recupera
+`config.php` dal backup. Dopo ogni aggiornamento, sul PC: Sincronizzazione › Server online › **Verifica dopo
+l'aggiornamento**. Guida completa: `docs/AGGIORNARE-IL-SERVER.md`.
 Controlla `DEPLOY-MANIFEST.txt` (impronte sha256). Dettagli: `docs/DEPLOY-WEB.md`, `docs/SICUREZZA.md`, `docs/AGGIORNAMENTI.md`.
 """
 
