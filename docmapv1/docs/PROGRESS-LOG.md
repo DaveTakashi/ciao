@@ -131,3 +131,24 @@
 - Prove: `test_sync_remote.py` 10 OK (PHP vero + Python veri, HTTPS con la CA dello studio dell'installer);
   `diff_test.py` 7 OK; `test_licence.py` 9 OK; `validate_python.py` "all checks passed".
 - Prossimo passo: prova sul PC dello studio contro il sito vero, prima con `--dry-run`.
+
+## 2026-11-03 11:10 · Installer in sede: backup cifrati e Kit di emergenza (strumenti 1.1.0)
+
+- Fatto: i backup di `installer-windows` sono ora **cifrati** (`docmap_AAAAMMGG_HHMM.docmap-backup`: stesso zip di prima,
+  AES-256-GCM a blocchi da 1 MiB con nonce per blocco e flag "ultimo", chiave scrypt N=2^17 r=8 p=1 dalla passphrase dei
+  backup in `C:\DocMap\config\backup-passphrase.txt`, file con ACL Administrators+SYSTEM, non DPAPI: motivazione in
+  `installer-windows/PROGRESS.md`). Si possono tenere ovunque (chiavetta, NAS, cloud). I vecchi `.zip` si ripristinano
+  ancora; nessuna opzione per backup in chiaro, solo `esporta-in-chiaro` di emergenza con conferma esplicita.
+- **Kit di emergenza** (`kit-emergenza.ps1`, `docmap_tools.py kit-emergenza` / `recupera-chiave`): file `.docmap-key`
+  (config con `aes_key` + passphrase dei backup, cifrati con un codice di recupero) e foglio HTML da stampare con codice e
+  passphrase. Proposto alla fine di `installa.ps1`; `installa.ps1` con un database senza config propone il recupero dal
+  kit. `ripristina.ps1` chiede la passphrase se il backup viene da un altro PC (sbagliata = nulla cambia).
+- **`verifica-backup`** settimanale dentro il backup giornaliero: decifra l'ultimo backup, `integrity_check`, apre il
+  database con la chiave del backup (key_check di `docmap_server/crypto.py`) e decifra fino a 200 record; esito in
+  `log\backup.log` (`VERIFICA OK` / `VERIFICA NON RIUSCITA`). Guida: `GUIDA-INSTALLAZIONE.md` §7, §7bis, §7ter;
+  `server-python/README.md` "Non perdere mai la chiave".
+- Prove: installer 58 test OK (19 nuovi in `tests/test_backup_cifrati.py`, compreso il server Python vero: config persa →
+  kit → il server riapre il database) con Python 3.13 e 3.11 (venv); `diff_test.py` 7 OK, `test_licence.py` 9 OK,
+  `test_setup.py` 2 OK, `test_sync_remote.py` 10 OK. Pacchetto ricostruito: DocMap 26.12.4 · strumenti 1.1.0.
+- Non provato: esecuzione degli script su Windows (richiesta della passphrase, ACL ereditate, stampa del foglio).
+- Prossimo passo: Dave prova installazione → kit stampato → backup → `ripristina.ps1` su un secondo PC con la passphrase.

@@ -78,6 +78,28 @@ Si rifiuta di partire se il file di configurazione esiste già. Opzioni: `--user
 
 **Conserva una copia della configurazione al sicuro**: senza `aes_key` il database e i suoi backup non si leggono.
 
+### Non perdere mai la chiave
+
+`aes_key` in `config.json` (o `config.php`) è la chiave AES-256 con cui il server cifra **ogni** record di
+`docmap.sqlite`. Non esiste altrove: non è nel database, non è sul sito, Dave non ne ha una copia. Se il file si perde
+(PC rotto, cartella cancellata, nuovo deploy che rigenera la configurazione con `setup`) il database resta lì ma è
+**illeggibile per sempre**; un `setup` nuovo crea una chiave diversa (per questo si rifiuta di partire se trova già un
+`docmap.sqlite`), e il server avvisa con `aes_key does not match the existing database`.
+
+Cosa fare:
+
+- **Installazione in sede (Windows)**: crea e stampa il **Kit di emergenza** (`installer-windows/GUIDA-INSTALLAZIONE.md`,
+  §7bis): un file `.docmap-key` con la configurazione cifrata da un codice di recupero, più un foglio con quel codice e
+  la passphrase dei backup. `kit-emergenza.ps1 -Recupera` (o `docmap_tools.py recupera-chiave --kit … `) ricostruisce
+  `config.json` su un PC nuovo e il database vecchio si riapre. I backup dell'installer sono cifrati (`.docmap-backup`) e
+  contengono anche la configurazione: con un backup e la passphrase si recupera tutto.
+- **Server web (deploy)**: prima di cancellare o ricaricare un deploy copia `config.php`/`config.json` **e** la cartella
+  dati in un posto sicuro; dopo il nuovo caricamento rimetti il **vecchio** file di configurazione invece di rifare il
+  setup. Tieni una copia della configurazione in un gestore di password o cifrata (anche con `docmap_tools.py
+  kit-emergenza --base <cartella con config\config.json>` si ottiene il file `.docmap-key` + il foglio da stampare).
+- I codici di accesso (token) nel file sono solo impronte SHA-256: perderli non apre i dati a nessuno, ma senza
+  `aes_key` nemmeno i codici giusti servono.
+
 ## Opzioni del server
 
 | Opzione | Predefinito | Cosa fa |
