@@ -11,9 +11,16 @@ When it is on:
   * the licence is `<data_dir>/licence/licence.docmap-licence`, the installation identity `<data_dir>/instance.json`
     (`{"instance_id": "…"}`; if it is missing, the instance_id of the first genuinely signed licence is adopted and
     written there, as hub/README.md §6 says);
-  * the signature is checked against TRUSTED_LICENCE_KEYS (a constant in the code: whoever can write in the data folder
-    must not be able to replace the key). The configuration key `licence_public_keys` ({key_id: base64}) adds keys
-    and exists ONLY FOR TESTS / DEVELOPMENT — never set it on a customer's installation;
+  * the signature is checked against the TRUSTED keys: the constant TRUSTED_LICENCE_KEYS PLUS the file
+    `docmap_server/trusted_keys.json` next to this module (written by `installer-windows/docmap_tools.py pacchetto
+    --chiave-pubblica <file of python -m docmap_hub export-public-key>`, same JSON format: {"keys": {key_id: base64}}).
+    THREAT MODEL: the file lives in the server CODE folder, not in the data folder. Whoever can write the code folder can
+    already run any code as the server (so no file there can be "more" trusted than the code itself); whoever can only
+    write the data folder (a backup restore, a synced folder, the web user of a PHP host) cannot add a key. On the studio
+    PC the installer makes C:\\DocMap\\server writable only by Administrators/SYSTEM. A malformed file or an invalid key
+    is ignored (logged), never fatal: the worst case is "licence not verified" = read-only, never data loss.
+    The configuration key `licence_public_keys` ({key_id: base64}) adds keys and exists ONLY FOR TESTS / DEVELOPMENT —
+    never set it on a customer's installation;
   * the status is cached and verified again at most every 10 minutes, or at once when the licence / instance file
     changes (mtime, size);
   * `full` / `grace` → writable; `read_only` / `invalid` → write routes answer 403 `licence_read_only`
@@ -23,8 +30,12 @@ When it is on:
 """
 from __future__ import annotations
 
+import base64
+import binascii
 import json
+import logging
 import os
+import re
 import shutil
 import threading
 import time
@@ -34,6 +45,13 @@ from . import licence_verify as L
 #: Public keys trusted for licence signatures: {key_id: base64 Ed25519 public key}, from
 #: `python -m docmap_hub export-public-key`. Empty until the first production key is exported by the hub.
 TRUSTED_LICENCE_KEYS: dict[str, str] = {}
+
+#: Extra trusted keys shipped with the code (see the threat model above). Same format as `export-public-key --format json`.
+TRUSTED_KEYS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "trusted_keys.json")
+TRUSTED_KEYS_MAX_BYTES = 64 * 1024
+KEY_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$")
+log = logging.getLogger("docmap.licence")
+_file_cache: dict = {}   # path -> (fingerprint, keys)
 
 RECHECK_SECONDS = 600
 READ_ONLY_MESSAGE = "licence expired or missing: the server is in read-only mode"
@@ -54,8 +72,49 @@ def required(c) -> bool:
     return v is True or (type(v) is int and v == 1)
 
 
+def valid_public_key_b64(v) -> bool:
+    """A base64 text that decodes to exactly 32 bytes (Ed25519 raw public key)."""
+    if not isinstance(v, str) or not v.strip() or len(v) > 100:
+        return False
+    try:
+        return len(base64.b64decode(v.strip(), validate=True)) == 32
+    except (binascii.Error, ValueError):
+        return False
+
+
+def load_trusted_keys_file(path: str = None) -> dict:
+    """{key_id: base64} from trusted_keys.json; {} when the file is missing or unreadable. Never raises."""
+    path = path or TRUSTED_KEYS_FILE
+    fp = _stat(path)
+    if fp is None:
+        return {}
+    hit = _file_cache.get(path)
+    if hit and hit[0] == fp:
+        return dict(hit[1])
+    keys = {}
+    try:
+        if fp[1] > TRUSTED_KEYS_MAX_BYTES:
+            raise ValueError("file too large (%d bytes)" % fp[1])
+        with open(path, "rb") as f:
+            obj = json.loads(f.read().decode("utf-8-sig"))
+        raw = obj.get("keys") if isinstance(obj, dict) else None
+        if not isinstance(raw, dict):
+            raise ValueError("no 'keys' object")
+        for k, v in raw.items():
+            if KEY_ID_RE.match(str(k)) and valid_public_key_b64(v):
+                keys[str(k)] = v.strip()
+            else:
+                log.warning("docmap: trusted_keys.json: key %r ignored (invalid key id or not a 32-byte base64 Ed25519 key)", str(k)[:70])
+    except (OSError, ValueError, UnicodeDecodeError) as e:
+        log.warning("docmap: trusted_keys.json ignored (%s): %s", path, e)
+        keys = {}
+    _file_cache[path] = (fp, keys)
+    return dict(keys)
+
+
 def trusted_keys(c) -> dict:
-    keys = dict(TRUSTED_LICENCE_KEYS)
+    keys = load_trusted_keys_file()
+    keys.update(TRUSTED_LICENCE_KEYS)          # the constant wins over the file on the same key id
     extra = c.get("licence_public_keys") if isinstance(c, dict) else None   # TESTS / DEVELOPMENT ONLY
     if isinstance(extra, dict):
         for k, v in extra.items():
@@ -135,6 +194,7 @@ def status(c) -> L.LicenceStatus:
 def clear_cache() -> None:
     with _lock:
         _cache.clear()
+        _file_cache.clear()
 
 
 def current_mode(c=None) -> str:
@@ -218,8 +278,12 @@ def cli(args, config_path: str) -> int:
         print("Errore: data_dir mancante o inesistente nella configurazione %s" % config_path)
         return 2
     keys = trusted_keys(c)
+    if not keys:
+        print("ATTENZIONE: nessuna chiave pubblica fidata (manca %s): nessuna licenza può risultare valida. "
+              "Reinstalla con il pacchetto preparato dal hub (docmap_tools.py pacchetto --chiave-pubblica …)." % TRUSTED_KEYS_FILE)
     if args.licence_cmd == "status":
         print("File licenza:  " + licence_path(dd))
+        print("Chiavi fidate: %s" % (", ".join(sorted(keys)) or "nessuna"))
         print(describe(evaluate(dd, keys), c))
         return 0
     # install

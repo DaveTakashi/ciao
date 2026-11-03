@@ -17,7 +17,7 @@ try {
         if (Test-Path -LiteralPath $p.VenvPython) { [void](Invoke-Tools @('backup') -Cattura) }
         Stop-DocMapServer
     }
-    foreach ($t in @($script:TaskServer, $script:TaskBackup)) {
+    foreach ($t in @($script:TaskServer, $script:TaskBackup, $script:TaskSync)) {
         if (Get-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue) {
             Unregister-ScheduledTask -TaskName $t -Confirm:$false
             Write-Ok "Attivita '$t' tolta."

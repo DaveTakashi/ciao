@@ -155,7 +155,7 @@ class PowerShellLint(unittest.TestCase):
     def test_scripts_present(self):
         names = {os.path.basename(s) for s in SCRIPTS}
         self.assertTrue({"installa.ps1", "comune.ps1", "backup.ps1", "ripristina.ps1", "aggiorna.ps1", "disinstalla.ps1",
-                         "licenza.ps1", "kit-emergenza.ps1"} <= names, names)
+                         "licenza.ps1", "kit-emergenza.ps1", "configura-sync.ps1"} <= names, names)
         for f in T.INSTALLER_FILES:
             self.assertTrue(os.path.isfile(os.path.join(INST, f)), f)
 
@@ -216,7 +216,8 @@ class PowerShellLint(unittest.TestCase):
         used = {u for u in used if not u.startswith("-")}
         self.assertEqual(used - cmds, set())
         for c in ("backup", "ripristina", "verifica-zip", "ping", "config-js", "cert", "pagina-indirizzo", "controlla-pacchetto",
-                  "verifica-backup", "kit-emergenza", "stato-kit", "recupera-chiave", "passphrase-backup"):
+                  "verifica-backup", "kit-emergenza", "stato-kit", "recupera-chiave", "passphrase-backup",
+                  "info-pacchetto", "abilita-licenza", "configura-sync"):
             self.assertIn(c, used)
 
     def test_install_copies_every_package_file(self):
@@ -231,7 +232,8 @@ class PowerShellLint(unittest.TestCase):
         for s in SCRIPTS:
             src = read(s).decode("utf-8-sig")
             self.assertNotRegex(src, r"Invoke-Tools\s+@\([^)]*\$(pp|env:DOCMAP_PASSPHRASE|env:DOCMAP_CODICE)", s)
-            for var in ("DOCMAP_PASSPHRASE", "DOCMAP_CODICE"):
+            self.assertNotRegex(src, r"Invoke-Tools\s+@\([^)]*\$(env:DOCMAP_SYNC_TOKEN_WEB|tok)", s)
+            for var in ("DOCMAP_PASSPHRASE", "DOCMAP_CODICE", "DOCMAP_SYNC_TOKEN_WEB"):
                 if "$env:%s =" % var in src:
                     self.assertIn("Remove-Item Env:%s" % var, src, "%s: %s non tolta" % (os.path.basename(s), var))
 

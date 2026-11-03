@@ -10,6 +10,7 @@ if ($env:DOCMAP_BASE) { $script:DocMapBase = $env:DOCMAP_BASE }   # solo per pro
 
 $script:TaskServer = 'DocMap Server'
 $script:TaskBackup = 'DocMap Backup'
+$script:TaskSync = 'DocMap Sync Web-Locale'
 $script:FirewallGroup = 'DocMap'
 $script:MinPython = [Version]'3.11'
 $script:Silenzioso = $false
@@ -39,6 +40,11 @@ function Get-DocMapPaths {
         Log          = Join-Path $b 'log'
         Versioni     = Join-Path $b '_versioni'
         Impostazioni = Join-Path $b 'impostazioni.json'
+        Sync         = Join-Path $b 'sync'
+        SyncProfilo  = Join-Path $b 'sync\sync-profile.json'
+        SyncModello  = Join-Path $b 'sync\sync-profile.template.json'
+        SyncBat      = Join-Path $b 'sync\sincronizza.bat'
+        SyncEsito    = Join-Path $b 'sync\ultimo-esito.txt'
         Leggimi      = Join-Path $b 'LEGGIMI-INDIRIZZO.txt'
         PaginaQr     = Join-Path $b 'INDIRIZZO-QR.html'
     }
@@ -268,6 +274,17 @@ function Test-ReteProfilo {
     }
 }
 
+# Cartella di DocMap: Amministratori e SYSTEM scrivono, gli altri utenti del PC possono solo leggere ed eseguire.
+# Il server gira come SYSTEM dal venv e si fida di server\docmap_server\trusted_keys.json: nessun utente normale deve
+# poter cambiare programma, venv o strumenti. Senza /T: le sottocartelle che ereditano prendono questi permessi, quelle
+# private (config, dati, backup, certificati, sync: ereditarietà tolta da Set-AclPrivata) restano come sono.
+function Set-AclProgramma {
+    $p = Get-DocMapPaths
+    $code = Invoke-Native 'icacls.exe' @($p.Base, '/inheritance:r', '/grant:r', '*S-1-5-32-544:(OI)(CI)F', '*S-1-5-18:(OI)(CI)F',
+                                         '*S-1-5-32-545:(OI)(CI)RX', '/C', '/Q') -Cattura
+    if ($code -ne 0) { Write-Avviso "Permessi di $($p.Base) non impostati (icacls $code)." }
+}
+
 # Solo Amministratori e SYSTEM (cartelle con chiave, token, backup).
 function Set-AclPrivata([string]$path) {
     if (-not (Test-Path -LiteralPath $path)) { return }
@@ -296,11 +313,16 @@ function Install-Versione([string]$sorgente, [string]$ts) {
     Copy-Item -LiteralPath (Join-Path $sorgente 'server') -Destination $p.Server -Recurse
     New-Item -ItemType Directory -Path $p.Strumenti -Force | Out-Null
     foreach ($f in @('installa.bat', 'installa.ps1', 'comune.ps1', 'backup.ps1', 'ripristina.ps1', 'aggiorna.ps1', 'disinstalla.ps1',
-                     'licenza.ps1', 'kit-emergenza.ps1', 'docmap_tools.py', 'GUIDA-INSTALLAZIONE.md', 'GUIDA-SYNC-WEB-LOCALE.md',
-                     'VERSIONE.txt')) {
+                     'licenza.ps1', 'kit-emergenza.ps1', 'configura-sync.ps1', 'docmap_tools.py', 'GUIDA-INSTALLAZIONE.md',
+                     'GUIDA-SYNC-WEB-LOCALE.md', 'GUIDA-NUOVO-CLIENTE.md', 'VERSIONE.txt')) {
         $src = Join-Path $sorgente $f
         if (Test-Path -LiteralPath $src) { Copy-Item -LiteralPath $src -Destination $p.Strumenti }
     }
+    # chiavi pubbliche delle licenze: un pacchetto generico (senza trusted_keys.json) non deve far perdere quelle installate,
+    # altrimenti la licenza risulterebbe "non valida" e il server andrebbe in sola lettura
+    $tkNew = Join-Path $p.Server 'docmap_server\trusted_keys.json'
+    $tkOld = Join-Path $old 'server\docmap_server\trusted_keys.json'
+    if (-not (Test-Path -LiteralPath $tkNew) -and (Test-Path -LiteralPath $tkOld)) { Copy-Item -LiteralPath $tkOld -Destination $tkNew }
     return $old
 }
 
@@ -392,6 +414,107 @@ function Invoke-RecuperoKit([string]$kit, [switch]$Sostituisci) {
     } finally {
         Remove-Item Env:DOCMAP_CODICE -ErrorAction SilentlyContinue
     }
+}
+
+# ------------------------------------------------------------------ licenza del pacchetto personale
+
+# Installa cliente\licence.docmap-licence del pacchetto (se c'è) e, solo se è valida, attiva "licence_required".
+# Restituisce 'installata', 'assente' o 'rifiutata'.
+function Install-LicenzaPacchetto([string]$sorgente) {
+    $p = Get-DocMapPaths
+    $lic = Join-Path $sorgente 'cliente\licence.docmap-licence'
+    if (-not (Test-Path -LiteralPath $lic)) { return 'assente' }
+    $old = Get-Location
+    Set-Location -LiteralPath $p.Server
+    try {
+        $code = Invoke-Native $p.VenvPython @('-m', 'docmap_server', 'licence', 'install', $lic, '--config', $p.Config) -Cattura
+    } finally { Set-Location $old }
+    if ($code -ne 0) {
+        Write-Errore ('Licenza del pacchetto non installata: ' + ($script:UltimoOutput -join ' '))
+        Write-Info 'Il controllo della licenza resta spento: DocMap funziona lo stesso. Chiedi a chi ti ha dato il pacchetto.'
+        return 'rifiutata'
+    }
+    if ((Invoke-Tools @('abilita-licenza') -Cattura) -ne 0) { Write-Avviso ('licence_required non attivato: ' + ($script:UltimoOutput -join ' ')) }
+    return 'installata'
+}
+
+function Show-StatoLicenza {
+    $p = Get-DocMapPaths
+    $old = Get-Location
+    Set-Location -LiteralPath $p.Server
+    try { [void](Invoke-Native $p.VenvPython @('-m', 'docmap_server', 'licence', 'status', '--config', $p.Config)) }
+    finally { Set-Location $old }
+}
+
+# ------------------------------------------------------------------ ponte web <-> studio (sync-remote)
+
+function Register-SyncTask([int]$minuti = 10) {
+    $p = Get-DocMapPaths
+    $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
+    $action = New-ScheduledTaskAction -Execute $p.SyncBat -WorkingDirectory $p.Sync
+    $t = New-ScheduledTaskTrigger -Once -At ((Get-Date).AddMinutes(2)) -RepetitionInterval (New-TimeSpan -Minutes $minuti) `
+        -RepetitionDuration (New-TimeSpan -Days 3650)
+    $set = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable `
+        -ExecutionTimeLimit (New-TimeSpan -Hours 1) -MultipleInstances IgnoreNew
+    Register-ScheduledTask -TaskName $script:TaskSync -Action $action -Trigger $t -Principal $principal -Settings $set `
+        -Description 'DocMap: sincronizzazione sito web <-> server dello studio (C:\DocMap\sync). Creata da configura-sync.' -Force | Out-Null
+}
+
+# Configura il ponte: codice del sito (da file o digitato, mai sulla riga di comando), profilo, prova senza modifiche,
+# attività ogni N minuti. $true se il profilo è pronto.
+function Invoke-ConfiguraSync([string]$tokenFile = '', [string]$modello = '', [int]$minuti = 10, [switch]$NonChiedere) {
+    $p = Get-DocMapPaths
+    New-Item -ItemType Directory -Path $p.Sync -Force | Out-Null
+    Set-AclPrivata $p.Sync
+    if (-not $modello) { $modello = $p.SyncModello }
+    if (-not (Test-Path -LiteralPath $modello)) {
+        Write-Errore "Manca il modello della sincronizzazione ($modello): serve il pacchetto personale del cliente preparato dal hub."
+        Write-Info 'In alternativa segui GUIDA-SYNC-WEB-LOCALE.md (profilo scritto a mano).'
+        return $false
+    }
+    Write-Info 'Serve il codice di accesso (token) del SITO WEB per il ponte: utente ponte-sync, ruolo "Puo modificare".'
+    Write-Info 'Lo hai creato con setup.php (o in Codici di accesso sul sito) ed e custodito nella cassaforte del hub.'
+    try {
+        if ($tokenFile) {
+            if (-not (Test-Path -LiteralPath $tokenFile)) { Write-Errore "File del token non trovato: $tokenFile"; return $false }
+            $env:DOCMAP_SYNC_TOKEN_WEB = ((Get-Content -LiteralPath $tokenFile -Raw -Encoding UTF8) -split "`n")[0].Trim()
+        } elseif (-not $NonChiedere) {
+            $env:DOCMAP_SYNC_TOKEN_WEB = (Read-Segreto 'Token del sito web (non si vede mentre lo scrivi)').Trim()
+        }
+        if (-not $env:DOCMAP_SYNC_TOKEN_WEB) { Write-Errore 'Nessun token del sito: sincronizzazione non configurata.'; return $false }
+        $code = Invoke-Tools @('configura-sync', '--modello', $modello) -Cattura
+    } finally {
+        Remove-Item Env:DOCMAP_SYNC_TOKEN_WEB -ErrorAction SilentlyContinue
+    }
+    if ($code -ne 0) { Write-Errore ('Profilo non creato: ' + ($script:UltimoOutput -join ' ')); return $false }
+    $r = ($script:UltimoOutput -join "`n") | ConvertFrom-Json
+    Set-AclPrivata $p.Sync
+    Write-Ok "Profilo del ponte: $($r.profilo) (solo amministratori). Sito: $($r.sito)"
+    Write-Ok "Codice di accesso '$($r.utente_ponte)' creato sul server dello studio (ruolo Puo modificare)."
+    if ($tokenFile -and -not $NonChiedere -and (Read-SiNo "Elimino il file del token $tokenFile (consigliato)?" $true)) {
+        Remove-Item -LiteralPath $tokenFile -Force -ErrorAction SilentlyContinue
+    }
+
+    Write-Titolo 'Prova della sincronizzazione (non cambia niente su nessuno dei due server)'
+    $old = Get-Location
+    Set-Location -LiteralPath $p.Server
+    try { $code = Invoke-Native $p.VenvPython @('-m', 'docmap_server', 'sync-remote', $p.SyncProfilo, '--dry-run') }
+    finally { Set-Location $old }
+    if ($code -ge 2) {
+        Write-Errore 'La prova non e riuscita (vedi sopra: indirizzo, token, certificato). L''attivita automatica NON e stata creata.'
+        Write-Info "Correggi e rilancia: $($p.Strumenti)\configura-sync.ps1"
+        return $false
+    }
+    Write-Info 'Leggi il riepilogo qui sopra: cosa verrebbe mandato dal web allo studio e dallo studio al web.'
+    if (-not $NonChiedere -and -not (Read-SiNo "Attivo la sincronizzazione automatica ogni $minuti minuti?" $true)) {
+        Write-Info "Va bene: per attivarla dopo rilancia configura-sync.ps1. Prova a mano: $($p.SyncBat)"
+        return $true
+    }
+    Register-SyncTask $minuti
+    Start-ScheduledTask -TaskName $script:TaskSync
+    Write-Ok "Attivita '$($script:TaskSync)' creata: ogni $minuti minuti, anche senza nessuno collegato. Prima esecuzione adesso."
+    Write-Info "Esito dell'ultima sincronizzazione: $($p.SyncEsito)   Registro: $($p.Sync)\sync-log\"
+    return $true
 }
 
 # Tiene le ultime $tieni copie in _versioni (le più vecchie vanno in _versioni\_da-eliminare, da svuotare a mano).

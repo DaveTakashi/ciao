@@ -3,14 +3,21 @@
 # Rieseguirlo = aggiornamento: prima un backup, poi si sostituiscono solo programma e server;
 # dati (C:\DocMap\dati), configurazione (C:\DocMap\config), certificati e impostazioni non vengono mai sovrascritti.
 #
+# Pacchetto PERSONALE del cliente (preparato dal hub con 'cliente nuovo'): contiene la cartella cliente\ con la licenza
+# (installata da sola, poi "licence_required": true), il nome dello studio e, se il cliente ha anche il sito online, il
+# modello della sincronizzazione web <-> studio (alla fine chiede il token del sito e crea l'attivita ogni 10 minuti).
+#
 # Opzioni (per chi installa da riga di comando):
 #   -NomeStudio "Studio Rossi"   -Admin "davide"   -Porta 8443   -Sorgente <cartella del pacchetto>   -NonChiedere
+#   -TokenSyncFile E:\token-ponte.txt  (token del sito per il ponte, da file)   -SenzaSync  (non configurare il ponte ora)
 [CmdletBinding()]
 param(
     [string]$NomeStudio = '',
     [string]$Admin = '',
     [int]$Porta = 0,
     [string]$Sorgente = '',
+    [string]$TokenSyncFile = '',
+    [switch]$SenzaSync,
     [switch]$NonChiedere
 )
 
@@ -64,6 +71,20 @@ try {
     }
     $verFile = Join-Path $Sorgente 'VERSIONE.txt'
     if (Test-Path -LiteralPath $verFile) { Write-Ok ('Pacchetto: ' + (Get-Content -LiteralPath $verFile -Raw).Trim()) } else { Write-Ok "Pacchetto: $Sorgente" }
+    # pacchetto personale del cliente? (cliente\cliente.json, preparato dal hub)
+    $info = $null
+    if ((Invoke-Native $sysPy @($tools, 'info-pacchetto', $Sorgente) -Cattura) -eq 0) {
+        try { $info = ($script:UltimoOutput -join "`n") | ConvertFrom-Json } catch { $info = $null }
+    }
+    $personale = ($null -ne $info) -and ($null -ne $info.PSObject.Properties['formato'])
+    if ($personale) {
+        $cliNome = ''
+        if ($info.PSObject.Properties['cliente']) { $cliNome = [string]$info.cliente }
+        Write-Ok "Pacchetto personale del cliente: $cliNome"
+        if (-not $NomeStudio -and $info.PSObject.Properties['nome_studio']) { $NomeStudio = [string]$info.nome_studio }
+        if ($info.file_licenza) { Write-Ok 'Contiene la licenza: verra installata da sola.' }
+        if ($info.file_modello_sync) { Write-Ok 'Contiene il modello della sincronizzazione con il sito online.' }
+    }
 
     # ------------------------------------------------------------ 3. installazione esistente → backup
     $aggiornamento = Test-Path -LiteralPath $p.Config
@@ -168,6 +189,22 @@ try {
     } else {
         Write-Ok "Configurazione esistente mantenuta: $($p.Config)"
     }
+    # licenza del pacchetto personale (solo se non ce n'e gia una: un rinnovo installato con licenza.ps1 non si tocca)
+    $statoLicenza = 'assente'
+    if ($personale -and $info.file_licenza) {
+        if (Test-Path -LiteralPath (Join-Path $p.Dati 'licence\licence.docmap-licence')) {
+            Write-Ok 'Licenza gia installata in questo PC: la lascio com''e (rinnovi: licenza.ps1).'
+            $statoLicenza = 'presente'
+        } else {
+            $statoLicenza = Install-LicenzaPacchetto $Sorgente
+            if ($statoLicenza -eq 'installata') { Write-Ok 'Licenza installata e controllo della licenza attivato.' }
+        }
+    }
+    # modello della sincronizzazione web <-> studio (senza codici): resta in C:\DocMap\sync per configura-sync.ps1
+    if ($personale -and $info.file_modello_sync) {
+        New-Item -ItemType Directory -Path $p.Sync -Force | Out-Null
+        Copy-Item -LiteralPath $info.file_modello_sync -Destination $p.SyncModello -Force
+    }
     # passphrase dei backup cifrati (una volta; gli aggiornamenti la lasciano com'è)
     if ((Invoke-Tools @('passphrase-backup', '--crea') -Cattura) -ne 0) { throw ('Passphrase dei backup: ' + ($script:UltimoOutput -join ' ')) }
     try { $ppInfo = ($script:UltimoOutput -join "`n") | ConvertFrom-Json } catch { $ppInfo = $null }
@@ -180,11 +217,13 @@ try {
     if ((Invoke-Tools @('cert') -Cattura) -ne 0) { throw ('Certificato: ' + ($script:UltimoOutput -join ' ')) }
     Import-CaCertificato
     Write-Ok "Certificato dello studio in $($p.CaCert) (gia considerato attendibile su questo PC)."
+    Set-AclProgramma
     Set-AclPrivata $p.ConfigDir
+    if (Test-Path -LiteralPath $p.Sync) { Set-AclPrivata $p.Sync }
     Set-AclPrivata $p.Dati
     Set-AclPrivata $p.Backup
     Set-AclPrivata $p.Certificati
-    Write-Ok 'Cartelle config, dati, backup e certificati accessibili solo agli amministratori.'
+    Write-Ok 'Programma modificabile solo dagli amministratori; config, dati, backup e certificati leggibili solo da loro.'
 
     # ------------------------------------------------------------ 8. firewall e attività pianificate
     Write-Titolo '8/9  Firewall e avvio automatico'
@@ -230,6 +269,24 @@ try {
             if (-not $NonChiedere) { Wait-Invio 'Stampa la pagina che si e aperta, poi premi Invio.' }
         } else {
             Write-Avviso 'Fallo appena puoi: C:\DocMap\strumenti\kit-emergenza.ps1 (il backup giornaliero lo ricorda nel registro).'
+        }
+    }
+
+    # ------------------------------------------------------------ licenza: stato
+    if ($statoLicenza -ne 'assente') {
+        Write-Titolo 'Licenza'
+        Show-StatoLicenza
+        Write-Info 'Rinnovi: licenza.ps1 -File <nuovo file .docmap-licence> (il server la vede subito, senza riavvio).'
+    }
+
+    # ------------------------------------------------------------ sincronizzazione con il sito online (facoltativa)
+    if ((Test-Path -LiteralPath $p.SyncModello) -and -not (Test-Path -LiteralPath $p.SyncProfilo) -and -not $SenzaSync) {
+        Write-Titolo 'Sincronizzazione con il sito online'
+        Write-Info 'Questo studio ha anche DocMap sul web: il ponte tiene uguali i due archivi ogni 10 minuti.'
+        if ($TokenSyncFile -or (-not $NonChiedere -and (Read-SiNo 'La configuro adesso? (serve il token del sito web)' $true))) {
+            [void](Invoke-ConfiguraSync -tokenFile $TokenSyncFile -NonChiedere:$NonChiedere)
+        } else {
+            Write-Info "Puoi farlo dopo con: $($p.Strumenti)\configura-sync.ps1"
         }
     }
 

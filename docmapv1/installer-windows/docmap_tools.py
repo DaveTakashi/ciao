@@ -37,7 +37,12 @@ Comandi (python docmap_tools.py <comando> --base C:\\DocMap ...):
     stato-kit        dice se il Kit di emergenza c'è ed è aggiornato
     recupera-chiave  ricostruisce config.json da un Kit di emergenza + codice di recupero (PC nuovo, config persa)
     ping             chiede ?r=ping al server (exit 0 se risponde ok)
-    pacchetto        (sul PC di sviluppo) prepara la cartella/zip da portare in studio
+    pacchetto        (sul PC di sviluppo) prepara la cartella/zip da portare in studio; con --chiave-pubblica,
+                     --licenza, --nome-studio, --sync-modello diventa il pacchetto PERSONALE di un cliente (lo fa il hub)
+    info-pacchetto   stampa i dati del cliente contenuti in un pacchetto (cliente/cliente.json), {} se generico
+    abilita-licenza  mette "licence_required": true in config.json (dopo aver installato una licenza valida)
+    configura-sync   crea il profilo del ponte web <-> locale (BASE\\sync\\sync-profile.json, solo amministratori),
+                     un codice di accesso "ponte-sync" sul server dello studio e BASE\\sync\\sincronizza.bat
     serve            avvia il server (HTTPS sulla rete locale + pagina del certificato in HTTP); lo usa l'attività pianificata
 """
 from __future__ import annotations
@@ -62,7 +67,7 @@ import time
 import urllib.request
 import zipfile
 
-TOOLS_VERSION = "1.1.0"
+TOOLS_VERSION = "1.2.0"
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_BASE = r"C:\DocMap"
 
@@ -102,7 +107,7 @@ def paths(base: str) -> dict:
             "config_dir": j("config"), "config": j("config", "config.json"), "dati": j("dati"),
             "certificati": j("certificati"), "backup": j("backup"), "log": j("log"),
             "impostazioni": j("impostazioni.json"), "leggimi": j("LEGGIMI-INDIRIZZO.txt"), "pagina_qr": j("INDIRIZZO-QR.html"),
-            "versioni": j("_versioni")}
+            "versioni": j("_versioni"), "sync": j("sync")}
 
 
 def _read_json(path):
@@ -1403,17 +1408,270 @@ def ping_wait(url, cafile=None, seconds=60.0, insecure=False):
         time.sleep(2)
 
 
+# ---------------------------------------------------------------- pacchetto personale del cliente (dal hub)
+
+TRUSTED_KEYS_NAME = "trusted_keys.json"          # server\docmap_server\trusted_keys.json: chiavi pubbliche delle licenze
+CLIENT_DIR = "cliente"                           # <pacchetto>\cliente\: dati del cliente (niente segreti)
+CLIENT_INFO = "cliente.json"
+LICENCE_NAME = "licence.docmap-licence"
+SYNC_TEMPLATE = "sync-profile.template.json"
+SYNC_PROFILE = "sync-profile.json"
+SYNC_BAT = "sincronizza.bat"
+SYNC_TASK = "DocMap Sync Web-Locale"
+BRIDGE_USER = "ponte-sync"
+SECRET_FIELDS = ("token", "basic_pass")
+_KEY_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$")
+
+
+def _valid_key_b64(v) -> bool:
+    import base64
+    import binascii
+    if not isinstance(v, str) or not v.strip() or len(v) > 100:
+        return False
+    try:
+        return len(base64.b64decode(v.strip(), validate=True)) == 32
+    except (binascii.Error, ValueError):
+        return False
+
+
+def read_public_keys_file(path: str) -> dict:
+    """Chiavi pubbliche dal file di `python -m docmap_hub export-public-key` ({"keys": {id: base64}}). ToolError se il
+    file non è leggibile o non contiene nessuna chiave valida; le chiavi non valide fanno fallire (meglio subito, sul PC
+    di Dave, che in studio con la licenza "non valida")."""
+    try:
+        with open(path, "r", encoding="utf-8-sig") as f:
+            obj = json.load(f)
+    except (OSError, ValueError) as e:
+        raise ToolError("File della chiave pubblica non leggibile (%s): %s" % (path, e))
+    keys = obj.get("keys") if isinstance(obj, dict) else None
+    if not isinstance(keys, dict) or not keys:
+        raise ToolError("Il file %s non è un'esportazione di 'docmap_hub export-public-key --format json' (manca \"keys\")." % path)
+    bad = [str(k) for k, v in keys.items() if not (_KEY_ID_RE.match(str(k)) and _valid_key_b64(v))]
+    if bad:
+        raise ToolError("Chiavi pubbliche non valide nel file %s: %s" % (path, ", ".join(bad)))
+    return {str(k): v.strip() for k, v in keys.items()}
+
+
+def _load_verifier(server_pkg_dir: str):
+    """Il verificatore delle licenze del server impacchettato (licence_verify.py), se `cryptography` è disponibile."""
+    import importlib.util
+    f = os.path.join(server_pkg_dir, "licence_verify.py")
+    if not os.path.isfile(f):
+        return None
+    try:
+        name = "_dm_licence_verify_pkg"
+        spec = importlib.util.spec_from_file_location(name, f)
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[name] = mod          # dataclass lo cerca in sys.modules
+        try:
+            spec.loader.exec_module(mod)
+        finally:
+            sys.modules.pop(name, None)
+        return mod
+    except ImportError:          # niente cryptography in questo Python: si controlla solo la chiave
+        return None
+
+
+def check_licence_file(path: str, keys: dict, server_pkg_dir: str | None = None) -> dict:
+    """Controlla un .docmap-licence prima di metterlo nel pacchetto: firma (se si può) con le chiavi del pacchetto."""
+    try:
+        with open(path, "rb") as f:
+            raw = f.read()
+        obj = json.loads(raw.decode("utf-8-sig"))
+        lic = obj["licence"]
+        kid = obj["key_id"]
+    except (OSError, ValueError, KeyError, TypeError, UnicodeDecodeError) as e:
+        raise ToolError("File di licenza non valido (%s): %s" % (path, e))
+    if keys and kid not in keys:
+        raise ToolError("La licenza è firmata con la chiave %s, che non è tra le chiavi pubbliche del pacchetto." % kid)
+    out = {"licence_id": lic.get("licence_id"), "instance_id": lic.get("instance_id"), "plan": lic.get("plan"),
+           "expires_at": lic.get("expires_at"), "customer": (lic.get("customer") or {}).get("name"), "verificata": False}
+    mod = _load_verifier(server_pkg_dir) if (server_pkg_dir and keys) else None
+    if mod is not None:
+        st = mod.verify(raw, keys)
+        if not st.signature_ok or st.mode == "invalid":
+            raise ToolError("La licenza non supera la verifica del server: %s" % (st.reasons,))
+        out.update(verificata=True, mode=st.mode)
+    return out
+
+
+def sync_template(obj) -> dict:
+    """Normalizza il modello del profilo del ponte (solo il lato web: indirizzo, nome, utente della cartella protetta).
+    Rifiuta un modello che contiene segreti: i codici non viaggiano nel pacchetto."""
+    if not isinstance(obj, dict) or not isinstance(obj.get("a"), dict):
+        raise ToolError("Modello di sincronizzazione non valido: serve un oggetto con il lato \"a\" (il sito web).")
+    a = obj["a"]
+    for side in ("a", "b"):
+        for k in SECRET_FIELDS:
+            if isinstance(obj.get(side), dict) and str(obj[side].get(k) or "").strip():
+                raise ToolError("Il modello di sincronizzazione contiene un segreto (%s.%s): toglilo, i codici si inseriscono "
+                                "in studio con configura-sync." % (side, k))
+    url = str(a.get("url") or "").strip()
+    from urllib.parse import urlsplit
+    u = urlsplit(url)
+    if u.scheme != "https" or not u.hostname:
+        raise ToolError("Indirizzo del sito non valido nel modello (serve https://…/server-php/api.php): %r" % url)
+    return {"formato": 1, "name": str(obj.get("name") or "Web ⇄ Studio")[:120],
+            "a": {"label": str(a.get("label") or "Web (online)")[:60], "url": url,
+                  "basic_user": str(a.get("basic_user") or "")[:120]},
+            "direction": obj.get("direction") if obj.get("direction") in ("both", "a-to-b", "b-to-a") else "both",
+            "ogni_minuti": max(5, min(240, int(obj.get("ogni_minuti") or 10)))}
+
+
+def package_info(folder: str) -> dict:
+    """cliente/cliente.json di un pacchetto ({} se il pacchetto è generico), con i percorsi assoluti dei file presenti."""
+    d = os.path.join(folder, CLIENT_DIR)
+    f = os.path.join(d, CLIENT_INFO)
+    if not os.path.isfile(f):
+        return {}
+    try:
+        info = _read_json(f)
+    except (OSError, ValueError) as e:
+        raise ToolError("cliente.json non leggibile nel pacchetto: %s" % e)
+    if not isinstance(info, dict):
+        raise ToolError("cliente.json non valido nel pacchetto.")
+    lic = os.path.join(d, LICENCE_NAME)
+    tpl = os.path.join(d, SYNC_TEMPLATE)
+    info["file_licenza"] = lic if os.path.isfile(lic) else None
+    info["file_modello_sync"] = tpl if os.path.isfile(tpl) else None
+    return info
+
+
+# ---------------------------------------------------------------- licenza obbligatoria e ponte web <-> locale (in studio)
+
+def _write_config(base: str, cfg: dict) -> None:
+    """Riscrive config.json in modo atomico (stessa cartella: i permessi solo-amministratori si ereditano)."""
+    p = paths(base)["config"]
+    tmp = p + ".tmp-" + os.urandom(4).hex()
+    with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+        f.write(json.dumps(cfg, ensure_ascii=False, indent=2) + "\n")
+    try:
+        os.chmod(tmp, 0o600)
+    except OSError:
+        pass
+    os.replace(tmp, p)
+
+
+def enable_licence_required(base: str) -> dict:
+    """"licence_required": true in config.json (da fare DOPO aver installato una licenza valida, altrimenti il server
+    passa in sola lettura). Non cambia nient'altro."""
+    cfg = read_config(base)
+    if cfg.get("licence_required") is True:
+        return {"licence_required": True, "cambiato": False}
+    cfg["licence_required"] = True
+    _write_config(base, cfg)
+    return {"licence_required": True, "cambiato": True}
+
+
+def add_bridge_token(base: str, user: str = BRIDGE_USER) -> str:
+    """Crea (o rinnova) il codice di accesso del ponte sul server dello studio: ruolo editor, nella config solo l'impronta
+    SHA-256 (come fa setup). Il server rilegge config.json a ogni richiesta: vale subito. Restituisce il codice in chiaro."""
+    import base64
+    cfg = read_config(base)
+    tok = base64.b64encode(os.urandom(24)).decode("ascii").translate(str.maketrans("+/", "-_")).rstrip("=")
+    entry = {"user": user, "role": "editor", "token_sha256": hashlib.sha256(tok.encode("ascii")).hexdigest()}
+    tokens = cfg.get("tokens")
+    if isinstance(tokens, dict):
+        tokens = list(tokens.values())
+    if not isinstance(tokens, list):
+        tokens = []
+    tokens = [t for t in tokens if not (isinstance(t, dict) and t.get("user") == user)] + [entry]
+    cfg["tokens"] = tokens
+    _write_config(base, cfg)
+    return tok
+
+
+def sync_bat(base: str) -> str:
+    p = paths(base)
+    venv_py = os.path.join(p["venv"], "Scripts", "python.exe")
+    prof = os.path.join(p["sync"], SYNC_PROFILE)
+    esito = os.path.join(p["sync"], "ultimo-esito.txt")
+    return "\r\n".join(["@echo off", "rem DocMap - ponte web <-> studio (creato da configura-sync; lo avvia l'attivita '%s')" % SYNC_TASK,
+                        'cd /d "%s"' % p["server"],
+                        '"%s" -m docmap_server sync-remote "%s" > "%s" 2>&1' % (venv_py, prof, esito), ""])
+
+
+def make_sync_profile(base: str, template: dict, web_token: str, local_token: str, basic_pass: str = "") -> dict:
+    """Scrive BASE\\sync\\sync-profile.json (lato a = sito web dal modello, lato b = server dello studio su 127.0.0.1 con il
+    certificato dello studio) e BASE\\sync\\sincronizza.bat. Il file contiene i codici: si crea con permessi privati
+    (0600; in Windows la cartella sync viene ristretta agli amministratori da configura-sync.ps1). Se l'indirizzo del sito
+    cambia, lo stato della sincronizzazione precedente viene spostato in sync\\_vecchi\\ (si riparte da zero)."""
+    t = sync_template(template)
+    if not (web_token or "").strip():
+        raise ToolError("Manca il codice di accesso (token) del sito web per il ponte.")
+    if any(c.isspace() for c in web_token.strip()) or len(web_token.strip()) > 200:
+        raise ToolError("Il codice del sito web non sembra un token DocMap (contiene spazi o è troppo lungo).")
+    p = paths(base)
+    s = load_settings(base)
+    os.makedirs(p["sync"], exist_ok=True)
+    prof_path = os.path.join(p["sync"], SYNC_PROFILE)
+    state = prof_path[:-len(".json")] + ".state.json"
+    moved = None
+    if os.path.isfile(prof_path):
+        try:
+            old_url = (_read_json(prof_path).get("a") or {}).get("url")
+        except (OSError, ValueError, AttributeError):
+            old_url = None
+        if old_url != t["a"]["url"] and os.path.isfile(state):
+            old_dir = os.path.join(p["sync"], "_vecchi")
+            os.makedirs(old_dir, exist_ok=True)
+            moved = os.path.join(old_dir, "%s.%s" % (os.path.basename(state), time.strftime("%Y%m%d_%H%M%S")))
+            os.replace(state, moved)
+    prof = {"name": t["name"],
+            "a": {"label": t["a"]["label"], "url": t["a"]["url"], "token": web_token.strip(),
+                  "basic_user": t["a"]["basic_user"], "basic_pass": basic_pass or "", "ca": "", "insecure_lan": False,
+                  "max_body_mb": 20},
+            "b": {"label": "Studio (locale)", "url": "https://127.0.0.1:%d/api" % s["porta"], "token": local_token,
+                  "basic_user": "", "basic_pass": "", "ca": os.path.join(p["certificati"], CA_CERT), "insecure_lan": False,
+                  "max_body_mb": 20},
+            "direction": t["direction"], "sync_settings": True, "sync_activity_log": True}
+    _write_bytes_private(prof_path, (json.dumps(prof, ensure_ascii=False, indent=2) + "\n").encode("utf-8"))
+    bat = os.path.join(p["sync"], SYNC_BAT)
+    _write_bytes_private(bat, sync_bat(base).encode("utf-8"))
+    return {"profilo": prof_path, "bat": bat, "sito": t["a"]["url"], "studio": prof["b"]["url"], "direzione": t["direction"],
+            "ogni_minuti": t["ogni_minuti"], "attivita": SYNC_TASK, "utente_ponte": BRIDGE_USER, "stato_precedente_spostato": moved}
+
+
+def configure_sync(base: str, template_path: str | None, web_token: str, basic_pass: str = "") -> dict:
+    """configura-sync: modello (BASE\\sync\\sync-profile.template.json o quello indicato) + codice del sito →
+    codice "ponte-sync" nuovo sul server dello studio + profilo + sincronizza.bat."""
+    p = paths(base)
+    tp = template_path or os.path.join(p["sync"], SYNC_TEMPLATE)
+    try:
+        tpl = _read_json(tp)
+    except (OSError, ValueError) as e:
+        raise ToolError("Modello della sincronizzazione non trovato o non leggibile (%s): %s. Serve il pacchetto personale "
+                        "del cliente preparato dal hub, oppure indica --modello." % (tp, e))
+    t = sync_template(tpl)          # prima di toccare config.json
+    if not os.path.isfile(p["config"]):
+        raise ToolError("DocMap non è ancora configurato in %s: installa prima il server." % p["config"])
+    local = add_bridge_token(base)
+    res = make_sync_profile(base, t, web_token, local, basic_pass)
+    if template_path and os.path.abspath(template_path) != os.path.abspath(os.path.join(p["sync"], SYNC_TEMPLATE)):
+        shutil.copyfile(template_path, os.path.join(p["sync"], SYNC_TEMPLATE))
+    return res
+
+
 # ---------------------------------------------------------------- pacchetto (sul PC di sviluppo)
 
 INSTALLER_FILES = ["installa.bat", "installa.ps1", "comune.ps1", "backup.ps1", "ripristina.ps1", "aggiorna.ps1",
-                   "disinstalla.ps1", "licenza.ps1", "kit-emergenza.ps1", "docmap_tools.py", "GUIDA-INSTALLAZIONE.md"]
+                   "disinstalla.ps1", "licenza.ps1", "kit-emergenza.ps1", "configura-sync.ps1", "docmap_tools.py",
+                   "GUIDA-INSTALLAZIONE.md"]
 
 
-def build_package(out: str, make_zip: bool = False, repo_docmap: str | None = None) -> dict:
+def build_package(out: str, make_zip: bool = False, repo_docmap: str | None = None, public_keys: str | None = None,
+                  licence: str | None = None, studio_name: str | None = None, sync_model: str | None = None,
+                  client_info: dict | None = None, documents=()) -> dict:
     """Prepara la cartella da portare in studio:
          <out>/installa.bat, *.ps1, docmap_tools.py, GUIDA-INSTALLAZIONE.md, VERSIONE.txt
          <out>/app/      ← tools/build_deploy.py --no-server --base-path / (poi docmap.config.js viene riscritto in studio)
          <out>/server/   ← server-python/docmap_server + requirements.txt (+ wheels/ se presente in installer-windows/)
+    Pacchetto PERSONALE di un cliente (lo prepara il hub con 'cliente nuovo'):
+         public_keys → <out>/server/docmap_server/trusted_keys.json (le licenze di Dave si verificano senza toccare codice)
+         licence     → <out>/cliente/licence.docmap-licence (installa.ps1 la installa e attiva licence_required)
+         studio_name, client_info → <out>/cliente/cliente.json (installa.ps1 propone il nome dello studio)
+         sync_model  → <out>/cliente/sync-profile.template.json (solo indirizzo del sito: i codici si inseriscono in studio)
+         documents   → copiati nella radice del pacchetto (es. GUIDA-NUOVO-CLIENTE.md, scheda del cliente)
     Non cancella niente: `out` deve essere nuova o vuota."""
     docmap = os.path.abspath(repo_docmap or os.path.dirname(HERE))
     if not os.path.isfile(os.path.join(docmap, "tools", "build_deploy.py")):
@@ -1421,6 +1679,18 @@ def build_package(out: str, make_zip: bool = False, repo_docmap: str | None = No
     out = os.path.abspath(out)
     if os.path.exists(out) and os.listdir(out):
         raise ToolError("La cartella %s esiste e non è vuota: scegline una nuova." % out)
+    keys = read_public_keys_file(public_keys) if public_keys else None
+    if licence and not keys:
+        raise ToolError("Con --licenza serve anche --chiave-pubblica: senza, il server dello studio non potrebbe verificarla.")
+    tpl = None
+    if sync_model:
+        try:
+            tpl = sync_template(_read_json(sync_model))
+        except (OSError, ValueError) as e:
+            raise ToolError("Modello di sincronizzazione non leggibile (%s): %s" % (sync_model, e))
+    for d in documents or ():
+        if not os.path.isfile(d):
+            raise ToolError("Documento da includere non trovato: %s" % d)
     os.makedirs(out, exist_ok=True)
     import subprocess
     r = subprocess.run([sys.executable, os.path.join(docmap, "tools", "build_deploy.py"), os.path.join(out, "app"),
@@ -1435,11 +1705,34 @@ def build_package(out: str, make_zip: bool = False, repo_docmap: str | None = No
     guida_sync = os.path.join(srv_src, "GUIDA-SYNC-WEB-LOCALE.md")
     if os.path.isfile(guida_sync):   # guida del ponte web <-> locale (sync-remote), accanto alla guida di installazione
         shutil.copyfile(guida_sync, os.path.join(out, "GUIDA-SYNC-WEB-LOCALE.md"))
+    guida_cliente = os.path.join(docmap, "docs", "GUIDA-NUOVO-CLIENTE.md")
+    if os.path.isfile(guida_cliente):
+        shutil.copyfile(guida_cliente, os.path.join(out, "GUIDA-NUOVO-CLIENTE.md"))
     wheels = os.path.join(HERE, "wheels")
     if os.path.isdir(wheels):
         shutil.copytree(wheels, os.path.join(out, "server", "wheels"))
     for f in INSTALLER_FILES:
         shutil.copyfile(os.path.join(HERE, f), os.path.join(out, f))
+    for d in documents or ():
+        shutil.copyfile(d, os.path.join(out, os.path.basename(d)))
+    personal = None
+    if keys:
+        _write_text_atomic(os.path.join(out, "server", "docmap_server", TRUSTED_KEYS_NAME),
+                           json.dumps({"format": 1, "keys": keys}, indent=2, sort_keys=True) + "\n")
+    if keys or licence or studio_name or tpl or client_info:
+        cdir = os.path.join(out, CLIENT_DIR)
+        os.makedirs(cdir, exist_ok=True)
+        personal = dict(client_info or {})
+        personal.update({"formato": 1, "creato": time.strftime("%Y-%m-%d"), "chiavi_pubbliche": sorted(keys or {})})
+        if studio_name:
+            personal["nome_studio"] = studio_name.strip()[:120]
+        if licence:
+            personal["licenza"] = check_licence_file(licence, keys, os.path.join(out, "server", "docmap_server"))
+            shutil.copyfile(licence, os.path.join(cdir, LICENCE_NAME))
+        if tpl:
+            personal["sync"] = {"sito": tpl["a"]["url"], "ogni_minuti": tpl["ogni_minuti"]}
+            _write_text_atomic(os.path.join(cdir, SYNC_TEMPLATE), json.dumps(tpl, ensure_ascii=False, indent=2) + "\n")
+        _write_text_atomic(os.path.join(cdir, CLIENT_INFO), json.dumps(personal, ensure_ascii=False, indent=2) + "\n")
     version = app_version(docmap)
     _write_text_atomic(os.path.join(out, "VERSIONE.txt"), "DocMap %s · strumenti %s · %s\n"
                        % (version, TOOLS_VERSION, time.strftime("%Y-%m-%d")))
@@ -1450,7 +1743,9 @@ def build_package(out: str, make_zip: bool = False, repo_docmap: str | None = No
             full = os.path.join(root, f)
             manifest.append("%s  %s" % (_sha256_file(full), os.path.relpath(full, out).replace(os.sep, "/")))
     _write_text_atomic(os.path.join(out, "PACCHETTO-MANIFEST.txt"), "\n".join(manifest) + "\n")
-    res = {"cartella": out, "versione": version, "file": len(manifest) + 1, "zip": None}
+    res = {"cartella": out, "versione": version, "file": len(manifest) + 1, "zip": None,
+           "personale": bool(personal), "chiavi_pubbliche": sorted(keys or {}),
+           "licenza": (personal or {}).get("licenza"), "sync": bool(tpl)}
     if make_zip:
         zp = out.rstrip("/\\") + ".zip"
         with zipfile.ZipFile(zp, "w", compression=zipfile.ZIP_DEFLATED) as z:
@@ -1703,6 +1998,19 @@ def main(argv=None) -> int:
     pk = sub.add_parser("pacchetto")
     pk.add_argument("--out", required=True)
     pk.add_argument("--zip", action="store_true")
+    pk.add_argument("--chiave-pubblica", help="file di 'python -m docmap_hub export-public-key' → server/docmap_server/trusted_keys.json")
+    pk.add_argument("--licenza", help="file .docmap-licence del cliente (installato da installa.ps1)")
+    pk.add_argument("--nome-studio", help="nome dello studio proposto da installa.ps1")
+    pk.add_argument("--sync-modello", help="modello del profilo del ponte web <-> locale (senza codici)")
+    pk.add_argument("--cliente-json", help="altri dati del cliente (JSON, niente segreti) da mettere in cliente/cliente.json")
+    pk.add_argument("--documento", action="append", default=[], help="file da copiare nella radice del pacchetto (ripetibile)")
+    ip_ = sub.add_parser("info-pacchetto")
+    ip_.add_argument("cartella")
+    sub.add_parser("abilita-licenza")
+    cs = sub.add_parser("configura-sync", help="profilo del ponte web <-> locale; token del sito da DOCMAP_SYNC_TOKEN_WEB, "
+                                               "--token-web-file o chiesto")
+    cs.add_argument("--modello", help="modello (predefinito: BASE\\sync\\sync-profile.template.json)")
+    cs.add_argument("--token-web-file", help="file di testo con il token del sito (es. su chiavetta)")
     ck = sub.add_parser("controlla-pacchetto")
     ck.add_argument("cartella")
     sub.add_parser("serve")
@@ -1801,7 +2109,30 @@ def main(argv=None) -> int:
             body = ping_wait(url, cafile, a.attendi, a.insecure) if a.attendi else ping(url, cafile, insecure=a.insecure)
             _print_json(body)
         elif a.cmd == "pacchetto":
-            _print_json(build_package(a.out, a.zip))
+            info = None
+            if a.cliente_json:
+                info = _read_json(a.cliente_json)
+                if not isinstance(info, dict):
+                    raise ToolError("--cliente-json deve contenere un oggetto JSON.")
+            _print_json(build_package(a.out, a.zip, public_keys=a.chiave_pubblica, licence=a.licenza,
+                                      studio_name=a.nome_studio, sync_model=a.sync_modello, client_info=info,
+                                      documents=a.documento))
+        elif a.cmd == "info-pacchetto":
+            _print_json(package_info(a.cartella))
+        elif a.cmd == "abilita-licenza":
+            _print_json(enable_licence_required(base))
+        elif a.cmd == "configura-sync":
+            tok = os.environ.get("DOCMAP_SYNC_TOKEN_WEB", "")
+            if not tok and a.token_web_file:
+                try:
+                    with open(a.token_web_file, "r", encoding="utf-8-sig") as f:
+                        lines = f.read().strip().splitlines()
+                    tok = lines[0].strip() if lines else ""
+                except OSError as e:
+                    raise ToolError("File del token non leggibile: %s" % e)
+            if not tok and sys.stdin.isatty():
+                tok = _getpass("Codice di accesso (token) del sito web per il ponte: ").strip()
+            _print_json(configure_sync(base, a.modello, tok, os.environ.get("DOCMAP_SYNC_BASIC_PASS", "")))
         elif a.cmd == "controlla-pacchetto":
             miss = check_package(a.cartella)
             if miss:
