@@ -29,6 +29,8 @@ SERVER_PY = os.path.join(DOCMAP, "server-python")
 sys.path.insert(0, INST)
 import docmap_tools as T  # noqa: E402
 
+T.SCRYPT_LOG2N = 14          # test più veloci (l'intestazione registra il parametro); test_crypto_backup prova anche 2^17
+
 try:
     import cryptography  # noqa: F401
     HAVE_CRYPTO = True
@@ -80,6 +82,13 @@ def make_base(tmp, with_db=True, rows=5):
         con.commit()
         con.close()
     return base
+
+
+def plain_zip(base, path, out_dir):
+    """Decifra un .docmap-backup con la passphrase della base (per guardarci dentro nei test)."""
+    out = os.path.join(out_dir, os.path.basename(path) + ".zip")
+    T.decrypt_file(path, out, T.read_passphrases(base))
+    return out
 
 
 def count_rows(db):
@@ -181,9 +190,12 @@ class RetentionTest(unittest.TestCase):
 
     def test_names(self):
         now = dt.datetime(2026, 11, 2, 9, 5)
-        self.assertEqual(T.backup_name(now), "docmap_20261102_0905.zip")
-        self.assertEqual(T.backup_name(now, {"docmap_20261102_0905.zip"}), "docmap_20261102_0905_2.zip")
-        self.assertEqual(T.backup_name(now, {"docmap_20261102_0905.zip", "docmap_20261102_0905_2.zip"}), "docmap_20261102_0905_3.zip")
+        self.assertEqual(T.backup_name(now), "docmap_20261102_0905.docmap-backup")
+        self.assertEqual(T.backup_name(now, {"docmap_20261102_0905.docmap-backup"}), "docmap_20261102_0905_2.docmap-backup")
+        self.assertEqual(T.backup_name(now, {"docmap_20261102_0905.zip"}), "docmap_20261102_0905_2.docmap-backup")   # vecchio zip
+        self.assertEqual(T.backup_name(now, {"docmap_20261102_0905.docmap-backup", "docmap_20261102_0905_2.zip"}),
+                         "docmap_20261102_0905_3.docmap-backup")
+        self.assertEqual(T.backup_name(now, ext=".zip"), "docmap_20261102_0905.zip")
 
     def test_order_and_retention(self):
         names = ["docmap_20261101_1230.zip", "docmap_20261102_0905.zip", "docmap_20261102_0905_2.zip",
@@ -202,6 +214,15 @@ class RetentionTest(unittest.TestCase):
         self.assertEqual(T.apply_retention(self.tmp, 0), ["docmap_20261102_0905_2.zip", "docmap_20261102_0905.zip"])  # minimo 1
         self.assertEqual(T.list_backups(os.path.join(self.tmp, "non-esiste")), [])
 
+    def test_mixed_encrypted_and_legacy(self):
+        for n in ("docmap_20261101_1230.zip", "docmap_20261103_1230.docmap-backup", "docmap_20261102_1230.zip",
+                  "docmap_20261104_1230.docmap-backup", "docmap_20261104_1230.docmap-backup.parziale"):
+            open(os.path.join(self.tmp, n), "w").close()
+        self.assertEqual(T.list_backups(self.tmp), ["docmap_20261104_1230.docmap-backup", "docmap_20261103_1230.docmap-backup",
+                                                    "docmap_20261102_1230.zip", "docmap_20261101_1230.zip"])
+        self.assertEqual(T.apply_retention(self.tmp, 2, os.path.join(self.tmp, "_c")),
+                         ["docmap_20261102_1230.zip", "docmap_20261101_1230.zip"])
+
 
 class BackupRestoreTest(unittest.TestCase):
     def setUp(self):
@@ -215,16 +236,26 @@ class BackupRestoreTest(unittest.TestCase):
 
     def test_backup_contents(self):
         r = T.make_backup(self.base, now=dt.datetime(2026, 11, 2, 12, 30))
-        self.assertEqual(r["nome"], "docmap_20261102_1230.zip")
+        self.assertEqual(r["nome"], "docmap_20261102_1230.docmap-backup")
+        self.assertTrue(r["cifrato"])
+        self.assertTrue(r["passphrase_creata"])
+        self.assertEqual(r["kit"], "mancante")
         self.assertEqual(r["righe"], {"records": 5})
-        with zipfile.ZipFile(r["zip"]) as z:
+        with open(r["file"], "rb") as f:
+            raw = f.read()
+        self.assertTrue(raw.startswith(T.BK_MAGIC))
+        self.assertNotIn(b"aaaaaaaa", raw)                            # la chiave (a*44) non si vede
+        self.assertNotIn(b"PK\x03\x04", raw)                           # né lo zip
+        with zipfile.ZipFile(plain_zip(self.base, r["file"], self.tmp)) as z:
             names = set(z.namelist())
             man = json.loads(z.read("MANIFEST.json"))
         self.assertEqual(names, {"docmap.sqlite", "config/config.json", "dati/licence/licence.docmap-licence",
                                  "dati/instance.json", "dati/.htaccess", "MANIFEST.json"})
         self.assertEqual(set(man["file"]), names - {"MANIFEST.json"})
-        self.assertEqual(T.verify_zip(r["zip"])["righe"], {"records": 5})
-        self.assertEqual([n for n in os.listdir(self.p["backup"])], ["docmap_20261102_1230.zip"])   # niente file temporanei
+        self.assertEqual(T.verify_backup_file(self.base, r["file"])["righe"], {"records": 5})
+        self.assertEqual([n for n in os.listdir(self.p["backup"])], ["docmap_20261102_1230.docmap-backup"])   # niente file temporanei
+        r2 = T.make_backup(self.base, now=dt.datetime(2026, 11, 2, 12, 31))
+        self.assertFalse(r2["passphrase_creata"])                    # la stessa passphrase per tutti i backup
 
     def test_backup_while_writing(self):
         """Copia coerente mentre un altro processo/thread scrive (WAL): il conteggio nello zip è quello di un istante."""
@@ -248,7 +279,7 @@ class BackupRestoreTest(unittest.TestCase):
             th.join()
         self.assertGreater(written[0], 10)
         for r in results:
-            with zipfile.ZipFile(r["zip"]) as z:
+            with zipfile.ZipFile(plain_zip(self.base, r["file"], self.tmp)) as z:
                 d = tempfile.mkdtemp(dir=self.tmp)
                 z.extract("docmap.sqlite", d)
             n = count_rows(os.path.join(d, "docmap.sqlite"))
@@ -263,9 +294,12 @@ class BackupRestoreTest(unittest.TestCase):
         for i in range(5):
             r = T.make_backup(self.base, keep=3, now=dt.datetime(2026, 11, 1 + i, 12, 30))
             self.assertIsNone(r["seconda_errore"])
-        self.assertEqual(T.list_backups(self.p["backup"]), ["docmap_20261105_1230.zip", "docmap_20261104_1230.zip", "docmap_20261103_1230.zip"])
+        self.assertEqual(T.list_backups(self.p["backup"]), ["docmap_20261105_1230.docmap-backup", "docmap_20261104_1230.docmap-backup",
+                                                            "docmap_20261103_1230.docmap-backup"])
         self.assertEqual(len(T.list_backups(second)), 5)             # seconda_da_tenere = 30
-        self.assertEqual(r["tolti"], ["docmap_20261102_1230.zip"])
+        self.assertEqual(r["tolti"], ["docmap_20261102_1230.docmap-backup"])
+        with open(os.path.join(second, "docmap_20261105_1230.docmap-backup"), "rb") as f:
+            self.assertTrue(f.read(8) == T.BK_MAGIC)                  # anche la copia su chiavetta/NAS è cifrata
         # chiavetta non collegata: il backup principale va lo stesso
         blocker = os.path.join(self.tmp, "file-non-cartella")
         open(blocker, "w").close()
@@ -279,11 +313,12 @@ class BackupRestoreTest(unittest.TestCase):
             if os.path.exists(self.db + side):
                 os.remove(self.db + side)
         r = T.make_backup(self.base, now=dt.datetime(2026, 11, 2, 8, 0))
-        man = T.verify_zip(r["zip"])
+        man = T.verify_backup_file(self.base, r["file"])
         self.assertIn("nota", man)
 
     def test_verify_rejects_tampered_and_foreign(self):
         r = T.make_backup(self.base, now=dt.datetime(2026, 11, 2, 12, 30))
+        r = {"zip": plain_zip(self.base, r["file"], self.tmp)}       # controlli dello zip in chiaro (vecchi backup)
         bad = os.path.join(self.tmp, "manomesso.zip")
         with zipfile.ZipFile(r["zip"]) as zin, zipfile.ZipFile(bad, "w") as zout:
             for n in zin.namelist():
@@ -314,11 +349,14 @@ class BackupRestoreTest(unittest.TestCase):
 
     def test_restore_same_key(self):
         r = T.make_backup(self.base, now=dt.datetime(2026, 11, 2, 12, 30))
+        self.assertTrue(r["file"].endswith(".docmap-backup"))
         con = sqlite3.connect(self.db)
         con.execute("DELETE FROM records")
         con.commit()
         con.close()
         res = T.restore_backup(self.base, r["zip"], now=dt.datetime(2026, 11, 3, 9, 0, 0))
+        self.assertTrue(res["cifrato"])
+        self.assertFalse(res["passphrase_aggiunta"])
         self.assertEqual(count_rows(self.db), 5)
         self.assertFalse(res["config_ripristinata"])
         safety = res["copia_di_sicurezza"]
@@ -329,7 +367,7 @@ class BackupRestoreTest(unittest.TestCase):
         self.assertTrue(os.path.isfile(os.path.join(self.p["dati"], ".htaccess")))
         # un backup dopo il ripristino non include la copia di sicurezza
         r2 = T.make_backup(self.base, now=dt.datetime(2026, 11, 3, 9, 5))
-        with zipfile.ZipFile(r2["zip"]) as z:
+        with zipfile.ZipFile(plain_zip(self.base, r2["file"], self.tmp)) as z:
             self.assertFalse(any("_prima-del-ripristino" in n for n in z.namelist()))
 
     def test_restore_other_key_restores_config(self):
@@ -341,8 +379,15 @@ class BackupRestoreTest(unittest.TestCase):
         cfg2 = jload(p2["config"])
         cfg2["aes_key"] = "z" * 44
         jdump(cfg2, p2["config"])
-        res = T.restore_backup(base2, r["zip"])
+        T.ensure_passphrase(base2)                                   # il PC nuovo ha già la sua passphrase (diversa)
+        with self.assertRaises(T.PassphraseError):
+            T.restore_backup(base2, r["zip"])
+        self.assertFalse(os.path.exists(os.path.join(p2["dati"], "docmap.sqlite")))   # niente toccato
+        old_pp = T.read_passphrases(self.base)[0]
+        res = T.restore_backup(base2, r["zip"], passphrase=old_pp.lower().replace("-", " "))   # scritta "a mano"
         self.assertTrue(res["config_ripristinata"])
+        self.assertTrue(res["passphrase_aggiunta"])
+        self.assertEqual(T.read_passphrases(base2)[1], old_pp)       # i backup vecchi si riaprono senza riscriverla
         cfg = jload(p2["config"])
         self.assertEqual(cfg["aes_key"], "a" * 44)
         self.assertEqual(cfg["data_dir"], p2["dati"])                 # la cartella dati resta quella del PC nuovo
@@ -376,7 +421,7 @@ class BackupRestoreTest(unittest.TestCase):
             self.assertEqual(T.main(["--base", self.base, "elenco-backup"]), 0)
             self.assertEqual(T.main(["--base", os.path.join(self.tmp, "vuota"), "backup"]), 2)
         self.assertIn("Configurazione non trovata", err.getvalue())
-        self.assertIn(".zip", out.getvalue())
+        self.assertIn(".docmap-backup", out.getvalue())
 
 
 class MiddlewareTest(unittest.TestCase):
@@ -619,7 +664,7 @@ class ServeEndToEndTest(unittest.TestCase):
         # una richiesta che crea il database
         self.get("/api?r=pull", {"Authorization": "Bearer " + self.token, "Origin": "https://127.0.0.1:%d" % self.port})
         r = T.make_backup(self.base)
-        man = T.verify_zip(r["zip"])
+        man = T.verify_backup_file(self.base, r["file"])
         self.assertIn("config/config.json", man["file"])
         self.assertTrue(os.path.isfile(self.p["leggimi"]))
         self.assertTrue(os.path.isfile(self.p["pagina_qr"]))
