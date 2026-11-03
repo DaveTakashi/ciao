@@ -1126,7 +1126,8 @@ def check_database_key(base: str, db_path: str, aes_key_b64: str, sample: int = 
                 except Exception:   # noqa: BLE001 — chiave sbagliata o dato illeggibile
                     ok = False
                 out["chiave"] = "ok" if ok else "sbagliata"
-        if "records" in names:
+        cols = {r[1] for r in con.execute("PRAGMA table_info(records)")} if "records" in names else set()
+        if {"type", "id", "payload", "deleted"} <= cols:          # tabella del server DocMap
             for t, n in con.execute("SELECT type, COUNT(*) FROM records WHERE deleted = 0 GROUP BY type ORDER BY type"):
                 out["record_per_tipo"][t] = n
             if out["chiave"] != "sbagliata":
