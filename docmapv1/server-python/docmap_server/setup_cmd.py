@@ -66,6 +66,12 @@ def run_setup(args) -> int:
     err = []
     if d == "" or not re.match(r"^(/|[A-Za-z]:[\\/])", d) or ".." in d:
         err.append('La cartella del database deve essere un percorso assoluto (senza "..").')
+    if not err and os.path.exists(os.path.join(d, "docmap.sqlite")):
+        # v12.4 rule (same as setup.php, HTTP 409 there): never pair an existing database with a new key
+        print("Nella cartella %s c'è già un database (docmap.sqlite): una chiave nuova lo renderebbe illeggibile. "
+              "Rimetti la configurazione originale (config.php / config.json con la sua chiave) oppure scegli "
+              "una cartella vuota." % d, file=sys.stderr)
+        return 4
     lines = []
     for u in args.user or []:
         lines.append(u)
