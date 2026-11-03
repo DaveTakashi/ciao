@@ -739,7 +739,7 @@ def cmd_settings_show(hub: Hub, args) -> int:
     return 0
 
 
-SETTING_KEYS = ("server_python_dir", "server_python_exe", "docmap_dir", "ports.range")
+SETTING_KEYS = ("server_python_dir", "server_python_exe", "docmap_dir", "installer_dir", "ports.range")
 
 
 def cmd_settings_set(hub: Hub, args) -> int:
@@ -762,6 +762,107 @@ def cmd_server_check(hub: Hub, args) -> int:
         f"NON pronto: {r['error']}. Esegui una volta run_windows.bat nella cartella server-python "
         "(crea .venv con i pacchetti).")
     return 0 if r["ok"] else 1
+
+
+# ---------------------------------------------------------------------------
+# v0.3: cliente nuovo (onboarding in un passo)
+# ---------------------------------------------------------------------------
+
+def _cliente_req(args):
+    from .onboarding import ClienteNuovo
+    inst = {"sede": ("sede",), "online": ("online",), "entrambe": ("sede", "online")}[args.installazioni]
+    ftp = None
+    if args.ftp_host or args.ftp_protocollo == "local":
+        pw = args.ftp_password
+        if pw in (None, "", "?"):
+            pw = os.environ.get("DOCMAP_HUB_FTP_PASSWORD") or (
+                getpass.getpass("Password FTP (non si vede): ") if args.ftp_protocollo != "local" else "")
+        ftp = {"protocol": args.ftp_protocollo, "host": args.ftp_host, "user": args.ftp_utente, "password": pw,
+               "port": args.ftp_porta, "remote_path": args.ftp_cartella}
+    return ClienteNuovo(nome=args.nome, piano=args.piano, piva=args.piva, email=args.email, rivenditore=args.rivenditore,
+                        custodia_chiave=args.custodia_chiave == "on", installazioni=inst, nome_studio=args.nome_studio,
+                        url_online=args.url_online, url_staging=args.url_staging, url_sede=args.url_sede, ftp=ftp,
+                        ftp_cartella_staging=args.ftp_cartella_staging, note=args.note)
+
+
+def cmd_cliente_nuovo(hub: Hub, args) -> int:
+    from .onboarding import Onboarding, collect_secrets, write_scheda
+    req = _cliente_req(args)
+    req.validate(hub)
+    vk = get_vault_key(hub, args) if req.ftp else None
+    p = get_passphrase(args)
+    r = Onboarding(hub, log=out).run(req, passphrase=p, vk=vk, rigenera=args.rigenera, build=not args.senza_pacchetti)
+    out(f"Cliente: {req.nome}  ·  cartella: {r['dir']}")
+    for x in r["created"]:
+        out(f"  + {x}")
+    for x in r["reused"]:
+        out(f"  = {x} (già presente)")
+    out("Codici di installazione (instance_id):")
+    for role, iid in r["instances"].items():
+        out(f"  {role:7s} {iid}")
+    f = r["files"]
+    out("File preparati:")
+    for k in ("pacchetto_sede_zip", "sito_staging_zip", "sito_production_zip", "scheda", "sync_modello", "guida"):
+        if f.get(k):
+            out(f"  {k:20s} {f[k]}")
+    if "online" in r["instances"]:
+        users = "davide,admin" + ("\nponte-sync,editor" if "sede" in r["instances"] else "")
+        out("Online, prossimi passi: hosting (cartella + SSL + FTP), poi")
+        env = "staging" if "staging" in r["envs"]["online"] else "production"
+        out(f"  python -m docmap_hub deploy --instance {r['instances']['online'][:8]} --env {env} --dry-run")
+        out(f"  setup.php: persone e ruoli, per esempio:  {users.replace(chr(10), ' | ')}")
+        if "sede" in r["instances"]:
+            out(f"  token ponte-sync in cassaforte:  python -m docmap_hub cliente token-ponte --cliente \"{req.nome}\" --salva")
+    if "sede" in r["instances"]:
+        out("Sede: copia lo zip del pacchetto su chiavetta e lancia installa.bat sul PC del cliente.")
+    out("Stampa la scheda cliente (nessun segreto dentro). Guida: GUIDA-NUOVO-CLIENTE.md")
+    if args.con_segreti:
+        vk2 = get_vault_key(hub, args)
+        path = write_scheda(hub, r["customer_id"], collect_secrets(hub, vk2, r["customer_id"]))
+        out(f"Scheda CON SEGRETI: {path}  (stampala ed elimina il file)")
+    return 0
+
+
+def cmd_cliente_scheda(hub: Hub, args) -> int:
+    from .onboarding import collect_secrets, write_scheda
+    secrets = None
+    if args.con_segreti:
+        secrets = collect_secrets(hub, get_vault_key(hub, args), args.cliente)
+    path = write_scheda(hub, args.cliente, secrets)
+    out(f"Scheda cliente: {path}" + ("  (CONTIENE SEGRETI: stampala ed elimina il file)" if secrets is not None else ""))
+    return 0
+
+
+def cmd_cliente_token_ponte(hub: Hub, args) -> int:
+    from .onboarding import Onboarding
+    ob = Onboarding(hub, log=out)
+    vk = get_vault_key(hub, args)
+    if args.salva:
+        tok = os.environ.get("DOCMAP_HUB_BRIDGE_TOKEN") or getpass.getpass(
+            "Token di ponte-sync mostrato da setup.php (non si vede): ")
+        r = ob.save_bridge_token(vk, args.cliente, tok)
+        out(f"Token del ponte salvato in cassaforte ({r['kind']} · {r['label']}).")
+    if args.esporta:
+        path = ob.export_bridge_token(vk, args.cliente, Path(args.esporta))
+        out(f"Token scritto in {path}: portalo sul PC della sede (configura-sync.ps1 -TokenFile …) e poi eliminalo.")
+    if not (args.salva or args.esporta):
+        raise CliError("Usa --salva (mette il token in cassaforte) e/o --esporta FILE (lo scrive per la chiavetta).")
+    return 0
+
+
+def cmd_cliente_elenco(hub: Hub, args) -> int:
+    from .onboarding import Onboarding
+    ob = Onboarding(hub, log=out)
+    rows = []
+    for c in hub.registry.list_customers():
+        roles = [r for r in ("sede", "online") if ob.find_instance(c["id"], r)]
+        exp = [i["licence_expires_at"][:10] for i in hub.registry.list_instances(c["id"]) if i["licence_expires_at"]]
+        d = hub.dir / "clienti"
+        folder = next((f.parent.name for f in d.glob("*/cliente.json")
+                       if json.loads(f.read_text("utf-8")).get("customer_id") == c["id"]), "") if d.exists() else ""
+        rows.append([c["name"], c["vat_id"], "+".join(roles) or "(a mano)", min(exp) if exp else "", folder])
+    table(rows, ["cliente", "p.iva", "installazioni", "prima scadenza", "cartella clienti/"])
+    return 0
 
 
 # ---------------------------------------------------------------------------
@@ -996,6 +1097,44 @@ def build_parser() -> argparse.ArgumentParser:
     q.add_argument("key", help=", ".join(SETTING_KEYS))
     q.add_argument("value")
     add("server-check", cmd_server_check, "controlla che server-python sia pronto per gli ambienti locali")
+
+    # -- v0.3 ------------------------------------------------------------
+    p = add("cliente", None, "nuovo cliente in un passo: registro, licenze, pacchetti, scheda")
+    cl = p.add_subparsers(dest="sub", metavar="azione")
+    q = add("nuovo", cmd_cliente_nuovo, "crea (o completa) un cliente con le sue installazioni sede / online", cl)
+    q.add_argument("--nome", required=True, help="nome del cliente (es. 'Studio Rossi')")
+    q.add_argument("--piva", help="partita IVA (serve a ritrovarlo alla seconda esecuzione)")
+    q.add_argument("--email")
+    q.add_argument("--piano", required=True, help="piano della licenza (vedi 'plans')")
+    q.add_argument("--rivenditore", help="id o nome del rivenditore (facoltativo)")
+    q.add_argument("--custodia-chiave", choices=["on", "off"], default="off",
+                   help="on = l'hub può custodire la chiave del database (serve il consenso scritto del cliente)")
+    q.add_argument("--installazioni", choices=["sede", "online", "entrambe"], default="sede",
+                   help="sede = PC del cliente; online = sito web; entrambe = tutte e due con la sincronizzazione")
+    q.add_argument("--nome-studio", help="nome mostrato nell'app (predefinito: il nome del cliente)")
+    q.add_argument("--url-online", help="indirizzo del sito, es. https://docmap.pr-it.it/studio-rossi/ o https://archivio.studiorossi.it/")
+    q.add_argument("--url-staging", help="indirizzo di prova (staging), es. https://docmap.pr-it.it/studio-rossi-prova/")
+    q.add_argument("--url-sede", help="indirizzo in rete locale, se già noto (es. https://192.168.1.10:8443/)")
+    q.add_argument("--ftp-protocollo", choices=["ftps", "sftp", "ftp", "local"], default="ftps")
+    q.add_argument("--ftp-host")
+    q.add_argument("--ftp-utente")
+    q.add_argument("--ftp-password", help="'?' o vuoto = chiesta senza mostrarla (oppure DOCMAP_HUB_FTP_PASSWORD)")
+    q.add_argument("--ftp-porta", type=int)
+    q.add_argument("--ftp-cartella", help="cartella del sito sul server FTP, es. /public_html/studio-rossi")
+    q.add_argument("--ftp-cartella-staging", help="cartella dello staging, es. /public_html/studio-rossi-prova")
+    q.add_argument("--note")
+    q.add_argument("--rigenera", action="store_true", help="rifà pacchetti e siti (i vecchi vanno in _trash)")
+    q.add_argument("--senza-pacchetti", action="store_true", help="solo registro, licenze e scheda (niente pacchetti)")
+    q.add_argument("--con-segreti", action="store_true",
+                   help="scrive ANCHE una scheda con i codici della cassaforte (chiede la passphrase)")
+    q = add("scheda", cmd_cliente_scheda, "rifà la scheda cliente stampabile", cl)
+    q.add_argument("--cliente", required=True)
+    q.add_argument("--con-segreti", action="store_true", help="copia con i codici (chiede la passphrase della cassaforte)")
+    q = add("token-ponte", cmd_cliente_token_ponte, "token del ponte web-sede (ponte-sync): in cassaforte e/o su file", cl)
+    q.add_argument("--cliente", required=True)
+    q.add_argument("--salva", action="store_true", help="chiede il token mostrato da setup.php e lo salva in cassaforte")
+    q.add_argument("--esporta", help="scrive il token in questo file (es. E:\\token-ponte.txt) per configura-sync.ps1")
+    add("elenco", cmd_cliente_elenco, "clienti, installazioni e cartelle preparate", cl)
     return ap
 
 

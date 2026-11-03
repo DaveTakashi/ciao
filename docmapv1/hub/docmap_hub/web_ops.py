@@ -21,7 +21,7 @@ from . import health
 from .registry import ENV_KINDS
 from .vault import KINDS, KIND_IT, Vault, VaultError
 
-NAV = [("/", "Licenze"), ("/envs", "Istanze & ambienti"), ("/vault", "Cassaforte"), ("/deploy", "Deploy"),
+NAV = [("/", "Licenze"), ("/clienti", "Nuovo cliente"), ("/envs", "Istanze & ambienti"), ("/vault", "Cassaforte"), ("/deploy", "Deploy"),
        ("/ports", "Porte"), ("/status", "Stato")]
 JOB_KEEP = 40
 PLAN_MAX_AGE = 1800  # a dry-run is valid for 30 minutes before "Conferma"
@@ -283,6 +283,60 @@ def page_deploy(app, hidden: str) -> str:
         "<th>esito</th></tr>" + (rows or "<tr><td colspan='5'>Nessun deploy</td></tr>") + "</table></section>")
 
 
+def page_clienti(app, hidden: str) -> str:
+    """v0.3: nuovo cliente in un passo (same fields as 'cliente nuovo') + list of prepared client folders."""
+    from .onboarding import Onboarding
+    reg = app.hub.registry
+    ob = Onboarding(app.hub, log=lambda *_: None)
+    plans = options([(k, f"{k} · {v.get('label', '')}") for k, v in app.hub.plans.items()])
+    resellers = options([("", "nessuno (cliente diretto)")] + [(r["id"], r["name"]) for r in reg.list_resellers()])
+    root = app.hub.dir / "clienti"
+    folders = {}
+    if root.exists():
+        for f in root.glob("*/cliente.json"):
+            try:
+                folders[json.loads(f.read_text("utf-8")).get("customer_id")] = f.parent.name
+            except (OSError, ValueError):
+                pass
+    rows = ""
+    for c in reg.list_customers():
+        roles = "+".join(r for r in ("sede", "online") if ob.find_instance(c["id"], r)) or "(a mano)"
+        slug = folders.get(c["id"])
+        link = (f"<a href='/clienti/{_e(slug)}/scheda'>scheda</a> · <code>clienti/{_e(slug)}</code>" if slug else "")
+        rows += f"<tr><td>{_e(c['name'])}</td><td>{_e(c['vat_id'])}</td><td>{_e(roles)}</td><td>{link}</td></tr>"
+
+    def inp(name, label, ph="", typ="text", req=False):
+        return (f"<label for='{name}'>{_e(label)}</label><input id='{name}' name='{name}' type='{typ}' "
+                f"placeholder='{_e(ph)}'{' required' if req else ''}>")
+    vault_note = ("" if app.vault_key is not None else
+                  "<p class='mut'>Cassaforte chiusa: per salvare l'FTP aprila prima dalla pagina Cassaforte.</p>")
+    return (
+        f"<section><h2>Nuovo cliente</h2><form method='post' action='/clienti/nuovo'>{hidden}<div class='grid'><div>"
+        + inp("nome", "Nome del cliente", "Studio Rossi", req=True) + inp("piva", "Partita IVA", "IT01234567890")
+        + inp("email", "Email") + f"<label for='piano'>Piano</label><select id='piano' name='piano'>{plans}</select>"
+        + f"<label for='rivenditore'>Rivenditore</label><select id='rivenditore' name='rivenditore'>{resellers}</select>"
+        + "<label><input type='checkbox' name='custodia_chiave' value='1' style='width:auto'> custodia della chiave del "
+          "database nel hub (serve il consenso scritto del cliente)</label>"
+        + "<label for='installazioni'>Installazioni</label><select id='installazioni' name='installazioni'>"
+          "<option value='sede'>sede (PC del cliente)</option><option value='online'>online (sito web)</option>"
+          "<option value='entrambe'>entrambe, con sincronizzazione</option></select>"
+        + inp("nome_studio", "Nome mostrato nell'app (facoltativo)") + "</div><div>"
+        + inp("url_online", "Indirizzo online", "https://docmap.pr-it.it/studio-rossi/")
+        + inp("url_staging", "Indirizzo di prova (staging, facoltativo)", "https://docmap.pr-it.it/studio-rossi-prova/")
+        + "<label for='ftp_protocollo'>Protocollo</label><select id='ftp_protocollo' name='ftp_protocollo'>"
+          "<option>ftps</option><option>sftp</option></select>"
+        + inp("ftp_host", "Server FTP (facoltativo)", "ftp.esempio.it") + inp("ftp_utente", "Utente FTP")
+        + inp("ftp_password", "Password FTP", typ="password") + inp("ftp_cartella", "Cartella del sito", "/public_html/studio-rossi")
+        + inp("ftp_cartella_staging", "Cartella dello staging", "/public_html/studio-rossi-prova")
+        + "<label><input type='checkbox' name='rigenera' value='1' style='width:auto'> rifai pacchetti e siti (i vecchi "
+          "vanno in _trash)</label></div></div>" + vault_note
+        + "<p class='mut'>Crea cliente, installazioni, ambienti e licenze; prepara il pacchetto personale per la sede, il "
+          "sito per l'hosting e la scheda da stampare in <code>clienti/&lt;nome&gt;/</code>. Rieseguirlo non crea doppioni.</p>"
+          "<button>Crea / completa il cliente</button></form></section>"
+        "<section><h2>Clienti</h2><table><tr><th>cliente</th><th>p.iva</th><th>installazioni</th><th>cartella</th></tr>"
+        + (rows or "<tr><td colspan='4'>Nessun cliente</td></tr>") + "</table></section>")
+
+
 def _env_name(reg, env_id):
     try:
         e = reg.get_environment(env_id)
@@ -481,6 +535,34 @@ def action(app, path: str, f: dict):
             job = app.jobs.start("Promozione staging → production", "promote-run", params,
                                  lambda h, j: _job_promote(h, j, vk, params, False))
         return f"/job/{job.id}"
+    if path == "/clienti/nuovo":
+        from .onboarding import ClienteNuovo, Onboarding
+        inst = {"sede": ("sede",), "online": ("online",), "entrambe": ("sede", "online")}.get(f.get("installazioni", ""), ())
+        ftp = None
+        if f.get("ftp_host", "").strip():
+            ftp = {"protocol": f.get("ftp_protocollo") or "ftps", "host": f["ftp_host"].strip(), "user": f.get("ftp_utente", ""),
+                   "password": f.get("ftp_password", ""), "remote_path": f.get("ftp_cartella", "").strip()}
+        req = ClienteNuovo(nome=f.get("nome", ""), piano=f.get("piano", ""), piva=f.get("piva") or None,
+                           email=f.get("email") or None, rivenditore=f.get("rivenditore") or None,
+                           custodia_chiave=bool(f.get("custodia_chiave")), installazioni=inst,
+                           nome_studio=f.get("nome_studio") or None, url_online=f.get("url_online") or None,
+                           url_staging=f.get("url_staging") or None, ftp=ftp,
+                           ftp_cartella_staging=f.get("ftp_cartella_staging") or None)
+        req.validate(app.hub)                     # errors at once, before the job
+        vk = app.need_vault() if ftp else None
+        key = (app.key_id, app.private_key)
+        rig = bool(f.get("rigenera"))
+
+        def run(h, job):
+            r = Onboarding(h, log=job.log).run(req, key=key, vk=vk, rigenera=rig)
+            for x in r["created"]:
+                job.log("+ " + x)
+            for x in r["reused"]:
+                job.log("= " + x + " (già presente)")
+            return {"cartella": r["dir"], "installazioni": r["instances"], "file": r["files"],
+                    "scheda": f"/clienti/{r['slug']}/scheda"}
+        job = app.jobs.start(f"Nuovo cliente: {req.nome}", "clienti-nuovo", {}, run)
+        return f"/job/{job.id}"
     if path == "/ports/range":
         a, b = PortManager(reg).set_range(int(f.get("start") or 0), int(f.get("end") or 0))
         return "/ports?ok=" + q(f"Intervallo delle porte: {a}-{b}.")
@@ -549,5 +631,5 @@ def _job_check(h, job, tl):
     return {"checked": len(res), "ok": ok}
 
 
-__all__ = ["NAV", "Jobs", "action", "page_envs", "page_vault", "page_deploy", "page_ports", "page_status",
+__all__ = ["NAV", "Jobs", "action", "page_clienti", "page_envs", "page_vault", "page_deploy", "page_ports", "page_status",
            "page_job", "nav", "msgs", "ENV_KINDS"]

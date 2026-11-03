@@ -191,7 +191,9 @@ def make_handler(app: HubWebApp):
                 return self._dashboard(sess, q.get("ok"), q.get("err"), q.get("new"))
             if url.path.startswith("/download/"):
                 return self._download(url.path[len("/download/"):])
-            pages = {"/envs": ("Istanze & ambienti", W.page_envs), "/vault": ("Cassaforte", W.page_vault),
+            if url.path.startswith("/clienti/") and url.path.endswith("/scheda"):
+                return self._scheda(url.path[len("/clienti/"):-len("/scheda")])
+            pages = {"/clienti": ("Nuovo cliente", W.page_clienti), "/envs": ("Istanze & ambienti", W.page_envs), "/vault": ("Cassaforte", W.page_vault),
                      "/deploy": ("Deploy", W.page_deploy), "/ports": ("Porte", W.page_ports),
                      "/status": ("Stato", W.page_status)}
             if url.path in pages:
@@ -201,7 +203,7 @@ def make_handler(app: HubWebApp):
                 if not job:
                     return self._redirect("/status?err=" + urllib.parse.quote("Operazione non trovata (scaduta)."))
                 hidden = f"<input type='hidden' name='csrf' value='{_e(sess['csrf'])}'>"
-                back = {"deploy": "/deploy", "promote": "/deploy", "env": "/envs", "check": "/status"}
+                back = {"deploy": "/deploy", "promote": "/deploy", "env": "/envs", "check": "/status", "clienti": "/clienti"}
                 active = back.get(job.kind.split("-")[0], "/status")
                 return self._page(job.title, W.nav(active, hidden) + W.page_job(app, hidden, job),
                                   refresh=job.status == "running")
@@ -224,7 +226,7 @@ def make_handler(app: HubWebApp):
                 return self._redirect("/login")
             if not hmac.compare_digest(f.get("csrf", ""), sess["csrf"]):
                 return self._send(403, "Richiesta non valida (token).".encode("utf-8"), "text/plain; charset=utf-8")
-            back = {"env": "/envs", "customer": "/envs", "vault": "/vault", "deploy": "/deploy", "promote": "/deploy",
+            back = {"env": "/envs", "customer": "/envs", "vault": "/vault", "clienti": "/clienti", "deploy": "/deploy", "promote": "/deploy",
                     "ports": "/ports", "check-all": "/status"}.get(path.strip("/").split("/")[0], "/")
             try:
                 with app.lock:
@@ -281,6 +283,13 @@ def make_handler(app: HubWebApp):
                 lid = res["licence"]["licence_id"]
                 return self._redirect(f"/?new={lid}&ok=" + urllib.parse.quote("Licenza rinnovata."))
             return self._send(404, b"", "text/plain")
+
+        def _scheda(self, slug: str):
+            from .onboarding import SLUG_RE
+            f = app.hub.dir / "clienti" / slug / "scheda-cliente.html"
+            if not SLUG_RE.fullmatch(slug) or not f.is_file():
+                return self._send(404, "Scheda non trovata".encode("utf-8"), "text/plain; charset=utf-8")
+            self._send(200, f.read_bytes())
 
         def _download(self, lid: str):
             try:
