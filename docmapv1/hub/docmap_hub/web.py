@@ -24,6 +24,7 @@ from http import cookies
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from . import licence as L
+from . import web_ops as W
 from .keys import KeyError_
 from .registry import RegistryError
 from .service import Hub
@@ -56,6 +57,11 @@ color:var(--acc);border:1px solid var(--acc);margin:0;padding:3px 8px}
 .msg{padding:10px 12px;border-radius:6px;margin:0 0 16px;border:1px solid var(--line);background:var(--card)}
 .err{border-color:var(--bad);color:var(--bad)}.top{display:flex;justify-content:space-between;align-items:center}
 form.inline{display:inline}
+nav.top{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 14px}
+nav.top a{margin-right:10px;color:var(--acc);text-decoration:none}nav.top a.on{font-weight:700;text-decoration:underline}
+pre{white-space:pre-wrap;word-break:break-all;font:13px ui-monospace,Consolas,monospace;background:var(--bg);
+padding:8px;border-radius:6px;border:1px solid var(--line)}textarea{width:100%;padding:6px 8px;border:1px solid var(--line);
+border-radius:6px;background:var(--bg);color:var(--fg);font:13px ui-monospace,Consolas,monospace}.mut{color:var(--mut);font-size:13px}
 """
 
 
@@ -77,6 +83,23 @@ class HubWebApp:
         self.sessions: dict[str, dict] = {}
         self.lock = threading.Lock()
         self.port = 0
+        # v0.2: vault key in memory if the page passphrase (or DOCMAP_HUB_VAULT_PASSPHRASE) opens it.
+        # Revealing a secret always asks the passphrase again.
+        from .vault import Vault, vault_passphrase_from_env
+        self.vault_key = None
+        v = Vault(hub.registry)
+        if v.initialized:
+            for cand in (vault_passphrase_from_env(), passphrase):
+                if cand and v.check(cand):
+                    self.vault_key = v.unlock(cand)
+                    break
+        self.jobs = W.Jobs(self)
+
+    def need_vault(self):
+        from .vault import VaultLocked
+        if self.vault_key is None:
+            raise VaultLocked("Cassaforte chiusa: aprila dalla pagina Cassaforte.")
+        return self.vault_key
 
     def check_passphrase(self, p: str) -> bool:
         return hmac.compare_digest(_hash(p or "", self._salt), self._pw_hash)
@@ -139,11 +162,19 @@ def make_handler(app: HubWebApp):
             data = self.rfile.read(n).decode("utf-8", "replace")
             return {k: v[0] for k, v in urllib.parse.parse_qs(data, keep_blank_values=True).items()}
 
-        def _page(self, title: str, body: str, code=200):
+        def _page(self, title: str, body: str, code=200, refresh: bool = False):
             doc = (f"<!doctype html><html lang='it'><head><meta charset='utf-8'>"
                    f"<meta name='viewport' content='width=device-width,initial-scale=1'>"
-                   f"<title>{_e(title)}</title><style>{CSS}</style></head><body><main>{body}</main></body></html>")
+                   + ("<meta http-equiv='refresh' content='2'>" if refresh else "")
+                   + f"<title>{_e(title)}</title><style>{CSS}</style></head><body><main>{body}</main></body></html>")
             self._send(code, doc.encode("utf-8"))
+
+        def _ops_page(self, sess, path: str, title: str, render, q: dict, *extra):
+            hidden = f"<input type='hidden' name='csrf' value='{_e(sess['csrf'])}'>"
+            with app.lock:
+                body = render(app, hidden, *extra)
+            self._page(f"{title} · DocMap Hub", W.nav(path, hidden) + f"<h1>{_e(title)}</h1>"
+                       + W.msgs(q.get("ok"), q.get("err")) + body)
 
         # -- routes --------------------------------------------------------
         def do_GET(self):
@@ -160,6 +191,20 @@ def make_handler(app: HubWebApp):
                 return self._dashboard(sess, q.get("ok"), q.get("err"), q.get("new"))
             if url.path.startswith("/download/"):
                 return self._download(url.path[len("/download/"):])
+            pages = {"/envs": ("Istanze & ambienti", W.page_envs), "/vault": ("Cassaforte", W.page_vault),
+                     "/deploy": ("Deploy", W.page_deploy), "/ports": ("Porte", W.page_ports),
+                     "/status": ("Stato", W.page_status)}
+            if url.path in pages:
+                return self._ops_page(sess, url.path, pages[url.path][0], pages[url.path][1], q)
+            if url.path.startswith("/job/"):
+                job = app.jobs.get(url.path[len("/job/"):])
+                if not job:
+                    return self._redirect("/status?err=" + urllib.parse.quote("Operazione non trovata (scaduta)."))
+                hidden = f"<input type='hidden' name='csrf' value='{_e(sess['csrf'])}'>"
+                back = {"deploy": "/deploy", "promote": "/deploy", "env": "/envs", "check": "/status"}
+                active = back.get(job.kind.split("-")[0], "/status")
+                return self._page(job.title, W.nav(active, hidden) + W.page_job(app, hidden, job),
+                                  refresh=job.status == "running")
             self._send(404, "Pagina non trovata".encode("utf-8"), "text/plain; charset=utf-8")
 
         def do_POST(self):
@@ -179,11 +224,21 @@ def make_handler(app: HubWebApp):
                 return self._redirect("/login")
             if not hmac.compare_digest(f.get("csrf", ""), sess["csrf"]):
                 return self._send(403, "Richiesta non valida (token).".encode("utf-8"), "text/plain; charset=utf-8")
+            back = {"env": "/envs", "customer": "/envs", "vault": "/vault", "deploy": "/deploy", "promote": "/deploy",
+                    "ports": "/ports", "check-all": "/status"}.get(path.strip("/").split("/")[0], "/")
             try:
                 with app.lock:
-                    return self._action(path, f)
-            except (RegistryError, KeyError_, L.LicenceError, ValueError) as exc:
-                return self._redirect("/?err=" + urllib.parse.quote(str(exc)))
+                    r = W.action(app, path, f)
+                    if r is None:
+                        return self._action(path, f)
+                if isinstance(r, tuple):
+                    hidden = f"<input type='hidden' name='csrf' value='{_e(sess['csrf'])}'>"
+                    with app.lock:
+                        body = W.page_vault(app, hidden, r[2])
+                    return self._page(r[1], W.nav("/vault", hidden) + f"<h1>{_e(r[1])}</h1>" + body)
+                return self._redirect(r)
+            except (RegistryError, KeyError_, L.LicenceError, ValueError, OSError) as exc:
+                return self._redirect(back + "?err=" + urllib.parse.quote(str(exc)))
 
         def _action(self, path: str, f: dict):
             reg, hub = app.hub.registry, app.hub
@@ -252,8 +307,7 @@ def make_handler(app: HubWebApp):
             csrf = _e(sess["csrf"])
             hidden = f"<input type='hidden' name='csrf' value='{csrf}'>"
             now = datetime.now(timezone.utc)
-            parts = [f"<div class='top'><h1>DocMap Hub</h1><form class='inline' method='post' action='/logout'>"
-                     f"{hidden}<button class='sec'>Esci</button></form></div>",
+            parts = [W.nav("/", hidden), "<h1>Licenze</h1>",
                      f"<p style='color:var(--mut)'>Cartella dati: <code>{_e(hub.dir)}</code> · "
                      f"chiave attiva <code>{_e(app.key_id)}</code></p>"]
             if ok:

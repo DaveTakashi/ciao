@@ -187,6 +187,7 @@ class FTPRemote(Remote):
             raise DeployError(f"FTP: server non raggiungibile ({exc}).")
         self.ftp.set_pasv(True)
         self._mlsd = True
+        self._dirs: set[str] = set()
 
     def _abs(self, rel: str) -> str:
         return posixpath.join(self.root, rel) if rel else self.root
@@ -250,10 +251,13 @@ class FTPRemote(Remote):
         cur = self.root
         for part in [p for p in rel_dir.split("/") if p]:
             cur = posixpath.join(cur, part)
+            if cur in self._dirs:
+                continue
             try:
                 self.ftp.mkd(cur)
             except ftplib.error_perm:
                 pass
+            self._dirs.add(cur)
 
     def upload_bytes(self, data, rel):
         self._mkdirs(posixpath.dirname(rel))

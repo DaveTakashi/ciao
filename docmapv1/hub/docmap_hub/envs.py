@@ -136,6 +136,13 @@ class EnvManager:
             envv[side["basic_pass_env"]] = ba["password"]
         return side, envv
 
+    def _require_escrow(self, cust: dict) -> None:
+        if not cust.get("key_escrow"):
+            raise EnvError(
+                f"Copiare i dati veri di '{cust['name']}' sul PC del hub significa poterli leggere: serve il consenso "
+                "del cliente (nomina a responsabile del trattamento) e la custodia attivata con "
+                f"customer set --customer \"{cust['name']}\" --key-escrow on")
+
     def clone_data(self, instance: str, src_name: str, dst_name: str, vk: VaultKey, dry_run: bool = False,
                    timeout: int = 3600) -> dict:
         src = self.reg.get_environment(instance, src_name)
@@ -147,12 +154,7 @@ class EnvManager:
                            "Per uno staging web-php: crea uno staging locale, provalo, poi usa deploy.")
         if src["id"] == dst["id"]:
             raise EnvError("Origine e destinazione coincidono.")
-        cust = self.reg.customer_of_env(dst)
-        if not cust.get("key_escrow"):
-            raise EnvError(
-                f"Copiare i dati veri di '{cust['name']}' sul PC del hub significa poterli leggere: serve il consenso "
-                "del cliente (nomina a responsabile del trattamento) e la custodia attivata con "
-                f"customer set --customer \"{cust['name']}\" --key-escrow on")
+        self._require_escrow(self.reg.customer_of_env(dst))
         a, env_a = self._side(src, vk, f"{src['name']} ({src['kind']})", "a")
         b, env_b = self._side(dst, vk, f"{dst['name']} (locale)", "b")
         prof_dir = self.runner.env_dir(dst) / "sync"
@@ -190,10 +192,17 @@ class EnvManager:
         inst = self.reg.get_instance(instance)
         name = "demo-" + (label or _now_dt().strftime("%Y%m%d") + "-" + uuid.uuid4().hex[:4]).lower()
         expires = L.format_time(_now_dt() + timedelta(days=int(days)))
+        if src_name:
+            self.reg.get_environment(inst["id"], src_name)  # must exist
+            self._require_escrow(self.reg.get_customer(inst["customer_id"]))
         res = self.create_local(inst["id"], name, vk, expires_at=expires)
         out = {"env": res["env"], "tokens": res["tokens"], "expires_at": expires, "clone": None}
         if src_name:
-            out["clone"] = self.clone_data(inst["id"], src_name, name, vk)
+            try:
+                out["clone"] = self.clone_data(inst["id"], src_name, name, vk)
+            except Exception:
+                self.delete(inst["id"], name, reason="demo-fallita")
+                raise
         return out
 
     # -- delete / purge ----------------------------------------------------
