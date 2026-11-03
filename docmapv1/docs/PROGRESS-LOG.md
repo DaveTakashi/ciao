@@ -152,3 +152,26 @@
   `test_setup.py` 2 OK, `test_sync_remote.py` 10 OK. Pacchetto ricostruito: DocMap 26.12.4 · strumenti 1.1.0.
 - Non provato: esecuzione degli script su Windows (richiesta della passphrase, ACL ereditate, stampa del foglio).
 - Prossimo passo: Dave prova installazione → kit stampato → backup → `ripristina.ps1` su un secondo PC con la passphrase.
+
+## 2026-11-03 11:45 · F7 (anticipo) · Hub 0.2: ambienti, cassaforte, porte, deploy, stato
+
+- Fatto: `hub/` diventa il centro di gestione di tutte le installazioni. Per ogni installazione ambienti `production`,
+  `staging`, `demo-*` (tipi `web-php` sul sito via FTP, `local-python` sul PC di Dave avviato dal hub, `studio-python`
+  monitorato). **Cassaforte** cifrata (scrypt + AES-256-GCM, passphrase = quella della chiave di firma, di serie) per
+  FTP, codici di accesso, superadmin, password della cartella, config del database; **custodia della chiave spenta di
+  serie** (GDPR: senza consenso il hub non tiene `aes_key` né copia i dati veri sul PC di Dave); ogni lettura registrata.
+  **Porte** 18400-18999 con prova reale e spostamento automatico se occupate. **Staging/demo** con i dati veri copiati in
+  una sola direzione con `sync-remote` (mai verso production), demo a scadenza archiviate in `_trash`. **Deploy**
+  FTPS/SFTP: piano (dry-run), backup prima di tutto, caricamento dei soli file cambiati, controllo `app_version`,
+  ripristino automatico; `config.php`, `data/`, `setup.php` dopo il setup e `.htaccess` personalizzati mai sovrascritti;
+  `promote` pubblica in production solo il codice verificato su staging. **Stato** di tutto con `check-all` in parallelo.
+  Pagina locale con schede Istanze & ambienti, Cassaforte, Deploy, Porte, Stato.
+- File: `hub/docmap_hub/{registry,vault,ports,runner,envs,deploy,health,web_ops,web,cli,service}.py`, `hub/README.md`
+  §8–§12, `hub/PROGRESS.md`. `licence.py` invariato (identico a `server-python/docmap_server/licence_verify.py`).
+- Prove: hub 61 test OK (39 di prima + 22 nuovi: cassaforte, porte con socket occupati, server-python vero con setup,
+  avvio, spostamento di porta, copia dati, demo e archiviazione, deploy su server FTP/FTPS locale con pyftpdlib —
+  protetti, backup, ripristino, promote —, pagina web), 1 saltato (IPv6). `server-python/tests/test_licence.py` OK.
+- Non provato: niente su Windows (taskkill, SO_EXCLUSIVEADDRUSE, percorsi), FTPS verso SiteGround vero, SFTP (paramiko
+  non installato nel contenitore).
+- Prossimo passo: Dave prova sul suo PC `run_windows.bat server-check`, `vault init`, un ambiente staging locale e un
+  `deploy --dry-run` verso una cartella di prova su SiteGround.

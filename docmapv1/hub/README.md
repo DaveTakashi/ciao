@@ -1,6 +1,10 @@
-# DocMap Hub — licenze
+# DocMap Hub — licenze, ambienti, cassaforte, deploy (v0.2)
 
-Il **hub** è il piccolo programma con cui Dave emette e rinnova le licenze DocMap.
+Il **hub** è il programma con cui Dave gestisce **tutte** le installazioni DocMap dal suo PC: emette e rinnova le
+licenze, tiene in una **cassaforte cifrata** le credenziali di ogni installazione, gestisce per ogni installazione
+gli ambienti **production**, **staging** e **demo**, pubblica la web app via **FTPS/SFTP** con backup e ripristino
+automatico, assegna le **porte** agli ambienti locali senza mai farle scontrare e mostra lo **stato** di tutto.
+Capitoli nuovi della v0.2: §8 Ambienti, §9 Cassaforte, §10 Deploy, §11 Porte, §12 Pannello di stato.
 Gira sul PC di Dave (Windows), anche se spesso è spento: le installazioni dei clienti
 **verificano la licenza da sole, senza collegarsi al hub** (decisione D4 della ROADMAP).
 
@@ -10,7 +14,10 @@ Cosa fa:
 - tiene il **registro** (SQLite) di rivenditori, clienti, installazioni, licenze emesse e il
   registro delle operazioni (chi ha fatto cosa e quando);
 - **emette** file di licenza firmati (`*.docmap-licence`) e li **rinnova**;
-- offre una **pagina locale** (`http://127.0.0.1:8765/`) per fare tutto dal browser.
+- (v0.2) **ambienti** production / staging / demo per ogni installazione, **cassaforte** delle credenziali,
+  **deploy** FTPS/SFTP sicuro, **porte** automatiche, **pannello di stato**;
+- offre una **pagina locale** (`http://127.0.0.1:8765/`) per fare tutto dal browser (schede *Licenze*,
+  *Istanze & ambienti*, *Cassaforte*, *Deploy*, *Porte*, *Stato*).
 
 Regola d'oro (D5): una licenza **non blocca mai i dati**. Scaduta → 30 giorni di tolleranza
 → poi **sola lettura**: lo studio continua a consultare, stampare ed esportare l'archivio.
@@ -60,6 +67,10 @@ DocMapHub\
   issued\*.docmap-licence   copia di ogni licenza emessa
   backups\*.zip             backup creati con il comando backup
   plans.json                (facoltativo) piani personalizzati: se c'è, vince su quello di serie
+  envs\<installazione>\<ambiente>\   (v0.2) ambienti locali: config.json, data\, app\, server.log, sync\
+  deploy-backups\…          (v0.2) copia del server fatta PRIMA di ogni deploy (file sostituiti, data\, .htaccess)
+  known_hosts               (v0.2) chiavi dei server SFTP già verificate
+  _trash\                   (v0.2) ambienti eliminati o demo scadute: spostati qui, mai cancellati
 ```
 
 Su Linux/macOS: `cd docmapv1/hub && pip install cryptography && python3 -m docmap_hub ...`
@@ -154,7 +165,9 @@ run_windows.bat backup
 run_windows.bat backup --out E:\backup-hub\docmap-hub.zip
 ```
 
-Il backup contiene registro, chiavi (la privata resta **cifrata**), licenze emesse e piani.
+Il backup contiene registro, chiavi (la privata resta **cifrata**), licenze emesse, piani e (v0.2) la cassaforte
+(sempre cifrata, anche come `vault-export.json`) e `known_hosts`. **Non** contiene le cartelle degli ambienti locali
+(`envs\`: sono copie di prova, si ricreano) né `deploy-backups\` (copiali a parte se vuoi conservarli).
 Regole:
 
 1. fai un backup dopo `keygen` e dopo ogni giornata in cui emetti licenze;
@@ -252,6 +265,17 @@ cd docmapv1/hub
 python -m unittest discover -s tests -v
 ```
 
+I test del deploy FTP/FTPS usano un server FTP locale (`pyftpdlib`, più `pyOpenSSL` per FTPS), che **non** è una
+dipendenza del hub: installali in una cartella a parte e indicala con `DOCMAP_HUB_TEST_DEPS`, altrimenti quei test
+vengono saltati con un messaggio:
+
+```bash
+pip install --target /tmp/hubtestdeps pyftpdlib pyOpenSSL
+DOCMAP_HUB_TEST_DEPS=/tmp/hubtestdeps python -m unittest discover -s tests
+```
+
+I test degli ambienti locali avviano il vero server-python (servono `fastapi`, `uvicorn`), altrimenti si saltano.
+
 | File | Ruolo |
 |---|---|
 | `docmap_hub/licence.py` | formato e **verificatore offline standalone** (da copiare nel server) |
@@ -261,7 +285,300 @@ python -m unittest discover -s tests -v
 | `docmap_hub/cli.py` | comandi `python -m docmap_hub …` |
 | `docmap_hub/web.py` | pagina locale (solo 127.0.0.1, accesso con la passphrase, token CSRF) |
 | `docmap_hub/plans.json` | piani predefiniti |
+| `docmap_hub/vault.py` | (v0.2) cassaforte: scrypt + AES-256-GCM, custodia chiave, esportazione |
+| `docmap_hub/ports.py` | (v0.2) porte degli ambienti locali (intervallo, prova reale, spostamento automatico) |
+| `docmap_hub/runner.py` | (v0.2) avvio/arresto/stato degli ambienti `local-python` (server-python), ping |
+| `docmap_hub/envs.py` | (v0.2) ambienti: creazione, copia dati con `sync-remote`, demo, eliminazione, scadenze |
+| `docmap_hub/deploy.py` | (v0.2) deploy FTPS/SFTP: piano, backup, caricamento, controllo, ripristino, promote |
+| `docmap_hub/health.py` | (v0.2) controllo di tutti gli ambienti e righe del pannello di stato |
+| `docmap_hub/web_ops.py` | (v0.2) pagine Istanze & ambienti, Cassaforte, Deploy, Porte, Stato (operazioni lunghe in sottofondo) |
 
 Codici di uscita di `licence verify`: 0 valida, 1 in tolleranza, 2 sola lettura, 3 non valida.
 Per automazioni la passphrase può arrivare da `DOCMAP_HUB_PASSPHRASE` o `--passphrase-file`
 (da non usare sul PC di tutti i giorni). Mai committare chiavi private o passphrase.
+
+---
+
+## 8. Ambienti: staging, produzione e demo
+
+Ogni installazione (§2) può avere più **ambienti**:
+
+| Ambiente | A cosa serve |
+|---|---|
+| `production` | quello vero, usato dallo studio |
+| `staging` | la prova: qui si prova una nuova versione **prima** di toccare production |
+| `demo-…` | una copia temporanea (per esempio per mostrare il programma con i dati veri), con **scadenza** |
+
+E ogni ambiente è di un **tipo**:
+
+| Tipo | Dove gira | Cosa fa il hub |
+|---|---|---|
+| `web-php` | sul sito (SiteGround), cartella caricata via FTP | deploy FTPS/SFTP (§10), controllo dello stato |
+| `local-python` | **sul PC di Dave**, avviato dal hub | crea configurazione e chiave, avvia/ferma il server, porta automatica (§11), copia dei dati |
+| `studio-python` | sul PC dello studio (`installer-windows`) | solo controllo dello stato e origine dei dati per staging/demo |
+
+### 8.1 Prima volta: il hub trova il server Python
+
+Gli ambienti `local-python` usano il server di `docmapv1\server-python`. Una volta sola:
+
+```bat
+cd C:\percorso\docmapv1\server-python
+run_windows.bat --help
+cd ..\hub
+run_windows.bat server-check
+```
+
+Il primo comando crea `server-python\.venv` con FastAPI e uvicorn; `server-check` deve dire **Pronto**.
+Il hub cerca server-python nell'ordine: impostazione `server_python_dir`, variabile `DOCMAP_SERVER_PYTHON`, poi la
+cartella vicina `..\server-python` (se usi il hub dal repository o dallo zip completo non serve fare nulla). Il
+Python usato è `server-python\.venv\Scripts\python.exe` (oppure l'impostazione `server_python_exe`). Esempi:
+
+```bat
+run_windows.bat settings set server_python_dir C:\DocMapSviluppo\docmapv1\server-python
+run_windows.bat settings set docmap_dir C:\DocMapSviluppo\docmapv1
+run_windows.bat settings show
+```
+
+(`docmap_dir` serve per trovare `tools\build_deploy.py`, usato da deploy e dalla web app degli ambienti locali.)
+
+### 8.2 Registrare gli ambienti di un'installazione
+
+```bat
+run_windows.bat env add --instance "PC Rossi" --name production --kind web-php --url https://docmap.pr-it.it/studio-de/
+run_windows.bat env add --instance "PC Rossi" --name staging --kind web-php --url https://docmap.pr-it.it/studio-de-prova/
+run_windows.bat env list
+```
+
+L'indirizzo dell'API viene ricavato da solo (`…/server-php/api.php`); base path, slug e dominio per il deploy
+pure (si cambiano con `env set --base-path … --slug … --domain … --studio-name …`). Per il server in studio:
+
+```bat
+run_windows.bat env add --instance "PC Rossi" --name production --kind studio-python --url https://192.168.1.10:8443/ --ca C:\percorso\DocMap-CA-studio.crt
+```
+
+**Staging sul sito** = una seconda cartella sullo stesso hosting (es. `public_html/studio-de-prova`, protetta con
+password come la vera). Al primo deploy (§10) apri `…/studio-de-prova/server-php/setup.php` e crei utenti e chiave
+**di prova**: staging ha la sua configurazione e il suo database, mai quelli di production.
+
+### 8.3 Un ambiente sul PC di Dave (`local-python`)
+
+```bat
+run_windows.bat env create-local --instance "PC Rossi" --name staging
+run_windows.bat env start --instance "PC Rossi" --name staging
+```
+
+`create-local` riserva una porta libera (§11), esegue `python -m docmap_server setup` nella cartella
+`envs\<installazione>\staging\` (chiave AES nuova, utenti `admin` e `ponte-hub`), mette i **codici di accesso in
+cassaforte** (§9, non vengono stampati) e costruisce la web app. `start` lo avvia e stampa l'indirizzo, es.
+`http://127.0.0.1:18400/`: è DocMap completo (app + API), raggiungibile **solo da questo PC**. I codici per entrare:
+`vault reveal --instance "PC Rossi" --env staging --kind admin_token --label admin`.
+
+```bat
+run_windows.bat env status --instance "PC Rossi" --name staging
+run_windows.bat env stop --instance "PC Rossi" --name staging
+```
+
+Il server di un ambiente resta acceso anche se chiudi la finestra del hub: fermalo con `env stop`.
+
+### 8.4 Staging con i dati veri (copia da production)
+
+```bat
+run_windows.bat customer set --customer "Studio Rossi" --key-escrow on
+run_windows.bat vault set --instance "PC Rossi" --env production --kind admin_token --label ponte-hub --field user=ponte-hub --field token=?
+run_windows.bat env clone-data --instance "PC Rossi" --from production --to staging --dry-run
+run_windows.bat env clone-data --instance "PC Rossi" --from production --to staging
+```
+
+- La copia usa il ponte `sync-remote` di server-python (vedi `server-python\GUIDA-SYNC-WEB-LOCALE.md`) in **una sola
+  direzione** (production → staging): **production non viene mai modificata**, e la destinazione non può mai essere
+  production. Serve un codice di accesso di production con ruolo *Può modificare* (creato dall'app: Codici di
+  accesso › Nuovo codice, persona `ponte-hub`) salvato in cassaforte; se la cartella del sito è protetta da password,
+  anche `--kind basic_auth`.
+- Il profilo del ponte (`envs\…\staging\sync\clone-from-production.json`) **non contiene codici**: il hub li passa
+  al ponte in memoria.
+- Copiare i dati veri sul PC di Dave significa poterli leggere: per questo serve la **custodia attivata** per quel
+  cliente (§9.3), cioè il suo consenso scritto.
+
+### 8.5 Demo a scadenza
+
+```bat
+run_windows.bat env demo create --instance "PC Rossi" --days 7
+run_windows.bat env demo create --instance "PC Rossi" --days 3 --from none --label fiera
+run_windows.bat env purge-expired
+```
+
+`demo create` crea `demo-<data>-<codice>` (o `demo-fiera`), con porta, configurazione e dati copiati da production
+(`--from none` = demo vuota). Alla scadenza `env purge-expired` la ferma, libera la porta, elimina i suoi segreti e
+**sposta** la cartella in `_trash\envs\…` (non cancella niente: si svuota a mano quando vuoi). Conviene lanciarlo ogni
+giorno (Utilità di pianificazione: `run_windows.bat env purge-expired`).
+
+### 8.6 Eliminare un ambiente
+
+```bat
+run_windows.bat env delete --instance "PC Rossi" --name staging
+run_windows.bat env delete --instance "PC Rossi" --name production --production --confirm "PC Rossi"
+```
+
+Chiede conferma (`si`). Per **production** servono `--production` e il nome **esatto** dell'installazione. Un
+ambiente `web-php`/`studio-python` viene solo tolto dal registro (con i suoi segreti): **il sito o il server remoto
+non vengono toccati**. Un ambiente locale viene fermato e la sua cartella spostata in `_trash`.
+
+---
+
+## 9. Cassaforte delle credenziali (e GDPR)
+
+### 9.1 Cosa custodisce
+
+Per ogni ambiente:
+
+| Tipo (`--kind`) | Contenuto |
+|---|---|
+| `ftp` | host, porta, utente, password, protocollo `ftps` (predefinito) / `sftp` / `ftp`, cartella remota (`remote_path`); facoltativo `cafile` per un certificato privato |
+| `admin_token` | codice di accesso di un utente (etichetta = nome utente, es. `admin`, `ponte-hub`) |
+| `superadmin` | credenziali superadmin (utente e password) |
+| `basic_auth` | utente e password della cartella protetta del sito |
+| `db_config` | `config.json` / `config.php` del server, **con la `aes_key`** — solo con custodia attiva (§9.3) |
+| `note` | nota libera |
+
+### 9.2 Come si usa
+
+```bat
+run_windows.bat vault init
+run_windows.bat vault set --instance "PC Rossi" --env production --kind ftp --field host=ftp.docmap.pr-it.it --field user=dave@docmap.pr-it.it --field password=? --field remote_path=/docmap.pr-it.it/public_html/studio-de
+run_windows.bat vault set --instance "PC Rossi" --env production --kind basic_auth --field user=studio --field password=?
+run_windows.bat vault list
+run_windows.bat vault reveal --instance "PC Rossi" --env production --kind ftp --reason "verifica accesso"
+```
+
+`password=?` fa scrivere la password **senza mostrarla** (non resta nella cronologia del Prompt).
+`vault list` non mostra mai i segreti; `reveal` richiede **ogni volta** la passphrase e scrive nel registro delle
+operazioni chi/quando/perché (mai il segreto). Nella pagina: scheda *Cassaforte*, pulsante *mostra* con la passphrase.
+
+**La passphrase**: di serie è **la stessa della chiave di firma** (`keygen`), così la pagina apre la cassaforte con il
+login. Se ne vuoi una diversa, sceglila a `vault init`; per la pagina imposta la variabile `DOCMAP_HUB_VAULT_PASSPHRASE`
+o aprila dalla scheda *Cassaforte*. Cambio: `vault change-passphrase`.
+
+**Come è protetta**: chiave AES-256 ricavata dalla passphrase con **scrypt** (N=2^15, r=8, p=1, sale casuale);
+ogni segreto è cifrato con **AES-256-GCM** (nonce casuale) e legato alla sua riga (ambiente|tipo|etichetta): copiato
+su un'altra riga non si decifra. La passphrase non viene mai salvata. Nel file `registry.sqlite3` non c'è nulla di
+leggibile.
+
+**Backup**: `run_windows.bat backup` include la cassaforte (dentro il registro e anche come `vault-export.json`,
+sempre cifrata). Per portarla su un altro PC/hub: `vault export --out file.json` e, sull'altro hub, `vault import
+file.json` (chiede la passphrase di origine; gli ambienti si riconoscono dall'id dell'installazione e dal nome).
+
+### 9.3 Custodia della chiave (key escrow) e GDPR
+
+Chi possiede la `aes_key` di un'installazione **può leggere tutti i dati dello studio**. Per questo ogni cliente ha
+l'interruttore **custodia della chiave**, **spento di serie**. Finché è spento il hub:
+
+- **rifiuta** di custodire `db_config` e qualunque segreto che contenga `aes_key`;
+- prima di un deploy registra di `config.php` solo **dimensione e impronta** (per verificare che il deploy non lo
+  tocchi), senza conservarne il contenuto;
+- **non copia** i dati veri dello studio sul PC di Dave (`clone-data`, demo con dati).
+
+Si attiva solo con il **consenso scritto** del cliente (contratto/nomina di Dave a responsabile del trattamento,
+art. 28 GDPR), quando lo studio vuole che Dave possa recuperare la chiave per lui:
+
+```bat
+run_windows.bat customer set --customer "Studio Rossi" --key-escrow on
+run_windows.bat customer set --customer "Studio Rossi" --key-escrow off --purge
+```
+
+Spegnendola, `--purge` elimina dalla cassaforte le configurazioni già custodite. Con la custodia attiva il PC di Dave
+contiene dati leggibili: disco cifrato (BitLocker), account Windows con password, backup del hub cifrati e in luogo
+sicuro.
+
+---
+
+## 10. Deploy FTP/SFTP sicuro
+
+### 10.1 Il comando
+
+```bat
+run_windows.bat deploy --instance "PC Rossi" --env staging --dry-run
+run_windows.bat deploy --instance "PC Rossi" --env staging
+```
+
+Cosa succede, nell'ordine:
+
+1. **costruisce** la web app con `tools\build_deploy.py` in una cartella temporanea (base path, slug, dominio e
+   nome dello studio dell'ambiente);
+2. **legge il server**: elenco dei file e `DEPLOY-MANIFEST.txt` (le impronte sha256 dell'ultimo deploy) → mostra il
+   **piano**: file nuovi/modificati da caricare, file protetti, file obsoleti. Con `--dry-run` si ferma qui;
+3. chiede conferma (`si`; `--yes` per non chiederla) e fa **prima il backup** in
+   `deploy-backups\<installazione>\<ambiente>\<data-ora>\`: ogni file che sta per essere sostituito (`before\`),
+   tutta la cartella `server-php\data\` (`data\`), i `.htaccess`, e `backup.json` con il riepilogo;
+4. **carica** solo i file cambiati (nome temporaneo `.dmtmp` e poi rinomina; il manifest per ultimo);
+5. **controlla** `…/server-php/api.php?r=ping`: deve rispondere con la **stessa versione** appena costruita (5
+   tentativi). Se no → **ripristino automatico** dei file precedenti, e il comando lo dice chiaramente.
+
+**Mai toccati**: `server-php/config.php` (non è nel pacchetto), i file già presenti in `server-php/data/`,
+`server-php/setup.php` quando `config.php` esiste già (setup fatto: non si riapre), i `.htaccess` modificati a mano
+sul server (si sostituiscono solo con `--overwrite-htaccess`). Il deploy **non cancella mai** file sul server: gli
+obsoleti vengono solo elencati.
+
+### 10.2 Promuovere staging → production
+
+```bat
+run_windows.bat deploy --instance "PC Rossi" --env staging
+REM ... provi lo staging nel browser ...
+run_windows.bat promote --instance "PC Rossi" --dry-run
+run_windows.bat promote --instance "PC Rossi"
+```
+
+`promote` pubblica in production **esattamente** il codice verificato su staging (stessa versione e stessa impronta
+del codice, esclusi i file che dipendono dall'indirizzo come `docmap.config.js` e `.htaccess`). Se nel frattempo il
+codice è cambiato, rifiuta: rifai il deploy su staging e riprova.
+
+### 10.3 Protocolli
+
+| Protocollo | Quando | Note |
+|---|---|---|
+| `ftps` (predefinito) | SiteGround e quasi tutti gli hosting | FTP con TLS esplicito, certificato verificato, canale dati cifrato, TLS ≥ 1.2 |
+| `sftp` | se l'hosting dà accesso SSH (SiteGround: Site Tools › Dev › SSH) | serve `paramiko` (vedi `requirements.txt`). La prima volta il hub mostra l'impronta del server: controllala e ripeti con `--trust-host-key` |
+| `ftp` | **sconsigliato**: password e file in chiaro | rifiutato, salvo `--insecure-ftp` |
+
+Dalla pagina: scheda *Deploy* → *Prepara il piano* (prova) → leggi il piano → spunta e *Conferma il deploy*. Il deploy
+confermato deve pubblicare lo stesso codice della prova (entro 30 minuti), altrimenti chiede di rifarla.
+
+---
+
+## 11. Porte
+
+Gli ambienti `local-python` girano sul PC di Dave, ognuno su una porta diversa.
+
+- Le porte vengono da un intervallo, di serie **18400-18999** (`ports set-range 20000 20999` per cambiarlo).
+- Ogni porta riservata è scritta nel registro e il database **impedisce** che due ambienti abbiano la stessa porta.
+- Una porta è libera solo se nessuno la sta usando e si può aprire su 127.0.0.1 e 0.0.0.0 (e ::1 / :: con IPv6). Le
+  porte usate da altri programmi vengono saltate.
+- **All'avvio** (`env start`), se nel frattempo un altro programma ha preso la porta dell'ambiente, il hub la
+  **sposta da solo** su una libera, lo dice e lo scrive nel registro (`port.move`). Se la porta viene presa proprio
+  nell'istante dell'avvio, riprova su un'altra.
+- Eliminando un ambiente (o alla scadenza di una demo) la porta torna libera.
+
+```bat
+run_windows.bat ports list
+run_windows.bat ports check 18400
+run_windows.bat ports set-range 18400 18999
+```
+
+---
+
+## 12. Pannello di stato
+
+```bat
+run_windows.bat check-all
+run_windows.bat status
+run_windows.bat status --json
+```
+
+`check-all` interroga **tutti** gli ambienti in parallelo (`?r=ping`, timeout 5 secondi ciascuno: un sito lento non
+blocca gli altri) e salva l'esito; `status` mostra per ogni installazione e ambiente: stato, raggiungibile sì/no (e
+perché), versione, scadenza della licenza con i giorni rimasti, ultimo backup fatto dal hub (prima di un deploy) e
+ultimo controllo. Se le cartelle dei siti sono protette da password, `check-all` usa le `basic_auth` della cassaforte
+quando la passphrase è disponibile (`DOCMAP_HUB_PASSPHRASE`); altrimenti un sito protetto risulta "protetto (401)",
+che vuol dire comunque raggiungibile.
+
+Nella pagina: scheda *Stato* → *Controlla tutto adesso*: il controllo gira in sottofondo e la pagina non si blocca.
+
