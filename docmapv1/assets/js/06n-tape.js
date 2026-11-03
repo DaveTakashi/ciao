@@ -490,6 +490,7 @@ const QRT_FIELDS = ['std'].concat(TAPE_FIELDS_B.filter(k => k !== 'none'));
         (sec ? '<div class="ln" style="font-size:' + MM(fs) + ';line-height:1.15;font-weight:600;margin-top:' + MM(fs * 0.2) + '">' + esc(sec) + '</div>' : '') + '</div></div>';
   };
   const T = typeof labelTemplate === 'function' ? labelTemplate('qr') : null;
+  if (T) T.recommended = (T.recommended || []).concat(BUILTIN_PRESETS.filter(x => x.mini).map(x => x.id));   // small sticker sheets → "Solo QR"
   if (T && !T.options) T.options = (P) => {
     const sel = (k, v, list) => '<select class="inp" data-qrt="' + k + '" id="qrt-' + k + '" style="min-height:36px">' + list.map(x => '<option value="' + x + '"' + (v === x ? ' selected' : '') + '>' + esc(t(x === 'std' ? 'qrt_std' : 'tap_f_' + x)) + '</option>').join('') + '</select>';
     const v1 = QRT_FIELDS.includes(P.qrText) ? P.qrText : 'std';

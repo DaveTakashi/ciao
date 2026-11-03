@@ -973,7 +973,8 @@ const sec = (n) => console.log('\n== ' + n);
   await p.evaluate(() => { document.getElementById('print-root').innerHTML = ''; });
   // every preset × info (± contents label) renders without overflow
   const tBad = [];
-  for (const pr of await p.evaluate(() => BUILTIN_PRESETS.map(x => x.id))) for (const pair of [false, true]){
+  // v12.3 'mini' sheets (A4 stickers ≤ 25 mm high) are for the "Solo QR" template, checked in @@STREAM-V123@@
+  for (const pr of await p.evaluate(() => BUILTIN_PRESETS.filter(x => !x.mini).map(x => x.id))) for (const pair of [false, true]){
     const r = await tMount(pr, {info:{items:2, pair}});
     const over = r.labs.filter(l => l.over || !l.breaksOk || (l.name && l.fs < 1.6));
     if (r.nan || over.length || !r.labs.length || (pair && !r.cl && r.pages < 2)) /* one-label sheets: contents label on the next sheet */ tBad.push({pr, pair, nan:r.nan, n:r.labs.length, over:over.map(l => [l.name.slice(0, 24), l.fs])});
@@ -4911,7 +4912,7 @@ const sec = (n) => console.log('\n== ' + n);
       const idset = new Set(TAPE_FORMATS.map(f => f.id));
       r.cat = TAPE_FORMATS.length >= 45 && idset.size === TAPE_FORMATS.length && TAPE_FORMATS.every(f => f.across > 0 && f.along >= 0 && (!f.pa || f.pa <= f.across) && f.brand && f.name);
       r.brands = ['Brother', 'Dymo', 'Zebra', 'Epson', 'Niimbot', 'Phomemo'].every(b => TAPE_FORMATS.some(f => f.brand === b));
-      r.a4small = ['l7651', 'l7658', 'l4732', 'l7636', 'l7654', 'l7157'].every(id => { const P = BUILTIN_PRESETS.find(x => x.id === id); if (!P) return false; const right = P.marginLeft + P.cols * P.w + (P.cols - 1) * P.gapX, bottom = P.marginTop + P.rows * P.h + (P.rows - 1) * P.gapY; return right <= 210.01 && bottom <= 297.01 && P.marginLeft >= 3 && P.marginTop >= 3; });
+      r.a4small = ['l7651', 'l7658', 'l4732', 'l7636', 'l7654', 'l7157'].every(id => { const P = BUILTIN_PRESETS.find(x => x.id === id); if (!P || !P.mini || !tplRecommended(labelTemplate('qr'), id)) return false; const right = P.marginLeft + P.cols * P.w + (P.cols - 1) * P.gapX, bottom = P.marginTop + P.rows * P.h + (P.rows - 1) * P.gapY; return right <= 210.01 && bottom <= 297.01 && P.marginLeft >= 3 && P.marginTop >= 3; });
       return r;
     });
     ok(T1.s1 && T1.s2 && T1.s3 && T1.s4 && T1.cat && T1.brands && T1.a4small, 'v12.3: free-text format search (brand, code, "62x100" in any order, "24 mm", decimal comma) over tapes, rolls and A4 sheets; catalogue sane; small A4 sticker sheets fit the page', T1);
