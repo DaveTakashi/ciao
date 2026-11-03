@@ -34,6 +34,7 @@ log = logging.getLogger("docmap")
 
 DM_API = "docmap-php"
 DM_API_VERSION = 1
+DM_APP_VERSION = "26.12.4"   # v12.4: DocMap release these server files belong to (ping app_version; the app compares it with its own)
 DM_TYPES = ("binder", "client", "location", "archive", "status_event")   # v11: + location · v12: + archive + status_event
 DM_ROLES = {"viewer": 1, "editor": 2, "admin": 3}
 DM_MOBILE_FIELDS = ("archive_state", "contents_items", "room_code", "cabinet_code", "shelf_code", "sector_code", "notes",
@@ -644,7 +645,7 @@ def jr_payload(ctx, it):
 # ---------------------------------------------------------------- routes
 def r_ping():
     return {"ok": True, "api": DM_API, "version": DM_API_VERSION, "schema": DM_SCHEMA, "features": ["journal", "device_info", "locations", "archives", "access_log", "status_events"],
-            "server_time": now_iso(), "php": PING_RUNTIME}
+            "server_time": now_iso(), "php": PING_RUNTIME, "app_version": DM_APP_VERSION}
 
 
 def r_pull(ctx, who=None):
