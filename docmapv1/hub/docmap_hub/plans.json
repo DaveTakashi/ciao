@@ -1,0 +1,47 @@
+{
+  "_note": "Piani predefiniti per 'licence issue'. limits: null = illimitato. Le opzioni della riga di comando possono sovrascrivere ogni valore. Modificabile: una copia in <cartella dati>/plans.json ha la precedenza su questo file.",
+  "plans": {
+    "trial": {
+      "label": "Prova gratuita",
+      "duration_months": 1,
+      "grace_days": 7,
+      "limits": {"users": 2, "binders": 300, "archives": 1},
+      "features": ["mobile_scan"]
+    },
+    "studio": {
+      "label": "Studio",
+      "duration_months": 12,
+      "grace_days": 30,
+      "limits": {"users": 5, "binders": 5000, "archives": 3},
+      "features": ["mobile_scan"]
+    },
+    "studio_pro": {
+      "label": "Studio Pro",
+      "duration_months": 12,
+      "grace_days": 30,
+      "limits": {"users": 15, "binders": 20000, "archives": 10},
+      "features": ["mobile_scan", "sync_server", "status_events", "ai_credits"]
+    },
+    "conto_terzi": {
+      "label": "Archiviazione conto terzi",
+      "duration_months": 12,
+      "grace_days": 30,
+      "limits": {"users": 30, "binders": 100000, "archives": 50},
+      "features": ["mobile_scan", "sync_server", "status_events", "ai_credits"]
+    },
+    "appliance": {
+      "label": "Appliance (PC dedicato)",
+      "duration_months": 12,
+      "grace_days": 30,
+      "limits": {"users": 10, "binders": 20000, "archives": 5},
+      "features": ["mobile_scan", "sync_server", "status_events"]
+    },
+    "reseller": {
+      "label": "Rivenditore (istanza propria)",
+      "duration_months": 12,
+      "grace_days": 30,
+      "limits": {"users": 50, "binders": null, "archives": null},
+      "features": ["mobile_scan", "sync_server", "status_events", "ai_credits", "white_label"]
+    }
+  }
+}
