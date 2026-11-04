@@ -188,6 +188,7 @@ function shell() {
   app().innerHTML = `<div class="shell">
     <aside class="side">
       <div class="brand"><div class="logo-mark">D</div><div><b>DocMap Hub</b><small>Gestione clienti e installazioni</small></div></div>
+      <a class="btn ai" href="#/nuovo-progetto" style="justify-content:center;margin:0 4px 14px" data-r="nuovo-progetto">${ic('sparkle')} Crea progetto con AI</a>
       <nav id="nav"></nav>
       <div class="sec-t">Sistema</div>
       <nav><a class="nv" data-r="impostazioni" href="#/impostazioni">${ic('gear')}Impostazioni</a>
@@ -250,7 +251,7 @@ async function route() {
   S.route = parts;
   const page = $('#page');
   const r = parts[0] || '';
-  setActive(r === 'clienti' ? 'clienti' : r);
+  setActive(r);
   page.innerHTML = '<div class="empty">Caricamento…</div>';
   try {
     if (r === '') await pOverview(page);
@@ -261,6 +262,7 @@ async function route() {
     else if (r === 'deploy') await pDeploys(page);
     else if (r === 'attivita') await pEvents(page);
     else if (r === 'impostazioni') await pSettings(page);
+    else if (r === 'nuovo-progetto') await pPipeline(page, parts[1], parts[2]);
     else page.innerHTML = '<div class="empty"><div class="big">Pagina non trovata</div></div>';
   } catch (e) {
     page.innerHTML = `<div class="card"><div class="empty"><div class="big">Non riesco a caricare la pagina</div>${esc(e.message)}</div></div>`;
@@ -281,7 +283,7 @@ async function pOverview(page) {
   const kpi = (l, v, s, i) => `<div class="card kpi"><div class="l">${ic(i)}${esc(l)}</div><div class="v">${esc(v)}</div><div class="s">${s}</div></div>`;
   page.innerHTML = `
     <div class="ph"><div><h1>Buongiorno, ecco la situazione</h1><div class="sub">Clienti, installazioni e licenze in un colpo d'occhio.</div></div>
-      <div class="btns"><button class="btn" id="new-cust">${ic('plus')} Nuovo cliente</button></div></div>
+      <div class="btns"><button class="btn" id="new-cust">${ic('plus')} Nuovo cliente</button><a class="btn ai" href="#/nuovo-progetto">${ic('sparkle')} Crea progetto con AI</a></div></div>
     <div class="grid g4 mb">
       ${kpi('Clienti', k.customers, `${k.projects} progetti`, 'users')}
       ${kpi('Siti e server online', `${k.envs_online}/${k.envs}`, k.envs_down ? `<span style="color:var(--bad)">${k.envs_down} non raggiungibili</span>` : 'nessun problema rilevato', 'server')}
@@ -298,7 +300,7 @@ async function pOverview(page) {
   $('#new-cust').onclick = newCustomer;
   $$('.al', page).forEach((el) => (el.onclick = () => {
     const a = d.alerts[+el.dataset.i];
-    if (a.kind === 'licence') openLicence(a.id); else if (a.kind === 'env') openEnv(a.id); else if (a.customer_id) location.hash = `#/clienti/${a.customer_id}`;
+    if (a.kind === 'licence') openLicence(a.id); else if (a.kind === 'env') openEnv(a.id); else if (a.kind === 'draft') location.hash = `#/nuovo-progetto/${a.id}/cliente`; else if (a.customer_id) location.hash = `#/clienti/${a.customer_id}`;
   }));
 }
 const evSubj = (ev) => (ev.subject ? ` <span style="color:var(--mut)">· ${esc(ev.subject)}</span>` : ev.entity_id ? ` <span class="tag mono">${esc(String(ev.entity_id).slice(0, 12))}</span>` : '');
@@ -312,7 +314,7 @@ async function pCustomers(page) {
   const list = await api('/api/customers');
   let filter = sessionStorage.getItem('hub.cf') || 'all'; let q = '';
   page.innerHTML = `<div class="ph"><div><h1>Clienti</h1><div class="sub">Apri un cliente per vedere progetti, siti, postazioni, licenze e storico.</div></div>
-    <div class="btns"><button class="btn pri" id="new-cust">${ic('plus')} Nuovo cliente</button></div></div>
+    <div class="btns"><button class="btn" id="new-cust">${ic('plus')} Nuovo cliente</button><a class="btn ai" href="#/nuovo-progetto">${ic('sparkle')} Crea progetto con AI</a></div></div>
     <div class="card"><div class="toolbar"><input type="search" id="q" placeholder="Cerca per nome, P.IVA, città, Codice Multi…">
       <div class="chips">${[['all', 'Tutti'], ['bad', 'Con problemi'], ['expiring', 'In scadenza'], ['prospect', 'Trattative']].map(([v, t]) => `<button class="chip" data-f="${v}">${t}</button>`).join('')}</div></div>
       <div class="tbl-wrap" id="tbl"></div></div>`;
@@ -455,16 +457,21 @@ function licMini(lics) {
 }
 
 function tWorkstations(el, d) {
-  el.innerHTML = d.projects.map((p) => {
+  const hasSede = d.projects.some((p) => p.instances.some((i) => i.role === 'sede'));
+  const pk = d.packages || {};
+  const sede = hasSede ? `<div class="card mb"><div class="hd"><span style="color:var(--acc)">${ic('building')}</span><h3>Server di sede (il primo PC)</h3><div class="btns">${pk.sede ? `<a class="btn pri sm" href="/scarica/sede/${esc(d.customer.id)}">${ic('download')} Scarica l'installer (${Math.round(pk.sede.size / 1048576 * 10) / 10} MB)</a>` : ''}</div></div>
+    <div class="bd" style="color:var(--fg2)">${pk.sede ? `Installer personalizzato con licenza e chiave pubblica: <span class="mono">${esc(pk.sede.name)}</span>. Va sul PC che fa da server; poi le postazioni qui sotto si collegano a lui.` : 'Installer non ancora preparato: confermalo da «Crea progetto con AI» con «Prepara subito i pacchetti», oppure da Strumenti classici, Nuovo cliente guidato.'}</div></div>` : '';
+  el.innerHTML = sede + d.projects.map((p) => {
     const ws = p.workstations;
     return `<div class="card mb"><div class="hd"><h3>${esc(p.name)}</h3><div class="btns"><button class="btn pri sm" data-addws="${esc(p.id)}">${ic('plus')} Aggiungi postazione</button></div></div>
       <div class="bd flush">${ws.length ? `<div class="tbl-wrap"><table class="t"><thead><tr><th>Postazione</th><th>Etichetta</th><th>Stato</th><th>Client</th><th>Creata</th><th></th></tr></thead><tbody>
       ${ws.map((w) => `<tr><td><div class="cellname"><div class="av" style="background:var(--acc-soft);color:var(--acc)">${ic('monitor')}</div><div><b>${esc(w.name)}</b><small class="mono">${esc(w.id)}</small></div></div></td>
         <td>${w.tag ? `<span class="tag">${esc(w.tag)}</span>` : '—'}</td><td>${w.status === 'revoked' ? '<span class="pill bad">Revocata</span>' : '<span class="pill ok">Attiva</span>'}</td>
         <td>${w.built_at ? `generato ${ago(w.built_at)}` : '<span style="color:var(--mut)">da generare</span>'}</td><td>${fmtDate(w.created_at)}</td>
-        <td class="r"><div class="btns" style="justify-content:flex-end">${w.status !== 'revoked' ? `<button class="btn sm" data-editws="${esc(w.id)}">${ic('edit')}</button><button class="btn sm" disabled title="Arriva con la Pipeline 1 (prossimo aggiornamento)">${ic('download')} Genera client</button>` : ''}</div></td></tr>`).join('')}
+        <td class="r"><div class="btns" style="justify-content:flex-end">${w.status !== 'revoked' ? `<button class="btn sm" data-editws="${esc(w.id)}">${ic('edit')}</button><a class="btn sm pri" href="/scarica/postazione/${esc(w.id)}" data-dl="1">${ic('download')} ${w.built_at ? 'Scarica di nuovo' : 'Genera e scarica client'}</a>` : ''}</div></td></tr>`).join('')}
       </tbody></table></div>` : `<div class="empty"><div class="big">Nessuna postazione</div>Aggiungi i PC dello studio con un nome riconoscibile, es. «PC Luigi» o «Sala studio».</div>`}</div></div>`;
   }).join('');
+  $$('[data-dl]', el).forEach((a) => a.addEventListener('click', () => setTimeout(route, 1500)));
   $$('[data-addws]', el).forEach((b) => (b.onclick = () => modal({
     title: 'Nuova postazione', submit: 'Aggiungi',
     body: `${fld('name', 'Nome', { req: true, attrs: 'required', ph: 'PC Luigi' })}${fld('tag', 'Etichetta', { ph: 'Sala studio, Reception, Portatile…' })}`,
@@ -490,13 +497,18 @@ function tPublish(el, d) {
     <div class="card mb"><div class="hd"><h3>Siti e server</h3></div><div class="bd flush">${envs.length ? `<div class="tbl-wrap"><table class="t"><thead><tr><th>Ambiente</th><th>Indirizzo</th><th>Stato</th><th>Versione</th><th>Ultimo deploy</th><th></th></tr></thead><tbody>
       ${envs.map((e) => `<tr class="click" data-env="${esc(e.id)}"><td><div class="cellname"><div class="av" style="background:var(--acc-soft);color:var(--acc)">${ic(envIcon(e))}</div><div><b>${esc(e.name_it)}</b><small>${esc(e.instance_label)} · ${esc(e.kind_it)}</small></div></div></td>
         <td class="mono">${e.url ? esc(e.url) : '—'}</td><td>${pill(ENV_STATUS, e.status)}</td><td>${esc(e.app_version || e.deployed_version || '—')}</td><td>${e.last_deploy_at ? ago(e.last_deploy_at) : 'mai'}</td>
-        <td class="r">${e.kind === 'web-php' ? `<button class="btn sm" data-plan="${esc(e.id)}">${ic('rocket')} ${e.name === 'production' ? 'Deploy produzione' : 'Deploy staging'}</button>` : ''}</td></tr>`).join('')}
+        <td class="r"><div class="btns" style="justify-content:flex-end">${e.kind === 'web-php' ? `${(d.packages?.web || {})[e.id] ? `<a class="btn sm" href="/scarica/web/${esc(e.id)}" title="Pacchetto da caricare a mano (senza FTP)">${ic('download')} Autoinstall</a>` : `<button class="btn sm" data-pack="${esc(e.id)}" title="Costruisce lo zip del sito da caricare a mano">${ic('download')} Prepara autoinstall</button>`}<button class="btn pri sm" data-plan="${esc(e.id)}">${ic('rocket')} ${e.name === 'production' ? 'Deploy produzione' : 'Deploy staging'}</button>` : ''}</div></td></tr>`).join('')}
       </tbody></table></div>` : '<div class="empty"><div class="big">Nessun sito o server</div>Registra gli ambienti da «Strumenti classici → Istanze &amp; ambienti» oppure con «Nuovo cliente» guidato.</div>'}</div></div>
     ${web.some((e) => e.name === 'staging') && web.some((e) => e.name === 'production') ? `<div class="card mb"><div class="hd"><h3>Promuovi staging → produzione</h3></div><div class="bd"><p style="margin-top:0;color:var(--fg2)">In produzione va solo la stessa versione già verificata sullo staging. Prima vedi il piano (nessun file toccato), poi confermi.</p>
       ${[...new Set(web.map((e) => e.instance_id))].map((iid) => { const s = web.find((e) => e.instance_id === iid && e.name === 'staging'); const p = web.find((e) => e.instance_id === iid && e.name === 'production'); return s && p ? `<button class="btn pri" data-promote="${esc(iid)}">${ic('rocket')} Prepara la promozione di ${esc(s.instance_label)}</button>` : ''; }).join(' ')}</div></div>` : ''}
     <div class="card"><div class="hd"><h3>Ultimi deploy</h3></div><div class="bd flush">${deployTable(d.deploys)}</div></div>`;
   $$('tr.click', el).forEach((tr) => (tr.onclick = (e) => { if (!e.target.closest('button')) openEnv(tr.dataset.env); }));
   $$('[data-plan]', el).forEach((b) => (b.onclick = () => classicPost('/deploy/plan', { env: b.dataset.plan })));
+  $$('[data-pack]', el).forEach((b) => (b.onclick = async () => {
+    b.disabled = true; b.textContent = 'Preparo…';
+    try { const r = await api(`/api/envs/${b.dataset.pack}/package`, {}); await waitJob(r.job); toast('Autoinstall pronto: premi «Autoinstall» per scaricarlo.'); route(); }
+    catch (e) { toast(e.message, true); b.disabled = false; b.textContent = 'Prepara autoinstall'; }
+  }));
   $$('[data-promote]', el).forEach((b) => (b.onclick = () => classicPost('/promote/plan', { instance: b.dataset.promote })));
 }
 function deployTable(list) {
@@ -609,6 +621,204 @@ async function openLicence(id) {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Pipeline 1: Crea progetto con AI
+// ---------------------------------------------------------------------------------------------
+const STEPS = [
+  ['cliente', 'Cliente', ['cliente']],
+  ['progetto', 'Progetto e licenza', ['progetto', 'licenza']],
+  ['online', 'Online e FTP', ['online']],
+  ['sede', 'Sede e postazioni', ['sede', 'postazioni']],
+  ['utenti', 'Utenti e archivi', ['utenti_iniziali', 'archivi', 'domande_aperte']],
+  ['riepilogo', 'Riepilogo e conferma', []],
+];
+async function copyText(t) {
+  try { await navigator.clipboard.writeText(t); return true; } catch {
+    const ta = document.createElement('textarea'); ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select();
+    let ok = false; try { ok = document.execCommand('copy'); } catch { } ta.remove(); return ok;
+  }
+}
+function download(name, text, type = 'application/json') {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+async function pPipeline(page, draftId, step) {
+  if (!S.pp) S.pp = await api('/api/pipeline/prompt');
+  if (draftId) return pDraft(page, draftId, step || 'cliente');
+  setCrumbs([['Crea progetto con AI']]);
+  const drafts = (await api('/api/drafts')).filter((d) => d.status !== 'confirmed');
+  page.innerHTML = `<div class="ph"><div><h1>${ic('sparkle')} Crea progetto con AI</h1><div class="sub">Funziona con qualsiasi AI (Claude, ChatGPT, Gemini, un modello locale o un agente con accesso ai tuoi file). L'hub non chiama nessuna AI e le password non passano mai dall'AI.</div></div></div>
+    <div class="grid g2">
+      <div class="card"><div class="hd"><span class="pill info">1</span><h3>Copia il prompt e parla con l'AI</h3></div><div class="bd">
+        <p style="margin-top:0;color:var(--fg2)">Il prompt contiene il contesto di DocMap, le regole, i piani di licenza, il <b>modello JSON completo</b> e un esempio. Incollalo in una chat nuova: l'AI ti fa le domande e alla fine ti dà il JSON pronto.</p>
+        <div class="btns"><button class="btn ai" id="copy">${ic('sparkle')} Copia prompt per l'AI</button><button class="btn" id="dl-tpl">${ic('download')} Modello JSON</button><button class="btn ghost" id="show">Vedi il prompt</button></div>
+        <textarea id="ptxt" rows="14" readonly hidden style="margin-top:12px">${esc(S.pp.prompt)}</textarea></div></div>
+      <div class="card"><div class="hd"><span class="pill info">2</span><h3>Incolla il JSON e genera la bozza</h3></div><div class="bd">
+        <div class="err-box" id="perr" hidden></div>
+        <textarea id="pjson" rows="12" placeholder='Incolla qui la risposta dell&#39;AI (anche tutto il messaggio: trovo io il JSON).'></textarea>
+        <div class="btns" style="margin-top:12px"><button class="btn pri" id="gen">${ic('sparkle')} Genera bozza</button><button class="btn ghost" id="ex">Prova con l'esempio</button></div></div></div>
+    </div>
+    <div class="card mt"><div class="hd"><h3>Bozze in corso</h3><span class="pill mut">${drafts.length}</span></div><div class="bd flush">
+      ${drafts.length ? `<div class="alist">${drafts.map((d) => `<div class="al" data-d="${esc(d.id)}">${dot('warn')}<div><b>${esc(d.title || 'Senza titolo')}</b><small>aggiornata ${ago(d.updated_at)}</small></div></div>`).join('')}</div>` : '<div class="empty">Nessuna bozza aperta.</div>'}</div></div>`;
+  $('#copy').onclick = async () => toast((await copyText(S.pp.prompt)) ? 'Prompt copiato: incollalo in una nuova chat con l\'AI.' : 'Copia non riuscita: usa «Vedi il prompt» e copia a mano.', false);
+  $('#dl-tpl').onclick = () => download('docmap-progetto-modello.json', JSON.stringify(S.pp.template, null, 2));
+  $('#show').onclick = () => { const t = $('#ptxt'); t.hidden = !t.hidden; };
+  $('#ex').onclick = () => { $('#pjson').value = JSON.stringify(S.pp.example, null, 2); };
+  $('#gen').onclick = async () => {
+    const eb = $('#perr'); eb.hidden = true;
+    try { const d = await api('/api/drafts', { text: $('#pjson').value }); S.draft = d; toast('Bozza generata: controlla le maschere.'); location.hash = `#/nuovo-progetto/${d.id}/cliente`; }
+    catch (e) { eb.textContent = e.message; eb.hidden = false; }
+  };
+  $$('[data-d]', page).forEach((el) => (el.onclick = () => (location.hash = `#/nuovo-progetto/${el.dataset.d}/cliente`)));
+}
+
+const getP = (o, path) => path.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
+function setP(o, path, v) { const ks = path.split('.'); let a = o; ks.slice(0, -1).forEach((k) => (a = a[k])); a[ks[ks.length - 1]] = v; }
+function pf(path, label, { type = 'text', hint = '', ph = '', full = false } = {}) {
+  const v = getP(S.draft.data, path);
+  return `<div class="f"${full ? ' style="grid-column:1/-1"' : ''} data-wrap="${esc(path)}"><label>${esc(label)}</label><input data-p="${esc(path)}" data-t="${type}" type="${type === 'int' ? 'number' : type}" value="${esc(v ?? '')}" placeholder="${esc(ph)}">${hint ? `<div class="hint">${hint}</div>` : ''}<div class="hint perr" style="color:var(--bad)"></div></div>`;
+}
+function psel(path, label, opts, hint = '') {
+  const v = getP(S.draft.data, path);
+  return `<div class="f" data-wrap="${esc(path)}"><label>${esc(label)}</label><select data-p="${esc(path)}">${opts.map(([k, t]) => `<option value="${esc(k)}"${String(k) === String(v) ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select>${hint ? `<div class="hint">${hint}</div>` : ''}<div class="hint perr" style="color:var(--bad)"></div></div>`;
+}
+function issuesFor(prefixes) {
+  const c = S.draft.check, m = (x) => prefixes.some((p) => x.path === p || x.path.startsWith(p + '.'));
+  return { e: c.errors.filter(m), w: c.warnings.filter(m) };
+}
+async function pDraft(page, id, step) {
+  if (!S.draft || S.draft.id !== id) S.draft = await api(`/api/drafts/${encodeURIComponent(id)}`);
+  const D = S.draft;
+  setCrumbs([['Crea progetto con AI', '#/nuovo-progetto'], [D.title || 'Bozza']]);
+  const confirmed = D.status === 'confirmed';
+  page.innerHTML = `<div class="ph"><div><h1>${esc(D.title || 'Bozza')}</h1><div class="sub">Bozza generata dal JSON · salvata da sola a ogni modifica · ${confirmed ? '<span class="pill ok">Confermata</span>' : '<span class="pill warn">Da confermare</span>'}</div></div>
+      <div class="btns"><button class="btn ghost" id="dl">${ic('download')} Esporta JSON</button>${confirmed && D.result ? `<a class="btn pri" href="#/clienti/${esc(D.result.customer_id)}">Apri il cliente</a>` : `<button class="btn danger" id="del">Elimina bozza</button>`}</div></div>
+    <div class="grid" style="grid-template-columns:240px minmax(0,1fr);align-items:start" id="dgrid">
+      <div class="card"><div class="bd flush" id="stepper"></div></div>
+      <div class="card"><div class="hd"><h3 id="st-title"></h3><div class="btns" id="st-badges"></div></div><div class="bd" id="st-body"></div>
+        <div class="ft" style="display:flex;gap:8px;justify-content:space-between;padding:12px 16px;border-top:1px solid var(--line);background:var(--panel2);border-radius:0 0 10px 10px"><button class="btn" id="prev">Indietro</button><button class="btn pri" id="next">Avanti</button></div></div>
+    </div>`;
+  if (window.innerWidth < 820) $('#dgrid').style.gridTemplateColumns = '1fr';
+  $('#dl').onclick = () => download(`${(D.title || 'progetto').replace(/[^\w-]+/g, '-')}.json`, JSON.stringify(D.data, null, 2));
+  const del = $('#del'); if (del) del.onclick = async () => { if (!confirm('Eliminare questa bozza?')) return; await api(`/api/drafts/${D.id}/delete`, {}); S.draft = null; location.hash = '#/nuovo-progetto'; };
+  const idx = Math.max(0, STEPS.findIndex((s) => s[0] === step));
+  const drawStepper = () => {
+    $('#stepper').innerHTML = `<div class="alist">${STEPS.map(([k, t, pre], i) => {
+      const is = issuesFor(pre); const st = is.e.length ? 'bad' : is.w.length ? 'warn' : 'ok';
+      return `<a class="al" href="#/nuovo-progetto/${esc(D.id)}/${k}" style="text-decoration:none;color:inherit;${i === idx ? 'background:var(--acc-soft)' : ''}">${k === 'riepilogo' ? dot(S.draft.check.errors.length ? 'bad' : 'ok') : dot(st)}<div><b>${i + 1}. ${esc(t)}</b><small>${k === 'riepilogo' ? (S.draft.check.errors.length ? S.draft.check.errors.length + ' da correggere' : 'pronto') : is.e.length ? is.e.length + ' errori' : is.w.length ? is.w.length + ' avvisi' : 'ok'}</small></div></a>`;
+    }).join('')}</div>`;
+  };
+  const markErrors = () => {
+    $$('[data-wrap]', page).forEach((w) => { const p = w.dataset.wrap; const e = S.draft.check.errors.find((x) => x.path === p); const pe = $('.perr', w); if (pe) pe.textContent = e ? e.msg : ''; });
+    const pre = STEPS[idx][2]; const is = issuesFor(pre);
+    $('#st-badges').innerHTML = (is.e.length ? `<span class="pill bad">${is.e.length} errori</span>` : '') + (is.w.length ? `<span class="pill warn">${is.w.length} avvisi</span>` : '');
+    const box = $('#st-issues'); if (box) box.innerHTML = is.e.concat(is.w).filter((x) => !$(`[data-wrap="${CSS.escape(x.path)}"]`, page)).map((x) => `<div class="note ${is.e.includes(x) ? '' : 'warn'}" style="margin-bottom:6px${is.e.includes(x) ? ';background:var(--bad-soft);color:var(--bad)' : ''}">${esc(x.msg)}</div>`).join('');
+    drawStepper();
+  };
+  let timer;
+  const save = () => {
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      try { const r = await api(`/api/drafts/${D.id}`, { data: S.draft.data }); S.draft.check = r.check; S.draft.title = r.title; markErrors(); }
+      catch (e) { toast(e.message, true); }
+    }, 350);
+  };
+  const bind = () => {
+    if (confirmed) $$('input,select,textarea', $('#st-body')).forEach((el) => { if (!el.dataset.keep) el.disabled = true; });
+    $$('[data-p]', page).forEach((el) => {
+      el.oninput = el.onchange = () => {
+        let v = el.type === 'checkbox' ? el.checked : el.value;
+        if (el.dataset.t === 'int') v = el.value === '' ? null : parseInt(el.value, 10);
+        if (el.dataset.t === 'list') v = el.value.split(',').map((x) => x.trim()).filter(Boolean);
+        setP(S.draft.data, el.dataset.p, v); save();
+      };
+    });
+  };
+  const d = S.draft.data;
+  const body = $('#st-body'); $('#st-title').textContent = `${idx + 1}. ${STEPS[idx][1]}`;
+  const listRows = (key, cols, empty) => {
+    const rows = d[key];
+    return `<div class="tbl-wrap"><table class="t"><thead><tr>${cols.map((c) => `<th>${esc(c[1])}</th>`).join('')}<th></th></tr></thead><tbody>
+      ${rows.map((r, i) => `<tr>${cols.map(([k, , opts]) => `<td>${opts ? `<select data-p="${key}.${i}.${k}">${opts.map(([v, t]) => `<option value="${v}"${r[k] === v ? ' selected' : ''}>${t}</option>`).join('')}</select>` : `<input data-p="${key}.${i}.${k}" value="${esc(r[k] || '')}">`}</td>`).join('')}
+        <td class="r"><button class="btn ghost sm" data-rm="${key}.${i}" title="Togli">${ic('x')}</button></td></tr>`).join('') || `<tr><td colspan="${cols.length + 1}" style="color:var(--mut)">${esc(empty)}</td></tr>`}</tbody></table></div>
+      <button class="btn sm" style="margin-top:8px" data-add="${key}">${ic('plus')} Aggiungi</button>`;
+  };
+  const k = STEPS[idx][0];
+  if (k === 'cliente') {
+    body.innerHTML = `<div class="frow">${pf('cliente.ragione_sociale', 'Ragione sociale *')}${pf('cliente.partita_iva', 'Partita IVA / C.F.')}</div>
+      <div class="frow">${pf('cliente.email', 'Email')}${pf('cliente.pec', 'PEC')}</div><div class="frow">${pf('cliente.referente', 'Referente')}${pf('cliente.telefono', 'Telefono')}</div>
+      <div class="frow">${pf('cliente.indirizzo', 'Indirizzo')}${pf('cliente.citta', 'Città')}</div><div class="frow">${pf('cliente.provincia', 'Provincia')}${pf('cliente.codice_sdi', 'Codice SDI')}</div>
+      <div class="frow">${pf('cliente.codice_multi', 'Codice Multi')}${psel('cliente.stato', 'Stato', [['active', 'Cliente attivo'], ['prospect', 'Trattativa']])}</div>
+      <div class="frow">${psel('cliente.rivenditore', 'Rivenditore', [['', 'Nessuno (vendita diretta)']].concat((S.pp.resellers || []).map((r) => [r, r])))}${pf('cliente.colore', 'Colore (#RRGGBB)', { ph: '#2f5bea' })}</div>
+      <div class="f" data-wrap="cliente.etichette"><label>Etichette (separate da virgola)</label><input data-p="cliente.etichette" data-t="list" value="${esc((d.cliente.etichette || []).join(', '))}"></div>
+      <div class="f"><label>Note</label><textarea data-p="cliente.note" rows="3" style="font-family:inherit;font-size:14px">${esc(d.cliente.note)}</textarea></div><div id="st-issues"></div>`;
+  } else if (k === 'progetto') {
+    const inst = d.progetto.installazioni;
+    body.innerHTML = `<div class="frow">${pf('progetto.nome', 'Nome del progetto', { ph: 'DocMap Studio Rossi' })}${pf('progetto.nome_studio', 'Nome mostrato nell\'app e sulle etichette')}</div>
+      <div class="f" data-wrap="progetto.installazioni"><label>Installazioni</label><div class="btns">
+        <label class="check"><input type="checkbox" data-inst="sede" ${inst.includes('sede') ? 'checked' : ''}> <span><b>Sede</b>: server su un PC dello studio</span></label>
+        <label class="check"><input type="checkbox" data-inst="online" ${inst.includes('online') ? 'checked' : ''}> <span><b>Online</b>: sito web su hosting</span></label></div><div class="hint perr" style="color:var(--bad)"></div></div>
+      <label class="check" style="margin-bottom:14px"><input type="checkbox" data-p="progetto.custodia_chiave" ${d.progetto.custodia_chiave ? 'checked' : ''}> <span><b>Custodia della chiave</b> del cliente nell'hub (solo con il suo consenso scritto)</span></label>
+      <h4 style="margin:6px 0 10px">Licenza</h4>
+      <div class="frow">${psel('licenza.piano', 'Piano', Object.entries(S.pp.plans).map(([kk, v]) => [kk, `${v} (${kk})`]))}${pf('licenza.mesi', 'Durata in mesi', { type: 'int', hint: 'Vuoto = durata del piano.' })}</div>
+      <div class="frow">${pf('licenza.limiti.utenti', 'Utenti', { type: 'int' })}${pf('licenza.limiti.faldoni', 'Faldoni', { type: 'int' })}</div>
+      ${pf('licenza.limiti.archivi', 'Archivi', { type: 'int', hint: 'Limiti vuoti = quelli del piano; -1 = illimitato.' })}
+      <div class="f"><label>Note del progetto</label><textarea data-p="progetto.note" rows="2" style="font-family:inherit;font-size:14px">${esc(d.progetto.note)}</textarea></div><div id="st-issues"></div>`;
+    $$('[data-inst]', body).forEach((cb) => (cb.onchange = () => { const s = new Set(d.progetto.installazioni); cb.checked ? s.add(cb.dataset.inst) : s.delete(cb.dataset.inst); d.progetto.installazioni = ['sede', 'online'].filter((x) => s.has(x)); save(); }));
+  } else if (k === 'online') {
+    const on = d.progetto.installazioni.includes('online');
+    body.innerHTML = `${on ? '' : '<div class="note warn mb">L\'installazione online non è scelta (passo 2): questi dati verranno ignorati.</div>'}
+      <div class="frow">${pf('online.indirizzo', 'Indirizzo del sito (produzione)', { ph: 'https://docmap.pr-it.it/studio-rossi/' })}${pf('online.staging', 'Indirizzo dello staging (prova)', { ph: 'https://docmap.pr-it.it/studio-rossi-prova/' })}</div>
+      <h4 style="margin:6px 0 10px">Accesso FTP <span style="font-weight:400;color:var(--mut)">(vuoto = scarichi l'autoinstall web e carichi tu)</span></h4>
+      <div class="frow">${psel('online.ftp.protocollo', 'Protocollo', [['ftps', 'FTPS (consigliato)'], ['sftp', 'SFTP'], ['ftp', 'FTP senza cifratura']])}${pf('online.ftp.host', 'Host', { ph: 'ftp.tuohosting.it' })}</div>
+      <div class="frow">${pf('online.ftp.utente', 'Utente')}${pf('online.ftp.porta', 'Porta', { type: 'int', hint: 'Vuoto = standard.' })}</div>
+      <div class="frow">${pf('online.ftp.cartella', 'Cartella del sito', { ph: '/studio-rossi/' })}${pf('online.ftp.cartella_staging', 'Cartella dello staging', { ph: '/studio-rossi-prova/' })}</div>
+      <div class="note">La password FTP la scrivi nel passo «Riepilogo e conferma»: va dritta in cassaforte e non resta nella bozza.</div><div id="st-issues" style="margin-top:10px"></div>`;
+  } else if (k === 'sede') {
+    const se = d.progetto.installazioni.includes('sede');
+    body.innerHTML = `${se ? '' : '<div class="note warn mb">L\'installazione in sede non è scelta (passo 2).</div>'}
+      <div class="frow">${pf('sede.pc_server', 'PC che fa da server', { ph: 'PC Segreteria' })}${pf('sede.indirizzo', 'Indirizzo del server in rete (se già noto)', { ph: 'https://192.168.1.20:8443/', hint: 'Serve ai client delle postazioni; si può aggiungere dopo.' })}</div>
+      <h4 style="margin:10px 0 8px">Postazioni</h4><p style="margin:0 0 8px;color:var(--mut);font-size:13px">Gli altri PC dello studio: per ognuno potrai scaricare un client che lo collega al server.</p>
+      ${listRows('postazioni', [['nome', 'Nome'], ['etichetta', 'Etichetta']], 'Nessuna postazione.')}<div id="st-issues" style="margin-top:10px"></div>`;
+  } else if (k === 'utenti') {
+    body.innerHTML = `<h4 style="margin:0 0 8px">Utenti iniziali</h4>${listRows('utenti_iniziali', [['nome', 'Nome'], ['email', 'Email'], ['ruolo', 'Ruolo', [['admin', 'Amministratore'], ['editor', 'Operatore'], ['viewer', 'Sola lettura']]]], 'Nessun utente.')}
+      <h4 style="margin:18px 0 8px">Archivi</h4>${listRows('archivi', [['nome', 'Nome'], ['note', 'Dove si trova']], 'Nessun archivio.')}
+      <h4 style="margin:18px 0 8px">Domande aperte</h4>${d.domande_aperte.length ? `<ul style="margin:0;padding-left:18px">${d.domande_aperte.map((q) => `<li>${esc(q)}</li>`).join('')}</ul>` : '<span style="color:var(--mut)">Nessuna.</span>'}
+      <div class="note mt">Utenti e archivi sono salvati nel progetto come piano di avvio. Nell'hub 0.5 li crei tu al primo accesso (o con setup.php); la creazione a distanza arriva con la gestione utenti remota.</div><div id="st-issues"></div>`;
+  } else {
+    const c = S.draft.check, ftp = d.progetto.installazioni.includes('online') && d.online.ftp.host;
+    body.innerHTML = `${c.errors.length ? `<div class="err-box">Da correggere prima di confermare:<ul style="margin:6px 0 0;padding-left:18px">${c.errors.map((x) => `<li><b>${esc(x.path)}</b>: ${esc(x.msg)}</li>`).join('')}</ul></div>` : '<div class="note mb" style="background:var(--ok-soft);color:var(--ok)">Tutto pronto: nessun errore.</div>'}
+      ${c.warnings.length ? `<div class="note warn mb"><ul style="margin:0;padding-left:18px">${c.warnings.map((x) => `<li>${esc(x.msg)}</li>`).join('')}</ul></div>` : ''}
+      <dl class="kv" style="margin-bottom:18px"><dt>Cliente</dt><dd><b>${esc(d.cliente.ragione_sociale)}</b> ${esc(d.cliente.partita_iva)}</dd><dt>Progetto</dt><dd>${esc(d.progetto.nome || '—')}</dd>
+        <dt>Installazioni</dt><dd>${d.progetto.installazioni.map((x) => `<span class="tag">${esc(x)}</span>`).join(' ') || '—'}</dd><dt>Licenza</dt><dd>${esc(S.pp.plans[d.licenza.piano] || d.licenza.piano)}${d.licenza.mesi ? ` · ${esc(d.licenza.mesi)} mesi` : ''}</dd>
+        ${d.progetto.installazioni.includes('online') ? `<dt>Sito</dt><dd class="mono">${esc(d.online.indirizzo)}${d.online.staging ? `<br>${esc(d.online.staging)} (staging)` : ''}</dd><dt>Pubblicazione</dt><dd>${ftp ? `FTP ${esc(d.online.ftp.protocollo)} su ${esc(d.online.ftp.host)}` : 'autoinstall web (nessun FTP)'}</dd>` : ''}
+        <dt>Postazioni</dt><dd>${d.postazioni.map((p) => esc(p.nome)).join(', ') || '—'}</dd><dt>Utenti</dt><dd>${d.utenti_iniziali.length}</dd><dt>Archivi</dt><dd>${d.archivi.map((a) => esc(a.nome)).join(', ') || '—'}</dd></dl>
+      ${confirmed ? `<div class="note" style="background:var(--ok-soft);color:var(--ok)">Bozza confermata: il cliente è stato creato.</div>` : `
+      ${ftp ? fld('ftp_password', 'Password FTP (va in cassaforte, non nella bozza)', { type: 'password', attrs: 'data-keep="1" autocomplete="off"' }) : ''}
+      <label class="check mb"><input type="checkbox" id="build" checked data-keep="1"> <span><b>Prepara subito i pacchetti</b>: installer del server di sede e sito online (qualche minuto). Puoi farlo anche dopo.</span></label>
+      <button class="btn ai" id="go" ${c.errors.length ? 'disabled' : ''} style="padding:12px 20px;font-size:15px">${ic('sparkle')} Conferma e crea il progetto</button>
+      <pre class="log mt" id="jlog" hidden></pre>`}`;
+    const go = $('#go');
+    if (go) go.onclick = async () => {
+      go.disabled = true; const log = $('#jlog'); log.hidden = false; log.textContent = 'Avvio…';
+      try {
+        const r = await api(`/api/drafts/${D.id}/confirm`, { ftp_password: ($('#f-ftp_password') || {}).value || '', build: $('#build').checked });
+        const j = await waitJob(r.job, (jj) => { log.textContent = jj.lines.join('\n'); log.scrollTop = log.scrollHeight; });
+        toast('Progetto creato.'); S.draft = null; location.hash = `#/clienti/${j.result.customer_id}`;
+      } catch (e) { toast(e.message, true); log.textContent += `\n\nERRORE: ${e.message}`; go.disabled = false; }
+    };
+  }
+  $$('[data-rm]', body).forEach((b) => (b.onclick = () => { const [key, i] = b.dataset.rm.split('.'); d[key].splice(+i, 1); save(); pDraft(page, id, step); }));
+  $$('[data-add]', body).forEach((b) => (b.onclick = () => {
+    const key = b.dataset.add; d[key].push(key === 'postazioni' ? { nome: '', etichetta: '' } : key === 'archivi' ? { nome: '', note: '' } : { nome: '', email: '', ruolo: 'editor' });
+    pDraft(page, id, step);
+  }));
+  bind(); markErrors();
+  $('#prev').disabled = idx === 0; $('#next').hidden = idx === STEPS.length - 1;
+  $('#prev').onclick = () => (location.hash = `#/nuovo-progetto/${D.id}/${STEPS[idx - 1][0]}`);
+  $('#next').onclick = () => (location.hash = `#/nuovo-progetto/${D.id}/${STEPS[idx + 1][0]}`);
+}
+
+// ---------------------------------------------------------------------------------------------
 // global lists
 // ---------------------------------------------------------------------------------------------
 async function pInstances(page) {
@@ -712,7 +922,7 @@ function applyTheme() { const t = localStorageGet('hub.theme'); if (t === 'light
 const COMMANDS = [
   ['Vai alla Panoramica', '#/', 'home'], ['Vai ai Clienti', '#/clienti', 'users'], ['Vai alle Istanze', '#/istanze', 'server'],
   ['Vai alle Licenze', '#/licenze', 'key'], ['Vai ai Deploy', '#/deploy', 'rocket'], ['Impostazioni', '#/impostazioni', 'gear'],
-  ['Nuovo cliente', 'new-customer', 'plus'], ['Controlla tutti i siti', 'check-all', 'refresh'],
+  ['Crea progetto con AI', '#/nuovo-progetto', 'sparkle'], ['Nuovo cliente', 'new-customer', 'plus'], ['Controlla tutti i siti', 'check-all', 'refresh'],
 ];
 function palette() {
   const o = openOverlay(`<div class="palette"><input id="pq" placeholder="Cerca un cliente, un sito, una postazione, una licenza… o un comando" autocomplete="off"><div class="res" id="pres"></div><div class="hint">↑↓ per scegliere · Invio per aprire · Esc per chiudere</div></div>`);

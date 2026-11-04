@@ -91,7 +91,9 @@ class TestRegistryV3(unittest.TestCase):
         self.assertEqual(r.list_drafts(), [])
 
 
-class TestManagerWeb(unittest.TestCase):
+class WebHarness:
+    """Hub + page on a free port; JSON calls with cookie and CSRF header (shared by the v0.5 tests)."""
+
     def start(self, passphrase=PASS, keys=True):
         from docmap_hub.web import make_server
         self._td = tempfile.TemporaryDirectory()
@@ -137,6 +139,8 @@ class TestManagerWeb(unittest.TestCase):
             self.csrf = j["csrf"]
         return code, j
 
+
+class TestManagerWeb(WebHarness, unittest.TestCase):
     def test_locked_start_then_browser_login(self):
         self.start(passphrase=None)
         self.assertFalse(self.httpd.app.unlocked)

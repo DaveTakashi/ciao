@@ -310,6 +310,7 @@ def customer_detail(app, cid: str) -> dict:
         "events": [_event_view(ev, _names(reg)) for ev in reg.events_for(ids, 60)],
         "health": _health(envs, _current(all_lics)),
         "plans": {k: v.get("label", k) for k, v in app.hub.plans.items()},
+        "packages": packages_of(app, c["id"]),
     }
 
 
@@ -560,4 +561,107 @@ def job_view(app, jid: str) -> dict:
     if not job:
         raise RegistryError("Operazione non trovata (scaduta).")
     return {"id": job.id, "title": job.title, "kind": job.kind, "status": job.status,
-            "lines": list(job.lines)[-200:], "error": job.error}
+            "lines": list(job.lines)[-200:], "error": job.error,
+            "result": job.result if job.status == "ok" else None}
+
+
+# ---------------------------------------------------------------------------
+# v0.5: Pipeline 1 (drafts) and packages
+# ---------------------------------------------------------------------------
+
+def pipeline_prompt(app) -> dict:
+    from . import pipeline as P
+    return {"prompt": P.build_prompt(app.hub), "template": P.TEMPLATE, "example": P.EXAMPLE, "format": P.FORMAT,
+            "plans": {k: v.get("label", k) for k, v in app.hub.plans.items()},
+            "resellers": [r["name"] for r in app.hub.registry.list_resellers()]}
+
+
+def drafts(app) -> list[dict]:
+    return app.hub.registry.list_drafts()
+
+
+def draft_get(app, did: str) -> dict:
+    from . import pipeline as P
+    return P.draft_view(app.hub, app.hub.registry.get_draft(did))
+
+
+def draft_create(app, body: dict) -> dict:
+    from . import pipeline as P
+    return P.create_draft(app.hub, body.get("text") or "")
+
+
+def draft_update(app, did: str, body: dict) -> dict:
+    from . import pipeline as P
+    if not isinstance(body.get("data"), dict):
+        raise RegistryError("Dati della bozza mancanti.")
+    return P.update_draft(app.hub, did, body["data"])
+
+
+def draft_delete(app, did: str, body: dict) -> dict:
+    app.hub.registry.delete_draft(did)
+    return {"ok": True}
+
+
+def draft_confirm(app, did: str, body: dict) -> dict:
+    """Validate now (errors at once), then run onboarding + extras as a background job."""
+    from . import pipeline as P
+    from .onboarding import Onboarding
+    app.need_unlocked()
+    reg = app.hub.registry
+    rec = reg.get_draft(did)
+    if rec["status"] == "confirmed" and not body.get("again"):
+        raise RegistryError("Bozza già confermata: apri il cliente.")
+    d = P.normalize(rec["data"])
+    chk = P.validate(app.hub, d)
+    if chk["errors"]:
+        raise RegistryError("Correggi prima: " + "; ".join(f"{x['path']}: {x['msg']}" for x in chk["errors"][:4]))
+    pw = body.get("ftp_password") or ""
+    req = P.to_request(d, pw)
+    if req.ftp and not pw:
+        raise RegistryError("Scrivi la password FTP (passo Online) oppure togli l'host FTP per usare l'autoinstall web.")
+    req.validate(app.hub)
+    vk = app.need_vault() if req.ftp else None
+    key = (app.key_id, app.private_key)
+    build = bool(body.get("build", True))
+
+    def run(h, job):
+        job.log("Creo cliente, progetto, installazioni, ambienti e licenze…")
+        rep = Onboarding(h, log=job.log).run(req, key=key, vk=vk, build=build)
+        for x in rep["created"]:
+            job.log("+ " + x)
+        for x in rep["reused"]:
+            job.log("= " + x + " (già presente)")
+        for x in P.apply_extras(h, d, rep, did):
+            job.log("+ " + x)
+        h.registry.save_draft(d, draft_id=did, title=P.title_of(d), status="confirmed",
+                              result={"customer_id": rep["customer_id"], "project_id": rep.get("project_id"),
+                                      "dir": rep.get("dir")})
+        h.registry.log("draft.confirm", "draft", did, {"customer_id": rep["customer_id"]})
+        job.log("Fatto.")
+        return {"customer_id": rep["customer_id"], "project_id": rep.get("project_id")}
+    job = app.jobs.start(f"Crea progetto: {P.title_of(d)}", "clienti-pipeline", {}, run)
+    return {"job": job.id}
+
+
+def build_web_job(app, env_id: str, body: dict) -> dict:
+    from . import packages
+    app.hub.registry.get_environment(env_id)
+    job = app.jobs.start("Prepara autoinstall web", "env-package", {},
+                         lambda h, j: {"file": str(packages.build_web_zip(h, env_id, log=j.log))})
+    return {"job": job.id}
+
+
+def packages_of(app, cid: str) -> dict:
+    from . import packages
+    reg = app.hub.registry
+    c = reg.get_customer(cid)
+    out = {"sede": None, "web": {}}
+    if any(i.get("notes") == "onboarding:sede" for i in reg.list_instances(c["id"])):
+        z = packages.sede_zip(app.hub, c["id"])
+        out["sede"] = {"name": z.name, "size": z.stat().st_size} if z else None
+    for e in reg.list_environments():
+        if e["customer_id"] == c["id"] and e["kind"] == "web-php":
+            zp = packages.web_zip_path(app.hub, e)
+            out["web"][e["id"]] = {"name": zp.name, "size": zp.stat().st_size,
+                                   "built_at": L.format_time(datetime.fromtimestamp(zp.stat().st_mtime, timezone.utc))} if zp.is_file() else None
+    return out

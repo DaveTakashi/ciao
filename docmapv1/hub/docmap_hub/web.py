@@ -278,6 +278,8 @@ def make_handler(app: HubWebApp):
                 return self._dashboard(sess, q.get("ok"), q.get("err"), q.get("new"))
             if url.path.startswith("/download/"):
                 return self._download(url.path[len("/download/"):])
+            if url.path.startswith("/scarica/"):
+                return self._package(url.path[len("/scarica/"):])
             if url.path.startswith("/clienti/") and url.path.endswith("/scheda"):
                 return self._scheda(url.path[len("/clienti/"):-len("/scheda")])
             pages = {"/clienti": ("Nuovo cliente", W.page_clienti), "/envs": ("Istanze & ambienti", W.page_envs), "/vault": ("Cassaforte", W.page_vault),
@@ -389,6 +391,29 @@ def make_handler(app: HubWebApp):
             app.hub.registry.log("licence.download", "licence", rec["id"])
             self._send(200, rec["file_text"].encode("utf-8"), "application/json; charset=utf-8",
                        {"Content-Disposition": f'attachment; filename="{name}"'})
+
+        def _package(self, rest: str):
+            from . import packages
+            kind, _, ref = rest.partition("/")
+            ref = urllib.parse.unquote(ref)
+            try:
+                with app.lock:
+                    if kind == "postazione":
+                        name, data = packages.workstation_zip(app.hub, ref)
+                    elif kind in ("sede", "web"):
+                        if kind == "sede":
+                            f = packages.sede_zip(app.hub, app.hub.registry.get_customer(ref)["id"])
+                        else:
+                            f = packages.web_zip_path(app.hub, app.hub.registry.get_environment(ref))
+                        if not f or not f.is_file():
+                            raise RegistryError("Pacchetto non ancora preparato.")
+                        name, data = f.name, f.read_bytes()
+                        app.hub.registry.log("package.download", kind, ref, {"file": f.name})
+                    else:
+                        raise RegistryError("Pacchetto sconosciuto.")
+            except (RegistryError, OSError) as exc:
+                return self._send(404, str(exc).encode("utf-8"), "text/plain; charset=utf-8")
+            self._send(200, data, "application/zip", {"Content-Disposition": f'attachment; filename="{name}"'})
 
         # -- v0.4: the management app (single page) + JSON API --------------------------------------
         def _spa(self):
@@ -609,6 +634,15 @@ def _api_routes():
         ("POST", r(r"/api/licences/([\w-]+)/renew"), A.renew_licence),
         ("POST", r(r"/api/remember"), A.remember),
         ("POST", r(r"/api/check-all"), lambda app, body: A.check_all_job(app)),
+        # v0.5
+        ("GET", r(r"/api/pipeline/prompt"), A.pipeline_prompt),
+        ("GET", r(r"/api/drafts"), A.drafts),
+        ("GET", r(r"/api/drafts/([\w-]+)"), A.draft_get),
+        ("POST", r(r"/api/drafts"), A.draft_create),
+        ("POST", r(r"/api/drafts/([\w-]+)"), A.draft_update),
+        ("POST", r(r"/api/drafts/([\w-]+)/delete"), A.draft_delete),
+        ("POST", r(r"/api/drafts/([\w-]+)/confirm"), A.draft_confirm),
+        ("POST", r(r"/api/envs/([\w-]+)/package"), A.build_web_job),
     ]
 
 

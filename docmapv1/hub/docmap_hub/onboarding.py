@@ -128,6 +128,7 @@ class ClienteNuovo:
     ftp_cartella_staging: str | None = None
     note: str | None = None
     extra: dict = field(default_factory=dict)
+    licenza_kw: dict = field(default_factory=dict)   # v0.5: months / limits for a newly issued licence
 
     def validate(self, hub) -> None:
         if not (self.nome or "").strip():
@@ -294,7 +295,7 @@ class Onboarding:
                 rep["reused"].append(f"licenza {role} valida fino al {last['expires_at'][:10]}")
                 rep["licences"][role] = last["id"]
             else:
-                res = self.hub.issue_with_key(key_id, priv, iid, req.piano)
+                res = self.hub.issue_with_key(key_id, priv, iid, req.piano, **(req.licenza_kw or {}))
                 rep["licences"][role] = res["licence"]["licence_id"]
                 rep["created"].append(f"licenza {role} piano {req.piano} fino al {res['licence']['expires_at'][:10]}")
 
