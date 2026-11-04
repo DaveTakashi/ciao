@@ -1,4 +1,10 @@
-# DocMap Hub — licenze, ambienti, cassaforte, deploy, nuovo cliente (v0.3)
+# DocMap Hub — gestionale di clienti, progetti, installazioni, licenze e deploy (v0.5)
+
+> **Novità 0.5** — la pagina è un **gestionale per cliente** (Panoramica, Clienti → scheda progetto, Istanze, Licenze,
+> Deploy, Ctrl+K), con **Crea progetto con AI** (prompt da copiare in qualsiasi AI → JSON `docmap-progetto/1` → maschere
+> → conferma), **postazioni** con nome e client scaricabile, **autoinstall web**, passphrase scritta **solo nel browser**
+> con **Ricorda su questo PC**. Aggiornamento: [`../docs/AGGIORNAMENTO-HUB-0.3-0.5.md`](../docs/AGGIORNAMENTO-HUB-0.3-0.5.md);
+> uso: [`../docs/WIKI-HUB.md`](../docs/WIKI-HUB.md) capitoli 6.0 e 7. Sezione tecnica: §14 qui sotto.
 
 > **Novità 0.3.1** — wiki completa: [`../docs/WIKI-HUB.md`](../docs/WIKI-HUB.md) (anche `WIKI-HUB.html`).
 > `accesso-automatico attiva` = la passphrase si scrive una volta sola (anche per il tuo agente, vedi
@@ -612,3 +618,33 @@ Nella pagina: scheda *Stato* → *Controlla tutto adesso*: il controllo gira in 
 | `settings set installer_dir …` | dove sta `installer-windows` (predefinito: accanto a `hub/`) |
 
 Non fatto (da fare a mano, vedi la guida §5): più sedi per lo stesso cliente con `cliente nuovo`.
+
+
+---
+
+## 14. Gestionale e Pipeline 1 (v0.4–0.5)
+
+**Registro (schema 3, migrazione additiva con copia in `backups/` prima di aggiornare):** `projects` (gruppo di
+installazioni di un cliente; ogni installazione ha `project_id`, le vecchie vanno nel progetto «DocMap <cliente>»),
+`workstations` (postazioni con nome/etichetta, stato `active|revoked`, `built_at`), `drafts` (bozze della pipeline, mai
+segreti), `customers.extra_json` (pec, referente, telefono, indirizzo, città, provincia, sdi, codice_multi, tags, color)
+e `customers.status` (`active|prospect|suspended|archived`).
+
+**Pagina:** `docmap_hub/ui/` (index.html, app.js, app.css; nessun framework, nessuna risorsa esterna; CSP
+`script-src 'self'`). `GET /` serve l'app; `/classico` è la pagina licenze della 0.3; le altre pagine 0.3 restano.
+L'app parla con `/api/...` (`docmap_hub/api.py`): sessione con cookie HttpOnly SameSite=Strict, ogni POST JSON con
+intestazione `X-CSRF`, controllo dell'Host come prima. Login: `POST /api/login` (sblocca chiave e cassaforte con la stessa
+passphrase, `remember` = salva con `autoaccess`), `POST /api/setup` (hub nuovo). Avvio senza passphrase in console:
+`web` sblocca solo con variabile d'ambiente / `--passphrase-file` / accesso automatico.
+
+**Pipeline 1 (`docmap_hub/pipeline.py`):** `build_prompt()` (contesto, regole, piani, `TEMPLATE`, `EXAMPLE`),
+`extract_json()` (JSON nudo, blocco ```json o messaggio intero), `normalize()` (forma del modello, chiavi sconosciute
+scartate), `strip_secrets()` (password FTP vere tolte dalla bozza), `validate()` (errori bloccanti + avvisi, incluso
+«cliente già esistente»), `to_request()` → `ClienteNuovo` (con `licenza_kw` per mesi/limiti), `apply_extras()`
+(anagrafica, nome e dati del progetto, postazioni). Conferma = job in sottofondo con `Onboarding.run`.
+
+**Pacchetti (`docmap_hub/packages.py`):** `/scarica/postazione/<id>` (zip generato al volo: `collega-questo-pc.bat/.ps1`,
+`postazione.json`, `LEGGIMI.txt`), `/scarica/sede/<cliente>` (installer costruito dall'onboarding),
+`/scarica/web/<ambiente>` (sito + `LEGGIMI-AUTOINSTALL.txt`, costruito con `POST /api/envs/<id>/package`).
+
+**Test:** `tests/test_v04_manager.py`, `tests/test_v05_pipeline.py` (totale 97 con i precedenti).

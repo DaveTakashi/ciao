@@ -25,6 +25,7 @@ pre{background:var(--box);padding:10px 12px;border-radius:6px;overflow-x:auto} p
 <li><a href="#4-accesso-automatico-una-sola-passphrase-mai-piu-richieste">4. Accesso automatico: una sola passphrase, mai più richieste</a></li>
 <li><a href="#5-le-parole-del-hub">5. Le parole del hub</a></li>
 <li><a href="#6-ricette-passo-per-passo">6. Ricette passo per passo</a><ul>
+<li><a href="#60-crea-progetto-con-ai-consigliato-dalla-05">6.0 Crea progetto con AI (consigliato, dalla 0.5)</a></li>
 <li><a href="#61-cliente-nuovo-con-sede-e-online-il-caso-del-pilota">6.1 Cliente nuovo con sede e online (il caso del pilota)</a></li>
 <li><a href="#62-solo-sede-o-solo-online">6.2 Solo sede o solo online</a></li>
 <li><a href="#63-correggere-i-dati-ftp-di-un-ambiente">6.3 Correggere i dati FTP di un ambiente</a></li>
@@ -40,7 +41,7 @@ pre{background:var(--box);padding:10px 12px;border-radius:6px;overflow-x:auto} p
 <li><a href="#613-backup-del-hub">6.13 Backup del hub</a></li>
 </ul>
 </li>
-<li><a href="#7-la-pagina-web-del-hub">7. La pagina web del hub</a></li>
+<li><a href="#7-la-pagina-web-del-hub-il-gestionale">7. La pagina web del hub (il gestionale)</a></li>
 <li><a href="#8-tutti-i-comandi">8. Tutti i comandi</a></li>
 <li><a href="#9-per-lagente-ai-regole-operative">9. Per l'agente AI: regole operative</a></li>
 <li><a href="#10-problemi-comuni">10. Problemi comuni</a><ul>
@@ -59,7 +60,10 @@ pre{background:var(--box);padding:10px 12px;border-radius:6px;overflow-x:auto} p
 </ul>
 </div>
 </nav><main><h1 id="wiki-di-docmap-hub">Wiki di DocMap Hub</h1>
-<p>Vale per <strong>hub 0.3.2</strong>, <strong>DocMap 26.12.5 (app v12.5)</strong> e <strong>strumenti di installazione 1.2.0</strong>. Data: 3 novembre 2026.</p>
+<p>Vale per <strong>hub 0.5.0</strong>, <strong>DocMap 26.12.5 (app v12.5)</strong> e <strong>strumenti di installazione 1.2.0</strong>. Data: 4 novembre 2026.</p>
+<blockquote>
+<p><strong>Novità 0.5 (il nuovo gestionale).</strong> La pagina dell'hub è ora un'applicazione organizzata per <strong>cliente</strong>: Panoramica, Clienti → scheda del cliente (progetto, siti, postazioni, licenze, accessi, storico), Istanze, Licenze, Deploy, ricerca <strong>Ctrl+K</strong>. <strong>Crea progetto con AI</strong> (capitolo 6.0) crea cliente, progetto, ambienti, licenza e postazioni da un JSON preparato con qualsiasi AI. La passphrase si scrive <strong>solo nel browser</strong>, una volta, e con <strong>Ricorda su questo PC</strong> non viene più chiesta. Aggiornamento dalla 0.3: <code>AGGIORNAMENTO-HUB-0.3-0.5.md</code>.</p>
+</blockquote>
 <p>È scritta per due lettori:</p>
 <ul>
 <li><strong>Dave</strong>: ogni capitolo dice cosa fare, in che ordine e cosa aspettarsi.</li>
@@ -184,7 +188,8 @@ run_windows.bat backup
 <h2 id="3-aggiornare-il-hub-senza-perdere-chiavi-e-cassaforte">3. Aggiornare il hub senza perdere chiavi e cassaforte</h2>
 <p>Le chiavi, la cassaforte e i clienti sono in <code>%APPDATA%\DocMapHub\</code>, <strong>non</strong> nella cartella del programma. Per questo
 aggiornare è sicuro: sostituire la cartella del programma non tocca mai i dati.</p>
-<p><strong>Ogni volta che ricevi un hub nuovo (es. da 0.3 a 0.3.1):</strong></p>
+<p><strong>Ogni volta che ricevi un hub nuovo (es. da 0.3.2 a 0.5):</strong></p>
+<p>(Per la 0.5 c'è una guida dedicata: <code>AGGIORNAMENTO-HUB-0.3-0.5.md</code>. Al primo avvio l'hub copia da solo il registro in <code>backups\</code> prima di aggiornarlo.)</p>
 <ol>
 <li>Chiudi la pagina del hub (finestra nera: Ctrl+C) e ogni comando in corso.</li>
 <li><code>run_windows.bat backup</code> e copia lo zip sulla chiavetta (per scrupolo).</li>
@@ -205,6 +210,10 @@ dentro <code>%APPDATA%\DocMapHub\</code> (crea la cartella se non c'è), poi <co
 sono nel backup: si rifanno con <code>cliente nuovo … --rigenera</code>.</p>
 <hr />
 <h2 id="4-accesso-automatico-una-sola-passphrase-mai-piu-richieste">4. Accesso automatico: una sola passphrase, mai più richieste</h2>
+<p><strong>Dalla 0.5 il modo più semplice è nella pagina:</strong> all'accesso spunta <strong>Ricorda su questo PC</strong> (oppure <em>Impostazioni →
+Accesso su questo PC → Ricorda</em>). La finestra nera non chiede più niente: la passphrase si scrive solo nel browser, una
+volta, e apre sia la chiave di firma sia la cassaforte. Per toglierla: <em>Impostazioni → Non ricordare più</em>. È lo stesso
+meccanismo descritto qui sotto (stesso file, stessa protezione DPAPI), quindi vale anche per i comandi e per il tuo agente.</p>
 <p>Di base il hub chiede la passphrase a ogni comando che firma una licenza o apre la cassaforte. Con l'<strong>accesso
 automatico</strong> la chiedi <strong>una volta</strong> e il hub se la ricorda su questo PC. Vale per te, per la pagina web e per il tuo
 agente.</p>
@@ -378,6 +387,33 @@ cifrato (BitLocker). Non attivarlo su un PC condiviso.</p>
 Dove serve <code>--instance</code> puoi scrivere il nome completo (es. <code>"STUDIO ERMETE DALL'ASTA — online"</code>, con il trattino lungo)
 <strong>oppure le prime cifre del codice</strong> mostrato da <code>instance list</code> (es. <code>--instance a2a6383d</code>): per un agente è più sicuro
 il codice.</p>
+<h3 id="60-crea-progetto-con-ai-consigliato-dalla-05">6.0 Crea progetto con AI (consigliato, dalla 0.5)</h3>
+<ol>
+<li>Nella pagina premi <strong>Crea progetto con AI</strong> (in alto a sinistra).</li>
+<li><strong>Copia prompt per l'AI</strong> e incollalo in una chat nuova di qualsiasi AI (Claude, ChatGPT, Gemini, un modello locale,
+   o il tuo agente con accesso ai file). Il prompt contiene il contesto di DocMap, le regole, i piani, il <strong>modello JSON
+   completo</strong> e un esempio. L'AI ti fa le domande e alla fine ti dà un unico blocco JSON (formato <code>docmap-progetto/1</code>).
+   Il modello vuoto si scarica anche con <strong>Modello JSON</strong>.</li>
+<li>Incolla la risposta nel riquadro di destra (anche tutto il messaggio: il JSON lo trova l'hub) e premi <strong>Genera bozza</strong>.</li>
+<li>Controlla le 6 maschere: Cliente → Progetto e licenza → Online e FTP → Sede e postazioni → Utenti e archivi →
+   Riepilogo. A sinistra vedi in verde/arancio/rosso cosa è a posto. Ogni modifica si salva da sola; puoi chiudere e
+   riprendere la bozza dalla Panoramica.</li>
+<li>Nel <strong>Riepilogo</strong> scrivi la <strong>password FTP</strong> (va in cassaforte, non resta nella bozza), lascia spuntato <strong>Prepara
+   subito i pacchetti</strong> se vuoi già installer e sito, e premi <strong>Conferma e crea il progetto</strong>.</li>
+<li>Si apre la scheda del cliente: <strong>Postazioni</strong> (installer del server di sede + un client per ogni PC),
+   <strong>Pubblica</strong> (deploy staging/produzione, autoinstall web), <strong>Licenze</strong>.</li>
+</ol>
+<p>Regole: l'hub <strong>non chiama nessuna AI</strong> e le password <strong>non passano mai dall'AI</strong> (nel JSON c'è <code>{{PASSWORD_FTP}}</code>; se
+l'AI ci mette una password vera l'hub la scarta e ti avvisa). Se la P.IVA o il nome corrispondono a un cliente esistente,
+la conferma aggiunge a quel cliente (avviso nella maschera Cliente). Confermare di nuovo la stessa bozza non è permesso;
+la stessa onboarding rilanciata non crea doppioni.</p>
+<p><strong>Postazioni.</strong> Ogni postazione ha un nome e un'etichetta. <strong>Genera e scarica client</strong> produce uno zip
+<code>DocMap-&lt;cliente&gt;-&lt;postazione&gt;.zip</code> con <code>collega-questo-pc.bat</code>: sul PC dello studio installa il certificato dello studio
+per l'utente Windows (lo scarica da <code>http://&lt;server&gt;:8080/</code>), crea il collegamento <strong>DocMap</strong> sul desktop (Edge in modalità
+app) e registra il nome della postazione. Non servono diritti di amministratore e lo zip non contiene dati né segreti.
+Revoca una postazione dismessa con la matita → <strong>Revoca</strong>.</p>
+<p><strong>Autoinstall web.</strong> Per un sito senza FTP: <em>Pubblica → Prepara autoinstall → Autoinstall</em>. Lo zip contiene il sito e
+<code>LEGGIMI-AUTOINSTALL.txt</code> (carica nella cartella dal File Manager dell'hosting, estrai, apri <code>server-php/setup.php</code>).</p>
 <h3 id="61-cliente-nuovo-con-sede-e-online-il-caso-del-pilota">6.1 Cliente nuovo con sede e online (il caso del pilota)</h3>
 <pre><code class="language-bat">run_windows.bat cliente nuovo --nome &quot;STUDIO ERMETE DALL'ASTA&quot; --piva IT01234567890 --email info@esempio.it ^
   --piano studio_pro --installazioni entrambe ^
@@ -531,55 +567,66 @@ run_windows.bat cliente elenco
 <p><code>run_windows.bat backup</code> dopo ogni cliente nuovo o rinnovo, e copia su USB. Contiene chiavi (cifrate), registro,
 licenze emesse, cassaforte (cifrata). Non contiene <code>clienti\</code> (si rigenera) né l'accesso automatico.</p>
 <hr />
-<h2 id="7-la-pagina-web-del-hub">7. La pagina web del hub</h2>
-<p>Doppio clic su <code>C:\DocMapHub\hub\run_windows.bat</code> → si apre il browser sulla pagina del hub (solo da questo PC). Con
-l'accesso automatico entri direttamente.</p>
-<p><strong>Porta della pagina.</strong> Il hub usa una porta poco comune, <strong>47823</strong>, che nessun altro programma usa di solito. Se è
-occupata (per esempio da un altro server che hai lanciato, o da un secondo hub aperto) prova da solo la 47824, poi la
-47825 e così via, poi una porta a caso tra 47000 e 48999. Nella finestra nera scrive quali porte erano occupate e quale
-ha scelto, e <strong>la ricorda</strong>: la volta dopo riparte da quella. L'indirizzo della pagina aperta in quel momento è anche
-nel file <code>%APPDATA%\DocMapHub\pagina-hub.txt</code> (utile al tuo agente), e <code>run_windows.bat info</code> lo mostra.
-Per fissare tu una porta: <code>run_windows.bat settings set web.port 47900</code> (se è occupata passa comunque alla successiva);
-per una volta sola: <code>run_windows.bat web --port 47900</code>. Le porte degli ambienti locali (18400–18999) sono un'altra
-cosa e non si sovrappongono mai a questa.</p>
+<h2 id="7-la-pagina-web-del-hub-il-gestionale">7. La pagina web del hub (il gestionale)</h2>
+<p>Doppio clic su <code>C:\DocMapHub\hub\run_windows.bat</code> → si apre il browser sulla pagina del hub (solo da questo PC). La
+finestra nera non chiede niente: la passphrase la scrivi <strong>nella pagina</strong> (una volta; con <strong>Ricorda su questo PC</strong> entri
+direttamente le volte successive). Su un hub nuovo, senza chiavi, la pagina propone la <strong>prima configurazione</strong>: scegli la
+passphrase e l'hub crea chiave di firma e cassaforte.</p>
+<p><strong>Come è fatta.</strong> A sinistra il menu, in alto la ricerca (<strong>Ctrl+K</strong>: scrivi un pezzo di nome, P.IVA, indirizzo, nome di
+una postazione o di un piano) e <strong>Controlla tutto</strong> (verifica che siti e server rispondano).</p>
 <table>
 <thead>
 <tr>
-<th>Scheda</th>
-<th>Cosa fai</th>
+<th>Voce</th>
+<th>Cosa trovi</th>
 </tr>
 </thead>
 <tbody>
 <tr>
+<td><strong>Crea progetto con AI</strong></td>
+<td>la pipeline del capitolo 6.0 e le bozze in corso</td>
+</tr>
+<tr>
+<td><strong>Panoramica</strong></td>
+<td>numeri chiave e <strong>Da fare</strong>: licenze in scadenza, siti non raggiungibili, ambienti mai controllati, bozze da confermare</td>
+</tr>
+<tr>
+<td><strong>Clienti</strong></td>
+<td>elenco con semaforo, filtri (con problemi, in scadenza, trattative), <strong>Nuovo cliente</strong></td>
+</tr>
+<tr>
+<td>scheda del <strong>cliente</strong></td>
+<td><em>Riepilogo</em> (mappa del progetto: produzione, staging, sede, postazioni), <em>Postazioni</em>, <em>Pubblica</em>, <em>Licenze</em>, <em>Accessi</em> (cosa c'è in cassaforte, mai i valori), <em>Storico</em>, <em>Dati</em> (anagrafica modificabile)</td>
+</tr>
+<tr>
+<td><strong>Istanze</strong></td>
+<td>tutti i siti, staging e server, con filtri; clic = pannello con stato, versione, licenza, deploy, azioni</td>
+</tr>
+<tr>
 <td><strong>Licenze</strong></td>
-<td>clienti, installazioni, emissione e rinnovo licenze, scarica i file</td>
-</tr>
-<tr>
-<td><strong>Nuovo cliente</strong></td>
-<td>come <code>cliente nuovo</code>, con un modulo</td>
-</tr>
-<tr>
-<td><strong>Istanze &amp; ambienti</strong></td>
-<td>ambienti production/staging/demo, crea/avvia/ferma ambienti locali, copia dati</td>
-</tr>
-<tr>
-<td><strong>Cassaforte</strong></td>
-<td>salva segreti (FTP, token, …), elenco, «mostra» (chiede conferma)</td>
+<td>tutte le licenze; clic = dettagli, verifica della firma, storia, <strong>Rinnova / estendi</strong>, scarica</td>
 </tr>
 <tr>
 <td><strong>Deploy</strong></td>
-<td>1) prova (dry-run) → piano con «Conferma il deploy» in alto → 2) esecuzione; promozione da staging</td>
+<td>storico di tutte le pubblicazioni</td>
 </tr>
 <tr>
-<td><strong>Porte</strong></td>
-<td>porte assegnate agli ambienti locali</td>
+<td><strong>Attività</strong></td>
+<td>tutto ciò che è successo, con i nomi</td>
 </tr>
 <tr>
-<td><strong>Stato</strong></td>
-<td>tutte le installazioni, controllo immediato</td>
+<td><strong>Impostazioni</strong></td>
+<td>Ricorda su questo PC, cassaforte, tema chiaro/scuro, strumenti classici, cartella dati</td>
 </tr>
 </tbody>
 </table>
+<p>Ogni oggetto porta agli altri: dalla licenza al cliente, dal sito alla sua licenza e ai deploy, dalla Panoramica al
+problema. Il deploy e la cassaforte usano ancora le pagine della 0.3 (<strong>Strumenti classici</strong>: Licenze classico, Nuovo
+cliente guidato, Istanze &amp; ambienti, Cassaforte, Deploy, Porte, Stato), che si aprono dai pulsanti del gestionale.</p>
+<p><strong>Porta della pagina.</strong> Il hub usa una porta poco comune, <strong>47823</strong>, che nessun altro programma usa di solito. Se è
+occupata prova da solo la 47824, poi la 47825 e così via, poi una porta a caso tra 47000 e 48999, e <strong>la ricorda</strong>.
+L'indirizzo della pagina aperta è anche in <code>%APPDATA%\DocMapHub\pagina-hub.txt</code>, e <code>run_windows.bat info</code> lo mostra.
+Per fissare una porta: <code>run_windows.bat settings set web.port 47900</code>; per una volta sola: <code>run_windows.bat web --port 47900</code>.</p>
 <p>La prova del deploy <strong>non cambia niente</strong> sul server: il caricamento parte solo con «Conferma il deploy», entro 30 minuti
 dalla prova.</p>
 <hr />
@@ -849,13 +896,15 @@ FileZilla ("Richiede FTP esplicito su TLS").</p>
 <p>Il pacchetto non aveva la chiave pubblica (pacchetto generico) o la licenza è per un'altra installazione. Usa il
 pacchetto personale di <code>cliente nuovo</code>, oppure <code>licence show &lt;file&gt; --instance-id &lt;id&gt;</code>.</p>
 <h3 id="106-la-pagina-del-hub-chiede-ancora-la-passphrase">10.6 La pagina del hub chiede ancora la passphrase</h3>
-<p>Accesso automatico spento o file illeggibile (creato da un altro utente Windows): <code>accesso-automatico attiva</code>.</p>
+<p>Ricorda su questo PC spento o file illeggibile (creato da un altro utente Windows): entra con la passphrase spuntando
+<strong>Ricorda su questo PC</strong>, oppure <code>accesso-automatico attiva</code>.</p>
 <h3 id="107-porta-occupata">10.7 Porta occupata</h3>
 <p>Pagina del hub: sceglie da sola la porta libera successiva (capitolo 7). Ambienti locali: <code>ports list</code> mostra chi la
 usa; <code>env start</code> sposta da solo l'ambiente su una porta libera.</p>
 <hr />
 <h2 id="11-cosa-non-e-ancora-provato">11. Cosa non è ancora provato</h2>
-<p>Provato con test automatici su Linux (hub 82 test, compresi FTP e FTPS reali su un server di prova). <strong>Non ancora</strong> su:
-Windows reale (accesso automatico con DPAPI, pagina del hub, <code>installa.bat</code>, sincronizzazione automatica),
+<p>Provato con test automatici su Linux (hub 97 test, compresi FTP e FTPS reali su un server di prova) e nel browser
+(Chromium) per il gestionale. <strong>Non ancora</strong> su: Windows reale (accesso automatico e «Ricorda su questo PC» con DPAPI,
+pagina del hub, client delle postazioni <code>collega-questo-pc.bat</code>, <code>installa.bat</code>, sincronizzazione automatica),
 deploy FTPS verso SiteGround, telefoni con il certificato dello studio. La licenza del sito online viene emessa ma il
 server PHP non la controlla ancora.</p></main></div></body></html>

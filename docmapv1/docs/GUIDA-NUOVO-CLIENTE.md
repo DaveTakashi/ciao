@@ -3,6 +3,10 @@
 Guida per Dave. Vale per **DocMap 26.12.5 (app v12.5)**, **hub 0.3**, **strumenti di installazione 1.2.0**.
 (Per aggiornare uno studio che ha già la v12.4: `docs/AGGIORNAMENTO-v12.4-v12.5.md` — nessuna migrazione dei dati.)
 
+> **Con l'hub 0.5 c'è una strada più comoda**: nella pagina dell'hub premi **Crea progetto con AI** (wiki, capitolo 6.0).
+> Fa le stesse cose di `cliente nuovo` (stesso motore), più postazioni con nome, anagrafica completa e autoinstall web.
+> Questa guida resta valida per i passi dopo (caricare il sito, installare in sede, collegare sede e online).
+
 In breve: **un comando sul tuo PC** (`cliente nuovo`) registra il cliente, emette le licenze e prepara tutto quello
 che serve in una cartella: il **pacchetto di installazione personale** per il PC del cliente, il **sito** da
 caricare sull'hosting e la **scheda cliente** da stampare. Poi: carichi il sito, installi in sede, colleghi i due.

@@ -18,3 +18,6 @@ In breve:
 8. Esito: codice di uscita 0 = riuscito; errori su stderr iniziano con "Errore:". Verifica con `status`, `cliente elenco`, `licence list`.
 9. Il hub non crea cartelle/SSL/account FTP sull'hosting, non lancia `setup.php` e non installa sul PC del cliente:
    spiega a Dave quei passi (guida `../docs/GUIDA-NUOVO-CLIENTE.md`).
+10. (0.5) Per preparare un cliente nuovo puoi produrre il JSON `docmap-progetto/1`: il prompt completo si legge nella pagina
+    (**Crea progetto con AI → Vedi il prompt**) o da `GET /api/pipeline/prompt`. Non mettere password nel JSON
+    (`{{PASSWORD_FTP}}`); Dave lo incolla, controlla le maschere e conferma lui.

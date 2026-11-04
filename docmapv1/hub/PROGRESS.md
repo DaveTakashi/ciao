@@ -45,3 +45,15 @@
   scheda con segreti; pagina web (CSRF, errore immediato, job, scheda servita, percorso `..` rifiutato).
 - Totale: `python -m unittest discover -s tests` → 71 test OK (5 saltati).
 - Limite noto: una sola sede e un solo sito per cliente con il wizard (le altre sedi a mano, guida §5).
+
+## 2026-11-04 — v0.4 + v0.5: gestionale per cliente e Pipeline 1
+- Piano: https://claude.ai/artifact/SJJKCc5BT3j52azgbxkWDw (fasi 0.4 → 1.0).
+- 0.4: registro schema 3 (projects, workstations, drafts, anagrafica cliente, copia del registro prima della migrazione),
+  app a pagina singola `docmap_hub/ui/` + API JSON `api.py`, login solo dal browser con «Ricorda su questo PC», prima
+  configurazione dalla pagina, vecchie pagine sotto «Strumenti classici» (`/classico`).
+- 0.5: `pipeline.py` (prompt per qualsiasi AI, modello `docmap-progetto/1`, bozze, maschere, conferma via onboarding),
+  `packages.py` (client delle postazioni, installer di sede, autoinstall web), `ClienteNuovo.licenza_kw`.
+- Test: 97 OK (3 saltati: IPv6 / SFTP), Linux, Python 3.13; prova nel browser (Chromium, desktop, telefono, tema scuro).
+- Prossimo (0.6): deploy e promozione direttamente nel gestionale (senza pagine classiche), motore vs contenuti,
+  rollback e backup pianificati; poi 0.7 licenze avanzate (sospendi = sola lettura, revoca, rinnovo automatico breve),
+  utenti a distanza, export cifrato completo dell'hub.

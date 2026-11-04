@@ -39,6 +39,7 @@
 | [`DEPLOY-WEB.md`](DEPLOY-WEB.md) | Costruire la cartella del sito (`tools/build_deploy.py`), installare il database online su SiteGround, instradamento dei QR `/q/<codice>`, nginx, test locale con `php -S`. |
 | [`SICUREZZA.md`](SICUREZZA.md) | Cosa è protetto e come (cifratura nel browser e sul server, token, ruoli, limiti), cosa resta da fare. |
 | [`AGGIORNAMENTI.md`](AGGIORNAMENTI.md) | La procedura che vale per **ogni** aggiornamento (utente e sviluppatore) e le regole di rilascio senza perdita di dati. |
+| [`AGGIORNAMENTO-HUB-0.3-0.5.md`](AGGIORNAMENTO-HUB-0.3-0.5.md) | DocMap Hub: dalla 0.3 alla 0.5 (nuovo gestionale per cliente, Crea progetto con AI, postazioni, Ricorda su questo PC). |
 | [`AGGIORNAMENTO-v10-v10.1.md`](AGGIORNAMENTO-v10-v10.1.md) | Storia: guida dalla v10 alla v10.1 (arrivo del database online). |
 | [`AGGIORNAMENTO-v10.1-v11.md`](AGGIORNAMENTO-v10.1-v11.md) | Storia: guida dalla v10.1 alla v11 (ubicazioni, registro sincronizzazioni, schema server 2). |
 | [`AGGIORNAMENTO-v10-v12.md`](AGGIORNAMENTO-v10-v12.md) | **Guida diretta dalla v10.0 alla v12** (salta v10.1, v11, v11.1): backup, server facoltativo, stessa cartella, controlli, rollback. |
