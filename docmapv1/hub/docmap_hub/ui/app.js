@@ -1,0 +1,759 @@
+/* DocMap Hub 0.4 — client-centric management app (single page, no external assets, no frameworks).
+   Talks only to the hub's own /api (same origin, CSRF header on every write). */
+(() => {
+'use strict';
+
+// ---------------------------------------------------------------------------------------------
+// basics
+// ---------------------------------------------------------------------------------------------
+const S = { session: null, csrf: null, route: [], counts: {} };
+const $ = (sel, el = document) => el.querySelector(sel);
+const $$ = (sel, el = document) => Array.from(el.querySelectorAll(sel));
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const app = () => $('#app');
+
+const ICONS = {
+  home: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>',
+  users: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c.6-3.4 3-5.5 6-5.5s5.4 2.1 6 5.5"/><path d="M16 4.5a3 3 0 010 6M18 14.6c1.7.8 2.8 2.6 3.1 5.4"/>',
+  server: '<rect x="3.5" y="4" width="17" height="6.5" rx="1.6"/><rect x="3.5" y="13.5" width="17" height="6.5" rx="1.6"/><path d="M7 7.3h.01M7 16.8h.01"/>',
+  key: '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l2 2M15 8l2 2"/>',
+  rocket: '<path d="M5 15c-1 1-1.5 3.5-1.5 5.5 2 0 4.5-.5 5.5-1.5"/><path d="M9 15l-3-3c1.5-4.5 5.5-9 13-9 0 7.5-4.5 11.5-9 13z"/><circle cx="14.5" cy="9.5" r="1.6"/>',
+  activity: '<path d="M3 12h4l3-8 4 16 3-8h4"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3z"/>',
+  flask: '<path d="M9 3h6M10 3v6L4.5 18.5A1.7 1.7 0 006 21h12a1.7 1.7 0 001.5-2.5L14 9V3"/><path d="M7 15h10"/>',
+  building: '<rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M9 7h1M14 7h1M9 11h1M14 11h1M9 15h1M14 15h1M10 21v-3h4v3"/>',
+  monitor: '<rect x="3" y="4" width="18" height="12" rx="1.6"/><path d="M8 20h8M12 16v4"/>',
+  x: '<path d="M6 6l12 12M18 6L6 18"/>',
+  menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+  refresh: '<path d="M20 11a8 8 0 10-2.3 5.7"/><path d="M20 4v7h-7"/>',
+  download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+  lock: '<rect x="5" y="11" width="14" height="9" rx="1.8"/><path d="M8 11V8a4 4 0 018 0v3"/>',
+  unlock: '<rect x="5" y="11" width="14" height="9" rx="1.8"/><path d="M8 11V8a4 4 0 017.5-2"/>',
+  ext: '<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5"/>',
+  edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
+  sparkle: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>',
+  play: '<path d="M7 4l13 8-13 8z"/>',
+  stop: '<rect x="6" y="6" width="12" height="12" rx="1.5"/>',
+  shield: '<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/>',
+  logout: '<path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/>',
+  folder: '<path d="M3 6.5A1.5 1.5 0 014.5 5H9l2 2h8.5A1.5 1.5 0 0121 8.5v9a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 17.5z"/>',
+  moon: '<path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"/>',
+};
+const ic = (n, cls = 'i') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ''}</svg>`;
+
+const COLORS = ['#3b6cff', '#7a4dff', '#0f9d76', '#e2672b', '#d43d7a', '#1b8bb4', '#8a6d1f', '#5b6b8c', '#b3402f', '#2f8f3a'];
+function avColor(s) { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return COLORS[h % COLORS.length]; }
+function initials(s) { const w = String(s || '?').replace(/[^\p{L}\p{N} ]/gu, ' ').trim().split(/\s+/); return ((w[0] || '?')[0] + (w[1] ? w[1][0] : '')).toUpperCase(); }
+const av = (name, color, cls = 'av') => `<div class="${cls}" style="background:${esc(color || avColor(name))}">${esc(initials(name))}</div>`;
+
+function fmtDate(ts) { if (!ts) return '—'; const d = new Date(ts); return isNaN(d) ? esc(ts) : d.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' }); }
+function fmtDT(ts) { if (!ts) return '—'; const d = new Date(ts); return isNaN(d) ? esc(ts) : d.toLocaleString('it-IT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }); }
+function ago(ts) {
+  if (!ts) return 'mai'; const s = (Date.now() - new Date(ts)) / 1000; if (isNaN(s)) return esc(ts);
+  if (s < 60) return 'adesso'; if (s < 3600) return `${Math.floor(s / 60)} min fa`; if (s < 86400) return `${Math.floor(s / 3600)} ore fa`;
+  if (s < 86400 * 30) return `${Math.floor(s / 86400)} giorni fa`; return fmtDate(ts);
+}
+
+const HEALTH = { ok: ['ok', 'Tutto bene'], warn: ['warn', 'Da guardare'], bad: ['bad', 'Problema'], none: ['none', 'Niente da controllare'] };
+const ENV_STATUS = {
+  running: ['ok', 'Online'], stopped: ['mut', 'Spento'], unreachable: ['bad', 'Non raggiungibile'], protected: ['warn', 'Protetto (401)'],
+  new: ['info', 'Mai controllato'], unknown: ['mut', 'Sconosciuto'], none: ['mut', 'Senza ambiente'],
+};
+const LIC_STATE = { active: ['ok', 'Attiva'], expiring: ['warn', 'In scadenza'], grace: ['warn', 'In tolleranza'], expired: ['bad', 'Scaduta'], superseded: ['mut', 'Sostituita'] };
+const CUST_STATUS = { active: 'Attivo', prospect: 'Trattativa', suspended: 'Sospeso', archived: 'Archiviato' };
+const pill = (map, k) => { const v = map[k] || ['mut', k || '—']; return `<span class="pill ${v[0]}">${esc(v[1])}</span>`; };
+const dot = (h) => `<span class="dot ${esc(h)}" title="${esc((HEALTH[h] || [0, ''])[1])}"></span>`;
+function envIcon(e) { return e.kind === 'web-php' ? (e.name === 'staging' ? 'flask' : 'globe') : e.kind === 'studio-python' ? 'building' : 'server'; }
+function envHealth(e) { return { running: 'ok', unreachable: 'bad', stopped: e.name === 'production' ? 'bad' : 'none', protected: 'warn', new: 'warn' }[e.status] || 'none'; }
+
+// ---------------------------------------------------------------------------------------------
+// API
+// ---------------------------------------------------------------------------------------------
+async function api(path, body) {
+  const opt = { credentials: 'same-origin', headers: {} };
+  if (body !== undefined) {
+    opt.method = 'POST';
+    opt.headers['Content-Type'] = 'application/json';
+    if (S.csrf) opt.headers['X-CSRF'] = S.csrf;
+    opt.body = JSON.stringify(body);
+  }
+  const r = await fetch(path, opt);
+  let j; try { j = await r.json(); } catch { j = { error: `Risposta non valida (${r.status})` }; }
+  if (r.status === 401 && !path.startsWith('/api/login')) { S.session = null; renderLogin(); throw new Error(j.error || 'Sessione scaduta'); }
+  if (!r.ok) throw new Error(j.error || `Errore ${r.status}`);
+  return j;
+}
+
+// classic pages (vault, deploy, ports) still do the heavy lifting in 0.4: post a real form to them
+function classicPost(action, fields) {
+  const f = document.createElement('form');
+  f.method = 'post'; f.action = action;
+  const all = Object.assign({ csrf: S.csrf }, fields);
+  for (const [k, v] of Object.entries(all)) { const i = document.createElement('input'); i.type = 'hidden'; i.name = k; i.value = v; f.appendChild(i); }
+  document.body.appendChild(f); f.submit();
+}
+
+function toast(msg, err) {
+  const t = document.createElement('div'); t.className = 'toast' + (err ? ' err' : ''); t.textContent = msg;
+  $('#toasts').appendChild(t); setTimeout(() => t.remove(), err ? 7000 : 3500);
+}
+
+// ---------------------------------------------------------------------------------------------
+// overlay: modal / drawer / palette
+// ---------------------------------------------------------------------------------------------
+function closeOverlay() { const o = $('#overlay'); o.className = ''; o.innerHTML = ''; document.removeEventListener('keydown', escClose); }
+function escClose(e) { if (e.key === 'Escape') closeOverlay(); }
+function openOverlay(inner) {
+  const o = $('#overlay'); o.innerHTML = `<div class="scrim"></div>${inner}`; o.className = 'show';
+  $('.scrim', o).onclick = closeOverlay; $$('[data-close]', o).forEach((b) => (b.onclick = closeOverlay));
+  document.addEventListener('keydown', escClose);
+  return o;
+}
+function modal({ title, body, submit = 'Salva', wide = false, onSubmit, danger = false }) {
+  const o = openOverlay(`<form class="modal${wide ? ' wide' : ''}" novalidate>
+    <div class="hd"><h2>${esc(title)}</h2><button type="button" class="btn ghost sm x" data-close>${ic('x')}</button></div>
+    <div class="bd"><div class="err-box" hidden></div>${body}</div>
+    <div class="ft"><button type="button" class="btn ghost" data-close>Annulla</button>${submit ? `<button class="btn ${danger ? 'danger' : 'pri'}" type="submit">${esc(submit)}</button>` : ''}</div></form>`);
+  const form = $('form', o); const first = $('input:not([type=hidden]),select,textarea', form); if (first) first.focus();
+  form.onsubmit = async (e) => {
+    e.preventDefault(); const eb = $('.err-box', form); eb.hidden = true;
+    const btn = $('button[type=submit]', form); if (btn) btn.disabled = true;
+    try { await onSubmit(formData(form), form); } catch (err) { eb.textContent = err.message; eb.hidden = false; }
+    finally { if (btn) btn.disabled = false; }
+  };
+  return form;
+}
+function formData(form) {
+  const d = {};
+  for (const el of form.elements) {
+    if (!el.name) continue;
+    if (el.type === 'checkbox') d[el.name] = el.checked; else d[el.name] = el.value;
+  }
+  return d;
+}
+function drawer(title, sub, body, actions = '') {
+  const o = openOverlay(`<aside class="drawer"><div class="hd"><div><h2>${title}</h2>${sub ? `<div class="sub" style="color:var(--mut);margin-top:3px">${sub}</div>` : ''}</div>
+    <button class="btn ghost sm x" data-close>${ic('x')}</button></div>${actions ? `<div style="padding:12px 20px;border-bottom:1px solid var(--line)" class="btns">${actions}</div>` : ''}<div class="bd">${body}</div></aside>`);
+  return $('.drawer', o);
+}
+const fld = (name, label, { type = 'text', value = '', hint = '', ph = '', req = false, attrs = '' } = {}) =>
+  `<div class="f"><label for="f-${name}">${esc(label)}${req ? ' *' : ''}</label><input id="f-${name}" name="${name}" type="${type}" value="${esc(value)}" placeholder="${esc(ph)}" ${attrs}>${hint ? `<div class="hint">${hint}</div>` : ''}</div>`;
+const sel = (name, label, opts, value = '', hint = '') =>
+  `<div class="f"><label for="f-${name}">${esc(label)}</label><select id="f-${name}" name="${name}">${opts.map(([v, t]) => `<option value="${esc(v)}"${String(v) === String(value) ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select>${hint ? `<div class="hint">${hint}</div>` : ''}</div>`;
+
+// ---------------------------------------------------------------------------------------------
+// login / first setup
+// ---------------------------------------------------------------------------------------------
+function renderLogin(msg) {
+  closeOverlay();
+  const s = S.session || {};
+  const setup = s.has_keys === false;
+  app().className = '';
+  app().innerHTML = `<div class="login"><form class="login-card" autocomplete="on">
+    <div class="brand"><div class="logo-mark">D</div><div><b>DocMap Hub</b><div style="color:var(--mut);font-size:12px">versione ${esc(s.version || '')}</div></div></div>
+    ${setup ? `<p class="lead">Prima configurazione: scegli la passphrase che protegge la chiave di firma delle licenze e la cassaforte. Almeno 12 caratteri. Annotala in un posto sicuro: senza non si recupera.</p>`
+            : `<p class="lead">Una sola passphrase apre la chiave di firma e la cassaforte.</p>`}
+    <div class="err-box" ${msg ? '' : 'hidden'}>${esc(msg || '')}</div>
+    ${fld('passphrase', 'Passphrase', { type: 'password', attrs: 'autocomplete="current-password" required autofocus' })}
+    ${setup ? fld('repeat', 'Ripeti la passphrase', { type: 'password', attrs: 'autocomplete="new-password" required' }) : ''}
+    ${!setup ? `<details style="margin:-4px 0 12px"><summary style="cursor:pointer;color:var(--mut);font-size:12.5px">La cassaforte ha una passphrase diversa?</summary>
+      <div style="margin-top:8px">${fld('vault_passphrase', 'Passphrase della cassaforte', { type: 'password', attrs: 'autocomplete="off"' })}</div></details>` : ''}
+    <label class="check"><input type="checkbox" name="remember" ${s.remembered ? 'checked' : ''}> <span><b>Ricorda su questo PC</b><br><span style="color:var(--mut);font-size:12.5px">Windows protegge la passphrase con il tuo account (DPAPI): la prossima volta l'hub si apre senza chiederla. Si toglie da Impostazioni.</span></span></label>
+    <button class="btn pri" style="width:100%;justify-content:center;margin-top:16px;padding:10px">${setup ? 'Crea e entra' : 'Entra'}</button>
+  </form></div>`;
+  const form = $('form', app());
+  form.onsubmit = async (e) => {
+    e.preventDefault(); const d = formData(form); const btn = $('button', form); btn.disabled = true;
+    try {
+      const r = await api(setup ? '/api/setup' : '/api/login', d);
+      S.csrf = r.csrf; if (r.warning) toast(r.warning, true);
+      await boot();
+    } catch (err) { renderLogin(err.message); }
+  };
+}
+
+// ---------------------------------------------------------------------------------------------
+// shell
+// ---------------------------------------------------------------------------------------------
+const NAV = [
+  ['', 'Panoramica', 'home'], ['clienti', 'Clienti', 'users'], ['istanze', 'Istanze', 'server'],
+  ['licenze', 'Licenze', 'key'], ['deploy', 'Deploy', 'rocket'], ['attivita', 'Attività', 'activity'],
+];
+function shell() {
+  if ($('.shell')) return;
+  app().className = '';
+  app().innerHTML = `<div class="shell">
+    <aside class="side">
+      <div class="brand"><div class="logo-mark">D</div><div><b>DocMap Hub</b><small>Gestione clienti e installazioni</small></div></div>
+      <nav id="nav"></nav>
+      <div class="sec-t">Sistema</div>
+      <nav><a class="nv" data-r="impostazioni" href="#/impostazioni">${ic('gear')}Impostazioni</a>
+        <a class="nv" href="/classico">${ic('folder')}Strumenti classici</a></nav>
+      <div class="foot"><div class="row" id="vault-state"></div><div class="row">v${esc(S.session.version)}</div>
+        <button id="logout">${ic('logout')} Esci</button></div>
+    </aside>
+    <div class="main">
+      <header class="top"><button class="menu-btn" id="menu">${ic('menu')}</button><div class="crumbs" id="crumbs"></div>
+        <button class="searchbtn" id="search">${ic('search')}<span>Cerca clienti, siti, licenze…</span><kbd>Ctrl K</kbd></button>
+        <button class="btn hide-sm" id="checkall" title="Controlla se tutti i siti e server rispondono">${ic('refresh')} Controlla tutto</button>
+      </header>
+      <main class="page" id="page"></main>
+    </div></div>`;
+  $('#nav').innerHTML = NAV.map(([r, t, i]) => `<a class="nv" data-r="${r}" href="#/${r}">${ic(i)}<span>${t}</span><span class="cnt" data-cnt="${r}" hidden></span></a>`).join('');
+  $('#logout').onclick = async () => { try { await api('/api/logout', {}); } catch { } S.session = null; S.csrf = null; location.hash = '#/'; await boot(); };
+  $('#search').onclick = palette;
+  $('#menu').onclick = () => $('.shell').classList.toggle('nav-open');
+  $('#checkall').onclick = checkAll;
+  const vs = S.session.vault;
+  $('#vault-state').innerHTML = vs === 'open' ? `${ic('unlock')} Cassaforte aperta` : vs === 'closed' ? `${ic('lock')} <a href="#/impostazioni" style="color:#ffb86b">Cassaforte chiusa</a>` : `${ic('lock')} Cassaforte non creata`;
+}
+function setCrumbs(parts) {
+  $('#crumbs').innerHTML = parts.map((p, i) => (i < parts.length - 1 && p[1] ? `<a href="${p[1]}">${esc(p[0])}</a> <span>/</span>` : `<b>${esc(p[0])}</b>`)).join(' ');
+  document.title = `${parts[parts.length - 1][0]} · DocMap Hub`;
+}
+function setActive(r) {
+  $$('.side a.nv').forEach((a) => a.classList.toggle('on', a.dataset.r === r));
+  $('.shell').classList.remove('nav-open');
+}
+function setCounts(k) {
+  const m = { clienti: k.customers, istanze: k.envs_down ? k.envs_down : null, licenze: k.licences_expiring || null };
+  for (const [r, v] of Object.entries(m)) {
+    const el = $(`[data-cnt="${r}"]`); if (!el) continue;
+    el.hidden = !v; el.textContent = v || ''; el.classList.toggle('bad', r !== 'clienti');
+  }
+}
+async function checkAll() {
+  try {
+    const r = await api('/api/check-all', {}); toast('Controllo in corso…');
+    await waitJob(r.job); toast('Controllo completato.'); route();
+  } catch (e) { toast(e.message, true); }
+}
+async function waitJob(id, onLine) {
+  for (let i = 0; i < 600; i++) {
+    const j = await api(`/api/jobs/${id}`); if (onLine) onLine(j);
+    if (j.status !== 'running') { if (j.status === 'error') throw new Error(j.error || 'Operazione non riuscita'); return j; }
+    await new Promise((r) => setTimeout(r, 700));
+  }
+  throw new Error('Operazione troppo lunga: guarda Attività.');
+}
+
+// ---------------------------------------------------------------------------------------------
+// router
+// ---------------------------------------------------------------------------------------------
+async function route() {
+  if (!S.session || !S.session.logged) return renderLogin();
+  shell();
+  const parts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
+  S.route = parts;
+  const page = $('#page');
+  const r = parts[0] || '';
+  setActive(r === 'clienti' ? 'clienti' : r);
+  page.innerHTML = '<div class="empty">Caricamento…</div>';
+  try {
+    if (r === '') await pOverview(page);
+    else if (r === 'clienti' && parts[1]) await pCustomer(page, parts[1], parts[2] || 'riepilogo');
+    else if (r === 'clienti') await pCustomers(page);
+    else if (r === 'istanze') await pInstances(page);
+    else if (r === 'licenze') await pLicences(page);
+    else if (r === 'deploy') await pDeploys(page);
+    else if (r === 'attivita') await pEvents(page);
+    else if (r === 'impostazioni') await pSettings(page);
+    else page.innerHTML = '<div class="empty"><div class="big">Pagina non trovata</div></div>';
+  } catch (e) {
+    page.innerHTML = `<div class="card"><div class="empty"><div class="big">Non riesco a caricare la pagina</div>${esc(e.message)}</div></div>`;
+  }
+  window.scrollTo(0, 0);
+}
+window.addEventListener('hashchange', route);
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k' && S.session?.logged) { e.preventDefault(); palette(); }
+});
+
+// ---------------------------------------------------------------------------------------------
+// Panoramica
+// ---------------------------------------------------------------------------------------------
+async function pOverview(page) {
+  setCrumbs([['Panoramica']]);
+  const d = await api('/api/overview'); const k = d.kpi; setCounts(k);
+  const kpi = (l, v, s, i) => `<div class="card kpi"><div class="l">${ic(i)}${esc(l)}</div><div class="v">${esc(v)}</div><div class="s">${s}</div></div>`;
+  page.innerHTML = `
+    <div class="ph"><div><h1>Buongiorno, ecco la situazione</h1><div class="sub">Clienti, installazioni e licenze in un colpo d'occhio.</div></div>
+      <div class="btns"><button class="btn" id="new-cust">${ic('plus')} Nuovo cliente</button></div></div>
+    <div class="grid g4 mb">
+      ${kpi('Clienti', k.customers, `${k.projects} progetti`, 'users')}
+      ${kpi('Siti e server online', `${k.envs_online}/${k.envs}`, k.envs_down ? `<span style="color:var(--bad)">${k.envs_down} non raggiungibili</span>` : 'nessun problema rilevato', 'server')}
+      ${kpi('Licenze attive', k.licences_active, k.licences_expiring ? `<span style="color:var(--warn)">${k.licences_expiring} da rinnovare</span>` : 'nessuna in scadenza', 'key')}
+      ${kpi('Postazioni PC', k.workstations, `${k.deploys_30d} deploy negli ultimi 30 giorni`, 'monitor')}
+    </div>
+    <div class="grid g-main">
+      <div class="card"><div class="hd"><h3>Da fare</h3><span class="pill mut">${d.alerts.length}</span></div>
+        <div class="bd flush">${d.alerts.length ? `<div class="alist">${d.alerts.map((a, i) => `<div class="al" data-i="${i}">${dot(a.level === 'info' ? 'none' : a.level)}<div><b>${esc(a.title)}</b><small>${esc(a.text)}</small></div></div>`).join('')}</div>`
+          : `<div class="empty"><div class="big">Tutto in ordine</div>Nessuna licenza in scadenza, nessun sito giù.</div>`}</div></div>
+      <div class="card"><div class="hd"><h3>Ultime attività</h3><div class="btns"><a class="btn ghost sm" href="#/attivita">Tutte</a></div></div>
+        <div class="bd flush"><div class="feed">${d.events.map(evRow).join('') || '<div class="empty">Nessuna attività</div>'}</div></div></div>
+    </div>`;
+  $('#new-cust').onclick = newCustomer;
+  $$('.al', page).forEach((el) => (el.onclick = () => {
+    const a = d.alerts[+el.dataset.i];
+    if (a.kind === 'licence') openLicence(a.id); else if (a.kind === 'env') openEnv(a.id); else if (a.customer_id) location.hash = `#/clienti/${a.customer_id}`;
+  }));
+}
+const evSubj = (ev) => (ev.subject ? ` <span style="color:var(--mut)">· ${esc(ev.subject)}</span>` : ev.entity_id ? ` <span class="tag mono">${esc(String(ev.entity_id).slice(0, 12))}</span>` : '');
+const evRow = (ev) => `<div class="ev"><time title="${esc(ev.at)}">${ago(ev.at)}</time><div>${esc(ev.text)}${evSubj(ev)}</div></div>`;
+
+// ---------------------------------------------------------------------------------------------
+// Clienti
+// ---------------------------------------------------------------------------------------------
+async function pCustomers(page) {
+  setCrumbs([['Clienti']]);
+  const list = await api('/api/customers');
+  let filter = sessionStorage.getItem('hub.cf') || 'all'; let q = '';
+  page.innerHTML = `<div class="ph"><div><h1>Clienti</h1><div class="sub">Apri un cliente per vedere progetti, siti, postazioni, licenze e storico.</div></div>
+    <div class="btns"><button class="btn pri" id="new-cust">${ic('plus')} Nuovo cliente</button></div></div>
+    <div class="card"><div class="toolbar"><input type="search" id="q" placeholder="Cerca per nome, P.IVA, città, Codice Multi…">
+      <div class="chips">${[['all', 'Tutti'], ['bad', 'Con problemi'], ['expiring', 'In scadenza'], ['prospect', 'Trattative']].map(([v, t]) => `<button class="chip" data-f="${v}">${t}</button>`).join('')}</div></div>
+      <div class="tbl-wrap" id="tbl"></div></div>`;
+  $('#new-cust').onclick = newCustomer;
+  const draw = () => {
+    $$('.chip', page).forEach((c) => c.classList.toggle('on', c.dataset.f === filter));
+    const rows = list.filter((c) => {
+      const hay = [c.name, c.vat_id, c.email, c.extra.city, c.extra.codice_multi, (c.extra.tags || []).join(' ')].join(' ').toLowerCase();
+      if (q && !hay.includes(q)) return false;
+      if (filter === 'bad') return c.health === 'bad' || c.health === 'warn';
+      if (filter === 'expiring') return c.next_expiry_days !== null && c.next_expiry_days <= 30;
+      if (filter === 'prospect') return c.status === 'prospect';
+      return true;
+    });
+    $('#tbl').innerHTML = rows.length ? `<table class="t"><thead><tr><th>Cliente</th><th>Stato</th><th class="hide-sm">Piano</th><th class="r hide-sm">Progetti</th><th class="r hide-sm">Siti online</th><th class="r hide-sm">Postazioni</th><th>Prossima scadenza</th></tr></thead><tbody>
+      ${rows.map((c) => `<tr class="click" data-id="${esc(c.id)}"><td><div class="cellname">${av(c.name, c.extra.color)}<div><b>${esc(c.name)}</b><small>${esc([c.vat_id, c.extra.city, c.reseller_name && 'via ' + c.reseller_name].filter(Boolean).join(' · ') || '—')}</small></div></div></td>
+        <td><div class="btns">${dot(c.health)} ${c.status !== 'active' ? `<span class="pill mut">${esc(CUST_STATUS[c.status] || c.status)}</span>` : esc(HEALTH[c.health][1])}</div></td>
+        <td class="hide-sm">${c.plans.map((p) => `<span class="tag">${esc(p)}</span>`).join(' ') || '—'}</td>
+        <td class="r hide-sm">${c.projects}</td><td class="r hide-sm">${c.online}/${c.envs}</td><td class="r hide-sm">${c.workstations}</td>
+        <td>${c.next_expiry ? `${fmtDate(c.next_expiry)} <small style="color:${c.next_expiry_days < 0 ? 'var(--bad)' : c.next_expiry_days <= 30 ? 'var(--warn)' : 'var(--mut)'}">(${c.next_expiry_days < 0 ? 'scaduta' : c.next_expiry_days + ' gg'})</small>` : '—'}</td></tr>`).join('')}
+      </tbody></table>` : `<div class="empty"><div class="big">${list.length ? 'Nessun cliente con questi filtri' : 'Ancora nessun cliente'}</div>${list.length ? '' : 'Premi «Nuovo cliente» per iniziare.'}</div>`;
+    $$('tr.click', page).forEach((tr) => (tr.onclick = () => (location.hash = `#/clienti/${tr.dataset.id}`)));
+  };
+  $('#q').oninput = (e) => { q = e.target.value.trim().toLowerCase(); draw(); };
+  $$('.chip', page).forEach((c) => (c.onclick = () => { filter = c.dataset.f; sessionStorage.setItem('hub.cf', filter); draw(); }));
+  draw();
+}
+
+function customerForm(c = {}) {
+  const x = c.extra || {};
+  return `<div class="frow">${fld('name', 'Ragione sociale', { value: c.name, req: true, attrs: 'required' })}${fld('vat_id', 'Partita IVA / C.F.', { value: c.vat_id })}</div>
+    <div class="frow">${fld('email', 'Email', { type: 'email', value: c.email })}${fld('x_pec', 'PEC', { value: x.pec })}</div>
+    <div class="frow">${fld('x_contact', 'Referente', { value: x.contact })}${fld('x_phone', 'Telefono', { value: x.phone })}</div>
+    <div class="frow">${fld('x_address', 'Indirizzo', { value: x.address })}${fld('x_city', 'Città', { value: x.city })}</div>
+    <div class="frow">${fld('x_codice_multi', 'Codice Multi', { value: x.codice_multi })}${fld('x_sdi', 'Codice SDI', { value: x.sdi })}</div>
+    <div class="frow">${sel('status', 'Stato', Object.entries(CUST_STATUS), c.status || 'active')}${fld('x_color', 'Colore', { type: 'color', value: x.color || avColor(c.name || 'x'), attrs: 'style="height:38px;padding:3px"' })}</div>
+    ${fld('x_tags', 'Etichette (separate da virgola)', { value: (x.tags || []).join(', '), ph: 'commercialista, pilota, Pro' })}
+    <div class="f"><label for="f-notes">Note</label><textarea id="f-notes" name="notes" rows="3" style="font-family:inherit;font-size:14px">${esc(c.notes || '')}</textarea></div>`;
+}
+function customerPayload(d) {
+  const extra = {};
+  for (const [k, v] of Object.entries(d)) if (k.startsWith('x_')) extra[k.slice(2)] = k === 'x_tags' ? v.split(',').map((t) => t.trim()).filter(Boolean) : v.trim();
+  return { name: d.name, vat_id: d.vat_id, email: d.email, notes: d.notes, status: d.status, extra };
+}
+function newCustomer() {
+  modal({
+    title: 'Nuovo cliente', submit: 'Crea cliente', wide: true,
+    body: `<p class="note" style="margin-top:0">Crea il cliente e il suo primo progetto. Siti, server e postazioni li aggiungi dalla sua scheda.</p>${customerForm()}${fld('project_name', 'Nome del progetto', { ph: 'DocMap <nome del cliente>' })}`,
+    onSubmit: async (d) => {
+      const p = customerPayload(d); p.project_name = d.project_name;
+      const r = await api('/api/customers', p); closeOverlay(); toast('Cliente creato.'); location.hash = `#/clienti/${r.id}`;
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Scheda cliente
+// ---------------------------------------------------------------------------------------------
+const CTABS = [['riepilogo', 'Riepilogo'], ['postazioni', 'Postazioni'], ['pubblica', 'Pubblica'], ['licenze', 'Licenze'], ['accessi', 'Accessi'], ['storico', 'Storico'], ['dati', 'Dati']];
+async function pCustomer(page, id, tab) {
+  const d = await api(`/api/customers/${encodeURIComponent(id)}`);
+  const c = d.customer; S.cust = d;
+  setCrumbs([['Clienti', '#/clienti'], [c.name]]);
+  const envs = d.projects.flatMap((p) => p.instances.flatMap((i) => i.envs));
+  const wss = d.projects.flatMap((p) => p.workstations).filter((w) => w.status !== 'revoked');
+  const curLic = d.licences.filter((l) => l.state !== 'superseded');
+  const counts = { postazioni: wss.length, pubblica: envs.length, licenze: curLic.length, accessi: d.secrets.length };
+  const x = c.extra || {};
+  page.innerHTML = `
+    <div class="ph">${av(c.name, x.color, 'avatar')}<div><h1>${esc(c.name)}</h1>
+      <div class="sub">${[c.vat_id && 'P.IVA ' + esc(c.vat_id), x.city && esc(x.city), c.reseller_name && 'rivenditore ' + esc(c.reseller_name), c.email && `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>`].filter(Boolean).join(' · ') || 'Nessun dato anagrafico'}</div>
+      <div class="btns" style="margin-top:6px">${dot(d.health)} <span style="color:var(--mut)">${esc(HEALTH[d.health][1])}</span>${c.status !== 'active' ? ` <span class="pill mut">${esc(CUST_STATUS[c.status])}</span>` : ''}${(x.tags || []).map((t) => ` <span class="tag">${esc(t)}</span>`).join('')}</div></div>
+      <div class="btns"><button class="btn" id="edit-c">${ic('edit')} Modifica</button><button class="btn pri" id="new-p">${ic('plus')} Nuovo progetto</button></div></div>
+    <nav class="tabs">${CTABS.map(([t, l]) => `<a href="#/clienti/${esc(c.id)}/${t}" class="${t === tab ? 'on' : ''}">${l}${counts[t] ? `<span class="cnt">${counts[t]}</span>` : ''}</a>`).join('')}</nav>
+    <div id="tab"></div>`;
+  $('#edit-c').onclick = () => editCustomer(c);
+  $('#new-p').onclick = () => newProject(c);
+  const el = $('#tab');
+  ({ riepilogo: tSummary, postazioni: tWorkstations, pubblica: tPublish, licenze: tLicences, accessi: tSecrets, storico: tHistory, dati: tData }[tab] || tSummary)(el, d);
+}
+function editCustomer(c) {
+  modal({
+    title: `Modifica ${c.name}`, wide: true, body: customerForm(c),
+    onSubmit: async (d) => { await api(`/api/customers/${c.id}`, customerPayload(d)); closeOverlay(); toast('Salvato.'); route(); },
+  });
+}
+function newProject(c) {
+  modal({
+    title: 'Nuovo progetto', submit: 'Crea progetto',
+    body: `<p class="note" style="margin-top:0">Un progetto raggruppa sito online, staging, server di sede e postazioni di un cliente. Di solito ne basta uno; creane altri per sedi o società diverse.</p>${fld('name', 'Nome del progetto', { req: true, attrs: 'required', ph: 'Archivio sede di Milano' })}`,
+    onSubmit: async (d) => { await api('/api/projects', { customer_id: c.id, name: d.name }); closeOverlay(); toast('Progetto creato.'); route(); },
+  });
+}
+
+function tSummary(el, d) {
+  if (!d.projects.length) { el.innerHTML = `<div class="card"><div class="empty"><div class="big">Nessun progetto</div>Crea un progetto per registrare siti, server e postazioni.</div></div>`; return; }
+  el.innerHTML = `<div class="grid g-main"><div>${d.projects.map((p) => projectBlock(p)).join('')}</div>
+    <div><div class="card mb"><div class="hd"><h3>Licenze</h3><div class="btns"><a class="btn ghost sm" href="#/clienti/${esc(d.customer.id)}/licenze">Gestisci</a></div></div><div class="bd flush">${licMini(d.licences.filter((l) => l.state !== 'superseded'))}</div></div>
+    <div class="card"><div class="hd"><h3>Ultime attività</h3></div><div class="bd flush"><div class="feed">${d.events.slice(0, 8).map(evRow).join('') || '<div class="empty">Nessuna attività</div>'}</div></div></div></div></div>`;
+  bindNodes(el, d);
+}
+function projectBlock(p) {
+  const nodes = [];
+  for (const i of p.instances) {
+    for (const e of i.envs) {
+      nodes.push(`<div class="node" data-env="${esc(e.id)}"><div class="nt"><span class="ic">${ic(envIcon(e))}</span>${esc(e.name_it)}${e.kind === 'studio-python' ? ' · sede' : ''}${dot(envHealth(e))}</div>
+        <div class="nm"><span>${esc(i.label)}</span>${e.url ? `<span class="mono">${esc(e.url.replace(/^https?:\/\//, ''))}</span>` : ''}<span>${esc(ENV_STATUS[e.status]?.[1] || e.status)}${e.app_version ? ' · v' + esc(e.app_version) : ''}</span></div></div>`);
+    }
+    if (!i.envs.length) nodes.push(`<div class="node" data-inst="${esc(i.id)}"><div class="nt"><span class="ic">${ic('server')}</span>${esc(i.label)}${dot('none')}</div><div class="nm"><span>Installazione senza ambienti</span>${i.licence ? `<span>Licenza ${esc(i.licence.plan)}</span>` : ''}</div></div>`);
+  }
+  const ws = p.workstations.filter((w) => w.status !== 'revoked');
+  nodes.push(`<div class="node" data-ws="${esc(p.id)}"><div class="nt"><span class="ic">${ic('monitor')}</span>Postazioni${dot(ws.length ? 'ok' : 'none')}</div><div class="nm"><span>${ws.length ? ws.map((w) => esc(w.name)).join(', ') : 'Nessuna postazione'}</span></div></div>`);
+  nodes.push(`<div class="node add" data-addinst="${esc(p.id)}">${ic('plus')} Aggiungi installazione</div>`);
+  return `<div class="proj"><div class="proj-h">${dot(p.health)}<h3>${esc(p.name)}</h3>${p.status !== 'active' ? `<span class="pill mut">${esc(p.status)}</span>` : ''}
+    <button class="btn ghost sm" data-editp="${esc(p.id)}" style="margin-left:auto">${ic('edit')} Rinomina</button></div><div class="pmap">${nodes.join('')}</div></div>`;
+}
+function bindNodes(el, d) {
+  $$('[data-env]', el).forEach((n) => (n.onclick = () => openEnv(n.dataset.env)));
+  $$('[data-ws]', el).forEach((n) => (n.onclick = () => (location.hash = `#/clienti/${d.customer.id}/postazioni`)));
+  $$('[data-inst]', el).forEach((n) => (n.onclick = () => (location.hash = `#/clienti/${d.customer.id}/licenze`)));
+  $$('[data-addinst]', el).forEach((n) => (n.onclick = () => addInstance(d, n.dataset.addinst)));
+  $$('[data-editp]', el).forEach((b) => (b.onclick = () => {
+    const p = d.projects.find((x) => x.id === b.dataset.editp);
+    modal({ title: 'Rinomina progetto', body: fld('name', 'Nome', { value: p.name, attrs: 'required' }) + sel('status', 'Stato', [['active', 'Attivo'], ['paused', 'In pausa'], ['archived', 'Archiviato']], p.status),
+      onSubmit: async (f) => { await api(`/api/projects/${p.id}`, f); closeOverlay(); route(); } });
+  }));
+}
+function addInstance(d, pid) {
+  modal({
+    title: 'Aggiungi installazione', submit: 'Registra',
+    body: `<p class="note" style="margin-top:0">Un'installazione è ciò che riceve una licenza: il sito online, il server di sede o un PC isolato. Dopo averla registrata aggiungi i suoi ambienti (produzione, staging) da «Strumenti classici → Istanze &amp; ambienti».</p>
+      ${fld('label', 'Nome', { req: true, attrs: 'required', ph: 'Sito online, Server sede, PC archivio…' })}
+      ${sel('kind', 'Tipo', [['onprem', 'In sede (on-premise)'], ['cloud', 'Online (cloud)'], ['appliance', 'Appliance']])}`,
+    onSubmit: async (f) => { await api('/api/instances', { project_id: pid, label: f.label, kind: f.kind }); closeOverlay(); toast('Installazione registrata.'); route(); },
+  });
+}
+function licMini(lics) {
+  if (!lics.length) return '<div class="empty">Nessuna licenza</div>';
+  return `<div class="alist">${lics.map((l) => `<div class="al" data-lic="${esc(l.id)}">${dot(LIC_STATE[l.state][0] === 'mut' ? 'none' : LIC_STATE[l.state][0])}<div><b>${esc(l.plan)} · ${esc(l.instance_label)}</b><small>scade ${fmtDate(l.expires_at)}${l.days_left !== null ? ` (${l.days_left < 0 ? 'scaduta' : l.days_left + ' giorni'})` : ''}</small></div></div>`).join('')}</div>`;
+}
+
+function tWorkstations(el, d) {
+  el.innerHTML = d.projects.map((p) => {
+    const ws = p.workstations;
+    return `<div class="card mb"><div class="hd"><h3>${esc(p.name)}</h3><div class="btns"><button class="btn pri sm" data-addws="${esc(p.id)}">${ic('plus')} Aggiungi postazione</button></div></div>
+      <div class="bd flush">${ws.length ? `<div class="tbl-wrap"><table class="t"><thead><tr><th>Postazione</th><th>Etichetta</th><th>Stato</th><th>Client</th><th>Creata</th><th></th></tr></thead><tbody>
+      ${ws.map((w) => `<tr><td><div class="cellname"><div class="av" style="background:var(--acc-soft);color:var(--acc)">${ic('monitor')}</div><div><b>${esc(w.name)}</b><small class="mono">${esc(w.id)}</small></div></div></td>
+        <td>${w.tag ? `<span class="tag">${esc(w.tag)}</span>` : '—'}</td><td>${w.status === 'revoked' ? '<span class="pill bad">Revocata</span>' : '<span class="pill ok">Attiva</span>'}</td>
+        <td>${w.built_at ? `generato ${ago(w.built_at)}` : '<span style="color:var(--mut)">da generare</span>'}</td><td>${fmtDate(w.created_at)}</td>
+        <td class="r"><div class="btns" style="justify-content:flex-end">${w.status !== 'revoked' ? `<button class="btn sm" data-editws="${esc(w.id)}">${ic('edit')}</button><button class="btn sm" disabled title="Arriva con la Pipeline 1 (prossimo aggiornamento)">${ic('download')} Genera client</button>` : ''}</div></td></tr>`).join('')}
+      </tbody></table></div>` : `<div class="empty"><div class="big">Nessuna postazione</div>Aggiungi i PC dello studio con un nome riconoscibile, es. «PC Luigi» o «Sala studio».</div>`}</div></div>`;
+  }).join('');
+  $$('[data-addws]', el).forEach((b) => (b.onclick = () => modal({
+    title: 'Nuova postazione', submit: 'Aggiungi',
+    body: `${fld('name', 'Nome', { req: true, attrs: 'required', ph: 'PC Luigi' })}${fld('tag', 'Etichetta', { ph: 'Sala studio, Reception, Portatile…' })}`,
+    onSubmit: async (f) => { await api('/api/workstations', { project_id: b.dataset.addws, name: f.name, tag: f.tag }); closeOverlay(); toast('Postazione aggiunta.'); route(); },
+  })));
+  $$('[data-editws]', el).forEach((b) => (b.onclick = () => {
+    const w = d.projects.flatMap((p) => p.workstations).find((x) => x.id === b.dataset.editws);
+    const f = modal({
+      title: `Postazione ${w.name}`,
+      body: `${fld('name', 'Nome', { value: w.name, attrs: 'required' })}${fld('tag', 'Etichetta', { value: w.tag || '' })}
+        <div class="note warn">Revoca: la postazione resta nello storico ma non si possono più generare client per lei. Usala per un PC dismesso o rubato.</div>
+        <div style="margin-top:10px"><button type="button" class="btn danger sm" id="revoke">Revoca postazione</button></div>`,
+      onSubmit: async (v) => { await api(`/api/workstations/${w.id}`, v); closeOverlay(); route(); },
+    });
+    $('#revoke', f).onclick = async () => { if (!confirm(`Revocare «${w.name}»?`)) return; await api(`/api/workstations/${w.id}`, { revoke: true }); closeOverlay(); toast('Postazione revocata.'); route(); };
+  }));
+}
+
+function tPublish(el, d) {
+  const envs = d.projects.flatMap((p) => p.instances.flatMap((i) => i.envs.map((e) => Object.assign({ project: p.name }, e))));
+  const web = envs.filter((e) => e.kind === 'web-php');
+  el.innerHTML = `
+    <div class="card mb"><div class="hd"><h3>Siti e server</h3></div><div class="bd flush">${envs.length ? `<div class="tbl-wrap"><table class="t"><thead><tr><th>Ambiente</th><th>Indirizzo</th><th>Stato</th><th>Versione</th><th>Ultimo deploy</th><th></th></tr></thead><tbody>
+      ${envs.map((e) => `<tr class="click" data-env="${esc(e.id)}"><td><div class="cellname"><div class="av" style="background:var(--acc-soft);color:var(--acc)">${ic(envIcon(e))}</div><div><b>${esc(e.name_it)}</b><small>${esc(e.instance_label)} · ${esc(e.kind_it)}</small></div></div></td>
+        <td class="mono">${e.url ? esc(e.url) : '—'}</td><td>${pill(ENV_STATUS, e.status)}</td><td>${esc(e.app_version || e.deployed_version || '—')}</td><td>${e.last_deploy_at ? ago(e.last_deploy_at) : 'mai'}</td>
+        <td class="r">${e.kind === 'web-php' ? `<button class="btn sm" data-plan="${esc(e.id)}">${ic('rocket')} ${e.name === 'production' ? 'Deploy produzione' : 'Deploy staging'}</button>` : ''}</td></tr>`).join('')}
+      </tbody></table></div>` : '<div class="empty"><div class="big">Nessun sito o server</div>Registra gli ambienti da «Strumenti classici → Istanze &amp; ambienti» oppure con «Nuovo cliente» guidato.</div>'}</div></div>
+    ${web.some((e) => e.name === 'staging') && web.some((e) => e.name === 'production') ? `<div class="card mb"><div class="hd"><h3>Promuovi staging → produzione</h3></div><div class="bd"><p style="margin-top:0;color:var(--fg2)">In produzione va solo la stessa versione già verificata sullo staging. Prima vedi il piano (nessun file toccato), poi confermi.</p>
+      ${[...new Set(web.map((e) => e.instance_id))].map((iid) => { const s = web.find((e) => e.instance_id === iid && e.name === 'staging'); const p = web.find((e) => e.instance_id === iid && e.name === 'production'); return s && p ? `<button class="btn pri" data-promote="${esc(iid)}">${ic('rocket')} Prepara la promozione di ${esc(s.instance_label)}</button>` : ''; }).join(' ')}</div></div>` : ''}
+    <div class="card"><div class="hd"><h3>Ultimi deploy</h3></div><div class="bd flush">${deployTable(d.deploys)}</div></div>`;
+  $$('tr.click', el).forEach((tr) => (tr.onclick = (e) => { if (!e.target.closest('button')) openEnv(tr.dataset.env); }));
+  $$('[data-plan]', el).forEach((b) => (b.onclick = () => classicPost('/deploy/plan', { env: b.dataset.plan })));
+  $$('[data-promote]', el).forEach((b) => (b.onclick = () => classicPost('/promote/plan', { instance: b.dataset.promote })));
+}
+function deployTable(list) {
+  if (!list.length) return '<div class="empty">Nessun deploy</div>';
+  const st = { ok: ['ok', 'Riuscito'], done: ['ok', 'Riuscito'], running: ['info', 'In corso'], error: ['bad', 'Fallito'], failed: ['bad', 'Fallito'], rolled_back: ['warn', 'Ripristinato'], dry_run: ['mut', 'Prova'] };
+  return `<div class="tbl-wrap"><table class="t"><thead><tr><th>Quando</th><th>Dove</th><th>Versione</th><th>Tipo</th><th>Esito</th></tr></thead><tbody>${list.map((x) => `<tr><td>${fmtDT(x.started_at)}</td><td>${x.customer_id ? `<a href="#/clienti/${esc(x.customer_id)}/pubblica">${esc(x.env_label)}</a>` : esc(x.env_label)}</td><td>${esc(x.version || '—')}</td><td>${x.dry_run ? 'prova' : 'reale'}</td><td>${pill(st, x.status)}</td></tr>`).join('')}</tbody></table></div>`;
+}
+
+function tLicences(el, d) {
+  const insts = d.projects.flatMap((p) => p.instances.map((i) => [i.id, `${p.name} · ${i.label}`]));
+  el.innerHTML = `<div class="card"><div class="hd"><h3>Licenze</h3><div class="btns"><button class="btn pri sm" id="issue" ${insts.length ? '' : 'disabled'}>${ic('plus')} Emetti licenza</button></div></div>
+    <div class="bd flush">${licTable(d.licences, false)}</div></div>`;
+  bindLicTable(el);
+  $('#issue').onclick = () => issueLicence(insts, d.plans);
+}
+function issueLicence(insts, plans) {
+  modal({
+    title: 'Emetti licenza', submit: 'Firma ed emetti',
+    body: `${sel('instance_id', 'Installazione', insts)}${sel('plan', 'Piano', Object.entries(plans || {}).map(([k, v]) => [k, `${v} (${k})`]), 'studio')}
+      ${fld('months', 'Durata in mesi', { type: 'number', hint: 'Vuoto = durata del piano.', attrs: 'min="1" max="120"' })}
+      <div class="frow">${fld('l_users', 'Utenti', { type: 'number', attrs: 'min="-1"' })}${fld('l_binders', 'Faldoni', { type: 'number', attrs: 'min="-1"' })}</div>
+      ${fld('l_archives', 'Archivi', { type: 'number', attrs: 'min="-1"', hint: 'Limiti vuoti = quelli del piano; -1 = illimitato.' })}`,
+    onSubmit: async (f) => {
+      const r = await api('/api/licences', { instance_id: f.instance_id, plan: f.plan, months: f.months, limits: { users: f.l_users, binders: f.l_binders, archives: f.l_archives } });
+      closeOverlay(); toast('Licenza emessa e firmata.'); await route(); openLicence(r.id);
+    },
+  });
+}
+function licTable(list, withCustomer) {
+  if (!list.length) return '<div class="empty"><div class="big">Nessuna licenza</div></div>';
+  return `<div class="tbl-wrap"><table class="t"><thead><tr>${withCustomer ? '<th>Cliente</th>' : ''}<th>Installazione</th><th>Piano</th><th>Stato</th><th>Scadenza</th><th>Limiti</th><th></th></tr></thead><tbody>
+    ${list.map((l) => `<tr class="click" data-lic="${esc(l.id)}">${withCustomer ? `<td><div class="cellname">${av(l.customer_name)}<div><b>${esc(l.customer_name)}</b></div></div></td>` : ''}
+      <td>${esc(l.instance_label)}<small style="display:block;color:var(--mut)">${esc(l.project_name || '')}</small></td><td><span class="tag">${esc(l.plan)}</span></td><td>${pill(LIC_STATE, l.state)}</td>
+      <td>${fmtDate(l.expires_at)}${l.state !== 'superseded' && l.days_left !== null ? ` <small style="color:var(--mut)">(${l.days_left < 0 ? 'da ' + (-l.days_left) + ' gg' : l.days_left + ' gg'})</small>` : ''}</td>
+      <td style="color:var(--fg2);font-size:13px">${l.limits ? Object.entries(l.limits).map(([k, v]) => `${({ users: 'utenti', binders: 'faldoni', archives: 'archivi' })[k] || k} ${v === null ? '∞' : v}`).join(' · ') : '—'}</td>
+      <td class="r"><a class="btn sm" href="/download/${esc(l.id)}" title="Scarica il file di licenza">${ic('download')}</a></td></tr>`).join('')}</tbody></table></div>`;
+}
+function bindLicTable(el) { $$('[data-lic]', el).forEach((tr) => (tr.onclick = (e) => { if (!e.target.closest('a')) openLicence(tr.dataset.lic); })); }
+
+function tSecrets(el, d) {
+  const envName = {}; d.projects.forEach((p) => p.instances.forEach((i) => i.envs.forEach((e) => (envName[e.id] = `${i.label} · ${e.name_it}`))));
+  const KIND = { ftp: 'Accesso FTP/SFTP', basic_auth: 'Protezione cartella', admin_token: 'Token amministratore', superadmin: 'Super-admin', db_config: 'Configurazione e chiave', note: 'Nota', bridge_token: 'Token del ponte di sincronizzazione' };
+  el.innerHTML = `<div class="card mb"><div class="hd"><h3>Accessi e segreti in cassaforte</h3><div class="btns"><a class="btn sm" href="/vault">${ic('lock')} Apri la Cassaforte</a></div></div>
+    <div class="bd flush">${d.secrets.length ? `<table class="t"><thead><tr><th>Ambiente</th><th>Cosa</th><th>Aggiornato</th></tr></thead><tbody>${d.secrets.map((s) => `<tr><td>${esc(envName[s.env_id] || s.env_id)}</td><td>${esc(KIND[s.kind] || s.kind)}${s.label ? ` <span class="tag">${esc(s.label)}</span>` : ''}</td><td>${ago(s.updated_at)}</td></tr>`).join('')}</tbody></table>`
+      : '<div class="empty">Nessun segreto salvato per questo cliente.</div>'}</div></div>
+    <div class="note">I segreti non si vedono mai qui: per mostrarne uno l'hub chiede di nuovo la passphrase e lo registra nello storico. Custodia della chiave del cliente: <b>${d.customer.key_escrow ? 'attiva' : 'spenta'}</b>.</div>`;
+}
+function tHistory(el, d) {
+  el.innerHTML = `<div class="card"><div class="hd"><h3>Storico del cliente</h3></div><div class="bd flush"><div class="feed">${d.events.map((ev) => `<div class="ev"><time title="${esc(ev.at)}">${fmtDT(ev.at)}</time><div>${esc(ev.text)}${evSubj(ev)}</div></div>`).join('') || '<div class="empty">Nessuna attività</div>'}</div></div></div>`;
+}
+function tData(el, d) {
+  const c = d.customer, x = c.extra || {};
+  const row = (k, v) => `<dt>${esc(k)}</dt><dd>${v ? esc(v) : '<span style="color:var(--mut)">—</span>'}</dd>`;
+  el.innerHTML = `<div class="grid g2"><div class="card"><div class="hd"><h3>Anagrafica</h3><div class="btns"><button class="btn sm" id="ed">${ic('edit')} Modifica</button></div></div><div class="bd"><dl class="kv">
+    ${row('Ragione sociale', c.name)}${row('Partita IVA', c.vat_id)}${row('Email', c.email)}${row('PEC', x.pec)}${row('Referente', x.contact)}${row('Telefono', x.phone)}
+    ${row('Indirizzo', [x.address, x.city].filter(Boolean).join(', '))}${row('Codice Multi', x.codice_multi)}${row('Codice SDI', x.sdi)}${row('Stato', CUST_STATUS[c.status])}${row('Rivenditore', c.reseller_name)}</dl></div></div>
+    <div class="card"><div class="hd"><h3>Note e sistema</h3></div><div class="bd"><p style="white-space:pre-wrap;margin-top:0">${esc(c.notes || 'Nessuna nota.')}</p><dl class="kv">${row('ID', c.id)}${row('Creato', fmtDT(c.created_at).replace(/&amp;/g, '&'))}${row('Progetti', String(d.projects.length))}</dl></div></div></div>`;
+  $('#ed').onclick = () => editCustomer(c);
+}
+
+// ---------------------------------------------------------------------------------------------
+// drawers: environment, licence
+// ---------------------------------------------------------------------------------------------
+async function openEnv(id) {
+  const all = await api('/api/instances'); const e = all.find((x) => x.id === id);
+  if (!e) return toast('Ambiente non trovato.', true);
+  const deps = (await api('/api/deploys')).filter((x) => x.env_label && x.env_label.startsWith(e.instance_label) && x.customer_id === e.customer_id).slice(0, 8);
+  const row = (k, v) => `<dt>${esc(k)}</dt><dd>${v}</dd>`;
+  const acts = [];
+  if (e.url && /^https?:\/\//.test(e.url)) acts.push(`<a class="btn sm" href="${esc(e.url)}" target="_blank" rel="noreferrer">${ic('ext')} Apri</a>`);
+  if (e.kind === 'web-php') acts.push(`<button class="btn pri sm" data-a="plan">${ic('rocket')} ${e.name === 'production' ? 'Deploy produzione' : 'Deploy ' + esc(e.name_it.toLowerCase())}</button>`);
+  if (e.kind === 'local-python') acts.push(`<button class="btn sm" data-a="start">${ic('play')} Avvia</button><button class="btn sm" data-a="stop">${ic('stop')} Ferma</button>`);
+  acts.push(`<button class="btn sm" data-a="check">${ic('refresh')} Controlla</button>`);
+  const dr = drawer(`${esc(e.name_it)} · ${esc(e.instance_label)}`, `<a href="#/clienti/${esc(e.customer_id)}">${esc(e.customer_name)}</a>${e.project_name ? ' · ' + esc(e.project_name) : ''}`,
+    `<div class="sect"><h4>Stato</h4><dl class="kv">${row('Stato', pill(ENV_STATUS, e.status))}${e.error ? row('Dettaglio', esc(e.error)) : ''}${row('Ultimo controllo', ago(e.last_check))}
+      ${row('Versione', esc(e.app_version || '—'))}${row('Verificata su staging', esc(e.verified_version || '—'))}${row('Ultimo deploy', ago(e.last_deploy_at))}${row('Ultimo backup', ago(e.last_backup_at))}</dl></div>
+    <div class="sect"><h4>Configurazione</h4><dl class="kv">${row('Tipo', esc(e.kind_it))}${row('Indirizzo', e.url ? `<span class="mono">${esc(e.url)}</span>` : '—')}${row('API', e.api_url ? `<span class="mono">${esc(e.api_url)}</span>` : 'automatica')}
+      ${e.port ? row('Porta', esc(e.port)) : ''}${e.base_path ? row('Cartella sul sito', `<span class="mono">${esc(e.base_path)}</span>`) : ''}${e.expires_at ? row('Scade', fmtDate(e.expires_at)) : ''}${row('ID', `<span class="mono">${esc(e.id)}</span>`)}</dl></div>
+    <div class="sect"><h4>Licenza</h4>${e.licence ? `<div class="al" data-lic="${esc(e.licence.id)}" style="border:1px solid var(--line);border-radius:8px">${dot(LIC_STATE[e.licence.state][0])}<div><b>${esc(e.licence.plan)}</b><small>${esc(LIC_STATE[e.licence.state][1])}${e.licence.days_left !== null ? ' · ' + e.licence.days_left + ' giorni' : ''}</small></div></div>` : '<span style="color:var(--mut)">Nessuna licenza per questa installazione.</span>'}</div>
+    <div class="sect"><h4>Deploy recenti</h4>${deployTable(deps)}</div>`, acts.join(''));
+  $$('[data-lic]', dr).forEach((x) => (x.onclick = () => openLicence(x.dataset.lic)));
+  $$('[data-a]', dr).forEach((b) => (b.onclick = async () => {
+    const a = b.dataset.a;
+    if (a === 'plan') return classicPost('/deploy/plan', { env: e.id });
+    if (a === 'start') return classicPost('/env/start', { env: e.id });
+    if (a === 'stop') return classicPost('/env/stop', { env: e.id });
+    if (a === 'check') { closeOverlay(); await checkAll(); }
+  }));
+}
+async function openLicence(id) {
+  const d = await api(`/api/licences/${encodeURIComponent(id)}`); const l = d.licence, r = d.row;
+  const row = (k, v) => `<dt>${esc(k)}</dt><dd>${v}</dd>`;
+  const MODE = { full: ['ok', 'Valida'], grace: ['warn', 'In tolleranza'], read_only: ['bad', 'Sola lettura'], invalid: ['bad', 'Non valida'] };
+  const dr = drawer(`Licenza ${esc(l.plan)}`, `<a href="#/clienti/${esc(r.customer_id)}/licenze">${esc(l.customer.name)}</a> · ${esc(r.instance_label || '')}`,
+    `<div class="sect"><h4>Stato</h4><dl class="kv">${row('Stato', pill(LIC_STATE, r.state))}${row('Verifica firma', pill(MODE, d.verify.mode))}${row('Valida dal', fmtDate(l.valid_from))}${row('Scade il', fmtDate(l.expires_at))}${row('Tolleranza', esc(l.grace_days) + ' giorni')}</dl></div>
+    <div class="sect"><h4>Limiti e funzioni</h4><dl class="kv">${Object.entries(l.limits || {}).map(([k, v]) => row(({ users: 'Utenti', binders: 'Faldoni', archives: 'Archivi' })[k] || k, v === null ? 'illimitati' : esc(v))).join('')}
+      ${row('Funzioni', (l.features || []).map((f) => `<span class="tag">${esc(f)}</span>`).join(' ') || '—')}${l.reseller ? row('Rivenditore', esc(l.reseller.name)) : ''}</dl></div>
+    <div class="sect"><h4>Storia di questa installazione</h4>${d.history.map((h) => `<div class="al" data-lic="${esc(h.id)}" style="padding:8px 0">${dot(LIC_STATE[h.state][0] === 'mut' ? 'none' : LIC_STATE[h.state][0])}<div><b>${esc(h.plan)}${h.id === l.licence_id ? ' (questa)' : ''}</b><small>${fmtDate(h.valid_from)} → ${fmtDate(h.expires_at)} · ${esc(LIC_STATE[h.state][1])}</small></div></div>`).join('')}</div>
+    <div class="sect"><h4>Tecnico</h4><dl class="kv">${row('ID', `<span class="mono">${esc(l.licence_id)}</span>`)}${row('Installazione', `<span class="mono">${esc(l.instance_id)}</span>`)}${row('Chiave di firma', `<span class="mono">${esc(l.key_id)}</span>`)}${row('File', `<span class="mono">${esc(d.filename)}</span>`)}</dl></div>`,
+    `<a class="btn sm" href="/download/${esc(l.licence_id)}">${ic('download')} Scarica file</a>${r.state !== 'superseded' ? `<button class="btn pri sm" id="renew">${ic('refresh')} Rinnova / estendi</button>` : ''}`);
+  $$('[data-lic]', dr).forEach((x) => (x.onclick = () => { if (x.dataset.lic !== l.licence_id) openLicence(x.dataset.lic); }));
+  const rb = $('#renew', dr);
+  if (rb) rb.onclick = () => modal({
+    title: 'Rinnova o estendi la licenza', submit: 'Firma il rinnovo',
+    body: `<p class="note" style="margin-top:0">La nuova licenza vale subito e si somma alla scadenza attuale se non è ancora passata. Puoi anche cambiare piano.</p>
+      ${fld('months', 'Mesi in più', { type: 'number', value: '12', attrs: 'min="1" max="120"' })}
+      ${sel('plan', 'Piano', [['', `Stesso piano (${l.plan})`]].concat(Object.entries(S.cust?.plans || {}).map(([k, v]) => [k, `${v} (${k})`])))}`,
+    onSubmit: async (f) => { const n = await api(`/api/licences/${l.licence_id}/renew`, f); closeOverlay(); toast('Licenza rinnovata.'); await route(); openLicence(n.id); },
+  });
+}
+
+// ---------------------------------------------------------------------------------------------
+// global lists
+// ---------------------------------------------------------------------------------------------
+async function pInstances(page) {
+  setCrumbs([['Istanze']]);
+  const list = await api('/api/instances');
+  let filter = 'all', q = '';
+  page.innerHTML = `<div class="ph"><div><h1>Istanze</h1><div class="sub">Tutti i siti online, gli staging, i server di sede e gli ambienti sul tuo PC.</div></div>
+    <div class="btns"><button class="btn" id="ca">${ic('refresh')} Controlla tutto</button><a class="btn" href="/envs">${ic('plus')} Registra ambiente</a></div></div>
+    <div class="card"><div class="toolbar"><input type="search" id="q" placeholder="Cerca cliente, indirizzo, installazione…"><div class="chips">
+      ${[['all', 'Tutte'], ['production', 'Produzione'], ['staging', 'Staging'], ['studio-python', 'Sede'], ['down', 'Non raggiungibili']].map(([v, t]) => `<button class="chip" data-f="${v}">${t}</button>`).join('')}</div></div><div id="tbl"></div></div>`;
+  $('#ca').onclick = checkAll;
+  const draw = () => {
+    $$('.chip', page).forEach((c) => c.classList.toggle('on', c.dataset.f === filter));
+    const rows = list.filter((e) => {
+      if (q && ![e.customer_name, e.instance_label, e.url, e.project_name].join(' ').toLowerCase().includes(q)) return false;
+      if (filter === 'production' || filter === 'staging') return e.name === filter;
+      if (filter === 'studio-python') return e.kind === 'studio-python';
+      if (filter === 'down') return e.status === 'unreachable';
+      return true;
+    });
+    $('#tbl').innerHTML = rows.length ? `<div class="tbl-wrap"><table class="t"><thead><tr><th>Cliente</th><th>Ambiente</th><th>Indirizzo</th><th>Stato</th><th>Versione</th><th>Licenza</th><th>Controllo</th></tr></thead><tbody>
+      ${rows.map((e) => `<tr class="click" data-env="${esc(e.id || '')}" data-c="${esc(e.customer_id)}"><td><div class="cellname">${av(e.customer_name)}<div><b>${esc(e.customer_name)}</b><small>${esc(e.project_name || '')}</small></div></div></td>
+        <td><div class="cellname"><span style="color:var(--acc)">${ic(envIcon(e))}</span><div><b>${esc(e.name_it)}</b><small>${esc(e.instance_label)}</small></div></div></td>
+        <td class="mono" style="max-width:260px;overflow:hidden;text-overflow:ellipsis">${esc(e.url || (e.port ? '127.0.0.1:' + e.port : '—'))}</td><td>${pill(ENV_STATUS, e.status)}</td><td>${esc(e.app_version || '—')}</td>
+        <td>${e.licence ? pill(LIC_STATE, e.licence.state) : '<span style="color:var(--mut)">—</span>'}</td><td>${e.last_check ? ago(e.last_check) : '—'}</td></tr>`).join('')}</tbody></table></div>`
+      : `<div class="empty"><div class="big">Nessuna istanza</div></div>`;
+    $$('tr.click', page).forEach((tr) => (tr.onclick = () => (tr.dataset.env ? openEnv(tr.dataset.env) : (location.hash = `#/clienti/${tr.dataset.c}`))));
+  };
+  $('#q').oninput = (e) => { q = e.target.value.trim().toLowerCase(); draw(); };
+  $$('.chip', page).forEach((c) => (c.onclick = () => { filter = c.dataset.f; draw(); }));
+  draw();
+}
+async function pLicences(page) {
+  setCrumbs([['Licenze']]);
+  const list = await api('/api/licences');
+  let filter = 'current', q = '';
+  page.innerHTML = `<div class="ph"><div><h1>Licenze</h1><div class="sub">Ogni licenza è firmata dall'hub e funziona anche offline. Clic per i dettagli, il rinnovo e la storia.</div></div></div>
+    <div class="card"><div class="toolbar"><input type="search" id="q" placeholder="Cerca cliente o piano…"><div class="chips">
+      ${[['current', 'In vigore'], ['expiring', 'Da rinnovare'], ['expired', 'Scadute'], ['all', 'Tutte (anche sostituite)']].map(([v, t]) => `<button class="chip" data-f="${v}">${t}</button>`).join('')}</div></div><div id="tbl"></div></div>`;
+  const draw = () => {
+    $$('.chip', page).forEach((c) => c.classList.toggle('on', c.dataset.f === filter));
+    const rows = list.filter((l) => {
+      if (q && ![l.customer_name, l.plan, l.instance_label].join(' ').toLowerCase().includes(q)) return false;
+      if (filter === 'current') return l.state !== 'superseded';
+      if (filter === 'expiring') return l.state === 'expiring' || l.state === 'grace';
+      if (filter === 'expired') return l.state === 'expired';
+      return true;
+    });
+    $('#tbl').innerHTML = licTable(rows, true); bindLicTable(page);
+  };
+  $('#q').oninput = (e) => { q = e.target.value.trim().toLowerCase(); draw(); };
+  $$('.chip', page).forEach((c) => (c.onclick = () => { filter = c.dataset.f; draw(); }));
+  draw();
+}
+async function pDeploys(page) {
+  setCrumbs([['Deploy']]);
+  const list = await api('/api/deploys');
+  page.innerHTML = `<div class="ph"><div><h1>Deploy e aggiornamenti</h1><div class="sub">Ogni pubblicazione: prima la prova, poi il backup, poi il caricamento e il controllo, con ripristino automatico se qualcosa non va.</div></div>
+    <div class="btns"><a class="btn" href="/deploy">${ic('rocket')} Nuovo deploy (strumento classico)</a></div></div>
+    <div class="card">${deployTable(list)}</div>`;
+}
+async function pEvents(page) {
+  setCrumbs([['Attività']]);
+  const list = await api('/api/events');
+  page.innerHTML = `<div class="ph"><div><h1>Attività</h1><div class="sub">Tutto ciò che è successo nell'hub, in ordine.</div></div></div>
+    <div class="card"><div class="feed">${list.map((ev) => `<div class="ev"><time>${fmtDT(ev.at)}</time><div>${esc(ev.text)}${evSubj(ev)}</div></div>`).join('') || '<div class="empty">Nessuna attività</div>'}</div></div>`;
+}
+async function pSettings(page) {
+  setCrumbs([['Impostazioni']]);
+  S.session = await api('/api/session'); S.csrf = S.session.csrf || S.csrf;
+  const s = S.session; const theme = localStorageGet('hub.theme') || 'auto';
+  page.innerHTML = `<div class="ph"><div><h1>Impostazioni</h1><div class="sub">Accesso, cassaforte, aspetto e strumenti avanzati.</div></div></div>
+    <div class="grid g2">
+      <div class="card"><div class="hd"><h3>${ic('shield')} Accesso su questo PC</h3></div><div class="bd">
+        <p style="margin-top:0">${s.remembered ? '<span class="pill ok">Attivo</span> L\'hub si apre senza chiedere la passphrase su questo account Windows.' : '<span class="pill mut">Spento</span> L\'hub chiede la passphrase a ogni avvio.'}</p>
+        <p style="color:var(--mut);font-size:13px">La passphrase viene cifrata da Windows (DPAPI) con il tuo account: copiata su un altro PC o usata da un altro utente non funziona. Chiunque usi il tuo account Windows però può aprire l'hub: tienilo protetto da password.</p>
+        <div class="btns">${s.remembered ? `<button class="btn danger" id="forget">Non ricordare più</button>` : `<button class="btn pri" id="remember">Ricorda su questo PC</button>`}</div></div></div>
+      <div class="card"><div class="hd"><h3>${ic('lock')} Cassaforte</h3></div><div class="bd">
+        <p style="margin-top:0">${s.vault === 'open' ? '<span class="pill ok">Aperta</span> Le password FTP e i codici sono disponibili per deploy e controlli.' : s.vault === 'closed' ? '<span class="pill warn">Chiusa</span> Aprila per fare deploy e controlli protetti.' : '<span class="pill mut">Non creata</span>'}</p>
+        <div class="btns"><a class="btn" href="/vault">Gestisci la cassaforte</a></div></div></div>
+      <div class="card"><div class="hd"><h3>${ic('moon')} Aspetto</h3></div><div class="bd">${sel('theme', 'Tema', [['auto', 'Automatico (come Windows)'], ['light', 'Chiaro'], ['dark', 'Scuro']], theme)}</div></div>
+      <div class="card"><div class="hd"><h3>${ic('folder')} Strumenti classici</h3></div><div class="bd"><p style="margin-top:0;color:var(--fg2)">Le pagine della versione 0.3, ancora disponibili mentre il nuovo gestionale le assorbe.</p>
+        <div class="btns"><a class="btn sm" href="/clienti">Nuovo cliente guidato</a><a class="btn sm" href="/envs">Istanze &amp; ambienti</a><a class="btn sm" href="/deploy">Deploy</a><a class="btn sm" href="/ports">Porte</a><a class="btn sm" href="/status">Stato</a><a class="btn sm" href="/classico">Licenze (classico)</a></div></div></div>
+      <div class="card"><div class="hd"><h3>Informazioni</h3></div><div class="bd"><dl class="kv"><dt>Versione</dt><dd>${esc(s.version)}</dd><dt>Chiave di firma</dt><dd class="mono">${esc(s.key_id || '—')}</dd><dt>Cartella dati</dt><dd class="mono">${esc(s.data_dir || '')}</dd></dl></div></div>
+    </div>`;
+  const t = $('#f-theme'); t.onchange = () => { localStorageSet('hub.theme', t.value); applyTheme(); };
+  const fg = $('#forget'); if (fg) fg.onclick = async () => { await api('/api/remember', { on: false }); toast('Fatto: la passphrase non è più ricordata.'); route(); };
+  const rm = $('#remember'); if (rm) rm.onclick = () => modal({
+    title: 'Ricorda su questo PC', submit: 'Ricorda',
+    body: `${fld('passphrase', 'Passphrase', { type: 'password', attrs: 'required autocomplete="current-password"' })}${fld('vault_passphrase', 'Passphrase della cassaforte (solo se diversa)', { type: 'password' })}`,
+    onSubmit: async (f) => { await api('/api/remember', Object.assign({ on: true }, f)); closeOverlay(); toast('Ricordata: al prossimo avvio entri direttamente.'); route(); },
+  });
+}
+function localStorageGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
+function localStorageSet(k, v) { try { localStorage.setItem(k, v); } catch { } }
+function applyTheme() { const t = localStorageGet('hub.theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme; }
+
+// ---------------------------------------------------------------------------------------------
+// command palette (Ctrl+K)
+// ---------------------------------------------------------------------------------------------
+const COMMANDS = [
+  ['Vai alla Panoramica', '#/', 'home'], ['Vai ai Clienti', '#/clienti', 'users'], ['Vai alle Istanze', '#/istanze', 'server'],
+  ['Vai alle Licenze', '#/licenze', 'key'], ['Vai ai Deploy', '#/deploy', 'rocket'], ['Impostazioni', '#/impostazioni', 'gear'],
+  ['Nuovo cliente', 'new-customer', 'plus'], ['Controlla tutti i siti', 'check-all', 'refresh'],
+];
+function palette() {
+  const o = openOverlay(`<div class="palette"><input id="pq" placeholder="Cerca un cliente, un sito, una postazione, una licenza… o un comando" autocomplete="off"><div class="res" id="pres"></div><div class="hint">↑↓ per scegliere · Invio per aprire · Esc per chiudere</div></div>`);
+  const inp = $('#pq', o), res = $('#pres', o); let items = [], idx = 0, timer;
+  const TY = { customer: 'Cliente', project: 'Progetto', env: 'Ambiente', workstation: 'Postazione', licence: 'Licenza', cmd: 'Comando' };
+  const TI = { customer: 'users', project: 'folder', env: 'globe', workstation: 'monitor', licence: 'key' };
+  const draw = () => {
+    res.innerHTML = items.map((it, i) => `<div class="it${i === idx ? ' on' : ''}" data-i="${i}">${ic(it.icon || TI[it.type] || 'search')}<div><b>${esc(it.title)}</b>${it.sub ? `<small>${esc(it.sub)}</small>` : ''}</div><span class="ty">${TY[it.type] || ''}</span></div>`).join('') || '<div class="hint">Nessun risultato</div>';
+    $$('.it', res).forEach((el) => (el.onclick = () => go(items[+el.dataset.i])));
+  };
+  const cmds = (q) => COMMANDS.filter(([t]) => !q || t.toLowerCase().includes(q)).map(([t, a, i]) => ({ type: 'cmd', title: t, action: a, icon: i }));
+  const go = (it) => {
+    if (!it) return; closeOverlay();
+    if (it.type === 'cmd') { if (it.action === 'new-customer') return newCustomer(); if (it.action === 'check-all') return checkAll(); location.hash = it.action; return; }
+    if (it.type === 'customer' || it.type === 'project') location.hash = `#/clienti/${it.customer_id}`;
+    else if (it.type === 'workstation') location.hash = `#/clienti/${it.customer_id}/postazioni`;
+    else if (it.type === 'licence') openLicence(it.id);
+    else if (it.type === 'env') { location.hash = `#/clienti/${it.customer_id}`; setTimeout(() => openEnv(it.id), 250); }
+  };
+  inp.oninput = () => {
+    clearTimeout(timer); const q = inp.value.trim().toLowerCase();
+    timer = setTimeout(async () => { let found = []; if (q.length >= 2) { try { found = await api(`/api/search?q=${encodeURIComponent(q)}`); } catch { } } items = found.concat(cmds(q)).slice(0, 30); idx = 0; draw(); }, 120);
+  };
+  inp.onkeydown = (e) => {
+    if (e.key === 'ArrowDown') { idx = Math.min(idx + 1, items.length - 1); draw(); e.preventDefault(); }
+    else if (e.key === 'ArrowUp') { idx = Math.max(idx - 1, 0); draw(); e.preventDefault(); }
+    else if (e.key === 'Enter') { go(items[idx]); e.preventDefault(); }
+  };
+  items = cmds(''); draw(); inp.focus();
+}
+
+// ---------------------------------------------------------------------------------------------
+// boot
+// ---------------------------------------------------------------------------------------------
+async function boot() {
+  applyTheme();
+  try { S.session = await api('/api/session'); } catch (e) { app().innerHTML = `<div class="boot">Hub non raggiungibile: ${esc(e.message)}</div>`; return; }
+  if (S.session.csrf) S.csrf = S.session.csrf;
+  if (!S.session.logged) return renderLogin();
+  if (location.pathname !== '/') history.replaceState(null, '', '/' + location.hash);
+  route();
+}
+boot();
+})();

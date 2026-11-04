@@ -111,7 +111,7 @@ class TestRegistry(TempDir):
             with self.assertRaises(RegistryError):
                 r.get_customer("inesistente")
             actions = [e["action"] for e in r.events()]
-            self.assertEqual(actions, ["instance.add", "customer.add", "reseller.add"])
+            self.assertEqual(actions, ["instance.add", "project.add", "customer.add", "reseller.add"])  # v0.4: default project
 
 
 class TestService(TempDir):
@@ -316,7 +316,7 @@ class TestWeb(TempDir):
         code, h, _ = self.req("/login", {"passphrase": PASS})
         self.assertEqual(code, 303)
         cookie = h["Set-Cookie"].split(";")[0]
-        code, _, body = self.req("/", cookie=cookie)
+        code, _, body = self.req("/classico", cookie=cookie)   # v0.4: the 0.3 licence page moved here
         self.assertEqual(code, 200)
         self.assertIn("Studio Web", body)
         self.assertNotIn("http://", body.replace(self.base, ""))  # no external assets
@@ -340,7 +340,7 @@ class TestWeb(TempDir):
         # errors are reported, not crashing
         code, h, _ = self.req("/issue", {"instance": "nope", "plan": "studio", "csrf": csrf}, cookie=cookie)
         self.assertIn("err=", h["Location"])
-        code, _, body = self.req("/?err=%3Cscript%3E", cookie=cookie)
+        code, _, body = self.req("/classico?err=%3Cscript%3E", cookie=cookie)
         self.assertNotIn("<script>", body)
 
 

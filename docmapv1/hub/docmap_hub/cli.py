@@ -306,8 +306,12 @@ def cmd_backup(hub: Hub, args) -> int:
 
 
 def cmd_web(hub: Hub, args) -> int:
+    """v0.4: no console prompt. With a passphrase from the environment/file/"Ricorda su questo PC" the
+    page opens already signed in; otherwise the browser asks it once (and can remember it)."""
     from .web import serve
-    p = get_passphrase(args)
+    p = None
+    if getattr(args, "passphrase_file", None) or os.environ.get(ENV_PASSPHRASE):
+        p = get_passphrase(args)
     return serve(hub, p, host="127.0.0.1", port=args.port, open_browser=not args.no_browser,
                  auto_login=bool(getattr(args, "auto_access", False)))
 

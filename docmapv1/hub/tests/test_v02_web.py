@@ -80,7 +80,7 @@ class TestWebV02(unittest.TestCase):
         self.fail("job non terminato")
 
     def test_pages_vault_deploy_status(self):
-        for p in ("/", "/envs", "/vault", "/deploy", "/ports", "/status"):
+        for p in ("/classico", "/envs", "/vault", "/deploy", "/ports", "/status"):
             code, _, body = self.req(p)
             self.assertEqual(code, 200, p)
             self.assertIn("Istanze &amp; ambienti", body)

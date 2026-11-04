@@ -21,7 +21,7 @@ from . import health
 from .registry import ENV_KINDS
 from .vault import KINDS, KIND_IT, Vault, VaultError
 
-NAV = [("/", "Licenze"), ("/clienti", "Nuovo cliente"), ("/envs", "Istanze & ambienti"), ("/vault", "Cassaforte"), ("/deploy", "Deploy"),
+NAV = [("/", "← Nuovo gestionale"), ("/classico", "Licenze"), ("/clienti", "Nuovo cliente"), ("/envs", "Istanze & ambienti"), ("/vault", "Cassaforte"), ("/deploy", "Deploy"),
        ("/ports", "Porte"), ("/status", "Stato")]
 JOB_KEEP = 40
 PLAN_MAX_AGE = 1800  # a dry-run is valid for 30 minutes before "Conferma"
