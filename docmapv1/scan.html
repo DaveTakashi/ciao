@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#0F172A">
+<title>DocMap</title>
+<!-- DocMap 2026 (DM26) v10 — mobile page shown after scanning a binder QR.
+     scan.html?q={short_code} · ?qr= · ?code={speaking_code} · <base>/q/{short_code} · #/q/{short_code}  [&lang=en]
+     Works from file:// in the same browser as the desktop app (shared localStorage/IndexedDB),
+     as a static upload in web mode (docmap.config.js, docs/DEPLOY-WEB.md) and later with the Python API (docs/API-CONTRACT.md).
+     A server copy must also send security headers (CSP, HSTS, no-store): docs/SICUREZZA.md §5. -->
+<script>
+  /* Path routing (/studio-de/q/<short_code> rewritten to this page by .htaccess / nginx): make every relative
+     URL below resolve from the app folder, not from /q/. Must run before any other relative resource. */
+  (function(){ var m = location.pathname.match(/^(.*\/)q\/[^\/]+\/?$/); if (m && location.protocol !== 'file:'){ var b = document.createElement('base'); b.href = m[1]; document.head.appendChild(b); } })();
+</script>
+<script src="docmap.config.js"></script>
+<link rel="stylesheet" href="assets/css-scan.css">
+<link rel="stylesheet" href="assets/css-journal.css">
+<link rel="stylesheet" href="assets/css-locations.css">
+<link rel="stylesheet" href="assets/css-archives.css">
+<link rel="stylesheet" href="assets/css-search.css">
+<link rel="stylesheet" href="assets/css-status.css">
+</head>
+<body>
+<div id="app" aria-live="polite"><main class="sc-main sc-center"><div class="sc-spin" aria-hidden="true"></div></main></div>
+<noscript><div style="padding:24px;font-family:sans-serif">DocMap richiede JavaScript attivo. / DocMap requires JavaScript.</div></noscript>
+<!-- Classic scripts (not modules) so the page works from file://. Order matters. -->
+<script src="assets/js/02-core.js"></script>
+<script src="assets/js/02c-locations.js"></script>
+<script src="assets/js/02e-archives.js"></script>   <!-- v12.1: archives model (search archivio:, chips on the phone) -->
+<script src="assets/js/04c-search.js"></script>   <!-- v12: search engine -->
+<script src="assets/js/02d-status.js"></script>   <!-- v12: status model -->
+<script src="assets/js/10-auth.js"></script>
+<script src="assets/js/06i-journal.js"></script>   <!-- v11: le mie sincronizzazioni -->
+<script src="assets/js/11-scan.js"></script>
+<script src="assets/js/11b-assoc.js"></script>
+<script src="assets/js/11e-nfc.js"></script>   <!-- v12: NFC tags (write / continuous read), onTagScanned -->
+<script src="assets/js/06k-access.js"></script>   <!-- v12: remembered sign-in, last accesses -->
+<script src="assets/js/11d-search.js"></script>   <!-- v12: Cerca un faldone -->
+<script src="assets/js/11c-status.js"></script>   <!-- v12: status card, box return check -->
+<script src="assets/js/06m-v12-glue.js"></script>   <!-- v12: hooks between statuses, search and access log -->
+</body>
+</html>
