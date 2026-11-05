@@ -21,3 +21,6 @@ In breve:
 10. (0.5) Per preparare un cliente nuovo puoi produrre il JSON `docmap-progetto/1`: il prompt completo si legge nella pagina
     (**Crea progetto con AI → Vedi il prompt**) o da `GET /api/pipeline/prompt`. Non mettere password nel JSON
     (`{{PASSWORD_FTP}}`); Dave lo incolla, controlla le maschere e conferma lui.
+11. (0.6) Il deploy dal gestionale ha due tempi: prova e conferma. Non confermare mai al posto di Dave: prepara la prova,
+    fagli leggere il piano. I backup automatici dell'hub sono in `%APPDATA%\DocMapHub\backups\` (`docmap-hub-auto-*`):
+    non cancellare a mano quelli fatti prima di un aggiornamento (`registro-prima-…`).

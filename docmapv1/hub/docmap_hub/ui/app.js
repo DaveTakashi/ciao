@@ -208,8 +208,7 @@ function shell() {
   $('#search').onclick = palette;
   $('#menu').onclick = () => $('.shell').classList.toggle('nav-open');
   $('#checkall').onclick = checkAll;
-  const vs = S.session.vault;
-  $('#vault-state').innerHTML = vs === 'open' ? `${ic('unlock')} Cassaforte aperta` : vs === 'closed' ? `${ic('lock')} <a href="#/impostazioni" style="color:#ffb86b">Cassaforte chiusa</a>` : `${ic('lock')} Cassaforte non creata`;
+  paintVaultState();
 }
 function setCrumbs(parts) {
   $('#crumbs').innerHTML = parts.map((p, i) => (i < parts.length - 1 && p[1] ? `<a href="${p[1]}">${esc(p[0])}</a> <span>/</span>` : `<b>${esc(p[0])}</b>`)).join(' ');
@@ -300,7 +299,7 @@ async function pOverview(page) {
   $('#new-cust').onclick = newCustomer;
   $$('.al', page).forEach((el) => (el.onclick = () => {
     const a = d.alerts[+el.dataset.i];
-    if (a.kind === 'licence') openLicence(a.id); else if (a.kind === 'env') openEnv(a.id); else if (a.kind === 'draft') location.hash = `#/nuovo-progetto/${a.id}/cliente`; else if (a.customer_id) location.hash = `#/clienti/${a.customer_id}`;
+    if (a.kind === 'licence') openLicence(a.id); else if (a.kind === 'env') openEnv(a.id); else if (a.kind === 'backup') location.hash = '#/impostazioni'; else if (a.kind === 'draft') location.hash = `#/nuovo-progetto/${a.id}/cliente`; else if (a.customer_id) location.hash = `#/clienti/${a.customer_id}`;
   }));
 }
 const evSubj = (ev) => (ev.subject ? ` <span style="color:var(--mut)">· ${esc(ev.subject)}</span>` : ev.entity_id ? ` <span class="tag mono">${esc(String(ev.entity_id).slice(0, 12))}</span>` : '');
@@ -427,6 +426,7 @@ function projectBlock(p) {
   }
   const ws = p.workstations.filter((w) => w.status !== 'revoked');
   nodes.push(`<div class="node" data-ws="${esc(p.id)}"><div class="nt"><span class="ic">${ic('monitor')}</span>Postazioni${dot(ws.length ? 'ok' : 'none')}</div><div class="nm"><span>${ws.length ? ws.map((w) => esc(w.name)).join(', ') : 'Nessuna postazione'}</span></div></div>`);
+  if (p.instances.length) nodes.push(`<div class="node add" data-addenv="${esc(p.id)}">${ic('plus')} Aggiungi sito o server</div>`);
   nodes.push(`<div class="node add" data-addinst="${esc(p.id)}">${ic('plus')} Aggiungi installazione</div>`);
   return `<div class="proj"><div class="proj-h">${dot(p.health)}<h3>${esc(p.name)}</h3>${p.status !== 'active' ? `<span class="pill mut">${esc(p.status)}</span>` : ''}
     <button class="btn ghost sm" data-editp="${esc(p.id)}" style="margin-left:auto">${ic('edit')} Rinomina</button></div><div class="pmap">${nodes.join('')}</div></div>`;
@@ -436,6 +436,7 @@ function bindNodes(el, d) {
   $$('[data-ws]', el).forEach((n) => (n.onclick = () => (location.hash = `#/clienti/${d.customer.id}/postazioni`)));
   $$('[data-inst]', el).forEach((n) => (n.onclick = () => (location.hash = `#/clienti/${d.customer.id}/licenze`)));
   $$('[data-addinst]', el).forEach((n) => (n.onclick = () => addInstance(d, n.dataset.addinst)));
+  $$('[data-addenv]', el).forEach((n) => (n.onclick = () => addEnvironment(d, (d.projects.find((p) => p.id === n.dataset.addenv)?.instances[0] || {}).id)));
   $$('[data-editp]', el).forEach((b) => (b.onclick = () => {
     const p = d.projects.find((x) => x.id === b.dataset.editp);
     modal({ title: 'Rinomina progetto', body: fld('name', 'Nome', { value: p.name, attrs: 'required' }) + sel('status', 'Stato', [['active', 'Attivo'], ['paused', 'In pausa'], ['archived', 'Archiviato']], p.status),
@@ -445,7 +446,7 @@ function bindNodes(el, d) {
 function addInstance(d, pid) {
   modal({
     title: 'Aggiungi installazione', submit: 'Registra',
-    body: `<p class="note" style="margin-top:0">Un'installazione è ciò che riceve una licenza: il sito online, il server di sede o un PC isolato. Dopo averla registrata aggiungi i suoi ambienti (produzione, staging) da «Strumenti classici → Istanze &amp; ambienti».</p>
+    body: `<p class="note" style="margin-top:0">Un'installazione è ciò che riceve una licenza: il sito online, il server di sede o un PC isolato. Dopo averla registrata aggiungi i suoi siti o server (produzione, staging) con «Aggiungi sito o server».</p>
       ${fld('label', 'Nome', { req: true, attrs: 'required', ph: 'Sito online, Server sede, PC archivio…' })}
       ${sel('kind', 'Tipo', [['onprem', 'In sede (on-premise)'], ['cloud', 'Online (cloud)'], ['appliance', 'Appliance']])}`,
     onSubmit: async (f) => { await api('/api/instances', { project_id: pid, label: f.label, kind: f.kind }); closeOverlay(); toast('Installazione registrata.'); route(); },
@@ -494,22 +495,23 @@ function tPublish(el, d) {
   const envs = d.projects.flatMap((p) => p.instances.flatMap((i) => i.envs.map((e) => Object.assign({ project: p.name }, e))));
   const web = envs.filter((e) => e.kind === 'web-php');
   el.innerHTML = `
-    <div class="card mb"><div class="hd"><h3>Siti e server</h3></div><div class="bd flush">${envs.length ? `<div class="tbl-wrap"><table class="t"><thead><tr><th>Ambiente</th><th>Indirizzo</th><th>Stato</th><th>Versione</th><th>Ultimo deploy</th><th></th></tr></thead><tbody>
+    <div class="card mb"><div class="hd"><h3>Siti e server</h3><div class="btns"><button class="btn sm" id="addenv" ${d.projects.some((p) => p.instances.length) ? '' : 'disabled'}>${ic('plus')} Aggiungi sito o server</button></div></div><div class="bd flush">${envs.length ? `<div class="tbl-wrap"><table class="t"><thead><tr><th>Ambiente</th><th>Indirizzo</th><th>Stato</th><th>Versione</th><th>Ultimo deploy</th><th></th></tr></thead><tbody>
       ${envs.map((e) => `<tr class="click" data-env="${esc(e.id)}"><td><div class="cellname"><div class="av" style="background:var(--acc-soft);color:var(--acc)">${ic(envIcon(e))}</div><div><b>${esc(e.name_it)}</b><small>${esc(e.instance_label)} · ${esc(e.kind_it)}</small></div></div></td>
         <td class="mono">${e.url ? esc(e.url) : '—'}</td><td>${pill(ENV_STATUS, e.status)}</td><td>${esc(e.app_version || e.deployed_version || '—')}</td><td>${e.last_deploy_at ? ago(e.last_deploy_at) : 'mai'}</td>
         <td class="r"><div class="btns" style="justify-content:flex-end">${e.kind === 'web-php' ? `${(d.packages?.web || {})[e.id] ? `<a class="btn sm" href="/scarica/web/${esc(e.id)}" title="Pacchetto da caricare a mano (senza FTP)">${ic('download')} Autoinstall</a>` : `<button class="btn sm" data-pack="${esc(e.id)}" title="Costruisce lo zip del sito da caricare a mano">${ic('download')} Prepara autoinstall</button>`}<button class="btn pri sm" data-plan="${esc(e.id)}">${ic('rocket')} ${e.name === 'production' ? 'Deploy produzione' : 'Deploy staging'}</button>` : ''}</div></td></tr>`).join('')}
-      </tbody></table></div>` : '<div class="empty"><div class="big">Nessun sito o server</div>Registra gli ambienti da «Strumenti classici → Istanze &amp; ambienti» oppure con «Nuovo cliente» guidato.</div>'}</div></div>
+      </tbody></table></div>` : '<div class="empty"><div class="big">Nessun sito o server</div>Aggiungi il sito online o il server di sede con «Aggiungi sito o server».</div>'}</div></div>
     ${web.some((e) => e.name === 'staging') && web.some((e) => e.name === 'production') ? `<div class="card mb"><div class="hd"><h3>Promuovi staging → produzione</h3></div><div class="bd"><p style="margin-top:0;color:var(--fg2)">In produzione va solo la stessa versione già verificata sullo staging. Prima vedi il piano (nessun file toccato), poi confermi.</p>
       ${[...new Set(web.map((e) => e.instance_id))].map((iid) => { const s = web.find((e) => e.instance_id === iid && e.name === 'staging'); const p = web.find((e) => e.instance_id === iid && e.name === 'production'); return s && p ? `<button class="btn pri" data-promote="${esc(iid)}">${ic('rocket')} Prepara la promozione di ${esc(s.instance_label)}</button>` : ''; }).join(' ')}</div></div>` : ''}
     <div class="card"><div class="hd"><h3>Ultimi deploy</h3></div><div class="bd flush">${deployTable(d.deploys)}</div></div>`;
   $$('tr.click', el).forEach((tr) => (tr.onclick = (e) => { if (!e.target.closest('button')) openEnv(tr.dataset.env); }));
-  $$('[data-plan]', el).forEach((b) => (b.onclick = () => classicPost('/deploy/plan', { env: b.dataset.plan })));
+  $$('[data-plan]', el).forEach((b) => (b.onclick = () => { const e = envs.find((x) => x.id === b.dataset.plan); runPlan('env', e.id, `${e.instance_label} · ${e.name_it}`); }));
+  const ae = $('#addenv', el); if (ae) ae.onclick = () => addEnvironment(d);
   $$('[data-pack]', el).forEach((b) => (b.onclick = async () => {
     b.disabled = true; b.textContent = 'Preparo…';
     try { const r = await api(`/api/envs/${b.dataset.pack}/package`, {}); await waitJob(r.job); toast('Autoinstall pronto: premi «Autoinstall» per scaricarlo.'); route(); }
     catch (e) { toast(e.message, true); b.disabled = false; b.textContent = 'Prepara autoinstall'; }
   }));
-  $$('[data-promote]', el).forEach((b) => (b.onclick = () => classicPost('/promote/plan', { instance: b.dataset.promote })));
+  $$('[data-promote]', el).forEach((b) => (b.onclick = () => runPlan('promote', b.dataset.promote, (web.find((e) => e.instance_id === b.dataset.promote) || {}).instance_label)));
 }
 function deployTable(list) {
   if (!list.length) return '<div class="empty">Nessun deploy</div>';
@@ -551,10 +553,16 @@ function bindLicTable(el) { $$('[data-lic]', el).forEach((tr) => (tr.onclick = (
 function tSecrets(el, d) {
   const envName = {}; d.projects.forEach((p) => p.instances.forEach((i) => i.envs.forEach((e) => (envName[e.id] = `${i.label} · ${e.name_it}`))));
   const KIND = { ftp: 'Accesso FTP/SFTP', basic_auth: 'Protezione cartella', admin_token: 'Token amministratore', superadmin: 'Super-admin', db_config: 'Configurazione e chiave', note: 'Nota', bridge_token: 'Token del ponte di sincronizzazione' };
-  el.innerHTML = `<div class="card mb"><div class="hd"><h3>Accessi e segreti in cassaforte</h3><div class="btns"><a class="btn sm" href="/vault">${ic('lock')} Apri la Cassaforte</a></div></div>
-    <div class="bd flush">${d.secrets.length ? `<table class="t"><thead><tr><th>Ambiente</th><th>Cosa</th><th>Aggiornato</th></tr></thead><tbody>${d.secrets.map((s) => `<tr><td>${esc(envName[s.env_id] || s.env_id)}</td><td>${esc(KIND[s.kind] || s.kind)}${s.label ? ` <span class="tag">${esc(s.label)}</span>` : ''}</td><td>${ago(s.updated_at)}</td></tr>`).join('')}</tbody></table>`
-      : '<div class="empty">Nessun segreto salvato per questo cliente.</div>'}</div></div>
+  const envs = d.projects.flatMap((p) => p.instances.flatMap((i) => i.envs));
+  const vs = S.session?.vault;
+  el.innerHTML = `<div class="card mb"><div class="hd"><h3>Accessi e segreti in cassaforte</h3><div class="btns">${vs !== 'open' ? `<button class="btn sm" id="vopen">${ic('unlock')} ${vs === 'none' ? 'Crea' : 'Apri'} la cassaforte</button>` : '<span class="pill ok">Cassaforte aperta</span>'}</div></div>
+    <div class="bd flush">${envs.length ? `<table class="t"><thead><tr><th>Ambiente</th><th>Cosa c'è</th><th></th></tr></thead><tbody>${envs.map((e) => { const ss = d.secrets.filter((s) => s.env_id === e.id); return `<tr class="click" data-env="${esc(e.id)}"><td><b>${esc(envName[e.id])}</b><small style="display:block;color:var(--mut)">${esc(e.kind_it)}</small></td>
+      <td>${ss.length ? ss.map((s) => `<span class="tag">${esc(KIND[s.kind] || s.kind)}${s.label ? ' · ' + esc(s.label) : ''}</span>`).join(' ') : `<span style="color:var(--mut)">niente${e.kind === 'web-php' ? ': manca l\'accesso FTP per il deploy' : ''}</span>`}</td>
+      <td class="r"><button class="btn sm">Gestisci</button></td></tr>`; }).join('')}</tbody></table>`
+      : '<div class="empty">Nessun sito o server: aggiungili dalla scheda Pubblica.</div>'}</div></div>
     <div class="note">I segreti non si vedono mai qui: per mostrarne uno l'hub chiede di nuovo la passphrase e lo registra nello storico. Custodia della chiave del cliente: <b>${d.customer.key_escrow ? 'attiva' : 'spenta'}</b>.</div>`;
+  $$('tr[data-env]', el).forEach((tr) => (tr.onclick = () => openEnv(tr.dataset.env)));
+  const vo = $('#vopen', el); if (vo) vo.onclick = async () => { await unlockVault(); route(); };
 }
 function tHistory(el, d) {
   el.innerHTML = `<div class="card"><div class="hd"><h3>Storico del cliente</h3></div><div class="bd flush"><div class="feed">${d.events.map((ev) => `<div class="ev"><time title="${esc(ev.at)}">${fmtDT(ev.at)}</time><div>${esc(ev.text)}${evSubj(ev)}</div></div>`).join('') || '<div class="empty">Nessuna attività</div>'}</div></div></div>`;
@@ -582,19 +590,23 @@ async function openEnv(id) {
   if (e.kind === 'web-php') acts.push(`<button class="btn pri sm" data-a="plan">${ic('rocket')} ${e.name === 'production' ? 'Deploy produzione' : 'Deploy ' + esc(e.name_it.toLowerCase())}</button>`);
   if (e.kind === 'local-python') acts.push(`<button class="btn sm" data-a="start">${ic('play')} Avvia</button><button class="btn sm" data-a="stop">${ic('stop')} Ferma</button>`);
   acts.push(`<button class="btn sm" data-a="check">${ic('refresh')} Controlla</button>`);
+  if (e.kind !== 'local-python') acts.push(`<button class="btn sm" data-a="edit">${ic('edit')} Indirizzi</button>`);
   const dr = drawer(`${esc(e.name_it)} · ${esc(e.instance_label)}`, `<a href="#/clienti/${esc(e.customer_id)}">${esc(e.customer_name)}</a>${e.project_name ? ' · ' + esc(e.project_name) : ''}`,
     `<div class="sect"><h4>Stato</h4><dl class="kv">${row('Stato', pill(ENV_STATUS, e.status))}${e.error ? row('Dettaglio', esc(e.error)) : ''}${row('Ultimo controllo', ago(e.last_check))}
       ${row('Versione', esc(e.app_version || '—'))}${row('Verificata su staging', esc(e.verified_version || '—'))}${row('Ultimo deploy', ago(e.last_deploy_at))}${row('Ultimo backup', ago(e.last_backup_at))}</dl></div>
     <div class="sect"><h4>Configurazione</h4><dl class="kv">${row('Tipo', esc(e.kind_it))}${row('Indirizzo', e.url ? `<span class="mono">${esc(e.url)}</span>` : '—')}${row('API', e.api_url ? `<span class="mono">${esc(e.api_url)}</span>` : 'automatica')}
       ${e.port ? row('Porta', esc(e.port)) : ''}${e.base_path ? row('Cartella sul sito', `<span class="mono">${esc(e.base_path)}</span>`) : ''}${e.expires_at ? row('Scade', fmtDate(e.expires_at)) : ''}${row('ID', `<span class="mono">${esc(e.id)}</span>`)}</dl></div>
     <div class="sect"><h4>Licenza</h4>${e.licence ? `<div class="al" data-lic="${esc(e.licence.id)}" style="border:1px solid var(--line);border-radius:8px">${dot(LIC_STATE[e.licence.state][0])}<div><b>${esc(e.licence.plan)}</b><small>${esc(LIC_STATE[e.licence.state][1])}${e.licence.days_left !== null ? ' · ' + e.licence.days_left + ' giorni' : ''}</small></div></div>` : '<span style="color:var(--mut)">Nessuna licenza per questa installazione.</span>'}</div>
+    <div class="sect"><h4>Accessi in cassaforte</h4><div id="env-sec"><div style="color:var(--mut)">Carico…</div></div></div>
+    ${e.kind === 'web-php' ? `<div class="sect"><h4>Cosa aggiorna il deploy</h4><p style="margin:0;color:var(--fg2);font-size:13px">Solo il programma (il motore). I dati del cliente, <span class="mono">config.php</span> e i .htaccess modificati a mano restano dove sono; prima di ogni caricamento l'hub fa il backup del server e, se il controllo finale fallisce, rimette da solo i file di prima.</p></div>` : ''}
     <div class="sect"><h4>Deploy recenti</h4>${deployTable(deps)}</div>`, acts.join(''));
+  secretsSection($('#env-sec', dr), e);
   $$('[data-lic]', dr).forEach((x) => (x.onclick = () => openLicence(x.dataset.lic)));
   $$('[data-a]', dr).forEach((b) => (b.onclick = async () => {
     const a = b.dataset.a;
-    if (a === 'plan') return classicPost('/deploy/plan', { env: e.id });
-    if (a === 'start') return classicPost('/env/start', { env: e.id });
-    if (a === 'stop') return classicPost('/env/stop', { env: e.id });
+    if (a === 'plan') { closeOverlay(); return runPlan('env', e.id, `${e.instance_label} · ${e.name_it}`); }
+    if (a === 'start' || a === 'stop') return envJob(e, a);
+    if (a === 'edit') { closeOverlay(); return editEnvironment(e); }
     if (a === 'check') { closeOverlay(); await checkAll(); }
   }));
 }
@@ -898,12 +910,16 @@ async function pSettings(page) {
         <div class="btns">${s.remembered ? `<button class="btn danger" id="forget">Non ricordare più</button>` : `<button class="btn pri" id="remember">Ricorda su questo PC</button>`}</div></div></div>
       <div class="card"><div class="hd"><h3>${ic('lock')} Cassaforte</h3></div><div class="bd">
         <p style="margin-top:0">${s.vault === 'open' ? '<span class="pill ok">Aperta</span> Le password FTP e i codici sono disponibili per deploy e controlli.' : s.vault === 'closed' ? '<span class="pill warn">Chiusa</span> Aprila per fare deploy e controlli protetti.' : '<span class="pill mut">Non creata</span>'}</p>
-        <div class="btns"><a class="btn" href="/vault">Gestisci la cassaforte</a></div></div></div>
+        <div class="btns">${s.vault === 'open' ? '<button class="btn" id="vlock">Chiudi la cassaforte</button>' : `<button class="btn pri" id="vunlock">${s.vault === 'none' ? 'Crea la cassaforte' : 'Apri la cassaforte'}</button>`}<a class="btn ghost" href="/vault">Strumenti avanzati (cambio passphrase, esporta)</a></div></div></div>
+      <div class="card" style="grid-column:1/-1"><div class="hd"><h3>${ic('download')} Backup dell'hub</h3></div><div class="bd" id="bk-box">Carico…</div></div>
       <div class="card"><div class="hd"><h3>${ic('moon')} Aspetto</h3></div><div class="bd">${sel('theme', 'Tema', [['auto', 'Automatico (come Windows)'], ['light', 'Chiaro'], ['dark', 'Scuro']], theme)}</div></div>
       <div class="card"><div class="hd"><h3>${ic('folder')} Strumenti classici</h3></div><div class="bd"><p style="margin-top:0;color:var(--fg2)">Le pagine della versione 0.3, ancora disponibili mentre il nuovo gestionale le assorbe.</p>
         <div class="btns"><a class="btn sm" href="/clienti">Nuovo cliente guidato</a><a class="btn sm" href="/envs">Istanze &amp; ambienti</a><a class="btn sm" href="/deploy">Deploy</a><a class="btn sm" href="/ports">Porte</a><a class="btn sm" href="/status">Stato</a><a class="btn sm" href="/classico">Licenze (classico)</a></div></div></div>
       <div class="card"><div class="hd"><h3>Informazioni</h3></div><div class="bd"><dl class="kv"><dt>Versione</dt><dd>${esc(s.version)}</dd><dt>Chiave di firma</dt><dd class="mono">${esc(s.key_id || '—')}</dd><dt>Cartella dati</dt><dd class="mono">${esc(s.data_dir || '')}</dd></dl></div></div>
     </div>`;
+  backupsCard($('#bk-box'));
+  const vu = $('#vunlock'); if (vu) vu.onclick = async () => { await unlockVault(); route(); };
+  const vl = $('#vlock'); if (vl) vl.onclick = async () => { await api('/api/vault/lock', {}); S.session.vault = 'closed'; paintVaultState(); toast('Cassaforte chiusa.'); route(); };
   const t = $('#f-theme'); t.onchange = () => { localStorageSet('hub.theme', t.value); applyTheme(); };
   const fg = $('#forget'); if (fg) fg.onclick = async () => { await api('/api/remember', { on: false }); toast('Fatto: la passphrase non è più ricordata.'); route(); };
   const rm = $('#remember'); if (rm) rm.onclick = () => modal({
@@ -957,6 +973,232 @@ function palette() {
 // ---------------------------------------------------------------------------------------------
 // boot
 // ---------------------------------------------------------------------------------------------
+// ---------------------------------------------------------------------------------------------
+// v0.6: vault in the app, deploy/promote with plan → confirm → progress, secrets, environments, backups
+// ---------------------------------------------------------------------------------------------
+const SECRET_KIND = { ftp: 'Accesso FTP/SFTP', basic_auth: 'Protezione cartella (HTTP Basic)', admin_token: 'Token amministratore', superadmin: 'Super-admin', db_config: 'Configurazione e chiave del database', note: 'Nota', bridge_token: 'Token del ponte di sincronizzazione' };
+const isVaultErr = (e) => /cassaforte chiusa|cassaforte aperta|vault/i.test(e.message || '');
+
+function unlockVault() {
+  return new Promise((resolve) => {
+    const creating = S.session && S.session.vault === 'none';
+    modal({
+      title: creating ? 'Crea la cassaforte' : 'Apri la cassaforte', submit: creating ? 'Crea e apri' : 'Apri',
+      body: `<p class="note" style="margin-top:0">${creating
+        ? 'La cassaforte custodisce password FTP, codici e chiavi dei clienti, cifrati con una passphrase solo tua (almeno 10 caratteri). Annotala in un posto sicuro: se la perdi i segreti non si recuperano.'
+        : 'Servono le password FTP e i codici salvati. Resta aperta finché non chiudi l\'hub o premi «Chiudi la cassaforte».'}</p>
+        ${fld('passphrase', 'Passphrase della cassaforte', { type: 'password', attrs: 'required autocomplete="current-password"' })}${creating ? fld('again', 'Ripeti la passphrase', { type: 'password', attrs: 'required autocomplete="new-password"' }) : ''}`,
+      onSubmit: async (f) => {
+        await api('/api/vault/unlock', f);
+        if (S.session) S.session.vault = 'open';
+        closeOverlay(); toast(creating ? 'Cassaforte creata e aperta.' : 'Cassaforte aperta.'); paintVaultState(); resolve(true);
+      },
+    });
+  });
+}
+async function withVault(fn) {
+  try { return await fn(); } catch (e) {
+    if (!isVaultErr(e)) throw e;
+    closeOverlay(); await unlockVault(); return fn();
+  }
+}
+function paintVaultState() {
+  const el = $('#vault-state'); if (!el || !S.session) return;
+  const vs = S.session.vault;
+  el.innerHTML = vs === 'open' ? `${ic('unlock')} Cassaforte aperta` : vs === 'closed' ? `${ic('lock')} <a href="#" id="vs-open" style="color:#ffb86b">Cassaforte chiusa: apri</a>` : `${ic('lock')} <a href="#" id="vs-open" style="color:#ffb86b">Crea la cassaforte</a>`;
+  const a = $('#vs-open', el); if (a) a.onclick = (ev) => { ev.preventDefault(); unlockVault(); };
+}
+
+// ---- deploy / promote ------------------------------------------------------------------------
+const DSTEPS = [['plan', 'Prova'], ['ok', 'Conferma'], ['backup', 'Backup del server'], ['upload', 'Caricamento'], ['check', 'Controllo']];
+function stepper(cur, failed) {
+  const idx = DSTEPS.findIndex((s) => s[0] === cur);
+  return `<ol class="stepper">${DSTEPS.map(([k, t], i) => `<li class="${i < idx ? 'done' : i === idx ? (failed ? 'fail' : 'cur') : ''}"><span>${i + 1}</span>${esc(t)}</li>`).join('')}</ol>`;
+}
+function stepOf(lines) {
+  const t = lines.join('\n');
+  if (/Controllo (fallito|https?:)|Caricati \d+ file/.test(t)) return 'check';
+  if (/caricati \d+\/|Caricati|Errore durante il caricamento/.test(t)) return 'upload';
+  if (/Backup del server/.test(t)) return 'backup';
+  return 'backup';
+}
+function jobModal(title, intro) {
+  const o = openOverlay(`<div class="modal wide"><div class="hd"><h2>${esc(title)}</h2><button type="button" class="btn ghost sm x" data-close>${ic('x')}</button></div>
+    <div class="bd"><div id="jm-steps"></div><div class="err-box" hidden></div><div id="jm-body">${intro || ''}</div>
+    <details id="jm-det" open><summary>Registro</summary><pre class="log" id="jm-log">Avvio…</pre></details></div>
+    <div class="ft" id="jm-ft"><button type="button" class="btn ghost" data-close>Chiudi</button></div></div>`);
+  return o;
+}
+const showLog = (o) => (j) => { const l = $('#jm-log', o); if (!l) return; l.textContent = j.lines.join('\n') || 'Avvio…'; l.scrollTop = l.scrollHeight; };
+function jmError(o, msg) { const eb = $('.err-box', o); eb.textContent = msg; eb.hidden = false; }
+
+async function runPlan(kind, ref, label) {
+  const url = kind === 'promote' ? `/api/instances/${ref}/promote-plan` : `/api/envs/${ref}/deploy-plan`;
+  let r; try { r = await withVault(() => api(url, {})); } catch (e) { return toast(e.message, true); }
+  const o = jobModal(kind === 'promote' ? `Promozione staging → produzione${label ? ': ' + label : ''}` : `Deploy${label ? ': ' + label : ''}`,
+    `<p class="note" style="margin-top:0">Prova in corso: l'hub costruisce il sito, legge cosa c'è sul server e prepara il piano. <b>Sul server non cambia niente.</b></p>`);
+  $('#jm-steps', o).innerHTML = stepper('plan');
+  let j; try { j = await waitJob(r.job, showLog(o)); } catch (e) { $('#jm-steps', o).innerHTML = stepper('plan', true); $('#jm-body', o).innerHTML = ''; return jmError(o, e.message); }
+  renderPlan(o, j, kind);
+}
+function renderPlan(o, j, kind) {
+  const p = j.plan; if (!p) return jmError(o, 'Piano non disponibile.');
+  const fl = (arr) => arr.map((i) => `<li><code>${esc(i.path)}</code> <span style="color:var(--mut)">${esc(i.why)}</span></li>`).join('');
+  $('#jm-steps', o).innerHTML = stepper('ok');
+  $('#jm-det', o).open = false;
+  $('#jm-body', o).innerHTML = `
+    <div class="vflow"><div><small>Sul server adesso</small><b>${esc(p.remote_version || 'sconosciuta')}</b></div><span class="arr">→</span><div><small>Da pubblicare</small><b>${esc(p.version || '?')}</b></div></div>
+    ${p.root_note ? `<div class="note warn mt">${esc(p.root_note)}</div>` : ''}
+    <div class="stats3 mt"><div><b>${p.upload_count}</b><small>file da caricare</small></div><div><b>${p.unchanged_count}</b><small>già uguali</small></div><div><b>${p.protected.length}</b><small>protetti, mai toccati</small></div></div>
+    <div class="note mt">Si aggiorna <b>solo il programma</b>. I dati del cliente (<span class="mono">server-php/data</span>), <span class="mono">config.php</span> e i .htaccess modificati a mano non vengono toccati e niente viene cancellato. Prima di caricare l'hub scarica un backup del server; se dopo il caricamento il sito non risponde con la versione nuova, <b>rimette da solo i file di prima</b>.</div>
+    ${kind === 'promote' ? '<div class="note mt">In produzione va esattamente il codice già provato sullo staging: se nel frattempo è cambiato, l\'hub si ferma.</div>' : ''}
+    <details class="mt"><summary>File da caricare (${p.upload_count})</summary><ul class="files">${fl(p.upload)}</ul></details>
+    ${p.protected.length ? `<details><summary>Protetti (${p.protected.length})</summary><ul class="files">${fl(p.protected)}</ul></details>` : ''}
+    ${p.obsolete_count ? `<details><summary>Sul server ma non più nel programma, non cancellati (${p.obsolete_count})</summary><ul class="files">${p.obsolete.map((x) => `<li><code>${esc(x)}</code></li>`).join('')}</ul></details>` : ''}
+    ${p.upload_count ? `<label class="check mt"><input type="checkbox" id="jm-sure"> <span>Ho letto il piano: procedi con backup, caricamento e controllo. <span style="color:var(--mut)">(Valido ancora ${Math.max(1, Math.floor(p.valid_seconds / 60))} minuti.)</span></span></label>` : '<div class="note mt"><b>Niente da caricare:</b> il server è già aggiornato.</div>'}`;
+  if (!p.upload_count) return;
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'btn pri'; b.innerHTML = `${ic('rocket')} Conferma e pubblica`; b.disabled = true;
+  $('#jm-ft', o).appendChild(b);
+  $('#jm-sure', o).onchange = (e) => (b.disabled = !e.target.checked);
+  b.onclick = () => confirmPlan(o, j.id, b);
+}
+async function confirmPlan(o, jid, b) {
+  b.disabled = true; $('.err-box', o).hidden = true;
+  let r; try { r = await api(`/api/jobs/${jid}/confirm`, { sure: true }); } catch (e) { b.disabled = false; return jmError(o, e.message); }
+  b.remove();
+  $('#jm-body', o).innerHTML = '<p class="note" style="margin-top:0">Pubblicazione in corso. Puoi chiudere questa finestra: il lavoro continua e lo trovi in Attività.</p>';
+  $('#jm-det', o).open = true; $('#jm-steps', o).innerHTML = stepper('backup');
+  const log = showLog(o);
+  try {
+    const j = await waitJob(r.job, (jj) => { log(jj); const st = $('#jm-steps', o); if (st) st.innerHTML = stepper(stepOf(jj.lines)); });
+    const res = j.result || {};
+    $('#jm-steps', o).innerHTML = stepper('check').replace('class="cur"', 'class="done"');
+    $('#jm-body', o).innerHTML = `<div class="okbox">${ic('rocket')}<div><b>Pubblicato: versione ${esc(res.version || '')}</b><small>${(res.uploaded || []).length} file caricati · il sito risponde con la versione nuova${res.config_php_untouched === false ? ' · ATTENZIONE: config.php risulta cambiato' : ''}</small></div></div>${res.backup_dir ? `<p style="color:var(--mut);font-size:12.5px">Backup del server prima del caricamento: <span class="mono">${esc(res.backup_dir)}</span></p>` : ''}`;
+    toast('Deploy riuscito.');
+  } catch (e) {
+    $('#jm-steps', o).innerHTML = stepper(/ripristin/i.test(e.message) ? 'check' : 'upload', true);
+    $('#jm-body', o).innerHTML = '';
+    jmError(o, e.message);
+  }
+  route();
+}
+
+// ---- secrets of an environment ---------------------------------------------------------------
+function secretFields(kind, cur = {}) {
+  if (kind === 'ftp') return `<div class="frow">${sel('protocol', 'Protocollo', [['ftps', 'FTPS (consigliato)'], ['sftp', 'SFTP'], ['ftp', 'FTP senza cifratura']], cur.protocol || 'ftps')}${fld('port', 'Porta', { type: 'number', ph: '21', value: cur.port || '' })}</div>
+    ${fld('host', 'Server FTP', { req: true, ph: 'ftp.studio.it', value: cur.host || '' })}<div class="frow">${fld('user', 'Utente', { req: true, value: cur.user || '' })}${fld('password', 'Password', { type: 'password', req: true, attrs: 'autocomplete="new-password"' })}</div>
+    ${fld('remote_path', 'Cartella sul server', { ph: '/public_html/docmap', value: cur.remote_path || '', hint: 'La cartella dove sta (o andrà) il sito, vista dall\'FTP.' })}`;
+  if (kind === 'basic_auth' || kind === 'superadmin') return `<div class="frow">${fld('user', 'Utente', { req: true })}${fld('password', 'Password', { type: 'password', req: true, attrs: 'autocomplete="new-password"' })}</div>`;
+  if (kind === 'admin_token') return `${fld('user', 'Utente', { value: 'admin' })}${fld('password', 'Token', { type: 'password', req: true })}`;
+  if (kind === 'db_config') return `<div class="f"><label>Contenuto di config.php / config.json</label><textarea name="content" rows="8" class="mono"></textarea></div>`;
+  return `<div class="f"><label>Testo</label><textarea name="text" rows="5"></textarea></div>`;
+}
+function addSecret(env, kind, after) {
+  const kinds = Object.entries(SECRET_KIND).filter(([k]) => k !== 'bridge_token');
+  const f = modal({
+    title: `Salva in cassaforte · ${env.name_it}`, submit: 'Salva cifrato',
+    body: `${sel('kind', 'Cosa', kinds, kind || (env.kind === 'web-php' ? 'ftp' : 'admin_token'))}${fld('label', 'Etichetta (facoltativa)', { ph: 'es. nome utente o «secondario»' })}<div id="sf"></div>
+      <div class="note">Viene cifrato con la passphrase della cassaforte. Non compare mai in chiaro nel gestionale: per rivederlo l'hub chiede di nuovo la passphrase.</div>`,
+    onSubmit: async (v) => { await withVault(() => api(`/api/envs/${env.id}/secrets`, v)); closeOverlay(); toast('Salvato in cassaforte.'); if (after) after(); },
+  });
+  const paint = () => ($('#sf', f).innerHTML = secretFields($('#f-kind', f).value));
+  $('#f-kind', f).onchange = paint; paint();
+}
+function revealSecret(env, s) {
+  modal({
+    title: `Mostra: ${SECRET_KIND[s.kind] || s.kind}`, submit: 'Mostra',
+    body: `<p class="note warn" style="margin-top:0">Per sicurezza la passphrase della cassaforte si scrive di nuovo ogni volta. La visualizzazione resta nello storico.</p>${fld('passphrase', 'Passphrase della cassaforte', { type: 'password', attrs: 'required autocomplete="current-password"' })}`,
+    onSubmit: async (f, form) => {
+      const r = await api(`/api/envs/${env.id}/secrets/reveal`, { kind: s.kind, label: s.label, passphrase: f.passphrase });
+      const rows = Object.entries(r.data || {}).map(([k, v]) => `<dt>${esc(k)}</dt><dd class="mono" style="word-break:break-all">${esc(typeof v === 'object' ? JSON.stringify(v) : v)}</dd>`).join('');
+      $('.bd', form).innerHTML = `<dl class="kv">${rows}</dl><p class="note warn mt">Chiudi questa finestra appena hai finito: si cancella anche dallo schermo.</p>`;
+      const sb = $('button[type=submit]', form); if (sb) sb.remove();
+    },
+  });
+}
+async function secretsSection(box, env) {
+  let d; try { d = await api(`/api/envs/${env.id}/secrets`); } catch (e) { box.innerHTML = `<div class="note warn">${esc(e.message)}</div>`; return; }
+  const repaint = () => secretsSection(box, env);
+  box.innerHTML = `${d.items.length ? `<div class="alist">${d.items.map((s, i) => `<div class="al" style="cursor:default">${ic('key')}<div style="flex:1"><b>${esc(s.kind_it)}${s.label ? ` <span class="tag">${esc(s.label)}</span>` : ''}</b><small>aggiornato ${ago(s.updated_at)}</small></div>
+      <div class="btns"><button class="btn sm" data-rv="${i}">Mostra</button><button class="btn sm" data-ed="${i}" title="Sostituisci">${ic('edit')}</button><button class="btn ghost sm" data-del="${i}" title="Elimina">${ic('x')}</button></div></div>`).join('')}</div>`
+    : `<div class="empty" style="padding:14px 0">Niente in cassaforte per questo ambiente.${env.kind === 'web-php' ? ' Salva l\'accesso FTP per poter fare il deploy.' : ''}</div>`}
+    <div class="btns mt"><button class="btn sm pri" data-add>${ic('plus')} Aggiungi</button>${d.vault !== 'open' ? `<button class="btn sm" data-open>${ic('unlock')} Apri la cassaforte</button>` : ''}</div>`;
+  $('[data-add]', box).onclick = () => addSecret(env, null, () => openEnv(env.id));
+  const ob = $('[data-open]', box); if (ob) ob.onclick = async () => { await unlockVault(); openEnv(env.id); };
+  $$('[data-rv]', box).forEach((b) => (b.onclick = () => revealSecret(env, d.items[+b.dataset.rv])));
+  $$('[data-ed]', box).forEach((b) => (b.onclick = () => { const s = d.items[+b.dataset.ed]; addSecret(env, s.kind, () => openEnv(env.id)); }));
+  $$('[data-del]', box).forEach((b) => (b.onclick = async () => {
+    const s = d.items[+b.dataset.del];
+    if (!confirm(`Eliminare «${s.kind_it}» dalla cassaforte? Senza, il deploy di questo ambiente non funziona.`)) return;
+    try { await api(`/api/envs/${env.id}/secrets/delete`, { kind: s.kind, label: s.label, sure: true }); toast('Eliminato.'); repaint(); } catch (e) { toast(e.message, true); }
+  }));
+}
+
+// ---- environments ----------------------------------------------------------------------------
+function addEnvironment(d, inst) {
+  const insts = d.projects.flatMap((p) => p.instances.map((i) => [i.id, `${p.name} · ${i.label}`]));
+  const f = modal({
+    title: 'Aggiungi sito o server', submit: 'Aggiungi',
+    body: `${sel('instance_id', 'Installazione', insts, inst || '')}
+      ${sel('type', 'Che cosa', [['web-php', 'Sito online (hosting PHP, es. SiteGround)'], ['studio-python', 'Server nello studio del cliente'], ['local-python', 'Ambiente di prova su questo PC']], 'web-php')}
+      <div id="envf"></div>`,
+    onSubmit: async (v) => {
+      if (v.type === 'local-python') {
+        const r = await withVault(() => api('/api/envs/local', { instance_id: v.instance_id, name: v.name, studio_name: v.studio_name }));
+        closeOverlay(); const o = jobModal('Nuovo ambiente su questo PC'); try { await waitJob(r.job, showLog(o)); $('#jm-body', o).innerHTML = '<div class="okbox"><div><b>Ambiente creato</b><small>I codici di accesso sono in cassaforte. Avvialo dalla sua scheda.</small></div></div>'; } catch (e) { jmError(o, e.message); }
+        return route();
+      }
+      const r = await api('/api/envs', { instance_id: v.instance_id, kind: v.type, name: v.name, url: v.url, api_url: v.api_url, base_path: v.base_path, studio_name: v.studio_name });
+      closeOverlay(); toast('Aggiunto. Ora salva l\'accesso in cassaforte.'); await route(); openEnv(r.id);
+    },
+  });
+  const paint = () => {
+    const t = $('#f-type', f).value;
+    $('#envf', f).innerHTML = t === 'local-python'
+      ? `${sel('name', 'Nome', [['staging', 'staging'], ['demo-1', 'demo-1'], ['production', 'production']], 'staging')}${fld('studio_name', 'Nome dello studio mostrato nell\'app')}<div class="note">L'hub prepara un server DocMap su una porta libera di questo PC, con i codici di accesso custoditi in cassaforte. Serve per provare o fare demo.</div>`
+      : `${sel('name', 'Ruolo', [['production', 'Produzione (quello vero)'], ['staging', 'Staging (prova)']], 'production')}
+        ${fld('url', 'Indirizzo', { req: true, ph: t === 'web-php' ? 'https://www.studio.it/docmap/' : 'https://192.168.1.20:8443/' })}
+        ${t === 'web-php' ? `${fld('api_url', 'Indirizzo dell\'API (facoltativo)', { ph: 'https://www.studio.it/docmap/server-php/api.php', hint: 'Vuoto = calcolato dall\'indirizzo. Serve al controllo dopo il deploy.' })}${fld('base_path', 'Cartella nel sito (facoltativa)', { ph: '/docmap/' })}` : ''}
+        ${fld('studio_name', 'Nome dello studio mostrato nell\'app')}`;
+  };
+  $('#f-type', f).onchange = paint; paint();
+}
+function editEnvironment(e) {
+  modal({
+    title: `Indirizzi · ${e.name_it}`,
+    body: `${fld('url', 'Indirizzo', { value: e.url || '' })}${fld('api_url', 'Indirizzo dell\'API', { value: e.api_url || '', hint: 'Usato per il controllo dopo il deploy.' })}`,
+    onSubmit: async (v) => { await api(`/api/envs/${e.id}`, v); closeOverlay(); toast('Salvato.'); route(); },
+  });
+}
+async function envJob(e, what) {
+  try {
+    if (what === 'stop') { await api(`/api/envs/${e.id}/stop`, {}); toast('Ambiente fermato.'); return openEnv(e.id); }
+    const r = await api(`/api/envs/${e.id}/start`, {}); toast('Avvio in corso…');
+    const j = await waitJob(r.job); toast(`In esecuzione: ${j.result?.url || ''}`); openEnv(e.id);
+  } catch (err) { toast(err.message, true); }
+}
+
+// ---- backups ---------------------------------------------------------------------------------
+async function backupsCard(box) {
+  let d; try { d = await api('/api/backups'); } catch (e) { box.innerHTML = `<div class="note warn">${esc(e.message)}</div>`; return; }
+  const c = d.config; const KB = (n) => (n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB');
+  const KIND = { auto: 'automatico', manuale: 'a mano', migrazione: 'prima di un aggiornamento' };
+  box.innerHTML = `<p style="margin-top:0">${c.auto ? `<span class="pill ok">Attivi</span> Ogni ${c.every_hours} ore mentre l'hub è aperto, tengo gli ultimi ${c.keep}.` : '<span class="pill warn">Spenti</span> Nessun backup automatico.'} Ultimo automatico: <b>${d.last_auto ? ago(d.last_auto) : 'mai'}</b>.</p>
+    ${d.error ? `<div class="note warn">Ultimo tentativo non riuscito: ${esc(d.error)}</div>` : ''}
+    ${c.copy_dir ? `<p style="color:var(--fg2);font-size:13px">Copia anche in <span class="mono">${esc(c.copy_dir)}</span></p>` : '<p style="color:var(--mut);font-size:13px">Consiglio: imposta una seconda cartella (chiavetta, NAS, OneDrive) così il backup sopravvive anche a un guasto del PC.</p>'}
+    <div class="btns"><button class="btn pri sm" id="bk-now">${ic('download')} Fai un backup adesso</button><button class="btn sm" id="bk-cfg">${ic('gear')} Impostazioni</button></div>
+    <div class="tbl-wrap mt"><table class="t"><thead><tr><th>File</th><th>Tipo</th><th>Quando</th><th>Dimensione</th><th></th></tr></thead><tbody>
+    ${d.items.slice(0, 12).map((b) => `<tr><td class="mono" style="font-size:12px">${esc(b.name)}</td><td>${esc(KIND[b.kind] || b.kind)}</td><td>${ago(b.at)}</td><td>${KB(b.size)}</td><td class="r"><a class="btn sm" href="/scarica/backup/${encodeURIComponent(b.name)}" title="Scarica">${ic('download')}</a></td></tr>`).join('') || '<tr><td colspan="5"><div class="empty">Ancora nessun backup</div></td></tr>'}</tbody></table></div>
+    <p style="color:var(--mut);font-size:12.5px">Cartella: <span class="mono">${esc(d.folder)}</span>. Le chiavi e la cassaforte restano cifrate dentro il backup: senza le passphrase non servono a nessuno. Per ripristinare segui la guida «Ripristino dell'hub».</p>`;
+  $('#bk-now', box).onclick = async (ev) => { ev.target.disabled = true; try { const r = await api('/api/backups/now', {}); const j = await waitJob(r.job); toast(`Backup fatto: ${j.result?.name || ''}`); } catch (e) { toast(e.message, true); } backupsCard(box); };
+  $('#bk-cfg', box).onclick = () => modal({
+    title: 'Backup automatici', body: `<label class="check"><input type="checkbox" name="auto" ${c.auto ? 'checked' : ''}> <span>Fai i backup automatici</span></label>
+      <div class="frow mt">${fld('every_hours', 'Ogni quante ore', { type: 'number', value: c.every_hours, attrs: 'min="1" max="168"' })}${fld('keep', 'Quanti tenerne', { type: 'number', value: c.keep, attrs: 'min="1" max="365"' })}</div>
+      ${fld('copy_dir', 'Copia anche in questa cartella (facoltativo)', { value: c.copy_dir, ph: 'E:\\Backup-DocMap  oppure  C:\\Users\\Dave\\OneDrive\\DocMap', hint: 'Se la chiavetta non è inserita il backup resta comunque sul PC e la copia si salta.' })}`,
+    onSubmit: async (v) => { await api('/api/backups', v); closeOverlay(); toast('Salvato.'); backupsCard(box); },
+  });
+}
+
 async function boot() {
   applyTheme();
   try { S.session = await api('/api/session'); } catch (e) { app().innerHTML = `<div class="boot">Hub non raggiungibile: ${esc(e.message)}</div>`; return; }

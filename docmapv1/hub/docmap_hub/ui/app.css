@@ -238,3 +238,29 @@ pre.log{background:var(--panel2);border:1px solid var(--line);border-radius:8px;
   .top .hide-sm,table.t .hide-sm{display:none}
 }
 @media (max-width:520px){.g4{grid-template-columns:1fr 1fr}}
+
+/* v0.6: deploy flow, backups */
+.stepper{display:flex;gap:6px;list-style:none;padding:0;margin:0 0 14px;flex-wrap:wrap}
+.stepper li{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--mut);padding:5px 10px 5px 5px;border:1px solid var(--line);border-radius:999px;background:var(--panel)}
+.stepper li span{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:var(--panel2);font-weight:600;font-size:11px}
+.stepper li.done{color:var(--ok);border-color:transparent;background:var(--ok-soft)}
+.stepper li.done span{background:var(--ok);color:#fff}
+.stepper li.cur{color:var(--acc);border-color:var(--acc);font-weight:600}
+.stepper li.cur span{background:var(--acc);color:#fff}
+.stepper li.fail{color:var(--bad);border-color:var(--bad);background:var(--bad-soft)}
+.stepper li.fail span{background:var(--bad);color:#fff}
+.vflow{display:flex;align-items:center;gap:14px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}
+.vflow small{display:block;color:var(--mut);font-size:12px}
+.vflow b{font-size:18px}
+.vflow .arr{font-size:22px;color:var(--acc)}
+.stats3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stats3>div{border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.stats3 b{font-size:22px;display:block}
+.stats3 small{color:var(--mut);font-size:12px}
+ul.files{max-height:220px;overflow:auto;margin:6px 0;padding-left:18px;font-size:12.5px}
+details{margin-top:8px}
+details summary{cursor:pointer;font-size:13px;color:var(--fg2);padding:4px 0}
+.okbox{display:flex;gap:12px;align-items:center;padding:14px;border-radius:10px;background:var(--ok-soft);color:var(--ok)}
+.okbox svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.8}
+.okbox small{display:block;color:var(--fg2);margin-top:2px}
+@media (max-width:520px){.stats3{grid-template-columns:1fr 1fr 1fr}.stats3 b{font-size:18px}}

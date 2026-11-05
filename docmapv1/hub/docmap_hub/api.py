@@ -163,6 +163,18 @@ def overview(app) -> dict:
         alerts.append({"level": "info", "kind": "draft", "id": d["id"], "customer_id": None,
                        "title": f"Bozza da confermare: {d.get('title') or 'senza titolo'}",
                        "text": "aperta il " + d["updated_at"][:10]})
+    from . import backups as B
+    bcfg, blast = B.config(reg), B.last_auto_at(app.hub)
+    sch_err = getattr(getattr(app, "backup_scheduler", None), "error", None)
+    if sch_err:
+        alerts.append({"level": "bad", "kind": "backup", "id": None, "customer_id": None,
+                       "title": "Backup automatico non riuscito", "text": sch_err})
+    elif not bcfg["auto"]:
+        alerts.append({"level": "warn", "kind": "backup", "id": None, "customer_id": None,
+                       "title": "Backup automatici spenti", "text": "riaccendili da Impostazioni"})
+    elif blast and (now - blast).total_seconds() > bcfg["every_hours"] * 3600 * 3:
+        alerts.append({"level": "warn", "kind": "backup", "id": None, "customer_id": None,
+                       "title": "Backup dell'hub vecchio", "text": "ultimo backup automatico " + blast.strftime("%d/%m/%Y")})
     order = {"bad": 0, "warn": 1, "info": 2}
     alerts.sort(key=lambda a: order[a["level"]])
     deploys = reg.list_deploys(limit=200)
@@ -211,7 +223,7 @@ def _event_view(ev: dict, names: dict | None = None) -> dict:
             "entity_id": ev.get("entity_id"), "subject": subj, "text": describe_event(ev)}
 
 
-NOISE = ("web.start", "web.login", "hub.check_all")
+NOISE = ("web.start", "web.login", "hub.check_all", "hub.backup")
 
 
 ACTION_IT = {
@@ -231,6 +243,9 @@ ACTION_IT = {
     "web.start": "Pagina dell'hub aperta", "web.login": "Accesso alla pagina", "web.remember": "Accesso ricordato su questo PC",
     "web.forget": "Accesso ricordato rimosso", "setting.set": "Impostazione cambiata",
     "onboarding.run": "Cliente nuovo preparato",
+    "hub.backup.auto": "Backup automatico dell'hub", "hub.backup.now": "Backup dell'hub (a mano)",
+    "hub.backup.error": "Backup automatico non riuscito", "vault.delete": "Segreto eliminato dalla cassaforte",
+    "env.update": "Ambiente modificato", "deploy.ok": "Deploy riuscito",
 }
 
 
@@ -562,7 +577,8 @@ def job_view(app, jid: str) -> dict:
         raise RegistryError("Operazione non trovata (scaduta).")
     return {"id": job.id, "title": job.title, "kind": job.kind, "status": job.status,
             "lines": list(job.lines)[-200:], "error": job.error,
-            "result": job.result if job.status == "ok" else None}
+            "result": job.result if job.status == "ok" and job.kind not in PLAN_KINDS else None,
+            "plan": plan_view(job), "finished": job.finished}
 
 
 # ---------------------------------------------------------------------------
@@ -665,3 +681,241 @@ def packages_of(app, cid: str) -> dict:
             out["web"][e["id"]] = {"name": zp.name, "size": zp.stat().st_size,
                                    "built_at": L.format_time(datetime.fromtimestamp(zp.stat().st_mtime, timezone.utc))} if zp.is_file() else None
     return out
+
+
+# ---------------------------------------------------------------------------
+# v0.6: deploy / promote in the app, vault per environment, environments, backups
+# ---------------------------------------------------------------------------
+
+PLAN_KINDS = {"deploy-plan": "deploy-run", "promote-plan": "promote-run"}
+SECRET_IT = {"ftp": "Accesso FTP/SFTP", "basic_auth": "Protezione cartella (HTTP Basic)",
+             "admin_token": "Token amministratore", "superadmin": "Super-admin",
+             "db_config": "Configurazione e chiave del database", "note": "Nota"}
+
+
+def _opts(body: dict) -> dict:
+    return {"insecure_ftp": bool(body.get("insecure_ftp")), "overwrite_htaccess": bool(body.get("overwrite_htaccess"))}
+
+
+def deploy_plan(app, env_id: str, body: dict) -> dict:
+    """Dry run (nothing changes on the server). The result is the plan; confirm it with job_confirm."""
+    from . import web_ops as W
+    vk = app.need_vault()
+    reg = app.hub.registry
+    e = reg.get_environment(env_id)
+    if e["kind"] != "web-php":
+        raise RegistryError("Il deploy vale per i siti online (web-php).")
+    params = dict(_opts(body), instance=e["instance_id"], env=e["name"])
+    label = reg.get_instance(e["instance_id"])["label"]
+    title = f"Piano di deploy: {label} · {ENV_IT.get(e['name'], e['name'])}"
+    job = app.jobs.start(title, "deploy-plan", params, lambda h, j: W._job_deploy(h, j, vk, params, True))
+    return {"job": job.id}
+
+
+def promote_plan(app, iid: str, body: dict) -> dict:
+    from . import web_ops as W
+    vk = app.need_vault()
+    inst = app.hub.registry.get_instance(iid)
+    params = dict(_opts(body), instance=inst["id"])
+    job = app.jobs.start(f"Piano di promozione staging → produzione: {inst['label']}", "promote-plan", params,
+                         lambda h, j: W._job_promote(h, j, vk, params, True))
+    return {"job": job.id}
+
+
+def job_confirm(app, jid: str, body: dict) -> dict:
+    """Run the real deploy of a plan seen in the last 30 minutes, with the exact same code (code hash)."""
+    import time
+    from . import web_ops as W
+    vk = app.need_vault()
+    plan = app.jobs.get(jid)
+    if (not plan or plan.kind not in PLAN_KINDS or plan.status != "ok"
+            or time.time() - (plan.finished or 0) > W.PLAN_MAX_AGE):
+        raise RegistryError("Piano scaduto o non valido: rifai la prova e conferma entro 30 minuti.")
+    if not body.get("sure"):
+        raise RegistryError("Spunta «ho letto il piano» per confermare.")
+    if not ((plan.result or {}).get("plan") or {}).get("upload"):
+        raise RegistryError("Niente da caricare: il server è già aggiornato.")
+    if getattr(plan, "confirmed_by", None):
+        raise RegistryError("Questo piano è già stato confermato: guarda l'avanzamento in Attività.")
+    params = plan.params
+    if plan.kind == "deploy-plan":
+        job = app.jobs.start(plan.title.replace("Piano di deploy", "Deploy"), "deploy-run", params,
+                             lambda h, j: W._job_deploy(h, j, vk, params, False))
+    else:
+        job = app.jobs.start(plan.title.replace("Piano di promozione", "Promozione"), "promote-run", params,
+                             lambda h, j: W._job_promote(h, j, vk, params, False))
+    plan.confirmed_by = job.id
+    return {"job": job.id}
+
+
+def plan_view(job) -> dict | None:
+    """What the app shows for a finished plan: counts, short lists, validity."""
+    import time
+    from . import web_ops as W
+    if job.kind not in PLAN_KINDS or job.status != "ok":
+        return None
+    r = job.result or {}
+    p = r.get("plan") or {}
+    left = int(W.PLAN_MAX_AGE - (time.time() - (job.finished or 0)))
+    return {"version": r.get("version"), "remote_version": r.get("remote_version"),
+            "remote_file_count": r.get("remote_file_count", 0), "root_note": r.get("root_note"),
+            "upload": p.get("upload", [])[:300], "upload_count": len(p.get("upload", [])),
+            "unchanged_count": len(p.get("unchanged", [])), "protected": p.get("protected", []),
+            "obsolete": p.get("obsolete", [])[:100], "obsolete_count": len(p.get("obsolete", [])),
+            "valid_seconds": max(0, left), "confirmed_job": getattr(job, "confirmed_by", None)}
+
+
+def env_secrets(app, env_id: str) -> dict:
+    from .vault import Vault
+    reg = app.hub.registry
+    e = reg.get_environment(env_id)
+    v = Vault(reg)
+    cust = reg.get_customer(e["customer_id"]) if e.get("customer_id") else {}
+    return {"vault": ("open" if app.vault_key is not None else "closed") if v.initialized else "none",
+            "key_escrow": bool(cust.get("key_escrow")),
+            "items": [{"kind": s["kind"], "kind_it": SECRET_IT.get(s["kind"], s["kind"]), "label": s.get("label") or "",
+                       "updated_at": s.get("updated_at")} for s in v.list(env_id=e["id"])]}
+
+
+def secret_set(app, env_id: str, body: dict) -> dict:
+    from .vault import Vault
+    from .web_ops import _secret_from_form
+    vk = app.need_vault()
+    kind = _str(body, "kind")
+    if kind not in SECRET_IT:
+        raise RegistryError("Tipo di segreto sconosciuto.")
+    r = Vault(app.hub.registry).put(vk, env_id, kind, _secret_from_form(kind, body), _str(body, "label"))
+    return {"kind": r["kind"], "fields": r["fields"]}
+
+
+def secret_reveal(app, env_id: str, body: dict) -> dict:
+    """Shown only after typing the vault passphrase again; every reveal goes into the history."""
+    import time
+    from .vault import Vault, VaultError
+    v = Vault(app.hub.registry)
+    try:
+        vk = v.unlock(body.get("passphrase") or "")
+    except VaultError:
+        time.sleep(1.0)
+        raise RegistryError("Passphrase della cassaforte sbagliata.")
+    e = app.hub.registry.get_environment(env_id)
+    data = v.get(vk, e["id"], _str(body, "kind"), _str(body, "label"), reason="reveal (gestionale)")
+    return {"data": data}
+
+
+def secret_delete(app, env_id: str, body: dict) -> dict:
+    from .vault import Vault
+    app.need_unlocked()
+    if not body.get("sure"):
+        raise RegistryError("Conferma l'eliminazione.")
+    ok = Vault(app.hub.registry).delete(env_id, _str(body, "kind"), _str(body, "label"))
+    if not ok:
+        raise RegistryError("Segreto non trovato.")
+    return {"ok": True}
+
+
+def vault_unlock(app, body: dict) -> dict:
+    import time
+    from .vault import Vault, VaultError
+    v = Vault(app.hub.registry)
+    try:
+        if not v.initialized:
+            if (body.get("passphrase") or "") != (body.get("again") or ""):
+                raise RegistryError("Le due passphrase non coincidono.")
+            app.vault_key = v.init(body.get("passphrase") or "")
+            return {"vault": "open", "created": True}
+        app.vault_key = v.unlock(body.get("passphrase") or "")
+    except VaultError as exc:
+        time.sleep(1.0)
+        raise RegistryError(str(exc))
+    return {"vault": "open"}
+
+
+def vault_lock(app, body: dict) -> dict:
+    app.vault_key = None
+    return {"vault": "closed"}
+
+
+def env_add(app, body: dict) -> dict:
+    """Register a remote environment (site online / studio server) on an existing installation."""
+    from .envs import EnvManager
+    kind = _str(body, "kind") or "web-php"
+    url = _str(body, "url")
+    if not url:
+        raise RegistryError("Scrivi l'indirizzo, es. https://www.studio.it/docmap/")
+    e = EnvManager(app.hub).add_remote(_str(body, "instance_id"), _str(body, "name") or "production", kind, url,
+                                       _str(body, "api_url") or None, base_path=_str(body, "base_path") or None,
+                                       studio_name=_str(body, "studio_name") or None)
+    return {"id": e["id"], "name": e["name"]}
+
+
+def env_create_local(app, body: dict) -> dict:
+    from . import web_ops as W
+    vk = app.need_vault()
+    inst, name, sn = _str(body, "instance_id"), _str(body, "name") or "staging", _str(body, "studio_name")
+    app.hub.registry.get_instance(inst)
+    job = app.jobs.start(f"Nuovo ambiente sul PC: {name}", "env-create", {},
+                         lambda h, j: W._job_create_local(h, j, vk, inst, name, sn))
+    return {"job": job.id}
+
+
+def env_start(app, env_id: str, body: dict) -> dict:
+    from . import web_ops as W
+    e = app.hub.registry.get_environment(env_id)
+    if e["kind"] != "local-python":
+        raise RegistryError("Si avviano da qui solo gli ambienti sul PC dell'hub.")
+    job = app.jobs.start(f"Avvio {e['name']}", "env-start", {}, lambda h, j: W._job_start(h, j, env_id))
+    return {"job": job.id}
+
+
+def env_stop(app, env_id: str, body: dict) -> dict:
+    from .runner import LocalRunner
+    reg = app.hub.registry
+    e = reg.get_environment(env_id)
+    if e["kind"] != "local-python":
+        raise RegistryError("Si fermano da qui solo gli ambienti sul PC dell'hub.")
+    LocalRunner(app.hub.dir, reg).stop(e)
+    return {"ok": True}
+
+
+def env_update(app, env_id: str, body: dict) -> dict:
+    """Edit address / API address / notes of an environment (not its name or kind)."""
+    reg = app.hub.registry
+    e = reg.get_environment(env_id)
+    fields = {}
+    for k in ("url", "api_url"):
+        if k in body:
+            v = _str(body, k)
+            if v and not v.startswith(("http://", "https://")):
+                raise RegistryError("Gli indirizzi iniziano con http:// o https://")
+            fields[k] = v or None
+    if not fields:
+        return {"ok": True}
+    reg.update_environment(e["id"], log_action="env.update", **fields)
+    return {"ok": True}
+
+
+def backups_view(app) -> dict:
+    from . import backups as B
+    hub = app.hub
+    last = B.last_auto_at(hub)
+    sch = getattr(app, "backup_scheduler", None)
+    return {"config": B.config(hub.registry), "items": B.list_backups(hub)[:60],
+            "last_auto": last.strftime("%Y-%m-%dT%H:%M:%SZ") if last else None,
+            "due": B.due(hub), "error": getattr(sch, "error", None), "folder": str(hub.dir / "backups")}
+
+
+def backups_config(app, body: dict) -> dict:
+    from . import backups as B
+    app.need_unlocked()
+    B.set_config(app.hub.registry, auto=body.get("auto") if "auto" in body else None,
+                 every_hours=body.get("every_hours") or None, keep=body.get("keep") or None,
+                 copy_dir=body.get("copy_dir") if "copy_dir" in body else None)
+    return backups_view(app)
+
+
+def backup_now(app, body: dict) -> dict:
+    from . import backups as B
+    app.need_unlocked()
+    job = app.jobs.start("Backup dell'hub", "hub-backup", {}, lambda h, j: B.run(h, auto=False, log=j.log))
+    return {"job": job.id}

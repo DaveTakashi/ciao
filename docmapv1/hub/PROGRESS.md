@@ -57,3 +57,17 @@
 - Prossimo (0.6): deploy e promozione direttamente nel gestionale (senza pagine classiche), motore vs contenuti,
   rollback e backup pianificati; poi 0.7 licenze avanzate (sospendi = sola lettura, revoca, rinnovo automatico breve),
   utenti a distanza, export cifrato completo dell'hub.
+
+## 2026-11-05 — v0.6: pubblicare e gestire tutto dal gestionale
+- Deploy e promozione nell'app: prova → piano (versioni, conteggi, protetti, obsoleti) → conferma una sola volta entro
+  30 minuti → passi visibili (backup, caricamento, controllo) → ripristino automatico mostrato in rosso.
+- Cassaforte nell'app (apri/crea/chiudi), accessi per ambiente (aggiungi, mostra con passphrase, sostituisci, elimina),
+  scheda Accessi del cliente per ambiente.
+- «Aggiungi sito o server» dal progetto (web-php, studio-python, ambiente di prova locale), avvio/arresto locali,
+  modifica indirizzi.
+- `backups.py`: backup automatici dell'hub con seconda cartella, potatura dei soli automatici, download, avvisi.
+- API: errori imprevisti → 500 con messaggio + `web.error`.
+- Test: 104 OK (3 saltati: IPv6 / SFTP), Linux, Python 3.13; prova nel browser (deploy completo su cartella locale,
+  telefono). Non provato su Windows.
+- Prossimo (0.7): licenze avanzate (sospendi = sola lettura, revoca, rinnovo breve automatico, limiti dal gestionale),
+  utenti a distanza, export cifrato completo dell'hub; deploy verso il server di sede (oggi solo monitorato).

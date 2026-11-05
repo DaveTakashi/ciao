@@ -542,7 +542,8 @@ def deploy(hub, vk: VaultKey | None, instance: str, env_name: str, *, dry_run: b
     if env["kind"] != "web-php":
         raise DeployError(f"Il deploy FTP vale per gli ambienti web-php; {env['name']} è {env['kind']}.")
     if not env.get("api_url"):
-        raise DeployError("L'ambiente non ha l'indirizzo dell'API (api_url): serve per il controllo dopo il deploy.")
+        raise DeployError("L'ambiente non ha l'indirizzo dell'API: aggiungilo con «Indirizzi» nella scheda dell'ambiente "
+                          "(serve per il controllo dopo il deploy).")
     vault = Vault(reg)
     pinger = pinger or (lambda url, auth: ping(url, timeout=10, basic_auth=auth))
     basic = None

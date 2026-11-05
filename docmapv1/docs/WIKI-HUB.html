@@ -13,6 +13,7 @@ pre{background:var(--box);padding:10px 12px;border-radius:6px;overflow-x:auto} p
 @media (max-width:820px){.wrap{display:block} nav{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line)} main{padding:16px}}
 @media print{nav{display:none} .wrap{display:block}}
 </style></head><body><div class="wrap"><nav><b>Wiki DocMap Hub</b><div class="toc">
+
 <ul>
 <li><a href="#wiki-di-docmap-hub">Wiki di DocMap Hub</a><ul>
 <li><a href="#indice">Indice</a></li>
@@ -60,8 +61,9 @@ pre{background:var(--box);padding:10px 12px;border-radius:6px;overflow-x:auto} p
 </ul>
 </div>
 </nav><main><h1 id="wiki-di-docmap-hub">Wiki di DocMap Hub</h1>
-<p>Vale per <strong>hub 0.5.0</strong>, <strong>DocMap 26.12.5 (app v12.5)</strong> e <strong>strumenti di installazione 1.2.0</strong>. Data: 4 novembre 2026.</p>
+<p>Vale per <strong>hub 0.6.0</strong>, <strong>DocMap 26.12.5 (app v12.5)</strong> e <strong>strumenti di installazione 1.2.0</strong>. Data: 5 novembre 2026.</p>
 <blockquote>
+<p><strong>Novità 0.6.</strong> Si pubblica tutto dal gestionale: <strong>deploy</strong> di staging e produzione e <strong>promozione</strong> con prova, piano, conferma, avanzamento e ripristino automatico; <strong>cassaforte</strong> aperta dalla barra laterale e accessi salvati dalla scheda del sito; <strong>Aggiungi sito o server</strong> dal progetto; <strong>backup automatici</strong> dell'hub con seconda cartella (capitolo 6.13). Aggiornamento: <code>AGGIORNAMENTO-HUB-0.6.md</code>.</p>
 <p><strong>Novità 0.5 (il nuovo gestionale).</strong> La pagina dell'hub è ora un'applicazione organizzata per <strong>cliente</strong>: Panoramica, Clienti → scheda del cliente (progetto, siti, postazioni, licenze, accessi, storico), Istanze, Licenze, Deploy, ricerca <strong>Ctrl+K</strong>. <strong>Crea progetto con AI</strong> (capitolo 6.0) crea cliente, progetto, ambienti, licenza e postazioni da un JSON preparato con qualsiasi AI. La passphrase si scrive <strong>solo nel browser</strong>, una volta, e con <strong>Ricorda su questo PC</strong> non viene più chiesta. Aggiornamento dalla 0.3: <code>AGGIORNAMENTO-HUB-0.3-0.5.md</code>.</p>
 </blockquote>
 <p>È scritta per due lettori:</p>
@@ -559,13 +561,21 @@ run_windows.bat cliente elenco
 <h3 id="612-nuova-versione-di-docmap-a-tutti-i-clienti">6.12 Nuova versione di DocMap a tutti i clienti</h3>
 <ol>
 <li>Aggiorna il hub (capitolo 3): la nuova app è dentro.</li>
-<li>Siti: per ognuno <code>deploy --dry-run</code>, poi <code>--yes</code> (o staging + <code>promote</code>).</li>
+<li>Siti: dalla scheda del cliente → <strong>Pubblica</strong> → <strong>Deploy staging</strong>, leggi il piano, <strong>Conferma e pubblica</strong>, prova lo
+   staging, poi <strong>Prepara la promozione</strong> (oppure da riga di comando <code>deploy --dry-run</code>, poi <code>--yes</code>, e <code>promote</code>).</li>
 <li>Sedi: <code>cliente nuovo … --rigenera</code> (stessi dati) per un pacchetto nuovo, poi sul PC del cliente
    <code>C:\DocMap\strumenti\aggiorna.ps1 -Pacchetto &lt;zip&gt;</code> (backup, sostituzione, controllo, ritorno automatico se non va).</li>
 </ol>
 <h3 id="613-backup-del-hub">6.13 Backup del hub</h3>
-<p><code>run_windows.bat backup</code> dopo ogni cliente nuovo o rinnovo, e copia su USB. Contiene chiavi (cifrate), registro,
-licenze emesse, cassaforte (cifrata). Non contiene <code>clienti\</code> (si rigenera) né l'accesso automatico.</p>
+<p><strong>Automatici (0.6).</strong> Mentre l'hub è aperto fa da solo un backup ogni 24 ore (il primo 20 secondi dopo l'avvio) e tiene
+gli ultimi 14. Da <strong>Impostazioni → Backup dell'hub</strong> vedi l'elenco, scarichi un backup, ne fai uno subito e scegli una
+<strong>seconda cartella</strong> (chiavetta, NAS, OneDrive) dove l'hub mette una copia di ogni backup: se la chiavetta non c'è, il
+backup resta comunque sul PC. Se un backup non riesce o i backup sono spenti, compare un avviso in <strong>Panoramica</strong>.</p>
+<p><strong>A mano.</strong> <code>run_windows.bat backup</code> (o «Fai un backup adesso») dopo ogni cliente nuovo o rinnovo. I backup a mano non
+vengono mai cancellati dall'hub.</p>
+<p>Contiene chiavi (cifrate), registro, licenze emesse, cassaforte (cifrata). Non contiene <code>clienti\</code> (si rigenera) né
+l'accesso automatico. <strong>Ripristino</strong>: hub installato e chiuso, estrai lo zip dentro <code>%APPDATA%\DocMapHub\</code> sostituendo i
+file, riapri ed entra con la stessa passphrase (dettagli in <code>AGGIORNAMENTO-HUB-0.6.md</code>).</p>
 <hr />
 <h2 id="7-la-pagina-web-del-hub-il-gestionale">7. La pagina web del hub (il gestionale)</h2>
 <p>Doppio clic su <code>C:\DocMapHub\hub\run_windows.bat</code> → si apre il browser sulla pagina del hub (solo da questo PC). La
@@ -616,19 +626,38 @@ una postazione o di un piano) e <strong>Controlla tutto</strong> (verifica che s
 </tr>
 <tr>
 <td><strong>Impostazioni</strong></td>
-<td>Ricorda su questo PC, cassaforte, tema chiaro/scuro, strumenti classici, cartella dati</td>
+<td>Ricorda su questo PC, cassaforte (apri/chiudi), <strong>backup dell'hub</strong>, tema chiaro/scuro, strumenti classici, cartella dati</td>
 </tr>
 </tbody>
 </table>
 <p>Ogni oggetto porta agli altri: dalla licenza al cliente, dal sito alla sua licenza e ai deploy, dalla Panoramica al
-problema. Il deploy e la cassaforte usano ancora le pagine della 0.3 (<strong>Strumenti classici</strong>: Licenze classico, Nuovo
-cliente guidato, Istanze &amp; ambienti, Cassaforte, Deploy, Porte, Stato), che si aprono dai pulsanti del gestionale.</p>
+problema. Le pagine della 0.3 restano in <strong>Strumenti classici</strong> (Licenze classico, Nuovo cliente guidato, Istanze &amp;
+ambienti, Cassaforte per cambio passphrase ed export, Deploy, Porte, Stato), ma dalla 0.6 non servono più per il lavoro
+di tutti i giorni.</p>
+<p><strong>Pubblicare (0.6).</strong> Scheda del cliente → <strong>Pubblica</strong> (o clic su un sito → <strong>Deploy</strong>):</p>
+<ol>
+<li><strong>Prova</strong>: l'hub costruisce il sito e legge il server, senza cambiare niente;</li>
+<li><strong>Piano</strong>: versione sul server → versione nuova, file da caricare, protetti (dati, <code>config.php</code>, <code>.htaccess</code> fatti a
+   mano), vecchi (mai cancellati);</li>
+<li>spunta «Ho letto il piano» e <strong>Conferma e pubblica</strong> entro 30 minuti;</li>
+<li><strong>backup del server → caricamento → controllo</strong>, con i passi che si colorano; se il sito non risponde con la versione
+   nuova l'hub <strong>rimette da solo i file di prima</strong> e lo scrive in rosso.</li>
+</ol>
+<p><strong>Prepara la promozione</strong> porta in produzione esattamente il codice provato sullo staging. Il deploy aggiorna solo il
+programma: i dati del cliente sul server non si toccano mai.</p>
+<p><strong>Cassaforte e accessi (0.6).</strong> La cassaforte si apre dalla barra laterale (in basso a sinistra) o la prima volta che
+serve. Nella scheda di un sito, sezione <strong>Accessi in cassaforte</strong>: <strong>Aggiungi</strong> (FTP, protezione della cartella, token,
+note), <strong>Mostra</strong> (chiede di nuovo la passphrase e resta nello storico), sostituisci, elimina. La scheda <strong>Accessi</strong> del
+cliente mostra cosa c'è per ogni sito e avvisa se manca l'FTP.</p>
+<p><strong>Siti e server (0.6).</strong> Nella mappa del progetto o in <strong>Pubblica</strong>: <strong>Aggiungi sito o server</strong> → sito online (PHP),
+server nello studio del cliente, o ambiente di prova su questo PC (con avvio e arresto dalla sua scheda). <strong>Indirizzi</strong>
+nella scheda del sito corregge indirizzo e indirizzo dell'API.</p>
 <p><strong>Porta della pagina.</strong> Il hub usa una porta poco comune, <strong>47823</strong>, che nessun altro programma usa di solito. Se è
 occupata prova da solo la 47824, poi la 47825 e così via, poi una porta a caso tra 47000 e 48999, e <strong>la ricorda</strong>.
 L'indirizzo della pagina aperta è anche in <code>%APPDATA%\DocMapHub\pagina-hub.txt</code>, e <code>run_windows.bat info</code> lo mostra.
 Per fissare una porta: <code>run_windows.bat settings set web.port 47900</code>; per una volta sola: <code>run_windows.bat web --port 47900</code>.</p>
-<p>La prova del deploy <strong>non cambia niente</strong> sul server: il caricamento parte solo con «Conferma il deploy», entro 30 minuti
-dalla prova.</p>
+<p>La prova del deploy <strong>non cambia niente</strong> sul server: il caricamento parte solo con «Conferma e pubblica», entro 30
+minuti dalla prova, e un piano si conferma una volta sola.</p>
 <hr />
 <h2 id="8-tutti-i-comandi">8. Tutti i comandi</h2>
 <p>Forma: <code>run_windows.bat [--dir CARTELLA] [--passphrase-file FILE] &lt;comando&gt; [opzioni]</code>.

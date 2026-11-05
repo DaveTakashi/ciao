@@ -648,3 +648,31 @@ scartate), `strip_secrets()` (password FTP vere tolte dalla bozza), `validate()`
 `/scarica/web/<ambiente>` (sito + `LEGGIMI-AUTOINSTALL.txt`, costruito con `POST /api/envs/<id>/package`).
 
 **Test:** `tests/test_v04_manager.py`, `tests/test_v05_pipeline.py` (totale 97 con i precedenti).
+
+## 15. Pubblicare e gestire dal gestionale (v0.6)
+
+**Deploy e promozione.** `POST /api/envs/<id>/deploy-plan` e `POST /api/instances/<id>/promote-plan` avviano la prova
+(job `deploy-plan` / `promote-plan`, stessa funzione della pagina classica). `GET /api/jobs/<id>` restituisce `plan`
+(versioni, conteggi, elenchi corti, `valid_seconds`). `POST /api/jobs/<id>/confirm {"sure": true}` avvia il deploy vero
+solo se il piano è riuscito, ha file da caricare, ha meno di 30 minuti e non è già stato confermato; il codice deve essere
+identico (code hash) a quello della prova. Backup del server, caricamento, controllo e ripristino automatico sono quelli
+di `deploy.py` (§10).
+
+**Cassaforte.** `POST /api/vault/unlock` (crea la cassaforte se non esiste: `passphrase` + `again`), `POST /api/vault/lock`.
+`GET /api/envs/<id>/secrets` elenca solo tipo/etichetta/data; `POST /api/envs/<id>/secrets` salva (stessi campi della
+pagina classica); `…/secrets/reveal` richiede **sempre** la passphrase (1 s di attesa se sbagliata, evento `vault.reveal`);
+`…/secrets/delete` richiede `sure`.
+
+**Ambienti.** `POST /api/envs` (web-php o studio-python: `instance_id`, `name`, `url`, `api_url`, `base_path`,
+`studio_name`), `POST /api/envs/local` (job, codici in cassaforte), `POST /api/envs/<id>/start|stop` (solo local-python),
+`POST /api/envs/<id>` (`url`, `api_url`).
+
+**Backup automatici (`docmap_hub/backups.py`).** Impostazioni `backup.auto` (1/0), `backup.every_hours` (24),
+`backup.keep` (14), `backup.copy_dir`. `Scheduler` parte con `web` (primo controllo dopo 20 s, poi ogni 15 min) e usa il
+lock della pagina. Nomi `docmap-hub-auto-<data>.zip`; si cancellano solo questi, oltre il numero da tenere. `GET|POST
+/api/backups`, `POST /api/backups/now`, download `/scarica/backup/<nome>` (nome controllato, solo `.zip`/`.sqlite3` in
+`backups\`). Avviso in Panoramica se l'ultimo tentativo è fallito, se sono spenti o se l'ultimo è più vecchio di 3 periodi.
+
+**Errori.** Un'eccezione imprevista in un'API risponde 500 con un messaggio e scrive `web.error` nello storico.
+
+**Test:** `tests/test_v06_ops.py` (totale 104).

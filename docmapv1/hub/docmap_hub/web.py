@@ -400,6 +400,11 @@ def make_handler(app: HubWebApp):
                 with app.lock:
                     if kind == "postazione":
                         name, data = packages.workstation_zip(app.hub, ref)
+                    elif kind == "backup":
+                        from . import backups as B
+                        f = B.path_of(app.hub, ref)
+                        name, data = f.name, f.read_bytes()
+                        app.hub.registry.log("hub.backup.download", details={"file": f.name})
                     elif kind in ("sede", "web"):
                         if kind == "sede":
                             f = packages.sede_zip(app.hub, app.hub.registry.get_customer(ref)["id"])
@@ -505,6 +510,9 @@ def make_handler(app: HubWebApp):
                             res = fn(app, *args, body) if fn.__code__.co_argcount > 1 + len(args) else fn(app, *args)
                 except (RegistryError, KeyError_, L.LicenceError, ValueError, OSError) as exc:
                     return self._json(400, {"error": str(exc)})
+                except Exception as exc:  # never drop the connection: the app shows the message
+                    app.hub.registry.log("web.error", details={"path": path, "error": repr(exc)[:300]})
+                    return self._json(500, {"error": f"Errore interno ({type(exc).__name__}): segnalalo con il registro."})
                 return self._json(200, res)
             return self._json(404, {"error": "Operazione sconosciuta."})
 
@@ -643,6 +651,24 @@ def _api_routes():
         ("POST", r(r"/api/drafts/([\w-]+)/delete"), A.draft_delete),
         ("POST", r(r"/api/drafts/([\w-]+)/confirm"), A.draft_confirm),
         ("POST", r(r"/api/envs/([\w-]+)/package"), A.build_web_job),
+        # v0.6
+        ("POST", r(r"/api/envs/([\w-]+)/deploy-plan"), A.deploy_plan),
+        ("POST", r(r"/api/instances/([\w-]+)/promote-plan"), A.promote_plan),
+        ("POST", r(r"/api/jobs/([\w-]+)/confirm"), A.job_confirm),
+        ("GET", r(r"/api/envs/([\w-]+)/secrets"), A.env_secrets),
+        ("POST", r(r"/api/envs/([\w-]+)/secrets"), A.secret_set),
+        ("POST", r(r"/api/envs/([\w-]+)/secrets/reveal"), A.secret_reveal),
+        ("POST", r(r"/api/envs/([\w-]+)/secrets/delete"), A.secret_delete),
+        ("POST", r(r"/api/vault/unlock"), A.vault_unlock),
+        ("POST", r(r"/api/vault/lock"), A.vault_lock),
+        ("POST", r(r"/api/envs"), A.env_add),
+        ("POST", r(r"/api/envs/local"), A.env_create_local),
+        ("POST", r(r"/api/envs/([\w-]+)/start"), A.env_start),
+        ("POST", r(r"/api/envs/([\w-]+)/stop"), A.env_stop),
+        ("POST", r(r"/api/envs/([\w-]+)"), A.env_update),
+        ("GET", r(r"/api/backups"), A.backups_view),
+        ("POST", r(r"/api/backups"), A.backups_config),
+        ("POST", r(r"/api/backups/now"), A.backup_now),
     ]
 
 
@@ -735,6 +761,10 @@ def serve(hub: Hub, passphrase: str | None, host: str = "127.0.0.1", port: int |
         marker.write_text(f"http://127.0.0.1:{httpd.server_address[1]}/\n", "utf-8")
     except OSError:
         pass
+    from .backups import Scheduler
+    sch = Scheduler(hub.dir, httpd.app.lock)  # type: ignore[attr-defined]
+    httpd.app.backup_scheduler = sch  # type: ignore[attr-defined]
+    sch.start()
     if open_browser:
         threading.Timer(0.5, lambda: webbrowser.open(url)).start()
     try:
