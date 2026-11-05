@@ -61,7 +61,7 @@ HTACCESS = {".htaccess", "server-php/.htaccess"}
 DATA_PREFIX = "server-php/data/"
 CONFIG = "server-php/config.php"
 SETUP = "server-php/setup.php"
-NEVER_REPORT_OBSOLETE = (DATA_PREFIX, CONFIG, "server-php/setup.php.disabled", "server-php/config.")
+NEVER_REPORT_OBSOLETE = (DATA_PREFIX, CONFIG, "server-php/setup.php.disabled", "server-php/config.", "licenze/")
 LAST = ("docmap.config.js", "scan.html", "index.html", "server-php/api.php")
 
 

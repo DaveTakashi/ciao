@@ -24,6 +24,18 @@ Golden rule (ROADMAP D5): a licence never locks the data.
                   exports allowed, no writes.
 * ``invalid``   - missing, unreadable, tampered, unknown key, wrong
                   instance: callers MUST treat it like ``read_only``.
+
+Optional fields (hub 0.7; older verifiers ignore them, so the hub also writes
+them in a way that old verifiers already read correctly):
+
+* ``status``     - ``active`` (default), ``suspended`` or ``revoked``. A
+                   suspended/revoked licence is ``read_only`` with its own
+                   reason. The hub also issues it already expired with
+                   ``grace_days`` 0, so an older server goes read-only too.
+* ``resume``     - for a suspended licence: the ``valid_from``/``expires_at``/
+                   ``grace_days`` to restore on reactivation (hub bookkeeping).
+* ``update_url`` - where the server can download the next licence of this
+                   installation (``http(s)://``). The signature protects it.
 """
 
 from __future__ import annotations
@@ -98,6 +110,14 @@ R_UNKNOWN_KEY = "unknown_key"
 R_KEY_MISMATCH = "key_id_mismatch"
 R_BAD_SIGNATURE = "bad_signature"
 R_INSTANCE_MISMATCH = "instance_mismatch"
+R_SUSPENDED = "suspended"
+R_REVOKED = "revoked"
+
+STATUS_ACTIVE = "active"
+STATUS_SUSPENDED = "suspended"
+STATUS_REVOKED = "revoked"
+STATUSES = (STATUS_ACTIVE, STATUS_SUSPENDED, STATUS_REVOKED)
+UPDATE_URL_MAX = 400
 
 MESSAGES_IT = {
     R_OK: "Licenza valida.",
@@ -113,6 +133,8 @@ MESSAGES_IT = {
     R_KEY_MISMATCH: "Licenza incoerente (identificativo chiave): archivio in sola lettura.",
     R_BAD_SIGNATURE: "Firma della licenza non valida (file modificato?): archivio in sola lettura.",
     R_INSTANCE_MISMATCH: "La licenza è intestata a un'altra installazione: archivio in sola lettura.",
+    R_SUSPENDED: "Licenza sospesa dal fornitore: archivio in sola lettura. I dati restano consultabili ed esportabili.",
+    R_REVOKED: "Licenza revocata: archivio in sola lettura. I dati restano consultabili ed esportabili.",
 }
 
 
@@ -277,6 +299,15 @@ def validate_fields(lic: Any) -> list[str]:
     br = lic["branding"]
     if br is not None and (not isinstance(br, dict) or not isinstance(br.get("product_name"), str)):
         errs.append("branding must be null or {product_name, ...}")
+    if "status" in lic and lic["status"] not in STATUSES:
+        errs.append("status must be one of " + ", ".join(STATUSES))
+    if "update_url" in lic:
+        u = lic["update_url"]
+        if not isinstance(u, str) or not u.startswith(("https://", "http://")) or len(u) > UPDATE_URL_MAX \
+                or any(c.isspace() for c in u):
+            errs.append("update_url must be an http(s) URL")
+    if "resume" in lic and not isinstance(lic["resume"], dict):
+        errs.append("resume must be an object")
     return errs
 
 
@@ -456,7 +487,11 @@ def verify(
     days_left = _days(expires - t)
     st = LicenceStatus(mode=MODE_FULL, licence=lic, signature_ok=True, days_left=days_left)
 
-    if t + CLOCK_SKEW < valid_from:
+    if lic.get("status") in (STATUS_SUSPENDED, STATUS_REVOKED):
+        st.mode = MODE_READ_ONLY
+        st.grace_days_left = 0
+        st.reasons = [R_SUSPENDED if lic["status"] == STATUS_SUSPENDED else R_REVOKED]
+    elif t + CLOCK_SKEW < valid_from:
         st.mode = MODE_READ_ONLY
         st.reasons = [R_NOT_YET_VALID]
     elif t < expires:

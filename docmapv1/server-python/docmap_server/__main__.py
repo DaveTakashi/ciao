@@ -1,6 +1,6 @@
 """python -m docmap_server [serve] [--config PATH] [--host H] [--port N] [--root DIR] [--api-path P …]
 python -m docmap_server setup --data-dir DIR --user "davide,admin" --user "mario,editor" [--config config.json] …
-python -m docmap_server licence install FILE [--config PATH]   |   python -m docmap_server licence status [--config PATH]
+python -m docmap_server licence install FILE [--force] [--config PATH]   |   licence status   |   licence update
 python -m docmap_server sync-remote PROFILO.json [--dry-run] [--json] [--direction both|a-to-b|b-to-a]   (ponte server ⇄ server)
 python -m docmap_server sync-remote --example PROFILO.json                                             (scrive un profilo di esempio)
 """
@@ -46,6 +46,9 @@ def main(argv=None):
     lin = lsub.add_parser("install", help="verify a .docmap-licence file and copy it into <data_dir>/licence/")
     lin.add_argument("file")
     lin.add_argument("--config", default=None)
+    lin.add_argument("--force", action="store_true", help="install even if older than the installed licence")
+    lup = lsub.add_parser("update", help="download the next licence from the hub's channel (update_url) if newer")
+    lup.add_argument("--config", default=None)
     lst = lsub.add_parser("status", help="show the installed licence")
     lst.add_argument("--config", default=None)
     sr = sub.add_parser("sync-remote", help="sync two DocMap servers (web <-> local) through their API")
@@ -71,6 +74,8 @@ def main(argv=None):
     cfg = _config_path(a.config)
     app = create_app(cfg, a.root, a.api_path or DEFAULT_API_PATHS, php_layout=a.php_layout and bool(a.root))
     print("DocMap server (Python) — config %s — http://%s:%d%s" % (cfg, a.host, a.port, (a.api_path or DEFAULT_API_PATHS)[0]), flush=True)
+    from .licence import start_updater
+    start_updater(cfg)   # licence channel: only acts when the configuration has "licence_required": true
     uvicorn.run(app, host=a.host, port=a.port, log_level=a.log_level.lower(), server_header=False, access_log=a.log_level.lower() == "debug")
     return 0
 

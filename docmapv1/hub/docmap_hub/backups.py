@@ -22,7 +22,7 @@ from pathlib import Path
 from .registry import RegistryError
 
 AUTO_PREFIX = "docmap-hub-auto-"
-NAME_RE = re.compile(r"[\w.-]{1,120}\.(zip|sqlite3)")
+NAME_RE = re.compile(r"[\w.-]{1,120}\.(zip|sqlite3|docmap-hub)")
 DEFAULTS = {"auto": True, "every_hours": 24, "keep": 14, "copy_dir": ""}
 CHECK_EVERY = 15 * 60      # seconds between checks while the page is open
 FIRST_CHECK = 20           # first check shortly after start
@@ -76,7 +76,8 @@ def list_backups(hub) -> list[dict]:
             continue
         st = f.stat()
         kind = ("auto" if f.name.startswith(AUTO_PREFIX) else
-                "migrazione" if f.name.startswith("registro-prima") else "manuale")
+                "migrazione" if f.name.startswith("registro-prima") else
+                "esportazione" if f.name.endswith(".docmap-hub") else "manuale")
         out.append({"name": f.name, "size": st.st_size, "kind": kind,
                     "at": datetime.fromtimestamp(st.st_mtime, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")})
     out.sort(key=lambda x: x["at"], reverse=True)
@@ -177,3 +178,82 @@ class Scheduler:
         t = threading.Thread(target=loop, daemon=True, name="hub-backup")
         t.start()
         return t
+
+
+# ---------------------------------------------------------------------------
+# v0.7: whole hub exported in ONE encrypted file (to move it to another PC or to the future server hub)
+# ---------------------------------------------------------------------------
+
+EXPORT_MAGIC = b"DOCMAP-HUB-EXPORT/1\n"
+EXPORT_EXT = ".docmap-hub"
+EXPORT_MIN_PASSPHRASE = 12
+
+
+def export_encrypted(hub, passphrase: str) -> tuple[str, bytes]:
+    """(file name, bytes): the backup zip encrypted with AES-256-GCM, key from scrypt(passphrase)."""
+    import base64
+    import json
+    import os
+    import tempfile
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    from .vault import KDF_N_LOG2, KDF_P, KDF_R, derive
+    if len(passphrase or "") < EXPORT_MIN_PASSPHRASE:
+        raise RegistryError(f"La passphrase dell'esportazione deve avere almeno {EXPORT_MIN_PASSPHRASE} caratteri.")
+    with tempfile.TemporaryDirectory() as td:
+        z = hub.backup(Path(td) / "hub.zip")
+        data = z.read_bytes()
+    salt, nonce = os.urandom(16), os.urandom(12)
+    key = derive(passphrase, salt)
+    header = {"kdf": "scrypt", "n_log2": KDF_N_LOG2, "r": KDF_R, "p": KDF_P,
+              "salt": base64.b64encode(salt).decode(), "nonce": base64.b64encode(nonce).decode(),
+              "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "content": "zip"}
+    hb = json.dumps(header, sort_keys=True).encode()
+    ct = AESGCM(key).encrypt(nonce, data, EXPORT_MAGIC + hb)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M")
+    hub.registry.log("hub.export", details={"size": len(ct)})
+    return f"docmap-hub-{stamp}{EXPORT_EXT}", EXPORT_MAGIC + hb + b"\n" + ct
+
+
+def decrypt_export(blob: bytes, passphrase: str) -> bytes:
+    import base64
+    import json
+    from cryptography.exceptions import InvalidTag
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    from .vault import derive
+    if not blob.startswith(EXPORT_MAGIC):
+        raise RegistryError("Non è un'esportazione di DocMap Hub.")
+    rest = blob[len(EXPORT_MAGIC):]
+    hb, _, ct = rest.partition(b"\n")
+    try:
+        h = json.loads(hb)
+        salt, nonce = base64.b64decode(h["salt"]), base64.b64decode(h["nonce"])
+        key = derive(passphrase or "", salt, int(h["n_log2"]), int(h["r"]), int(h["p"]))
+        return AESGCM(key).decrypt(nonce, ct, EXPORT_MAGIC + hb)
+    except InvalidTag:
+        raise RegistryError("Passphrase sbagliata o file danneggiato.")
+    except (ValueError, KeyError) as exc:
+        raise RegistryError(f"File di esportazione non valido: {exc}")
+
+
+def import_encrypted(blob: bytes, passphrase: str, data_dir: Path) -> dict:
+    """Restore into an EMPTY hub data folder (never over an existing hub)."""
+    import io
+    import zipfile
+    data_dir = Path(data_dir)
+    if (data_dir / "registry.sqlite3").exists():
+        raise RegistryError(f"In {data_dir} c'è già un hub: l'importazione va fatta in una cartella dati vuota.")
+    raw = decrypt_export(blob, passphrase)
+    data_dir.mkdir(parents=True, exist_ok=True)
+    allowed = ("registry.sqlite3", "plans.json", "known_hosts")
+    n = 0
+    with zipfile.ZipFile(io.BytesIO(raw)) as z:
+        for name in z.namelist():
+            ok = name in allowed or (name.count("/") == 1 and name.split("/")[0] in ("keys", "issued")
+                                     and name.split("/")[1] and ".." not in name)
+            if not ok:
+                continue
+            target = data_dir / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(z.read(name))
+            n += 1
+    return {"files": n, "data_dir": str(data_dir)}

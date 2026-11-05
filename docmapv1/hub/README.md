@@ -676,3 +676,34 @@ lock della pagina. Nomi `docmap-hub-auto-<data>.zip`; si cancellano solo questi,
 **Errori.** Un'eccezione imprevista in un'API risponde 500 con un messaggio e scrive `web.error` nello storico.
 
 **Test:** `tests/test_v06_ops.py` (totale 104).
+
+## 16. Controllo delle licenze a distanza (v0.7)
+
+**Formato.** Campi facoltativi della licenza: `status` (`active|suspended|revoked`; sospesa/revocata = `read_only` con
+motivo `suspended`/`revoked`), `resume` (date e tolleranza da ripristinare), `update_url` (http(s), firmato). I verificatori
+precedenti ignorano i campi: per questo una licenza sospesa/revocata ha anche `expires_at` nel passato e `grace_days` 0.
+`issued_at` è strettamente crescente per installazione (`licensing._derive`).
+
+**`docmap_hub/licensing.py`.** `suspend(…, revoke=False)`, `reactivate(…, months=None)`, `modify(limits, add/remove
+features, expires_at, grace_days)`, `set_autorenew`/`renew_short(allow_shorter)`/`autorenew_due`, canale
+(`set_channel(env web-php)`, `token_for`, `update_url`, `channel_view`, `pending`, `publish` → `licenze/<token>.docmap-licence`
++ `index.html` + `.htaccess` via `deploy.open_remote`), `Scheduler` (ogni 30 min con hub sbloccato: rinnovi dovuti e
+pubblicazione se la cassaforte è aperta). Impostazioni: `licence.channel`, `licence.token.<iid>`, `licence.published.<iid>`,
+`licence.autorenew.<iid>`, `licence.revoked.<iid>`. `Registry.latest_licence` = la più recente **non sostituita**.
+`renew_with_key` rifiuta una licenza revocata e riattiva una sospesa (tolleranza da `resume`).
+
+**Server Python (`server-python/docmap_server/licence.py`).** `check_candidate` (firma, installazione, mai più vecchia:
+`issued_at` minore → rifiutata, salvo `--force`), `install_bytes`, `update_url` (config `licence_update_url` o campo
+firmato), `fetch_update` (64 KB max, timeout 20 s, mai eccezioni), `start_updater` (dentro `serve`: dopo 60 s e ogni 6 h,
+solo con `licence_required`). CLI `licence update`, `licence install --force`.
+
+**Esportazione.** `backups.export_encrypted` (zip di `Hub.backup` cifrato scrypt + AES-256-GCM, intestazione
+`DOCMAP-HUB-EXPORT/1` autenticata), `decrypt_export`, `import_encrypted` (solo cartella dati vuota; solo
+`registry.sqlite3`, `plans.json`, `known_hosts`, `keys/*`, `issued/*`). CLI `esporta-hub`, `importa-hub`.
+
+**API.** `POST /api/instances/<id>/licence/{suspend|revoke|reactivate|modify|renew-short}`,
+`POST /api/instances/<id>/licence/autorenew`, `GET|POST /api/licence-channel`, `POST /api/licence-channel/publish`
+(`reissue` = riemette con l'indirizzo le licenze emesse prima del canale), `POST /api/export`. Dopo ogni azione la licenza
+è pubblicata subito se canale e cassaforte lo permettono (`publish_job`).
+
+**Test:** `tests/test_v07_licences.py` (totale 112); server: `server-python/tests/test_licence_channel.py`.

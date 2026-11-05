@@ -669,6 +669,13 @@ def _api_routes():
         ("GET", r(r"/api/backups"), A.backups_view),
         ("POST", r(r"/api/backups"), A.backups_config),
         ("POST", r(r"/api/backups/now"), A.backup_now),
+        # v0.7
+        ("POST", r(r"/api/instances/([\w-]+)/licence/(suspend|revoke|reactivate|modify|renew-short)"), A.licence_action),
+        ("POST", r(r"/api/instances/([\w-]+)/licence/autorenew"), A.licence_autorenew),
+        ("GET", r(r"/api/licence-channel"), A.licence_channel),
+        ("POST", r(r"/api/licence-channel"), A.licence_channel_set),
+        ("POST", r(r"/api/licence-channel/publish"), A.licence_channel_publish),
+        ("POST", r(r"/api/export"), A.hub_export),
     ]
 
 
@@ -765,6 +772,10 @@ def serve(hub: Hub, passphrase: str | None, host: str = "127.0.0.1", port: int |
     sch = Scheduler(hub.dir, httpd.app.lock)  # type: ignore[attr-defined]
     httpd.app.backup_scheduler = sch  # type: ignore[attr-defined]
     sch.start()
+    from .licensing import Scheduler as LicenceScheduler
+    lsch = LicenceScheduler(httpd.app)  # type: ignore[arg-type]
+    httpd.app.licence_scheduler = lsch  # type: ignore[attr-defined]
+    lsch.start()
     if open_browser:
         threading.Timer(0.5, lambda: webbrowser.open(url)).start()
     try:

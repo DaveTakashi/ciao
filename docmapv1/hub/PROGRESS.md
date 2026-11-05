@@ -71,3 +71,14 @@
   telefono). Non provato su Windows.
 - Prossimo (0.7): licenze avanzate (sospendi = sola lettura, revoca, rinnovo breve automatico, limiti dal gestionale),
   utenti a distanza, export cifrato completo dell'hub; deploy verso il server di sede (oggi solo monitorato).
+
+## 2026-11-05 — v0.7: controllo delle licenze a distanza
+- Licenze: sospendi / riattiva / revoca / modifica (nuova licenza firmata che sostituisce la precedente), campi
+  facoltativi `status`, `resume`, `update_url`, compatibili con i server già installati.
+- Canale delle licenze su un sito web-php di Dave; i server Python scaricano la licenza nuova da soli (ogni 6 h,
+  `licence update`), mai una più vecchia (`--force` per l'amministratore).
+- Rinnovo automatico con licenze brevi (scheduler dell'hub ogni 30 min), avvisi in Panoramica.
+- Esportazione cifrata di tutto l'hub (`.docmap-hub`) + importazione su PC nuovo.
+- Test: hub 112 OK (3 saltati), server test_licence 9 + test_licence_channel 3 OK; prova nel browser.
+- Prossimo (0.8): controllo della licenza nel server PHP (siti online), utenti a distanza (creare/disattivare utenti di
+  un'installazione dal gestionale con il token admin in cassaforte), deploy verso il server di sede.

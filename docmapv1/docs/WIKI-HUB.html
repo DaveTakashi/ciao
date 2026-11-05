@@ -40,6 +40,7 @@ pre{background:var(--box);padding:10px 12px;border-radius:6px;overflow-x:auto} p
 <li><a href="#611-controllare-tutto">6.11 Controllare tutto</a></li>
 <li><a href="#612-nuova-versione-di-docmap-a-tutti-i-clienti">6.12 Nuova versione di DocMap a tutti i clienti</a></li>
 <li><a href="#613-backup-del-hub">6.13 Backup del hub</a></li>
+<li><a href="#614-controllo-delle-licenze-a-distanza-07">6.14 Controllo delle licenze a distanza (0.7)</a></li>
 </ul>
 </li>
 <li><a href="#7-la-pagina-web-del-hub-il-gestionale">7. La pagina web del hub (il gestionale)</a></li>
@@ -61,8 +62,9 @@ pre{background:var(--box);padding:10px 12px;border-radius:6px;overflow-x:auto} p
 </ul>
 </div>
 </nav><main><h1 id="wiki-di-docmap-hub">Wiki di DocMap Hub</h1>
-<p>Vale per <strong>hub 0.6.0</strong>, <strong>DocMap 26.12.5 (app v12.5)</strong> e <strong>strumenti di installazione 1.2.0</strong>. Data: 5 novembre 2026.</p>
+<p>Vale per <strong>hub 0.7.0</strong>, <strong>DocMap 26.12.5 (app v12.5)</strong> e <strong>strumenti di installazione 1.2.0</strong>. Data: 5 novembre 2026.</p>
 <blockquote>
+<p><strong>Novità 0.7.</strong> Controllo delle licenze a distanza: <strong>sospendi</strong>, <strong>riattiva</strong>, <strong>revoca</strong>, <strong>modifica</strong> limiti e funzioni, <strong>rinnovo automatico</strong> con licenze brevi; <strong>canale delle licenze</strong> da cui i server Python scaricano da soli la licenza nuova; <strong>esportazione cifrata</strong> di tutto l'hub (capitolo 6.14). Aggiornamento: <code>AGGIORNAMENTO-HUB-0.7.md</code>.</p>
 <p><strong>Novità 0.6.</strong> Si pubblica tutto dal gestionale: <strong>deploy</strong> di staging e produzione e <strong>promozione</strong> con prova, piano, conferma, avanzamento e ripristino automatico; <strong>cassaforte</strong> aperta dalla barra laterale e accessi salvati dalla scheda del sito; <strong>Aggiungi sito o server</strong> dal progetto; <strong>backup automatici</strong> dell'hub con seconda cartella (capitolo 6.13). Aggiornamento: <code>AGGIORNAMENTO-HUB-0.6.md</code>.</p>
 <p><strong>Novità 0.5 (il nuovo gestionale).</strong> La pagina dell'hub è ora un'applicazione organizzata per <strong>cliente</strong>: Panoramica, Clienti → scheda del cliente (progetto, siti, postazioni, licenze, accessi, storico), Istanze, Licenze, Deploy, ricerca <strong>Ctrl+K</strong>. <strong>Crea progetto con AI</strong> (capitolo 6.0) crea cliente, progetto, ambienti, licenza e postazioni da un JSON preparato con qualsiasi AI. La passphrase si scrive <strong>solo nel browser</strong>, una volta, e con <strong>Ricorda su questo PC</strong> non viene più chiesta. Aggiornamento dalla 0.3: <code>AGGIORNAMENTO-HUB-0.3-0.5.md</code>.</p>
 </blockquote>
@@ -576,6 +578,49 @@ vengono mai cancellati dall'hub.</p>
 <p>Contiene chiavi (cifrate), registro, licenze emesse, cassaforte (cifrata). Non contiene <code>clienti\</code> (si rigenera) né
 l'accesso automatico. <strong>Ripristino</strong>: hub installato e chiuso, estrai lo zip dentro <code>%APPDATA%\DocMapHub\</code> sostituendo i
 file, riapri ed entra con la stessa passphrase (dettagli in <code>AGGIORNAMENTO-HUB-0.6.md</code>).</p>
+<h3 id="614-controllo-delle-licenze-a-distanza-07">6.14 Controllo delle licenze a distanza (0.7)</h3>
+<p><strong>Dal pannello della licenza</strong> (Licenze → clic, oppure scheda del cliente → Licenze):</p>
+<table>
+<thead>
+<tr>
+<th>Pulsante</th>
+<th>Cosa succede</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Sospendi</strong></td>
+<td>nuova licenza «sospesa»: l'installazione va in <strong>sola lettura</strong> (dati consultabili, stampabili, esportabili)</td>
+</tr>
+<tr>
+<td><strong>Riattiva</strong></td>
+<td>torna valida con la scadenza di prima (se è passata: «mesi in più»)</td>
+</tr>
+<tr>
+<td><strong>Revoca</strong></td>
+<td>fine del contratto: sola lettura, rinnovo automatico spento, rinnovi bloccati fino a «Riattiva»</td>
+</tr>
+<tr>
+<td><strong>Modifica</strong></td>
+<td>utenti, faldoni, archivi, funzioni, scadenza, tolleranza (vuoto = illimitato)</td>
+</tr>
+<tr>
+<td><strong>Rinnovo automatico</strong></td>
+<td>licenze brevi (es. 35 giorni) rinnovate dall'hub quando ne mancano N, eventualmente «fino al»</td>
+</tr>
+</tbody>
+</table>
+<p>Ogni azione emette una <strong>nuova licenza firmata</strong> che sostituisce la precedente (la storia resta nel pannello).</p>
+<p><strong>Come arriva al cliente.</strong> Con il <strong>canale delle licenze</strong> (Impostazioni → Canale delle licenze) l'hub pubblica ogni
+licenza nella cartella <code>licenze/</code> di un tuo sito, a un indirizzo casuale scritto dentro la licenza firmata. Il server
+Python del cliente la scarica da solo ogni 6 ore (o subito con <code>python -m docmap_server licence update</code>) e la installa
+solo se è <strong>più recente</strong> di quella che ha. Senza canale, o per un server vecchio: «Scarica» nel pannello e
+<code>python -m docmap_server licence install FILE</code>. Il server PHP online non controlla ancora la licenza (previsto 0.8).</p>
+<p><strong>Riga di comando</strong> (stesse operazioni): <code>run_windows.bat licence suspend &lt;installazione&gt; --reason "…"</code>,
+<code>licence revoke …</code>, <code>licence reactivate … [--months N]</code>, <code>licence publish [--instance …]</code>.</p>
+<p><strong>Esportare tutto l'hub</strong> in un file cifrato: Impostazioni → Backup dell'hub → <strong>Esporta tutto l'hub (cifrato)</strong>, oppure
+<code>run_windows.bat esporta-hub --out E:\</code>. Su un PC nuovo: installa l'hub, poi <code>run_windows.bat importa-hub FILE</code>
+(solo in una cartella dati vuota) ed entra con la passphrase di sempre.</p>
 <hr />
 <h2 id="7-la-pagina-web-del-hub-il-gestionale">7. La pagina web del hub (il gestionale)</h2>
 <p>Doppio clic su <code>C:\DocMapHub\hub\run_windows.bat</code> → si apre il browser sulla pagina del hub (solo da questo PC). La
@@ -614,7 +659,7 @@ una postazione o di un piano) e <strong>Controlla tutto</strong> (verifica che s
 </tr>
 <tr>
 <td><strong>Licenze</strong></td>
-<td>tutte le licenze; clic = dettagli, verifica della firma, storia, <strong>Rinnova / estendi</strong>, scarica</td>
+<td>tutte le licenze (filtri: in vigore, da rinnovare, scadute, sospese); clic = dettagli, firma, consegna al server, storia, <strong>Rinnova</strong>, <strong>Modifica</strong>, <strong>Sospendi / Riattiva</strong>, <strong>Revoca</strong>, <strong>Rinnovo automatico</strong></td>
 </tr>
 <tr>
 <td><strong>Deploy</strong></td>
@@ -626,7 +671,7 @@ una postazione o di un piano) e <strong>Controlla tutto</strong> (verifica che s
 </tr>
 <tr>
 <td><strong>Impostazioni</strong></td>
-<td>Ricorda su questo PC, cassaforte (apri/chiudi), <strong>backup dell'hub</strong>, tema chiaro/scuro, strumenti classici, cartella dati</td>
+<td>Ricorda su questo PC, cassaforte (apri/chiudi), <strong>canale delle licenze</strong>, <strong>backup dell'hub</strong> ed <strong>esportazione cifrata</strong>, tema chiaro/scuro, strumenti classici, cartella dati</td>
 </tr>
 </tbody>
 </table>

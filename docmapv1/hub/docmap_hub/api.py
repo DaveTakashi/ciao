@@ -36,10 +36,13 @@ def _days_left(ts: str | None, now: datetime) -> int | None:
 # view helpers
 # ---------------------------------------------------------------------------
 
-def licence_state(row: dict, superseded: set, now: datetime, grace_days: int | None = None) -> str:
-    """active · expiring (≤30 days) · grace · expired · superseded."""
+def licence_state(row: dict, superseded: set, now: datetime, grace_days: int | None = None,
+                  status: str | None = None) -> str:
+    """active · expiring (≤30 days) · grace · expired · superseded · suspended · revoked."""
     if row["id"] in superseded:
         return "superseded"
+    if status in ("suspended", "revoked"):
+        return status
     left = _days_left(row["expires_at"], now)
     if left is None:
         return "expired"
@@ -56,12 +59,14 @@ def _licences(reg, now: datetime, where_instance: str | None = None) -> list[dic
         "SELECT id, json_extract(licence_json, '$.grace_days') FROM licences")}
     limits = {r[0]: r[1] for r in reg.conn.execute(
         "SELECT id, json_extract(licence_json, '$.limits') FROM licences")}
+    status = {r[0]: r[1] for r in reg.conn.execute(
+        "SELECT id, json_extract(licence_json, '$.status') FROM licences")}
     proj = {r[0]: (r[1], r[2]) for r in reg.conn.execute(
         "SELECT i.id, p.id, p.name FROM instances i LEFT JOIN projects p ON p.id=i.project_id")}
     out = []
     for r in rows:
         d = dict(r)
-        d["state"] = licence_state(d, superseded, now, grace.get(d["id"]))
+        d["state"] = licence_state(d, superseded, now, grace.get(d["id"]), status.get(d["id"]))
         d["days_left"] = _days_left(d["expires_at"], now)
         d["limits"] = _json(limits.get(d["id"]))
         d["project_id"], d["project_name"] = proj.get(d["instance_id"], (None, None))
@@ -141,6 +146,10 @@ def overview(app) -> dict:
     customers = reg.list_customers()
     alerts = []
     for lc in lics:
+        if lc["state"] in ("suspended", "revoked"):
+            alerts.append({"level": "info", "kind": "licence", "id": lc["id"], "customer_id": lc["customer_id"],
+                           "title": f"Licenza {'sospesa' if lc['state'] == 'suspended' else 'revocata'}: {lc['customer_name']}",
+                           "text": lc["instance_label"]})
         if lc["state"] in ("expiring", "grace", "expired"):
             txt = {"expiring": f"scade tra {lc['days_left']} giorni", "grace": "scaduta, in tolleranza",
                    "expired": "scaduta"}[lc["state"]]
@@ -163,6 +172,16 @@ def overview(app) -> dict:
         alerts.append({"level": "info", "kind": "draft", "id": d["id"], "customer_id": None,
                        "title": f"Bozza da confermare: {d.get('title') or 'senza titolo'}",
                        "text": "aperta il " + d["updated_at"][:10]})
+    from . import licensing as LG
+    pend = LG.pending(reg) if LG.channel(reg) else []
+    if pend:
+        alerts.append({"level": "warn", "kind": "channel", "id": None, "customer_id": None,
+                       "title": f"Licenze da pubblicare: {len(pend)}",
+                       "text": "apri la cassaforte: l'hub le pubblica da solo, oppure Impostazioni → Canale"})
+    lerr = getattr(getattr(app, "licence_scheduler", None), "error", None)
+    if lerr:
+        alerts.append({"level": "bad", "kind": "channel", "id": None, "customer_id": None,
+                       "title": "Licenze: operazione automatica non riuscita", "text": lerr})
     from . import backups as B
     bcfg, blast = B.config(reg), B.last_auto_at(app.hub)
     sch_err = getattr(getattr(app, "backup_scheduler", None), "error", None)
@@ -246,6 +265,11 @@ ACTION_IT = {
     "hub.backup.auto": "Backup automatico dell'hub", "hub.backup.now": "Backup dell'hub (a mano)",
     "hub.backup.error": "Backup automatico non riuscito", "vault.delete": "Segreto eliminato dalla cassaforte",
     "env.update": "Ambiente modificato", "deploy.ok": "Deploy riuscito",
+    "licence.suspend": "Licenza sospesa", "licence.revoke": "Licenza revocata", "licence.reactivate": "Licenza riattivata",
+    "licence.modify": "Licenza modificata", "licence.autorenew": "Rinnovo automatico cambiato",
+    "licence.autorenew.issue": "Licenza rinnovata in automatico", "licence.publish": "Licenze pubblicate nel canale",
+    "licence.publish.error": "Pubblicazione licenze non riuscita", "licence.channel": "Canale delle licenze impostato",
+    "hub.export": "Hub esportato (cifrato)", "hub.backup.download": "Backup scaricato", "web.error": "Errore interno della pagina",
 }
 
 
@@ -383,7 +407,16 @@ def licence_detail(app, lid: str) -> dict:
     row = rows.get(rec["id"], {})
     chain = [x for x in rows.values() if x["instance_id"] == rec["instance_id"]]
     st = L.verify(rec["file_text"], app.hub.keys.public_keys(), instance_id=rec["instance_id"], now=now)
+    from . import licensing as LG
+    iid = rec["instance_id"]
+    ch = LG.channel(reg)
     return {"licence": rec["licence"], "row": row, "history": chain,
+            "control": {"status": LG.status_of(rec["licence"]), "revoked": LG.is_revoked(reg, iid),
+                        "autorenew": LG.get_autorenew(reg, iid), "update_url": rec["licence"].get("update_url"),
+                        "published": LG.published_id(reg, iid) == rec["id"], "channel": bool(ch),
+                        "channel_url": ch["base_url"] if ch else None,
+                        "is_current": (LG.current(reg, iid) or {}).get("id") == rec["id"],
+                        "features_known": list(L.KNOWN_FEATURES)},
             "verify": {"mode": st.mode, "signature_ok": st.signature_ok, "reasons": list(st.reasons)},
             "filename": app.hub.licence_filename(rec["licence"])}
 
@@ -919,3 +952,114 @@ def backup_now(app, body: dict) -> dict:
     app.need_unlocked()
     job = app.jobs.start("Backup dell'hub", "hub-backup", {}, lambda h, j: B.run(h, auto=False, log=j.log))
     return {"job": job.id}
+
+
+# ---------------------------------------------------------------------------
+# v0.7: licence control (suspend / reactivate / revoke / modify / auto-renew), channel, encrypted export
+# ---------------------------------------------------------------------------
+
+def _after_licence(app, res: dict) -> dict:
+    """Publish at once when the channel is set and the vault is open (else the scheduler / Panoramica say it)."""
+    from . import licensing as LG
+    out = {"id": res["licence"]["licence_id"], "publish_job": None}
+    reg = app.hub.registry
+    if LG.channel(reg) and app.vault_key is not None and res["licence"].get("update_url"):
+        vk, iid = app.vault_key, res["licence"]["instance_id"]
+        job = app.jobs.start("Pubblicazione della licenza", "licence-publish", {},
+                             lambda h, j: LG.publish(h, vk, [iid], log=j.log))
+        out["publish_job"] = job.id
+    return out
+
+
+def licence_action(app, iid: str, action: str, body: dict) -> dict:
+    from . import licensing as LG
+    app.need_unlocked()
+    k = (app.key_id, app.private_key)
+    if action == "suspend":
+        res = LG.suspend(app.hub, *k, iid, reason=_str(body, "reason"))
+    elif action == "revoke":
+        if not body.get("sure"):
+            raise RegistryError("Spunta la conferma per revocare.")
+        res = LG.suspend(app.hub, *k, iid, revoke=True, reason=_str(body, "reason"))
+    elif action == "reactivate":
+        res = LG.reactivate(app.hub, *k, iid, months=int(body["months"]) if body.get("months") else None)
+    elif action == "modify":
+        lim = _limits(body)
+        exp = None
+        if body.get("expires_at"):
+            exp = datetime.fromisoformat(str(body["expires_at"])[:10]).replace(tzinfo=timezone.utc, hour=23, minute=59)
+        feats = body.get("features")
+        cur = (LG.current(app.hub.registry, iid) or {}).get("licence") or {}
+        add = rem = ()
+        if isinstance(feats, list):
+            have = set(cur.get("features") or [])
+            add, rem = [f for f in feats if f not in have], [f for f in have if f not in feats]
+        res = LG.modify(app.hub, *k, iid, limits=lim, add_features=add, remove_features=rem, expires_at=exp,
+                        grace_days=int(body["grace_days"]) if str(body.get("grace_days") or "").strip() else None)
+    elif action == "renew-short":
+        res = LG.renew_short(app.hub, *k, iid)
+    else:
+        raise RegistryError("Azione sconosciuta.")
+    return _after_licence(app, res)
+
+
+def licence_autorenew(app, iid: str, body: dict) -> dict:
+    from . import licensing as LG
+    app.need_unlocked()
+    reg = app.hub.registry
+    iid = reg.get_instance(iid)["id"]
+    if not body.get("on"):
+        LG.set_autorenew(reg, iid, None)
+        return {"autorenew": None}
+    pol = LG.set_autorenew(reg, iid, {"days": body.get("days") or 35, "renew_before": body.get("renew_before") or 10,
+                                      "until": body.get("until") or None})
+    out = {"autorenew": pol, "id": None, "publish_job": None}
+    if body.get("now"):
+        out.update(_after_licence(app, LG.renew_short(app.hub, app.key_id, app.private_key, iid, allow_shorter=True)))
+    return out
+
+
+def licence_channel(app) -> dict:
+    from . import licensing as LG
+    reg = app.hub.registry
+    ch = LG.channel(reg)
+    sch = getattr(app, "licence_scheduler", None)
+    envs = [{"id": e["id"], "label": f"{e['customer_name']} · {e['instance_label']} · {e['name']}", "url": e.get("url")}
+            for e in reg.list_environments() if e["kind"] == "web-php"]
+    return {"channel": ch, "rows": LG.channel_view(reg) if ch else [], "envs": envs,
+            "error": getattr(sch, "error", None), "vault": app.vault_key is not None}
+
+
+def licence_channel_set(app, body: dict) -> dict:
+    from . import licensing as LG
+    app.need_unlocked()
+    LG.set_channel(app.hub.registry, _str(body, "env_id") or None)
+    return licence_channel(app)
+
+
+def licence_channel_publish(app, body: dict) -> dict:
+    from . import licensing as LG
+    vk = app.need_vault()
+    app.need_unlocked()
+    reissue = bool(body.get("reissue"))
+    k = (app.key_id, app.private_key)
+
+    def run(h, job):
+        if reissue:  # licences issued before the channel existed: same content, now with the address inside
+            for r in LG.channel_view(h.registry):
+                if not r["update_url"] and r["status"] == "active":
+                    LG.modify(h, *k, r["instance_id"])
+                    job.log(f"Riemessa con l'indirizzo del canale: {r['customer_name']} · {r['instance_label']}")
+        return LG.publish(h, vk, log=job.log)
+    job = app.jobs.start("Pubblicazione delle licenze", "licence-publish", {}, run)
+    return {"job": job.id}
+
+
+def hub_export(app, body: dict) -> dict:
+    from . import backups as B
+    app.need_unlocked()
+    if (body.get("passphrase") or "") != (body.get("again") or ""):
+        raise RegistryError("Le due passphrase non coincidono.")
+    name, data = B.export_encrypted(app.hub, body.get("passphrase") or "")
+    (app.hub.dir / "backups" / name).write_bytes(data)
+    return {"name": name, "size": len(data)}

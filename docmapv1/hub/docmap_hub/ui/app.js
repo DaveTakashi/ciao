@@ -62,7 +62,7 @@ const ENV_STATUS = {
   running: ['ok', 'Online'], stopped: ['mut', 'Spento'], unreachable: ['bad', 'Non raggiungibile'], protected: ['warn', 'Protetto (401)'],
   new: ['info', 'Mai controllato'], unknown: ['mut', 'Sconosciuto'], none: ['mut', 'Senza ambiente'],
 };
-const LIC_STATE = { active: ['ok', 'Attiva'], expiring: ['warn', 'In scadenza'], grace: ['warn', 'In tolleranza'], expired: ['bad', 'Scaduta'], superseded: ['mut', 'Sostituita'] };
+const LIC_STATE = { active: ['ok', 'Attiva'], expiring: ['warn', 'In scadenza'], grace: ['warn', 'In tolleranza'], expired: ['bad', 'Scaduta'], superseded: ['mut', 'Sostituita'], suspended: ['bad', 'Sospesa'], revoked: ['bad', 'Revocata'] };
 const CUST_STATUS = { active: 'Attivo', prospect: 'Trattativa', suspended: 'Sospeso', archived: 'Archiviato' };
 const pill = (map, k) => { const v = map[k] || ['mut', k || '—']; return `<span class="pill ${v[0]}">${esc(v[1])}</span>`; };
 const dot = (h) => `<span class="dot ${esc(h)}" title="${esc((HEALTH[h] || [0, ''])[1])}"></span>`;
@@ -268,7 +268,7 @@ async function route() {
   }
   window.scrollTo(0, 0);
 }
-window.addEventListener('hashchange', route);
+window.addEventListener('hashchange', () => { if ($('#overlay')?.classList.contains('show')) closeOverlay(); route(); });
 document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k' && S.session?.logged) { e.preventDefault(); palette(); }
 });
@@ -299,7 +299,7 @@ async function pOverview(page) {
   $('#new-cust').onclick = newCustomer;
   $$('.al', page).forEach((el) => (el.onclick = () => {
     const a = d.alerts[+el.dataset.i];
-    if (a.kind === 'licence') openLicence(a.id); else if (a.kind === 'env') openEnv(a.id); else if (a.kind === 'backup') location.hash = '#/impostazioni'; else if (a.kind === 'draft') location.hash = `#/nuovo-progetto/${a.id}/cliente`; else if (a.customer_id) location.hash = `#/clienti/${a.customer_id}`;
+    if (a.kind === 'licence') openLicence(a.id); else if (a.kind === 'env') openEnv(a.id); else if (a.kind === 'backup' || a.kind === 'channel') location.hash = '#/impostazioni'; else if (a.kind === 'draft') location.hash = `#/nuovo-progetto/${a.id}/cliente`; else if (a.customer_id) location.hash = `#/clienti/${a.customer_id}`;
   }));
 }
 const evSubj = (ev) => (ev.subject ? ` <span style="color:var(--mut)">· ${esc(ev.subject)}</span>` : ev.entity_id ? ` <span class="tag mono">${esc(String(ev.entity_id).slice(0, 12))}</span>` : '');
@@ -611,24 +611,130 @@ async function openEnv(id) {
   }));
 }
 async function openLicence(id) {
-  const d = await api(`/api/licences/${encodeURIComponent(id)}`); const l = d.licence, r = d.row;
+  const d = await api(`/api/licences/${encodeURIComponent(id)}`); const l = d.licence, r = d.row, c = d.control || {};
   const row = (k, v) => `<dt>${esc(k)}</dt><dd>${v}</dd>`;
   const MODE = { full: ['ok', 'Valida'], grace: ['warn', 'In tolleranza'], read_only: ['bad', 'Sola lettura'], invalid: ['bad', 'Non valida'] };
+  const FEAT = { sync_server: 'Server condiviso', mobile_scan: 'Scansione da telefono', status_events: 'Stati e movimenti', ai_credits: 'Crediti AI', white_label: 'Marchio del rivenditore' };
+  const pub = !c.channel ? '<span style="color:var(--mut)">canale non impostato: il file va consegnato a mano</span>'
+    : !c.update_url ? '<span class="pill warn">senza indirizzo del canale</span> <small style="color:var(--mut)">riemettila con «Modifica» → Salva</small>'
+      : c.published ? '<span class="pill ok">pubblicata</span> <small style="color:var(--mut)">il server la scarica da solo entro 6 ore</small>' : '<span class="pill warn">da pubblicare</span>';
+  const ar = c.autorenew;
+  const cur = c.is_current && r.state !== 'superseded';
+  const acts = [`<a class="btn sm" href="/download/${esc(l.licence_id)}">${ic('download')} Scarica</a>`];
+  if (cur && c.status === 'active') acts.push(`<button class="btn pri sm" data-x="renew">${ic('refresh')} Rinnova</button>`, `<button class="btn sm" data-x="modify">${ic('edit')} Modifica</button>`, `<button class="btn sm" data-x="suspend">${ic('lock')} Sospendi</button>`);
+  if (cur && c.status !== 'active') acts.push(`<button class="btn pri sm" data-x="reactivate">${ic('unlock')} Riattiva</button>`);
+  if (cur && c.status !== 'revoked') acts.push(`<button class="btn ghost sm" data-x="revoke" style="color:var(--bad)">Revoca</button>`);
   const dr = drawer(`Licenza ${esc(l.plan)}`, `<a href="#/clienti/${esc(r.customer_id)}/licenze">${esc(l.customer.name)}</a> · ${esc(r.instance_label || '')}`,
-    `<div class="sect"><h4>Stato</h4><dl class="kv">${row('Stato', pill(LIC_STATE, r.state))}${row('Verifica firma', pill(MODE, d.verify.mode))}${row('Valida dal', fmtDate(l.valid_from))}${row('Scade il', fmtDate(l.expires_at))}${row('Tolleranza', esc(l.grace_days) + ' giorni')}</dl></div>
+    `${c.status !== 'active' ? `<div class="note warn" style="margin-bottom:12px"><b>${c.status === 'revoked' ? 'Licenza revocata' : 'Licenza sospesa'}.</b> L'installazione è in sola lettura: i dati restano consultabili ed esportabili. ${c.status === 'revoked' ? 'Rinnovi e rinnovo automatico sono bloccati finché non la riattivi.' : 'Con «Riattiva» torna come prima.'}</div>` : ''}
+    <div class="sect"><h4>Stato</h4><dl class="kv">${row('Stato', pill(LIC_STATE, r.state))}${row('Verifica firma', pill(MODE, d.verify.mode))}${row('Valida dal', fmtDate(l.valid_from))}${row('Scade il', c.status === 'active' ? fmtDate(l.expires_at) : `${fmtDate((l.resume || {}).expires_at)} <small style="color:var(--mut)">(alla riattivazione)</small>`)}${row('Tolleranza', esc(c.status === 'active' ? l.grace_days : (l.resume || {}).grace_days) + ' giorni')}</dl></div>
+    <div class="sect"><h4>Consegna al server</h4><dl class="kv">${row('Canale', pub)}${c.update_url ? row('Indirizzo', `<span class="mono" style="font-size:12px;word-break:break-all">${esc(c.update_url)}</span>`) : ''}</dl></div>
+    <div class="sect"><h4>Rinnovo automatico</h4><p style="margin:0 0 8px;color:var(--fg2);font-size:13px">${ar ? `<span class="pill ok">Attivo</span> licenze da ${ar.days} giorni, rinnovate quando ne mancano ${ar.renew_before}${ar.until ? `, fino al ${fmtDate(ar.until)}` : ''}. Se lo spegni o sospendi, l'installazione va in sola lettura da sola alla fine del periodo (più la tolleranza).` : '<span class="pill mut">Spento</span> Con licenze brevi rinnovate dall\'hub hai il controllo anche senza raggiungere il cliente.'}</p>
+      ${cur && c.status === 'active' ? `<button class="btn sm" data-x="autorenew">${ic('refresh')} ${ar ? 'Modifica o spegni' : 'Attiva'}</button>` : ''}</div>
     <div class="sect"><h4>Limiti e funzioni</h4><dl class="kv">${Object.entries(l.limits || {}).map(([k, v]) => row(({ users: 'Utenti', binders: 'Faldoni', archives: 'Archivi' })[k] || k, v === null ? 'illimitati' : esc(v))).join('')}
-      ${row('Funzioni', (l.features || []).map((f) => `<span class="tag">${esc(f)}</span>`).join(' ') || '—')}${l.reseller ? row('Rivenditore', esc(l.reseller.name)) : ''}</dl></div>
-    <div class="sect"><h4>Storia di questa installazione</h4>${d.history.map((h) => `<div class="al" data-lic="${esc(h.id)}" style="padding:8px 0">${dot(LIC_STATE[h.state][0] === 'mut' ? 'none' : LIC_STATE[h.state][0])}<div><b>${esc(h.plan)}${h.id === l.licence_id ? ' (questa)' : ''}</b><small>${fmtDate(h.valid_from)} → ${fmtDate(h.expires_at)} · ${esc(LIC_STATE[h.state][1])}</small></div></div>`).join('')}</div>
+      ${row('Funzioni', (l.features || []).map((f) => `<span class="tag">${esc(FEAT[f] || f)}</span>`).join(' ') || '—')}${l.reseller ? row('Rivenditore', esc(l.reseller.name)) : ''}</dl></div>
+    <div class="sect"><h4>Storia di questa installazione</h4>${d.history.map((h) => `<div class="al" data-lic="${esc(h.id)}" style="padding:8px 0">${dot(LIC_STATE[h.state][0] === 'mut' ? 'none' : LIC_STATE[h.state][0])}<div><b>${esc(h.plan)}${h.id === l.licence_id ? ' (questa)' : ''}</b><small>emessa ${fmtDT(h.issued_at)} · ${esc(LIC_STATE[h.state][1])}${h.state !== 'suspended' && h.state !== 'revoked' ? ` · fino al ${fmtDate(h.expires_at)}` : ''}</small></div></div>`).join('')}</div>
     <div class="sect"><h4>Tecnico</h4><dl class="kv">${row('ID', `<span class="mono">${esc(l.licence_id)}</span>`)}${row('Installazione', `<span class="mono">${esc(l.instance_id)}</span>`)}${row('Chiave di firma', `<span class="mono">${esc(l.key_id)}</span>`)}${row('File', `<span class="mono">${esc(d.filename)}</span>`)}</dl></div>`,
-    `<a class="btn sm" href="/download/${esc(l.licence_id)}">${ic('download')} Scarica file</a>${r.state !== 'superseded' ? `<button class="btn pri sm" id="renew">${ic('refresh')} Rinnova / estendi</button>` : ''}`);
+    acts.join(''));
   $$('[data-lic]', dr).forEach((x) => (x.onclick = () => { if (x.dataset.lic !== l.licence_id) openLicence(x.dataset.lic); }));
-  const rb = $('#renew', dr);
-  if (rb) rb.onclick = () => modal({
-    title: 'Rinnova o estendi la licenza', submit: 'Firma il rinnovo',
-    body: `<p class="note" style="margin-top:0">La nuova licenza vale subito e si somma alla scadenza attuale se non è ancora passata. Puoi anche cambiare piano.</p>
-      ${fld('months', 'Mesi in più', { type: 'number', value: '12', attrs: 'min="1" max="120"' })}
-      ${sel('plan', 'Piano', [['', `Stesso piano (${l.plan})`]].concat(Object.entries(S.cust?.plans || {}).map(([k, v]) => [k, `${v} (${k})`])))}`,
-    onSubmit: async (f) => { const n = await api(`/api/licences/${l.licence_id}/renew`, f); closeOverlay(); toast('Licenza rinnovata.'); await route(); openLicence(n.id); },
+  const iid = l.instance_id;
+  const done = async (res, msg) => {
+    closeOverlay(); toast(msg);
+    if (res.publish_job) { try { await waitJob(res.publish_job); toast('Pubblicata nel canale: il server la scarica da solo.'); } catch (e) { toast(e.message, true); } }
+    await route(); if (res.id) openLicence(res.id);
+  };
+  const act = (a, body) => api(`/api/instances/${iid}/licence/${a}`, body || {});
+  $$('[data-x]', dr).forEach((b) => (b.onclick = () => {
+    const x = b.dataset.x;
+    if (x === 'renew') return modal({
+      title: 'Rinnova o estendi la licenza', submit: 'Firma il rinnovo',
+      body: `<p class="note" style="margin-top:0">La nuova licenza vale subito e si somma alla scadenza attuale se non è ancora passata. Puoi anche cambiare piano.</p>
+        ${fld('months', 'Mesi in più', { type: 'number', value: '12', attrs: 'min="1" max="120"' })}
+        ${sel('plan', 'Piano', [['', `Stesso piano (${l.plan})`]].concat(Object.entries(S.cust?.plans || {}).map(([k, v]) => [k, `${v} (${k})`])))}`,
+      onSubmit: async (f) => { const n = await api(`/api/licences/${l.licence_id}/renew`, f); closeOverlay(); toast('Licenza rinnovata.'); await route(); openLicence(n.id); },
+    });
+    if (x === 'modify') {
+      const lim = l.limits || {}; const v = (k) => (lim[k] === null || lim[k] === undefined ? '' : String(lim[k]));
+      return modal({
+        title: 'Modifica la licenza', submit: 'Firma la modifica',
+        body: `<p class="note" style="margin-top:0">L'hub emette una nuova licenza con le stesse date e le modifiche qui sotto; quella attuale viene sostituita. Limiti vuoti = illimitati.</p>
+          <div class="frow">${fld('l_users', 'Utenti', { type: 'number', value: v('users'), attrs: 'min="0"' })}${fld('l_binders', 'Faldoni', { type: 'number', value: v('binders'), attrs: 'min="0"' })}${fld('l_archives', 'Archivi', { type: 'number', value: v('archives'), attrs: 'min="0"' })}</div>
+          <div class="frow">${fld('expires_at', 'Scadenza', { type: 'date', value: String(l.expires_at).slice(0, 10) })}${fld('grace_days', 'Giorni di tolleranza', { type: 'number', value: String(l.grace_days), attrs: 'min="0" max="365"' })}</div>
+          <div class="f"><label>Funzioni</label>${c.features_known.map((f) => `<label class="check"><input type="checkbox" name="feat_${f}" ${(l.features || []).includes(f) ? 'checked' : ''}> <span>${esc(FEAT[f] || f)}</span></label>`).join('')}</div>`,
+        onSubmit: async (f) => {
+          const lim2 = {}; for (const k of ['users', 'binders', 'archives']) lim2[k] = f['l_' + k] === '' ? -1 : f['l_' + k];
+          const feats = c.features_known.filter((k) => f['feat_' + k]);
+          await done(await act('modify', { limits: lim2, features: feats, expires_at: f.expires_at !== String(l.expires_at).slice(0, 10) ? f.expires_at : '', grace_days: f.grace_days }), 'Licenza modificata.');
+        },
+      });
+    }
+    if (x === 'suspend') return modal({
+      title: 'Sospendi la licenza', submit: 'Sospendi', danger: true,
+      body: `<p style="margin-top:0">L'installazione passa in <b>sola lettura</b> appena riceve la nuova licenza (dal canale, entro 6 ore, o installata a mano). I dati non si perdono: si consultano, si stampano e si esportano. Con «Riattiva» torna come prima, con la stessa scadenza.</p>${fld('reason', 'Motivo (resta solo nello storico dell\'hub)', { ph: 'es. fattura non pagata' })}`,
+      onSubmit: async (f) => done(await act('suspend', f), 'Licenza sospesa.'),
+    });
+    if (x === 'revoke') return modal({
+      title: 'Revoca la licenza', submit: 'Revoca', danger: true,
+      body: `<p style="margin-top:0">Per la fine del contratto: sola lettura, rinnovo automatico spento, rinnovi bloccati. Si può annullare con «Riattiva».</p>${fld('reason', 'Motivo (solo nello storico)')}<label class="check"><input type="checkbox" name="sure"> <span>Confermo la revoca</span></label>`,
+      onSubmit: async (f) => done(await act('revoke', f), 'Licenza revocata.'),
+    });
+    if (x === 'reactivate') return modal({
+      title: 'Riattiva la licenza', submit: 'Riattiva',
+      body: `<p style="margin-top:0">Torna valida con la scadenza di prima (${fmtDate((l.resume || {}).expires_at)}). Se nel frattempo è passata, indica di quanti mesi prolungarla.</p>${fld('months', 'Mesi in più (facoltativo)', { type: 'number', attrs: 'min="1" max="120"' })}`,
+      onSubmit: async (f) => done(await act('reactivate', f), 'Licenza riattivata.'),
+    });
+    if (x === 'autorenew') {
+      const form = modal({
+        title: 'Rinnovo automatico', submit: 'Salva',
+        body: `<label class="check"><input type="checkbox" name="on" ${ar || !ar ? 'checked' : ''}> <span>Rinnova da solo con licenze brevi</span></label>
+          <div class="frow mt">${fld('days', 'Durata di ogni licenza (giorni)', { type: 'number', value: String(ar?.days || 35), attrs: 'min="7" max="366"' })}${fld('renew_before', 'Rinnova quando mancano (giorni)', { type: 'number', value: String(ar?.renew_before || 10), attrs: 'min="1"' })}</div>
+          ${fld('until', 'Fino al (facoltativo, es. fine contratto)', { type: 'date', value: ar?.until ? String(ar.until).slice(0, 10) : '' })}
+          ${ar ? '' : '<label class="check"><input type="checkbox" name="now" checked> <span>Passa subito a una licenza breve (sostituisce quella attuale)</span></label>'}
+          <div class="note mt">L'hub rinnova mentre è aperto e sbloccato e pubblica la licenza nel canale. Se l'hub resta chiuso a lungo, l'installazione usa i giorni di tolleranza: tienilo in conto nella durata.</div>`,
+        onSubmit: async (f) => {
+          const res = await api(`/api/instances/${iid}/licence/autorenew`, { on: f.on, days: f.days, renew_before: f.renew_before, until: f.until, now: !!f.now });
+          await done(res, f.on ? 'Rinnovo automatico attivo.' : 'Rinnovo automatico spento.');
+        },
+      });
+      return form;
+    }
+  }));
+}
+
+// ---- settings: licence channel + encrypted export --------------------------------------------
+async function channelCard(box) {
+  let d; try { d = await api('/api/licence-channel'); } catch (e) { box.innerHTML = `<div class="note warn">${esc(e.message)}</div>`; return; }
+  const ch = d.channel; const rows = d.rows || [];
+  const pend = rows.filter((r) => r.update_url && !r.published).length, noUrl = rows.filter((r) => !r.update_url && r.status === 'active').length;
+  box.innerHTML = `<p style="margin-top:0;color:var(--fg2)">L'hub mette ogni licenza firmata in una cartella del <b>tuo</b> sito (<span class="mono">licenze/</span>, indirizzi non indovinabili, nessun dato segreto). Ogni server DocMap la scarica da solo ogni 6 ore e la installa solo se è più recente: così sospensioni, riattivazioni, nuovi limiti e rinnovi automatici arrivano senza toccare il PC del cliente.</p>
+    ${ch ? `<dl class="kv"><dt>Sito del canale</dt><dd>${esc(ch.label)}</dd><dt>Indirizzo</dt><dd class="mono">${esc(ch.base_url)}</dd><dt>Licenze</dt><dd>${rows.filter((r) => r.published).length} pubblicate · ${pend} da pubblicare${noUrl ? ` · ${noUrl} senza indirizzo (emesse prima del canale)` : ''}</dd></dl>` : '<p><span class="pill mut">Non impostato</span> Le licenze si consegnano a mano.</p>'}
+    ${d.error ? `<div class="note warn">${esc(d.error)}</div>` : ''}
+    <div class="btns mt"><button class="btn sm" id="ch-set">${ic('globe')} ${ch ? 'Cambia sito' : 'Imposta il canale'}</button>${ch ? `<button class="btn pri sm" id="ch-pub">${ic('rocket')} Pubblica adesso${noUrl ? ' (e aggiungi l\'indirizzo)' : ''}</button>` : ''}</div>`;
+  $('#ch-set', box).onclick = () => {
+    if (!d.envs.length) return toast('Registra prima un sito online (web-php) con l\'accesso FTP: per esempio il tuo sito, come cliente «interno».', true);
+    modal({
+      title: 'Canale delle licenze', submit: 'Salva',
+      body: `${sel('env_id', 'Sito che ospita la cartella licenze/', [['', '— nessuno (consegna a mano) —']].concat(d.envs.map((e) => [e.id, `${e.label} (${e.url || 'senza indirizzo'})`])), ch?.env_id || '')}
+        <div class="note">Scegli un sito tuo, sempre online (es. docmap.pr-it.it). Servono il suo accesso FTP in cassaforte. Le licenze emesse da ora in poi conterranno l'indirizzo; per quelle già emesse usa «Pubblica adesso».</div>`,
+      onSubmit: async (f) => { await api('/api/licence-channel', f); closeOverlay(); toast('Canale salvato.'); channelCard(box); },
+    });
+  };
+  const pb = $('#ch-pub', box); if (pb) pb.onclick = async () => {
+    pb.disabled = true;
+    try { const r = await withVault(() => api('/api/licence-channel/publish', { reissue: noUrl > 0 })); const j = await waitJob(r.job); toast(`Pubblicate: ${j.result?.published ?? 0}`); } catch (e) { toast(e.message, true); }
+    channelCard(box);
+  };
+}
+function exportHub() {
+  modal({
+    title: 'Esporta tutto l\'hub (cifrato)', submit: 'Esporta',
+    body: `<p class="note" style="margin-top:0">Un solo file <span class="mono">.docmap-hub</span> con chiavi, registro, clienti, licenze e cassaforte, cifrato con una passphrase che scegli adesso (almeno 12 caratteri). Serve per spostare l'hub su un PC nuovo o, domani, sul server: <span class="mono">run_windows.bat importa-hub FILE</span>.</p>
+      ${fld('passphrase', 'Passphrase dell\'esportazione', { type: 'password', attrs: 'required autocomplete="new-password"' })}${fld('again', 'Ripeti', { type: 'password', attrs: 'required autocomplete="new-password"' })}
+      <div class="note warn">Senza questa passphrase il file non si apre: annotala separata dal file.</div>`,
+    onSubmit: async (f, form) => {
+      const r = await api('/api/export', f);
+      $('.bd', form).innerHTML = `<div class="okbox"><div><b>Esportazione pronta</b><small>${esc(r.name)} · ${Math.round(r.size / 1024)} KB</small></div></div><p class="mt"><a class="btn pri" href="/scarica/backup/${encodeURIComponent(r.name)}">${ic('download')} Scarica il file</a></p>`;
+      const sb = $('button[type=submit]', form); if (sb) sb.remove(); const cb = $('.ft .btn.ghost', form); if (cb) cb.textContent = 'Chiudi';
+    },
   });
 }
 
@@ -869,7 +975,7 @@ async function pLicences(page) {
   let filter = 'current', q = '';
   page.innerHTML = `<div class="ph"><div><h1>Licenze</h1><div class="sub">Ogni licenza è firmata dall'hub e funziona anche offline. Clic per i dettagli, il rinnovo e la storia.</div></div></div>
     <div class="card"><div class="toolbar"><input type="search" id="q" placeholder="Cerca cliente o piano…"><div class="chips">
-      ${[['current', 'In vigore'], ['expiring', 'Da rinnovare'], ['expired', 'Scadute'], ['all', 'Tutte (anche sostituite)']].map(([v, t]) => `<button class="chip" data-f="${v}">${t}</button>`).join('')}</div></div><div id="tbl"></div></div>`;
+      ${[['current', 'In vigore'], ['expiring', 'Da rinnovare'], ['expired', 'Scadute'], ['suspended', 'Sospese o revocate'], ['all', 'Tutte (anche sostituite)']].map(([v, t]) => `<button class="chip" data-f="${v}">${t}</button>`).join('')}</div></div><div id="tbl"></div></div>`;
   const draw = () => {
     $$('.chip', page).forEach((c) => c.classList.toggle('on', c.dataset.f === filter));
     const rows = list.filter((l) => {
@@ -877,6 +983,7 @@ async function pLicences(page) {
       if (filter === 'current') return l.state !== 'superseded';
       if (filter === 'expiring') return l.state === 'expiring' || l.state === 'grace';
       if (filter === 'expired') return l.state === 'expired';
+      if (filter === 'suspended') return l.state === 'suspended' || l.state === 'revoked';
       return true;
     });
     $('#tbl').innerHTML = licTable(rows, true); bindLicTable(page);
@@ -911,13 +1018,14 @@ async function pSettings(page) {
       <div class="card"><div class="hd"><h3>${ic('lock')} Cassaforte</h3></div><div class="bd">
         <p style="margin-top:0">${s.vault === 'open' ? '<span class="pill ok">Aperta</span> Le password FTP e i codici sono disponibili per deploy e controlli.' : s.vault === 'closed' ? '<span class="pill warn">Chiusa</span> Aprila per fare deploy e controlli protetti.' : '<span class="pill mut">Non creata</span>'}</p>
         <div class="btns">${s.vault === 'open' ? '<button class="btn" id="vlock">Chiudi la cassaforte</button>' : `<button class="btn pri" id="vunlock">${s.vault === 'none' ? 'Crea la cassaforte' : 'Apri la cassaforte'}</button>`}<a class="btn ghost" href="/vault">Strumenti avanzati (cambio passphrase, esporta)</a></div></div></div>
-      <div class="card" style="grid-column:1/-1"><div class="hd"><h3>${ic('download')} Backup dell'hub</h3></div><div class="bd" id="bk-box">Carico…</div></div>
+      <div class="card" style="grid-column:1/-1"><div class="hd"><h3>${ic('key')} Canale delle licenze</h3></div><div class="bd" id="ch-box">Carico…</div></div>
+      <div class="card" style="grid-column:1/-1"><div class="hd"><h3>${ic('download')} Backup dell'hub</h3><div class="btns"><button class="btn sm" id="exp-hub">${ic('lock')} Esporta tutto l'hub (cifrato)</button></div></div><div class="bd" id="bk-box">Carico…</div></div>
       <div class="card"><div class="hd"><h3>${ic('moon')} Aspetto</h3></div><div class="bd">${sel('theme', 'Tema', [['auto', 'Automatico (come Windows)'], ['light', 'Chiaro'], ['dark', 'Scuro']], theme)}</div></div>
       <div class="card"><div class="hd"><h3>${ic('folder')} Strumenti classici</h3></div><div class="bd"><p style="margin-top:0;color:var(--fg2)">Le pagine della versione 0.3, ancora disponibili mentre il nuovo gestionale le assorbe.</p>
         <div class="btns"><a class="btn sm" href="/clienti">Nuovo cliente guidato</a><a class="btn sm" href="/envs">Istanze &amp; ambienti</a><a class="btn sm" href="/deploy">Deploy</a><a class="btn sm" href="/ports">Porte</a><a class="btn sm" href="/status">Stato</a><a class="btn sm" href="/classico">Licenze (classico)</a></div></div></div>
       <div class="card"><div class="hd"><h3>Informazioni</h3></div><div class="bd"><dl class="kv"><dt>Versione</dt><dd>${esc(s.version)}</dd><dt>Chiave di firma</dt><dd class="mono">${esc(s.key_id || '—')}</dd><dt>Cartella dati</dt><dd class="mono">${esc(s.data_dir || '')}</dd></dl></div></div>
     </div>`;
-  backupsCard($('#bk-box'));
+  backupsCard($('#bk-box')); channelCard($('#ch-box')); $('#exp-hub').onclick = exportHub;
   const vu = $('#vunlock'); if (vu) vu.onclick = async () => { await unlockVault(); route(); };
   const vl = $('#vlock'); if (vl) vl.onclick = async () => { await api('/api/vault/lock', {}); S.session.vault = 'closed'; paintVaultState(); toast('Cassaforte chiusa.'); route(); };
   const t = $('#f-theme'); t.onchange = () => { localStorageSet('hub.theme', t.value); applyTheme(); };
@@ -1112,7 +1220,7 @@ function revealSecret(env, s) {
       const r = await api(`/api/envs/${env.id}/secrets/reveal`, { kind: s.kind, label: s.label, passphrase: f.passphrase });
       const rows = Object.entries(r.data || {}).map(([k, v]) => `<dt>${esc(k)}</dt><dd class="mono" style="word-break:break-all">${esc(typeof v === 'object' ? JSON.stringify(v) : v)}</dd>`).join('');
       $('.bd', form).innerHTML = `<dl class="kv">${rows}</dl><p class="note warn mt">Chiudi questa finestra appena hai finito: si cancella anche dallo schermo.</p>`;
-      const sb = $('button[type=submit]', form); if (sb) sb.remove();
+      const sb = $('button[type=submit]', form); if (sb) sb.remove(); const cb = $('.ft .btn.ghost', form); if (cb) cb.textContent = 'Chiudi';
     },
   });
 }
@@ -1182,7 +1290,7 @@ async function envJob(e, what) {
 async function backupsCard(box) {
   let d; try { d = await api('/api/backups'); } catch (e) { box.innerHTML = `<div class="note warn">${esc(e.message)}</div>`; return; }
   const c = d.config; const KB = (n) => (n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB');
-  const KIND = { auto: 'automatico', manuale: 'a mano', migrazione: 'prima di un aggiornamento' };
+  const KIND = { auto: 'automatico', manuale: 'a mano', migrazione: 'prima di un aggiornamento', esportazione: 'esportazione cifrata' };
   box.innerHTML = `<p style="margin-top:0">${c.auto ? `<span class="pill ok">Attivi</span> Ogni ${c.every_hours} ore mentre l'hub è aperto, tengo gli ultimi ${c.keep}.` : '<span class="pill warn">Spenti</span> Nessun backup automatico.'} Ultimo automatico: <b>${d.last_auto ? ago(d.last_auto) : 'mai'}</b>.</p>
     ${d.error ? `<div class="note warn">Ultimo tentativo non riuscito: ${esc(d.error)}</div>` : ''}
     ${c.copy_dir ? `<p style="color:var(--fg2);font-size:13px">Copia anche in <span class="mono">${esc(c.copy_dir)}</span></p>` : '<p style="color:var(--mut);font-size:13px">Consiglio: imposta una seconda cartella (chiavetta, NAS, OneDrive) così il backup sopravvive anche a un guasto del PC.</p>'}

@@ -1,6 +1,8 @@
 # Wiki di DocMap Hub
 
-Vale per **hub 0.6.0**, **DocMap 26.12.5 (app v12.5)** e **strumenti di installazione 1.2.0**. Data: 5 novembre 2026.
+Vale per **hub 0.7.0**, **DocMap 26.12.5 (app v12.5)** e **strumenti di installazione 1.2.0**. Data: 5 novembre 2026.
+
+> **Novità 0.7.** Controllo delle licenze a distanza: **sospendi**, **riattiva**, **revoca**, **modifica** limiti e funzioni, **rinnovo automatico** con licenze brevi; **canale delle licenze** da cui i server Python scaricano da soli la licenza nuova; **esportazione cifrata** di tutto l'hub (capitolo 6.14). Aggiornamento: `AGGIORNAMENTO-HUB-0.7.md`.
 
 > **Novità 0.6.** Si pubblica tutto dal gestionale: **deploy** di staging e produzione e **promozione** con prova, piano, conferma, avanzamento e ripristino automatico; **cassaforte** aperta dalla barra laterale e accessi salvati dalla scheda del sito; **Aggiungi sito o server** dal progetto; **backup automatici** dell'hub con seconda cartella (capitolo 6.13). Aggiornamento: `AGGIORNAMENTO-HUB-0.6.md`.
 
@@ -425,6 +427,33 @@ Contiene chiavi (cifrate), registro, licenze emesse, cassaforte (cifrata). Non c
 l'accesso automatico. **Ripristino**: hub installato e chiuso, estrai lo zip dentro `%APPDATA%\DocMapHub\` sostituendo i
 file, riapri ed entra con la stessa passphrase (dettagli in `AGGIORNAMENTO-HUB-0.6.md`).
 
+### 6.14 Controllo delle licenze a distanza (0.7)
+
+**Dal pannello della licenza** (Licenze → clic, oppure scheda del cliente → Licenze):
+
+| Pulsante | Cosa succede |
+|---|---|
+| **Sospendi** | nuova licenza «sospesa»: l'installazione va in **sola lettura** (dati consultabili, stampabili, esportabili) |
+| **Riattiva** | torna valida con la scadenza di prima (se è passata: «mesi in più») |
+| **Revoca** | fine del contratto: sola lettura, rinnovo automatico spento, rinnovi bloccati fino a «Riattiva» |
+| **Modifica** | utenti, faldoni, archivi, funzioni, scadenza, tolleranza (vuoto = illimitato) |
+| **Rinnovo automatico** | licenze brevi (es. 35 giorni) rinnovate dall'hub quando ne mancano N, eventualmente «fino al» |
+
+Ogni azione emette una **nuova licenza firmata** che sostituisce la precedente (la storia resta nel pannello).
+
+**Come arriva al cliente.** Con il **canale delle licenze** (Impostazioni → Canale delle licenze) l'hub pubblica ogni
+licenza nella cartella `licenze/` di un tuo sito, a un indirizzo casuale scritto dentro la licenza firmata. Il server
+Python del cliente la scarica da solo ogni 6 ore (o subito con `python -m docmap_server licence update`) e la installa
+solo se è **più recente** di quella che ha. Senza canale, o per un server vecchio: «Scarica» nel pannello e
+`python -m docmap_server licence install FILE`. Il server PHP online non controlla ancora la licenza (previsto 0.8).
+
+**Riga di comando** (stesse operazioni): `run_windows.bat licence suspend <installazione> --reason "…"`,
+`licence revoke …`, `licence reactivate … [--months N]`, `licence publish [--instance …]`.
+
+**Esportare tutto l'hub** in un file cifrato: Impostazioni → Backup dell'hub → **Esporta tutto l'hub (cifrato)**, oppure
+`run_windows.bat esporta-hub --out E:\`. Su un PC nuovo: installa l'hub, poi `run_windows.bat importa-hub FILE`
+(solo in una cartella dati vuota) ed entra con la passphrase di sempre.
+
 ---
 
 ## 7. La pagina web del hub (il gestionale)
@@ -444,10 +473,10 @@ una postazione o di un piano) e **Controlla tutto** (verifica che siti e server 
 | **Clienti** | elenco con semaforo, filtri (con problemi, in scadenza, trattative), **Nuovo cliente** |
 | scheda del **cliente** | *Riepilogo* (mappa del progetto: produzione, staging, sede, postazioni), *Postazioni*, *Pubblica*, *Licenze*, *Accessi* (cosa c'è in cassaforte, mai i valori), *Storico*, *Dati* (anagrafica modificabile) |
 | **Istanze** | tutti i siti, staging e server, con filtri; clic = pannello con stato, versione, licenza, deploy, azioni |
-| **Licenze** | tutte le licenze; clic = dettagli, verifica della firma, storia, **Rinnova / estendi**, scarica |
+| **Licenze** | tutte le licenze (filtri: in vigore, da rinnovare, scadute, sospese); clic = dettagli, firma, consegna al server, storia, **Rinnova**, **Modifica**, **Sospendi / Riattiva**, **Revoca**, **Rinnovo automatico** |
 | **Deploy** | storico di tutte le pubblicazioni |
 | **Attività** | tutto ciò che è successo, con i nomi |
-| **Impostazioni** | Ricorda su questo PC, cassaforte (apri/chiudi), **backup dell'hub**, tema chiaro/scuro, strumenti classici, cartella dati |
+| **Impostazioni** | Ricorda su questo PC, cassaforte (apri/chiudi), **canale delle licenze**, **backup dell'hub** ed **esportazione cifrata**, tema chiaro/scuro, strumenti classici, cartella dati |
 
 Ogni oggetto porta agli altri: dalla licenza al cliente, dal sito alla sua licenza e ai deploy, dalla Panoramica al
 problema. Le pagine della 0.3 restano in **Strumenti classici** (Licenze classico, Nuovo cliente guidato, Istanze &

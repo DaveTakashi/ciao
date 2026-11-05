@@ -243,6 +243,66 @@ def cmd_licence_renew(hub: Hub, args) -> int:
     return 0
 
 
+def _key(hub: Hub, args):
+    return hub.keys.load_private(get_passphrase(args))
+
+
+def cmd_licence_suspend(hub: Hub, args) -> int:
+    from . import licensing
+    kid, priv = _key(hub, args)
+    res = licensing.suspend(hub, kid, priv, args.instance, revoke=args.fn is cmd_licence_revoke,
+                            reason=args.reason or "")
+    _deliver(res, args)
+    out("Il server passa in sola lettura quando riceve questa licenza (canale delle licenze o installazione a mano).")
+    return 0
+
+
+def cmd_licence_revoke(hub: Hub, args) -> int:
+    return cmd_licence_suspend(hub, args)
+
+
+def cmd_licence_reactivate(hub: Hub, args) -> int:
+    from . import licensing
+    kid, priv = _key(hub, args)
+    _deliver(licensing.reactivate(hub, kid, priv, args.instance, months=args.months), args)
+    return 0
+
+
+def cmd_licence_publish(hub: Hub, args) -> int:
+    from . import licensing
+    from .vault import Vault
+    vk = Vault(hub.registry).unlock(vault_passphrase(args)) if Vault(hub.registry).initialized else None
+    r = licensing.publish(hub, vk, [hub.registry.get_instance(args.instance)["id"]] if args.instance else None, log=out)
+    out(f"Licenze pubblicate: {r['published']} in {r['base_url']}")
+    return 0
+
+
+def cmd_export_hub(hub: Hub, args) -> int:
+    from . import backups
+    pw = os.environ.get("DOCMAP_HUB_EXPORT_PASSPHRASE")
+    if not pw:
+        pw = getpass.getpass("Passphrase dell'esportazione (almeno 12 caratteri): ")
+        if getpass.getpass("Ripeti: ") != pw:
+            raise CliError("Le due passphrase non coincidono.")
+    name, data = backups.export_encrypted(hub, pw)
+    dest = Path(args.out) if args.out else Path.cwd() / name
+    if dest.is_dir():
+        dest = dest / name
+    dest.write_bytes(data)
+    out(f"Hub esportato e cifrato: {dest}")
+    out("Senza questa passphrase il file non si apre: conservala separata dal file.")
+    return 0
+
+
+def cmd_import_hub(args) -> int:
+    from . import backups, paths
+    target = paths.resolve(args.dir)
+    pw = os.environ.get("DOCMAP_HUB_EXPORT_PASSPHRASE") or getpass.getpass("Passphrase dell'esportazione: ")
+    r = backups.import_encrypted(Path(args.file).read_bytes(), pw, Path(target))
+    out(f"Hub importato in {r['data_dir']} ({r['files']} file). Avvialo ed entra con la passphrase di sempre.")
+    return 0
+
+
 def cmd_licence_list(hub: Hub, args) -> int:
     rows = []
     for l in hub.registry.list_licences(args.instance):
@@ -1029,6 +1089,18 @@ def build_parser() -> argparse.ArgumentParser:
     q.add_argument("--months", type=int)
     q.add_argument("--plan", help="cambia piano al rinnovo")
     q.add_argument("--out")
+    for name, fn, h in (("suspend", cmd_licence_suspend, "sospende la licenza di un'installazione (sola lettura)"),
+                        ("revoke", cmd_licence_revoke, "revoca la licenza (fine contratto: sola lettura, niente rinnovi)")):
+        q = add(name, fn, h, ls)
+        q.add_argument("instance", help="id o nome dell'installazione")
+        q.add_argument("--reason", help="motivo (solo nello storico dell'hub)")
+        q.add_argument("--out")
+    q = add("reactivate", cmd_licence_reactivate, "riattiva una licenza sospesa o revocata", ls)
+    q.add_argument("instance")
+    q.add_argument("--months", type=int, help="prolunga di N mesi (serve se è scaduta durante la sospensione)")
+    q.add_argument("--out")
+    q = add("publish", cmd_licence_publish, "pubblica le licenze nel canale (i server le scaricano da soli)", ls)
+    q.add_argument("--instance", help="solo questa installazione (predefinito: tutte)")
     q = add("list", cmd_licence_list, "elenca le licenze emesse", ls)
     q.add_argument("--instance")
     for name, fn, h in (("show", cmd_licence_show, "mostra il contenuto e lo stato di un file di licenza"),
@@ -1043,6 +1115,10 @@ def build_parser() -> argparse.ArgumentParser:
     q.add_argument("--limit", type=int, default=50)
     q = add("backup", cmd_backup, "crea un archivio .zip con chiavi, registro e licenze emesse")
     q.add_argument("--out", help="percorso del file .zip (predefinito: <cartella dati>/backups/)")
+    q = add("esporta-hub", cmd_export_hub, "esporta tutto l'hub in un unico file cifrato con una passphrase")
+    q.add_argument("--out", help="file o cartella di destinazione")
+    q = add("importa-hub", cmd_import_hub, "importa un'esportazione cifrata in una cartella dati VUOTA (PC nuovo)")
+    q.add_argument("file")
     q = add("web", cmd_web, "pagina di amministrazione locale (solo 127.0.0.1)")
     q.add_argument("--port", type=int, default=None,
                    help="porta preferita (predefinita: l'ultima usata, poi 47823); se è occupata prova le successive")
@@ -1233,6 +1309,8 @@ def main(argv: list[str] | None = None) -> int:
         getattr(args, "help_parser", ap).print_help()
         return 2
     try:
+        if args.fn is cmd_import_hub:  # must not create an empty registry first
+            return cmd_import_hub(args)
         with Hub(args.dir) as hub:
             if args.fn is not cmd_auto and not getattr(args, "passphrase_file", None):
                 from . import autoaccess

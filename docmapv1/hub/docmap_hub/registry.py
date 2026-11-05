@@ -431,7 +431,9 @@ class Registry:
     def latest_licence(self, instance: str) -> dict | None:
         iid = self.get_instance(instance)["id"]
         r = self.conn.execute(
-            "SELECT id FROM licences WHERE instance_id=? ORDER BY expires_at DESC, issued_at DESC LIMIT 1",
+            "SELECT id FROM licences WHERE instance_id=? AND id NOT IN "
+            "(SELECT supersedes FROM licences WHERE supersedes IS NOT NULL) "
+            "ORDER BY issued_at DESC, expires_at DESC LIMIT 1",
             (iid,)).fetchone()
         return self.get_licence(r[0]) if r else None
 
