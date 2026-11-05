@@ -166,6 +166,14 @@ python -m docmap_server licence status --config /srv/docmap/config.json
 
 `install` verifica il file (firma e installazione), lo copia nella cartella dati conservando il precedente come
 `licence.prev.docmap-licence` e mostra lo stato; un file non valido viene rifiutato e la licenza attuale resta.
+Una licenza **emessa prima** di quella installata viene rifiutata (così nessuno rimette una vecchia licenza dopo una
+sospensione); `--force` la installa comunque.
+
+**Canale delle licenze (hub 0.7).** Una licenza può contenere `update_url` (firmato). Con `licence_required` attivo il
+server, mentre gira, scarica quell'indirizzo dopo 1 minuto e poi ogni 6 ore, verifica firma e installazione e installa
+il file solo se è più recente. A mano: `python -m docmap_server licence update`. In alternativa all'indirizzo nella
+licenza: chiave di configurazione `licence_update_url`. Errori di rete: riga nel registro, si riprova dopo. Una licenza
+`status: suspended|revoked` mette il server in sola lettura con il messaggio «Licenza sospesa/revocata».
 Il server in esecuzione vede la nuova licenza da solo, senza riavvio.
 
 ## Sincronizzazione server ⇄ server (web ⇄ studio)

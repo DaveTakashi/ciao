@@ -130,7 +130,51 @@ MIGRATIONS: list[tuple[int, list[str]]] = [
             details_json TEXT
         )""",
     ]),
-    # Future migrations: append (3, ["ALTER TABLE ... ADD COLUMN ..."]) here.
+    # v0.4: client-centric manager. Projects group a customer's instances (site, studio server,
+    # workstations); customers get contact fields; workstations = named PC packages; drafts = AI
+    # pipeline drafts (no secrets inside). Existing instances are attached to a default project by
+    # Registry._backfill_v3 (idempotent).
+    (3, [
+        "ALTER TABLE customers ADD COLUMN extra_json TEXT",
+        "ALTER TABLE customers ADD COLUMN status TEXT NOT NULL DEFAULT 'active'",
+        """CREATE TABLE IF NOT EXISTS projects (
+            id TEXT PRIMARY KEY,
+            customer_id TEXT NOT NULL REFERENCES customers(id),
+            name TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'active',
+            notes TEXT,
+            data_json TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT
+        )""",
+        "CREATE INDEX IF NOT EXISTS ix_projects_customer ON projects(customer_id)",
+        "ALTER TABLE instances ADD COLUMN project_id TEXT REFERENCES projects(id)",
+        """CREATE TABLE IF NOT EXISTS workstations (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL REFERENCES projects(id),
+            instance_id TEXT REFERENCES instances(id),
+            name TEXT NOT NULL,
+            tag TEXT,
+            status TEXT NOT NULL DEFAULT 'active',
+            package_path TEXT,
+            notes TEXT,
+            created_at TEXT NOT NULL,
+            built_at TEXT,
+            revoked_at TEXT
+        )""",
+        """CREATE TABLE IF NOT EXISTS drafts (
+            id TEXT PRIMARY KEY,
+            kind TEXT NOT NULL DEFAULT 'project',
+            title TEXT,
+            status TEXT NOT NULL DEFAULT 'draft',
+            json TEXT NOT NULL,
+            result_json TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )""",
+        "CREATE INDEX IF NOT EXISTS ix_events_entity ON events(entity, entity_id)",
+    ]),
+    # Future migrations: append (4, ["ALTER TABLE ... ADD COLUMN ..."]) here.
 ]
 SCHEMA_VERSION = MIGRATIONS[-1][0]
 
@@ -179,6 +223,8 @@ class Registry:
 
     def migrate(self) -> int:
         current = self.schema_version()
+        if 0 < current < SCHEMA_VERSION:
+            self._backup_before_migration(current)
         for version, stmts in MIGRATIONS:
             if version <= current:
                 continue
@@ -190,7 +236,51 @@ class Registry:
                     "ON CONFLICT(key) DO UPDATE SET value=excluded.value", (str(version),))
             current = version
         self.conn.commit()
+        if current >= 3:
+            self._backfill_v3()
         return current
+
+    def _backup_before_migration(self, current: int) -> None:
+        """Copy of the registry before an upgrade (``backups/registro-prima-dello-schema-<n>-<ora>.sqlite3``)."""
+        try:
+            dest_dir = self.path.parent / "backups"
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+            dest = dest_dir / f"registro-prima-dello-schema-{SCHEMA_VERSION}-da-{current}-{stamp}.sqlite3"
+            bk = sqlite3.connect(str(dest))
+            try:
+                self.conn.backup(bk)
+            finally:
+                bk.close()
+        except (OSError, sqlite3.Error):
+            pass  # the upgrade itself is additive; a failed copy must not block the hub
+
+    def _backfill_v3(self) -> None:
+        """Every instance belongs to a project: orphans go to the customer's first project (created if missing)."""
+        rows = self.conn.execute(
+            "SELECT DISTINCT customer_id FROM instances WHERE project_id IS NULL").fetchall()
+        if not rows:
+            return
+        with self.conn:
+            for (cid,) in rows:
+                pid = self._default_project_id(cid, create=True)
+                self.conn.execute("UPDATE instances SET project_id=? WHERE customer_id=? AND project_id IS NULL",
+                                  (pid, cid))
+
+    def _default_project_id(self, customer_id: str, create: bool = True) -> str | None:
+        r = self.conn.execute("SELECT id FROM projects WHERE customer_id=? ORDER BY created_at, rowid LIMIT 1",
+                              (customer_id,)).fetchone()
+        if r:
+            return r[0]
+        if not create:
+            return None
+        c = self.conn.execute("SELECT name FROM customers WHERE id=?", (customer_id,)).fetchone()
+        pid = "prj-" + uuid.uuid4().hex[:12]
+        now = _now()
+        self.conn.execute("INSERT INTO projects(id,customer_id,name,status,created_at,updated_at) VALUES(?,?,?,?,?,?)",
+                          (pid, customer_id, f"DocMap {c[0] if c else ''}".strip(), "active", now, now))
+        self.log("project.add", "project", pid, {"customer_id": customer_id, "auto": True}, commit=False)
+        return pid
 
     # -- audit log ---------------------------------------------------------
     def log(self, action: str, entity: str | None = None, entity_id: str | None = None,
@@ -282,19 +372,25 @@ class Registry:
 
     # -- instances ---------------------------------------------------------
     def add_instance(self, customer: str, label: str | None = None, kind: str = "onprem",
-                     instance_id: str | None = None, notes: str | None = None) -> dict:
+                     instance_id: str | None = None, notes: str | None = None,
+                     project: str | None = None) -> dict:
         cust = self.get_customer(customer)
+        if project:
+            prj = self.get_project(project)
+            if prj["customer_id"] != cust["id"]:
+                raise RegistryError("Il progetto appartiene a un altro cliente.")
         if kind not in ("onprem", "cloud", "appliance"):
             raise RegistryError("Tipo di installazione non valido (onprem, cloud, appliance).")
         iid = (instance_id or "").strip() or str(uuid.uuid4())
         if self.conn.execute("SELECT 1 FROM instances WHERE id=?", (iid,)).fetchone():
             raise RegistryError(f"Installazione già registrata: {iid}")
         with self.conn:
+            pid = prj["id"] if project else self._default_project_id(cust["id"], create=True)
             self.conn.execute(
-                "INSERT INTO instances(id,customer_id,label,kind,notes,created_at) VALUES(?,?,?,?,?,?)",
-                (iid, cust["id"], label or cust["name"], kind, notes, _now()))
+                "INSERT INTO instances(id,customer_id,label,kind,notes,created_at,project_id) VALUES(?,?,?,?,?,?,?)",
+                (iid, cust["id"], label or cust["name"], kind, notes, _now(), pid))
             self.log("instance.add", "instance", iid,
-                     {"customer_id": cust["id"], "label": label, "kind": kind}, commit=False)
+                     {"customer_id": cust["id"], "label": label, "kind": kind, "project_id": pid}, commit=False)
         return self.get_instance(iid)
 
     def get_instance(self, ref: str) -> dict:
@@ -335,7 +431,9 @@ class Registry:
     def latest_licence(self, instance: str) -> dict | None:
         iid = self.get_instance(instance)["id"]
         r = self.conn.execute(
-            "SELECT id FROM licences WHERE instance_id=? ORDER BY expires_at DESC, issued_at DESC LIMIT 1",
+            "SELECT id FROM licences WHERE instance_id=? AND id NOT IN "
+            "(SELECT supersedes FROM licences WHERE supersedes IS NOT NULL) "
+            "ORDER BY issued_at DESC, expires_at DESC LIMIT 1",
             (iid,)).fetchone()
         return self.get_licence(r[0]) if r else None
 
@@ -349,6 +447,227 @@ class Registry:
             args = (self.get_instance(instance)["id"],)
         sql += " ORDER BY l.expires_at DESC, l.issued_at DESC"
         return [dict(r) for r in self.conn.execute(sql, tuple(args))]
+
+    # -- v0.4: customer details, projects, workstations, drafts --------------------------------------
+    CUSTOMER_EXTRA = ("contact", "phone", "pec", "address", "city", "province", "sdi", "codice_multi",
+                      "tags", "color", "website")
+    CUSTOMER_STATUSES = ("active", "prospect", "suspended", "archived")
+
+    @staticmethod
+    def customer_view(d: dict) -> dict:
+        d = dict(d)
+        d["extra"] = json.loads(d.get("extra_json") or "{}")
+        return d
+
+    def update_customer(self, ref: str, **fields) -> dict:
+        """name, vat_id, email, notes, reseller (ref or ''), status, extra (dict merged into extra_json)."""
+        c = self.get_customer(ref)
+        cols: dict = {}
+        for k in ("name", "vat_id", "email", "notes"):
+            if k in fields:
+                v = (fields[k] or "").strip() if isinstance(fields[k], str) else fields[k]
+                if k == "name" and not v:
+                    raise RegistryError("Il nome del cliente è obbligatorio.")
+                cols[k] = v if k == "name" else (v or None)
+        if "reseller" in fields:
+            cols["reseller_id"] = self.get_reseller(fields["reseller"])["id"] if fields["reseller"] else None
+        if "status" in fields:
+            if fields["status"] not in self.CUSTOMER_STATUSES:
+                raise RegistryError("Stato del cliente non valido.")
+            cols["status"] = fields["status"]
+        if "extra" in fields:
+            extra = json.loads(c.get("extra_json") or "{}")
+            for k, v in (fields["extra"] or {}).items():
+                if k not in self.CUSTOMER_EXTRA:
+                    continue
+                if v in (None, "", []):
+                    extra.pop(k, None)
+                else:
+                    extra[k] = v
+            cols["extra_json"] = json.dumps(extra, ensure_ascii=False, sort_keys=True)
+        if cols:
+            with self.conn:
+                self.conn.execute(f"UPDATE customers SET {', '.join(k + '=?' for k in cols)} WHERE id=?",
+                                  (*cols.values(), c["id"]))
+                self.log("customer.update", "customer", c["id"],
+                         {k: v for k, v in cols.items() if k != "extra_json"} | (
+                             {"extra": sorted((fields.get("extra") or {}).keys())} if "extra" in fields else {}),
+                         commit=False)
+        return self.get_customer(c["id"])
+
+    def add_project(self, customer: str, name: str, notes: str | None = None, data: dict | None = None) -> dict:
+        c = self.get_customer(customer)
+        if not (name or "").strip():
+            raise RegistryError("Il nome del progetto è obbligatorio.")
+        pid = "prj-" + uuid.uuid4().hex[:12]
+        now = _now()
+        with self.conn:
+            self.conn.execute(
+                "INSERT INTO projects(id,customer_id,name,status,notes,data_json,created_at,updated_at) "
+                "VALUES(?,?,?,?,?,?,?,?)",
+                (pid, c["id"], name.strip(), "active", notes,
+                 json.dumps(data, ensure_ascii=False, sort_keys=True) if data else None, now, now))
+            self.log("project.add", "project", pid, {"customer_id": c["id"], "name": name.strip()}, commit=False)
+        return self.get_project(pid)
+
+    def get_project(self, ref: str) -> dict:
+        d = self._find("projects", ref, "progetto")
+        d["data"] = json.loads(d.get("data_json") or "{}")
+        return d
+
+    def list_projects(self, customer: str | None = None) -> list[dict]:
+        sql = ("SELECT p.*, c.name AS customer_name FROM projects p JOIN customers c ON c.id=p.customer_id")
+        args: tuple = ()
+        if customer:
+            sql += " WHERE p.customer_id=?"
+            args = (self.get_customer(customer)["id"],)
+        sql += " ORDER BY c.name COLLATE NOCASE, p.created_at"
+        out = []
+        for r in self.conn.execute(sql, args):
+            d = dict(r)
+            d["data"] = json.loads(d.get("data_json") or "{}")
+            out.append(d)
+        return out
+
+    def update_project(self, ref: str, **fields) -> dict:
+        p = self.get_project(ref)
+        cols: dict = {}
+        if "name" in fields:
+            if not (fields["name"] or "").strip():
+                raise RegistryError("Il nome del progetto è obbligatorio.")
+            cols["name"] = fields["name"].strip()
+        if "notes" in fields:
+            cols["notes"] = fields["notes"] or None
+        if "status" in fields:
+            if fields["status"] not in ("active", "paused", "archived"):
+                raise RegistryError("Stato del progetto non valido.")
+            cols["status"] = fields["status"]
+        if "data" in fields:
+            data = dict(p["data"])
+            data.update(fields["data"] or {})
+            cols["data_json"] = json.dumps(data, ensure_ascii=False, sort_keys=True)
+        if cols:
+            cols["updated_at"] = _now()
+            with self.conn:
+                self.conn.execute(f"UPDATE projects SET {', '.join(k + '=?' for k in cols)} WHERE id=?",
+                                  (*cols.values(), p["id"]))
+                self.log("project.update", "project", p["id"],
+                         {k: v for k, v in cols.items() if k not in ("data_json", "updated_at")}, commit=False)
+        return self.get_project(p["id"])
+
+    def move_instance(self, instance: str, project: str) -> dict:
+        i, p = self.get_instance(instance), self.get_project(project)
+        if i["customer_id"] != p["customer_id"]:
+            raise RegistryError("Il progetto appartiene a un altro cliente.")
+        with self.conn:
+            self.conn.execute("UPDATE instances SET project_id=? WHERE id=?", (p["id"], i["id"]))
+            self.log("instance.move", "instance", i["id"], {"project_id": p["id"]}, commit=False)
+        return self.get_instance(i["id"])
+
+    def rename_instance(self, instance: str, label: str) -> dict:
+        i = self.get_instance(instance)
+        if not (label or "").strip():
+            raise RegistryError("Il nome dell'installazione è obbligatorio.")
+        with self.conn:
+            self.conn.execute("UPDATE instances SET label=? WHERE id=?", (label.strip(), i["id"]))
+            self.log("instance.rename", "instance", i["id"], {"label": label.strip()}, commit=False)
+        return self.get_instance(i["id"])
+
+    def add_workstation(self, project: str, name: str, tag: str | None = None,
+                        instance: str | None = None, notes: str | None = None) -> dict:
+        p = self.get_project(project)
+        if not (name or "").strip():
+            raise RegistryError("Dai un nome alla postazione (es. PC Luigi).")
+        iid = None
+        if instance:
+            i = self.get_instance(instance)
+            if i.get("project_id") != p["id"]:
+                raise RegistryError("L'installazione indicata non fa parte di questo progetto.")
+            iid = i["id"]
+        if self.conn.execute("SELECT 1 FROM workstations WHERE project_id=? AND lower(name)=lower(?) "
+                             "AND status!='revoked'", (p["id"], name.strip())).fetchone():
+            raise RegistryError(f"Esiste già una postazione '{name.strip()}' in questo progetto.")
+        wid = "pc-" + uuid.uuid4().hex[:12]
+        with self.conn:
+            self.conn.execute(
+                "INSERT INTO workstations(id,project_id,instance_id,name,tag,status,notes,created_at) "
+                "VALUES(?,?,?,?,?,?,?,?)",
+                (wid, p["id"], iid, name.strip(), (tag or "").strip() or None, "active", notes, _now()))
+            self.log("workstation.add", "workstation", wid, {"project_id": p["id"], "name": name.strip(),
+                                                             "tag": tag}, commit=False)
+        return self.get_workstation(wid)
+
+    def get_workstation(self, ref: str) -> dict:
+        return self._find("workstations", ref, "postazione")
+
+    def list_workstations(self, project: str | None = None) -> list[dict]:
+        sql = ("SELECT w.*, p.name AS project_name, p.customer_id AS customer_id FROM workstations w "
+               "JOIN projects p ON p.id=w.project_id")
+        args: tuple = ()
+        if project:
+            sql += " WHERE w.project_id=?"
+            args = (self.get_project(project)["id"],)
+        return [dict(r) for r in self.conn.execute(sql + " ORDER BY w.created_at, w.rowid", args)]
+
+    def update_workstation(self, ref: str, log_action: str = "workstation.update", **fields) -> dict:
+        w = self.get_workstation(ref)
+        ok = {"name", "tag", "status", "package_path", "notes", "built_at", "revoked_at"}
+        bad = set(fields) - ok
+        if bad:
+            raise RegistryError(f"Campi non modificabili: {', '.join(sorted(bad))}")
+        if "name" in fields and not (fields["name"] or "").strip():
+            raise RegistryError("Il nome della postazione è obbligatorio.")
+        if fields:
+            with self.conn:
+                self.conn.execute(f"UPDATE workstations SET {', '.join(k + '=?' for k in fields)} WHERE id=?",
+                                  (*fields.values(), w["id"]))
+                self.log(log_action, "workstation", w["id"],
+                         {k: v for k, v in fields.items() if k != "package_path"}, commit=False)
+        return self.get_workstation(w["id"])
+
+    def save_draft(self, data: dict, draft_id: str | None = None, title: str | None = None,
+                   status: str = "draft", result: dict | None = None) -> dict:
+        now = _now()
+        js = json.dumps(data, ensure_ascii=False, sort_keys=True)
+        with self.conn:
+            if draft_id and self.conn.execute("SELECT 1 FROM drafts WHERE id=?", (draft_id,)).fetchone():
+                self.conn.execute("UPDATE drafts SET json=?, title=?, status=?, result_json=?, updated_at=? WHERE id=?",
+                                  (js, title, status, json.dumps(result, ensure_ascii=False) if result else None,
+                                   now, draft_id))
+            else:
+                draft_id = "drf-" + uuid.uuid4().hex[:12]
+                self.conn.execute("INSERT INTO drafts(id,kind,title,status,json,result_json,created_at,updated_at) "
+                                  "VALUES(?,?,?,?,?,?,?,?)",
+                                  (draft_id, "project", title, status, js,
+                                   json.dumps(result, ensure_ascii=False) if result else None, now, now))
+                self.log("draft.add", "draft", draft_id, {"title": title}, commit=False)
+        return self.get_draft(draft_id)
+
+    def get_draft(self, ref: str) -> dict:
+        d = self._find("drafts", ref, "bozza")
+        d["data"] = json.loads(d["json"])
+        d["result"] = json.loads(d["result_json"]) if d.get("result_json") else None
+        return d
+
+    def list_drafts(self, status: str | None = None) -> list[dict]:
+        sql, args = "SELECT id, kind, title, status, created_at, updated_at FROM drafts", ()
+        if status:
+            sql, args = sql + " WHERE status=?", (status,)
+        return [dict(r) for r in self.conn.execute(sql + " ORDER BY updated_at DESC", args)]
+
+    def delete_draft(self, ref: str) -> None:
+        d = self.get_draft(ref)
+        with self.conn:
+            self.conn.execute("DELETE FROM drafts WHERE id=?", (d["id"],))
+            self.log("draft.delete", "draft", d["id"], {"title": d.get("title")}, commit=False)
+
+    def events_for(self, ids: Iterable[str], limit: int = 100) -> list[dict]:
+        ids = [i for i in ids if i]
+        if not ids:
+            return []
+        ph = ",".join("?" * len(ids))
+        return [dict(r) for r in self.conn.execute(
+            f"SELECT * FROM events WHERE entity_id IN ({ph}) ORDER BY id DESC LIMIT ?", (*ids, limit))]
 
     # -- settings (v0.2) ---------------------------------------------------
     def get_setting(self, key: str, default: str | None = None) -> str | None:

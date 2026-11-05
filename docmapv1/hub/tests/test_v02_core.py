@@ -53,7 +53,8 @@ class TestRegistryV02(TempHub):
         con.commit()
         con.close()
         r = Registry(d)
-        self.assertEqual(r.schema_version(), 2)
+        from docmap_hub.registry import SCHEMA_VERSION
+        self.assertEqual(r.schema_version(), SCHEMA_VERSION)  # upgraded straight to the latest schema
         c = r.get_customer("Vecchio")
         self.assertEqual(c["key_escrow"], 0)
         r.close()

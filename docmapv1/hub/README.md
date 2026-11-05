@@ -1,4 +1,10 @@
-# DocMap Hub — licenze, ambienti, cassaforte, deploy, nuovo cliente (v0.3)
+# DocMap Hub — gestionale di clienti, progetti, installazioni, licenze e deploy (v0.5)
+
+> **Novità 0.5** — la pagina è un **gestionale per cliente** (Panoramica, Clienti → scheda progetto, Istanze, Licenze,
+> Deploy, Ctrl+K), con **Crea progetto con AI** (prompt da copiare in qualsiasi AI → JSON `docmap-progetto/1` → maschere
+> → conferma), **postazioni** con nome e client scaricabile, **autoinstall web**, passphrase scritta **solo nel browser**
+> con **Ricorda su questo PC**. Aggiornamento: [`../docs/AGGIORNAMENTO-HUB-0.3-0.5.md`](../docs/AGGIORNAMENTO-HUB-0.3-0.5.md);
+> uso: [`../docs/WIKI-HUB.md`](../docs/WIKI-HUB.md) capitoli 6.0 e 7. Sezione tecnica: §14 qui sotto.
 
 > **Novità 0.3.1** — wiki completa: [`../docs/WIKI-HUB.md`](../docs/WIKI-HUB.md) (anche `WIKI-HUB.html`).
 > `accesso-automatico attiva` = la passphrase si scrive una volta sola (anche per il tuo agente, vedi
@@ -612,3 +618,92 @@ Nella pagina: scheda *Stato* → *Controlla tutto adesso*: il controllo gira in 
 | `settings set installer_dir …` | dove sta `installer-windows` (predefinito: accanto a `hub/`) |
 
 Non fatto (da fare a mano, vedi la guida §5): più sedi per lo stesso cliente con `cliente nuovo`.
+
+
+---
+
+## 14. Gestionale e Pipeline 1 (v0.4–0.5)
+
+**Registro (schema 3, migrazione additiva con copia in `backups/` prima di aggiornare):** `projects` (gruppo di
+installazioni di un cliente; ogni installazione ha `project_id`, le vecchie vanno nel progetto «DocMap <cliente>»),
+`workstations` (postazioni con nome/etichetta, stato `active|revoked`, `built_at`), `drafts` (bozze della pipeline, mai
+segreti), `customers.extra_json` (pec, referente, telefono, indirizzo, città, provincia, sdi, codice_multi, tags, color)
+e `customers.status` (`active|prospect|suspended|archived`).
+
+**Pagina:** `docmap_hub/ui/` (index.html, app.js, app.css; nessun framework, nessuna risorsa esterna; CSP
+`script-src 'self'`). `GET /` serve l'app; `/classico` è la pagina licenze della 0.3; le altre pagine 0.3 restano.
+L'app parla con `/api/...` (`docmap_hub/api.py`): sessione con cookie HttpOnly SameSite=Strict, ogni POST JSON con
+intestazione `X-CSRF`, controllo dell'Host come prima. Login: `POST /api/login` (sblocca chiave e cassaforte con la stessa
+passphrase, `remember` = salva con `autoaccess`), `POST /api/setup` (hub nuovo). Avvio senza passphrase in console:
+`web` sblocca solo con variabile d'ambiente / `--passphrase-file` / accesso automatico.
+
+**Pipeline 1 (`docmap_hub/pipeline.py`):** `build_prompt()` (contesto, regole, piani, `TEMPLATE`, `EXAMPLE`),
+`extract_json()` (JSON nudo, blocco ```json o messaggio intero), `normalize()` (forma del modello, chiavi sconosciute
+scartate), `strip_secrets()` (password FTP vere tolte dalla bozza), `validate()` (errori bloccanti + avvisi, incluso
+«cliente già esistente»), `to_request()` → `ClienteNuovo` (con `licenza_kw` per mesi/limiti), `apply_extras()`
+(anagrafica, nome e dati del progetto, postazioni). Conferma = job in sottofondo con `Onboarding.run`.
+
+**Pacchetti (`docmap_hub/packages.py`):** `/scarica/postazione/<id>` (zip generato al volo: `collega-questo-pc.bat/.ps1`,
+`postazione.json`, `LEGGIMI.txt`), `/scarica/sede/<cliente>` (installer costruito dall'onboarding),
+`/scarica/web/<ambiente>` (sito + `LEGGIMI-AUTOINSTALL.txt`, costruito con `POST /api/envs/<id>/package`).
+
+**Test:** `tests/test_v04_manager.py`, `tests/test_v05_pipeline.py` (totale 97 con i precedenti).
+
+## 15. Pubblicare e gestire dal gestionale (v0.6)
+
+**Deploy e promozione.** `POST /api/envs/<id>/deploy-plan` e `POST /api/instances/<id>/promote-plan` avviano la prova
+(job `deploy-plan` / `promote-plan`, stessa funzione della pagina classica). `GET /api/jobs/<id>` restituisce `plan`
+(versioni, conteggi, elenchi corti, `valid_seconds`). `POST /api/jobs/<id>/confirm {"sure": true}` avvia il deploy vero
+solo se il piano è riuscito, ha file da caricare, ha meno di 30 minuti e non è già stato confermato; il codice deve essere
+identico (code hash) a quello della prova. Backup del server, caricamento, controllo e ripristino automatico sono quelli
+di `deploy.py` (§10).
+
+**Cassaforte.** `POST /api/vault/unlock` (crea la cassaforte se non esiste: `passphrase` + `again`), `POST /api/vault/lock`.
+`GET /api/envs/<id>/secrets` elenca solo tipo/etichetta/data; `POST /api/envs/<id>/secrets` salva (stessi campi della
+pagina classica); `…/secrets/reveal` richiede **sempre** la passphrase (1 s di attesa se sbagliata, evento `vault.reveal`);
+`…/secrets/delete` richiede `sure`.
+
+**Ambienti.** `POST /api/envs` (web-php o studio-python: `instance_id`, `name`, `url`, `api_url`, `base_path`,
+`studio_name`), `POST /api/envs/local` (job, codici in cassaforte), `POST /api/envs/<id>/start|stop` (solo local-python),
+`POST /api/envs/<id>` (`url`, `api_url`).
+
+**Backup automatici (`docmap_hub/backups.py`).** Impostazioni `backup.auto` (1/0), `backup.every_hours` (24),
+`backup.keep` (14), `backup.copy_dir`. `Scheduler` parte con `web` (primo controllo dopo 20 s, poi ogni 15 min) e usa il
+lock della pagina. Nomi `docmap-hub-auto-<data>.zip`; si cancellano solo questi, oltre il numero da tenere. `GET|POST
+/api/backups`, `POST /api/backups/now`, download `/scarica/backup/<nome>` (nome controllato, solo `.zip`/`.sqlite3` in
+`backups\`). Avviso in Panoramica se l'ultimo tentativo è fallito, se sono spenti o se l'ultimo è più vecchio di 3 periodi.
+
+**Errori.** Un'eccezione imprevista in un'API risponde 500 con un messaggio e scrive `web.error` nello storico.
+
+**Test:** `tests/test_v06_ops.py` (totale 104).
+
+## 16. Controllo delle licenze a distanza (v0.7)
+
+**Formato.** Campi facoltativi della licenza: `status` (`active|suspended|revoked`; sospesa/revocata = `read_only` con
+motivo `suspended`/`revoked`), `resume` (date e tolleranza da ripristinare), `update_url` (http(s), firmato). I verificatori
+precedenti ignorano i campi: per questo una licenza sospesa/revocata ha anche `expires_at` nel passato e `grace_days` 0.
+`issued_at` è strettamente crescente per installazione (`licensing._derive`).
+
+**`docmap_hub/licensing.py`.** `suspend(…, revoke=False)`, `reactivate(…, months=None)`, `modify(limits, add/remove
+features, expires_at, grace_days)`, `set_autorenew`/`renew_short(allow_shorter)`/`autorenew_due`, canale
+(`set_channel(env web-php)`, `token_for`, `update_url`, `channel_view`, `pending`, `publish` → `licenze/<token>.docmap-licence`
++ `index.html` + `.htaccess` via `deploy.open_remote`), `Scheduler` (ogni 30 min con hub sbloccato: rinnovi dovuti e
+pubblicazione se la cassaforte è aperta). Impostazioni: `licence.channel`, `licence.token.<iid>`, `licence.published.<iid>`,
+`licence.autorenew.<iid>`, `licence.revoked.<iid>`. `Registry.latest_licence` = la più recente **non sostituita**.
+`renew_with_key` rifiuta una licenza revocata e riattiva una sospesa (tolleranza da `resume`).
+
+**Server Python (`server-python/docmap_server/licence.py`).** `check_candidate` (firma, installazione, mai più vecchia:
+`issued_at` minore → rifiutata, salvo `--force`), `install_bytes`, `update_url` (config `licence_update_url` o campo
+firmato), `fetch_update` (64 KB max, timeout 20 s, mai eccezioni), `start_updater` (dentro `serve`: dopo 60 s e ogni 6 h,
+solo con `licence_required`). CLI `licence update`, `licence install --force`.
+
+**Esportazione.** `backups.export_encrypted` (zip di `Hub.backup` cifrato scrypt + AES-256-GCM, intestazione
+`DOCMAP-HUB-EXPORT/1` autenticata), `decrypt_export`, `import_encrypted` (solo cartella dati vuota; solo
+`registry.sqlite3`, `plans.json`, `known_hosts`, `keys/*`, `issued/*`). CLI `esporta-hub`, `importa-hub`.
+
+**API.** `POST /api/instances/<id>/licence/{suspend|revoke|reactivate|modify|renew-short}`,
+`POST /api/instances/<id>/licence/autorenew`, `GET|POST /api/licence-channel`, `POST /api/licence-channel/publish`
+(`reissue` = riemette con l'indirizzo le licenze emesse prima del canale), `POST /api/export`. Dopo ogni azione la licenza
+è pubblicata subito se canale e cassaforte lo permettono (`publish_job`).
+
+**Test:** `tests/test_v07_licences.py` (totale 112); server: `server-python/tests/test_licence_channel.py`.

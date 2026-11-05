@@ -85,7 +85,7 @@ class Hub:
             customer["vat_id"] = cust["vat_id"]
         if cust.get("email"):
             customer["email"] = cust["email"]
-        return {
+        lic = {
             "licence_id": str(uuid.uuid4()),
             "format": L.FORMAT,
             "customer": customer,
@@ -101,6 +101,11 @@ class Hub:
             "branding": branding,
             "key_id": key_id,
         }
+        from .licensing import update_url  # v0.7: where the server fetches its next licence
+        url = update_url(self.registry, inst["id"])
+        if url:
+            lic["update_url"] = url
+        return lic
 
     def _sign_and_store(self, lic: dict, private_key, supersedes: str | None = None) -> dict:
         file_obj = L.sign_licence(lic, private_key)
@@ -146,6 +151,11 @@ class Hub:
             if old is None:
                 raise RegistryError(f"Nessuna licenza da rinnovare per '{ref}'.")
         prev = old["licence"]
+        if prev.get("status") == L.STATUS_REVOKED:
+            raise RegistryError("Licenza revocata: annulla prima la revoca (Riattiva) se vuoi rinnovarla.")
+        if isinstance(prev.get("resume"), dict):  # renewing a suspended licence reactivates it
+            prev = dict(prev, expires_at=prev["resume"].get("expires_at") or prev["expires_at"],
+                        grace_days=int(prev["resume"].get("grace_days", L.DEFAULT_GRACE_DAYS)))
         now = now or datetime.now(timezone.utc)
         new_plan = plan or prev["plan"]
         base = max(now, L.parse_time(prev["expires_at"]))

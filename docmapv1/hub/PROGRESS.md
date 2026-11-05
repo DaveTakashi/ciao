@@ -45,3 +45,40 @@
   scheda con segreti; pagina web (CSRF, errore immediato, job, scheda servita, percorso `..` rifiutato).
 - Totale: `python -m unittest discover -s tests` → 71 test OK (5 saltati).
 - Limite noto: una sola sede e un solo sito per cliente con il wizard (le altre sedi a mano, guida §5).
+
+## 2026-11-04 — v0.4 + v0.5: gestionale per cliente e Pipeline 1
+- Piano: https://claude.ai/artifact/SJJKCc5BT3j52azgbxkWDw (fasi 0.4 → 1.0).
+- 0.4: registro schema 3 (projects, workstations, drafts, anagrafica cliente, copia del registro prima della migrazione),
+  app a pagina singola `docmap_hub/ui/` + API JSON `api.py`, login solo dal browser con «Ricorda su questo PC», prima
+  configurazione dalla pagina, vecchie pagine sotto «Strumenti classici» (`/classico`).
+- 0.5: `pipeline.py` (prompt per qualsiasi AI, modello `docmap-progetto/1`, bozze, maschere, conferma via onboarding),
+  `packages.py` (client delle postazioni, installer di sede, autoinstall web), `ClienteNuovo.licenza_kw`.
+- Test: 97 OK (3 saltati: IPv6 / SFTP), Linux, Python 3.13; prova nel browser (Chromium, desktop, telefono, tema scuro).
+- Prossimo (0.6): deploy e promozione direttamente nel gestionale (senza pagine classiche), motore vs contenuti,
+  rollback e backup pianificati; poi 0.7 licenze avanzate (sospendi = sola lettura, revoca, rinnovo automatico breve),
+  utenti a distanza, export cifrato completo dell'hub.
+
+## 2026-11-05 — v0.6: pubblicare e gestire tutto dal gestionale
+- Deploy e promozione nell'app: prova → piano (versioni, conteggi, protetti, obsoleti) → conferma una sola volta entro
+  30 minuti → passi visibili (backup, caricamento, controllo) → ripristino automatico mostrato in rosso.
+- Cassaforte nell'app (apri/crea/chiudi), accessi per ambiente (aggiungi, mostra con passphrase, sostituisci, elimina),
+  scheda Accessi del cliente per ambiente.
+- «Aggiungi sito o server» dal progetto (web-php, studio-python, ambiente di prova locale), avvio/arresto locali,
+  modifica indirizzi.
+- `backups.py`: backup automatici dell'hub con seconda cartella, potatura dei soli automatici, download, avvisi.
+- API: errori imprevisti → 500 con messaggio + `web.error`.
+- Test: 104 OK (3 saltati: IPv6 / SFTP), Linux, Python 3.13; prova nel browser (deploy completo su cartella locale,
+  telefono). Non provato su Windows.
+- Prossimo (0.7): licenze avanzate (sospendi = sola lettura, revoca, rinnovo breve automatico, limiti dal gestionale),
+  utenti a distanza, export cifrato completo dell'hub; deploy verso il server di sede (oggi solo monitorato).
+
+## 2026-11-05 — v0.7: controllo delle licenze a distanza
+- Licenze: sospendi / riattiva / revoca / modifica (nuova licenza firmata che sostituisce la precedente), campi
+  facoltativi `status`, `resume`, `update_url`, compatibili con i server già installati.
+- Canale delle licenze su un sito web-php di Dave; i server Python scaricano la licenza nuova da soli (ogni 6 h,
+  `licence update`), mai una più vecchia (`--force` per l'amministratore).
+- Rinnovo automatico con licenze brevi (scheduler dell'hub ogni 30 min), avvisi in Panoramica.
+- Esportazione cifrata di tutto l'hub (`.docmap-hub`) + importazione su PC nuovo.
+- Test: hub 112 OK (3 saltati), server test_licence 9 + test_licence_channel 3 OK; prova nel browser.
+- Prossimo (0.8): controllo della licenza nel server PHP (siti online), utenti a distanza (creare/disattivare utenti di
+  un'installazione dal gestionale con il token admin in cassaforte), deploy verso il server di sede.
