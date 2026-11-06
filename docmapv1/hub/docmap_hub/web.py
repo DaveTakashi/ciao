@@ -620,6 +620,7 @@ def _api_routes():
     from . import api as A
     r = re.compile
     return [
+        ("POST", r(r"/api/drafts/blank"), A.draft_blank),   # v0.9, before /api/drafts/<id>
         ("GET", r(r"/api/overview"), A.overview),
         ("GET", r(r"/api/customers"), A.customers),
         ("GET", r(r"/api/customers/([\w-]+)"), A.customer_detail),
@@ -676,6 +677,11 @@ def _api_routes():
         ("POST", r(r"/api/licence-channel"), A.licence_channel_set),
         ("POST", r(r"/api/licence-channel/publish"), A.licence_channel_publish),
         ("POST", r(r"/api/export"), A.hub_export),
+        # v0.9
+        ("POST", r(r"/api/envs/([\w-]+)/setup"), A.env_setup),
+        ("POST", r(r"/api/instances/([\w-]+)/licence/push"), A.licence_push),
+        ("GET", r(r"/api/updates"), A.updates),
+        ("POST", r(r"/api/updates/run"), A.updates_run),
     ]
 
 

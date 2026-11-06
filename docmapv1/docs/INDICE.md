@@ -1,6 +1,6 @@
 # Indice della documentazione DocMap
 
-> Mappa di tutti i documenti di `docmapv1/` (versione **26.12.6**): a cosa serve ognuno, chi lo deve leggere e in che
+> Mappa di tutti i documenti di `docmapv1/` (versione **26.12.7**, hub **0.9**): a cosa serve ognuno, chi lo deve leggere e in che
 > ordine. I percorsi sono relativi a `docmapv1/`.
 
 ## Per ripartire (tutti)
@@ -48,6 +48,9 @@
 | [`AGGIORNAMENTI.md`](AGGIORNAMENTI.md) | La procedura che vale per **ogni** aggiornamento (utente e sviluppatore) e le regole di rilascio senza perdita di dati. |
 | [`AGGIORNAMENTO-v12.5-v12.6.md`](AGGIORNAMENTO-v12.5-v12.6.md) | **Guida dalla v12.5 alla v12.6**: Primi passi, stato sync sempre visibile, aggiornatore `AGGIORNA-DOCMAP.bat`, licenza controllata dai siti del hub. |
 | [`AGGIORNAMENTO-HUB-0.8.md`](AGGIORNAMENTO-HUB-0.8.md) | DocMap Hub: alla 0.8 (i siti online portano chiave pubblica e licenza: il PHP controlla la licenza). |
+| [`AGGIORNAMENTO-v12.6-v12.7.md`](AGGIORNAMENTO-v12.6-v12.7.md) | **Guida dalla v12.6 alla v12.7**: solo `setup.php` (cartella dati per ogni sito, risposta JSON per il hub). Nessuna migrazione. |
+| [`AGGIORNAMENTO-HUB-0.9.md`](AGGIORNAMENTO-HUB-0.9.md) | DocMap Hub: alla 0.9 (Nuovo cliente senza AI, Percorso del cliente, Configura il sito, licenza subito ai siti, Siti da aggiornare). |
+| [`AUTOCRITICA-HUB-0.9.md`](AUTOCRITICA-HUB-0.9.md) | Analisi del hub (2026-11-06): come è stato provato, problemi trovati, passaggi prima/dopo, cosa resta per scalare. |
 | [`commerciale/README.md`](commerciale/README.md) | **Bozze commerciali**: scheda prodotto, listino, condizioni, nomina art. 28 GDPR, garanzia QR 10 anni, copione della demo. |
 | [`AGGIORNAMENTO-HUB-0.7.md`](AGGIORNAMENTO-HUB-0.7.md) | DocMap Hub: alla 0.7 (sospendi/riattiva/revoca/modifica licenze, rinnovo automatico, canale delle licenze, esportazione cifrata). |
 | [`AGGIORNAMENTO-HUB-0.6.md`](AGGIORNAMENTO-HUB-0.6.md) | DocMap Hub: alla 0.6 da 0.5 o 0.3 (deploy e promozione dal gestionale, cassaforte e accessi, siti e server dal progetto, backup automatici, ripristino). |

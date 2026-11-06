@@ -16,8 +16,9 @@ In breve:
 6. Non mostrare segreti (`vault reveal`, `cliente scheda --con-segreti`) se Dave non lo chiede.
 7. Dopo ogni cliente nuovo, rinnovo o modifica della cassaforte: `run_windows.bat backup` e ricorda a Dave di copiarlo su USB.
 8. Esito: codice di uscita 0 = riuscito; errori su stderr iniziano con "Errore:". Verifica con `status`, `cliente elenco`, `licence list`.
-9. Il hub non crea cartelle/SSL/account FTP sull'hosting, non lancia `setup.php` e non installa sul PC del cliente:
-   spiega a Dave quei passi (guida `../docs/GUIDA-NUOVO-CLIENTE.md`).
+9. Il hub non crea cartelle/SSL/account FTP sull'hosting e non installa sul PC del cliente: spiega a Dave quei passi
+   (guida `../docs/GUIDA-NUOVO-CLIENTE.md`). Dalla 0.9 **lancia lui `setup.php`** (`configura-sito`): non chiedere
+   mai a Dave di copiare token a mano.
 10. (0.5) Per preparare un cliente nuovo puoi produrre il JSON `docmap-progetto/1`: il prompt completo si legge nella pagina
     (**Crea progetto con AI → Vedi il prompt**) o da `GET /api/pipeline/prompt`. Non mettere password nel JSON
     (`{{PASSWORD_FTP}}`); Dave lo incolla, controlla le maschere e conferma lui.
@@ -27,3 +28,8 @@ In breve:
 12. (0.7) Sospendere, revocare o cambiare i limiti di una licenza è una decisione commerciale di Dave: non farlo
     mai di tua iniziativa. Per spostare l'hub usa `esporta-hub` / `importa-hub` (passphrase dell'esportazione separata
     dal file). Non pubblicare mai nella cartella `licenze/` file diversi da quelli prodotti dall'hub.
+13. (0.9) Per sapere cosa manca a un cliente: `cliente percorso --cliente "Nome"` (o la scheda nella pagina): fai o
+    proponi **solo il prossimo passo**. `configura-sito --instance … --env staging|production --config-out <file>`
+    subito dopo il primo deploy di un sito (una volta sola; i codici vanno in cassaforte; `config.php` va al cliente,
+    non lasciarlo sul PC). `licence push "<installazione>"` dopo ogni cambio di licenza deciso da Dave.
+    `aggiorna-siti` aggiorna tutti i siti di produzione: chiedi prima a Dave e prova la versione su uno staging.

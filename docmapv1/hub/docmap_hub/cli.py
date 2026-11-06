@@ -254,7 +254,15 @@ def cmd_licence_suspend(hub: Hub, args) -> int:
                             reason=args.reason or "")
     _deliver(res, args)
     out("Il server passa in sola lettura quando riceve questa licenza (canale delle licenze o installazione a mano).")
+    _push_hint(hub, res["licence"]["instance_id"])
     return 0
+
+
+def _push_hint(hub: Hub, iid: str) -> None:
+    """v0.9: online sites take the new licence at once with 'licence push' (FTP)."""
+    if any(e["kind"] == "web-php" for e in hub.registry.list_environments(iid)):
+        inst = hub.registry.get_instance(iid)
+        out(f"Siti online: per applicarla SUBITO  python -m docmap_hub licence push \"{inst['label']}\"")
 
 
 def cmd_licence_revoke(hub: Hub, args) -> int:
@@ -264,7 +272,9 @@ def cmd_licence_revoke(hub: Hub, args) -> int:
 def cmd_licence_reactivate(hub: Hub, args) -> int:
     from . import licensing
     kid, priv = _key(hub, args)
-    _deliver(licensing.reactivate(hub, kid, priv, args.instance, months=args.months), args)
+    res = licensing.reactivate(hub, kid, priv, args.instance, months=args.months)
+    _deliver(res, args)
+    _push_hint(hub, res["licence"]["instance_id"])
     return 0
 
 
@@ -920,6 +930,79 @@ def cmd_cliente_token_ponte(hub: Hub, args) -> int:
     return 0
 
 
+# ---------------------------------------------------------------------------
+# v0.9: site set-up by the hub, licence to the sites, update all sites, customer path
+# ---------------------------------------------------------------------------
+
+def cmd_configura_sito(hub: Hub, args) -> int:
+    from . import sitesetup as SS
+    vk = get_vault_key(hub, args)
+    extra = []
+    for chunk in (args.persone or "").replace(";", "\n").splitlines():
+        p = [x.strip() for x in chunk.split(",")]
+        if p and p[0]:
+            extra.append((p[0], (p[1] if len(p) > 1 else "editor").lower()))
+    r = SS.setup_site(hub, vk, args.instance, args.env, extra_people=extra, log=out)
+    if r.get("config_php"):
+        import base64
+        body = base64.b64decode(r["config_php"])
+        if args.config_out:
+            path = Path(args.config_out)
+            fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(fd, "wb") as f:
+                f.write(body)
+            out(f"Copia di config.php scritta in {path}: consegnala al cliente e non lasciarla su questo PC.")
+        else:
+            out("ATTENZIONE: copia di config.php NON salvata (usa --config-out E:\\config.php la prossima volta). "
+                "Recuperala dal server via FTP (server-php/config.php) e consegnala al cliente.")
+    out("Codici: vault list --instance \"…\" (vault reveal per vederne uno).")
+    return 0
+
+
+def cmd_licence_push(hub: Hub, args) -> int:
+    from . import sitesetup as SS
+    vk = get_vault_key(hub, args)
+    rows = SS.push_licence(hub, vk, args.instance, log=out)
+    return 0 if rows and all(r["ok"] for r in rows) else 1
+
+
+def cmd_aggiorna_siti(hub: Hub, args) -> int:
+    from . import sitesetup as SS
+    target = SS.available_version(hub.registry)
+    if not target:
+        raise CliError("Non trovo la cartella di DocMap accanto all'hub (settings set docmap_dir …).")
+    sites = SS.outdated_sites(hub, target, include_staging=args.anche_staging)
+    if not sites:
+        out(f"Tutti i siti sono già alla {target} (oppure mai controllati: check-all).")
+        return 0
+    table([[x["customer"], x["env"], x["url"], x["version"] or "?"] for x in sites],
+          ["cliente", "ambiente", "indirizzo", "versione"])
+    if not args.yes:
+        if input(f"Aggiorno questi {len(sites)} siti alla {target}, uno alla volta, fermandomi al primo errore? [s/N] ").strip().lower() not in ("s", "si", "sì", "y"):
+            out("Niente fatto.")
+            return 1
+    vk = get_vault_key(hub, args)
+    r = SS.update_sites(hub, vk, [x["env_id"] for x in sites], log=out)
+    out(f"Aggiornati: {len(r['done'])}" + (f" · FERMO a {r['failed']['label']}: {r['failed']['error']}" if r["failed"] else "")
+        + (f" · non toccati: {len(r['skipped'])}" if r["skipped"] else ""))
+    return 1 if r["failed"] else 0
+
+
+def cmd_percorso(hub: Hub, args) -> int:
+    from . import journey as J
+    from . import packages
+    c = hub.registry.get_customer(args.cliente)
+    z = packages.sede_zip(hub, c["id"]) if any(i.get("notes") == "onboarding:sede"
+                                               for i in hub.registry.list_instances(c["id"])) else None
+    j = J.for_customer(hub, c["id"], packages={"sede": z})
+    out(f"{c['name']}: {j['done']} passi su {j['total']}")
+    for st in j["steps"]:
+        out(f"  [{'x' if st['done'] else ' '}] {st['title']}" + ("" if st["done"] or not st["hint"] else f"  — {st['hint']}"))
+    if j["next"]:
+        out(f"Prossimo passo: {j['next']['title']}")
+    return 0
+
+
 def cmd_cliente_elenco(hub: Hub, args) -> int:
     from .onboarding import Onboarding
     ob = Onboarding(hub, log=out)
@@ -1293,6 +1376,22 @@ def build_parser() -> argparse.ArgumentParser:
     q.add_argument("--salva", action="store_true", help="chiede il token mostrato da setup.php e lo salva in cassaforte")
     q.add_argument("--esporta", help="scrive il token in questo file (es. E:\\token-ponte.txt) per configura-sync.ps1")
     add("elenco", cmd_cliente_elenco, "clienti, installazioni e cartelle preparate", cl)
+    q = add("percorso", cmd_percorso, "passi fatti e prossimo passo di un cliente", cl)
+    q.add_argument("--cliente", required=True)
+
+    # -- v0.9 ------------------------------------------------------------
+    q = add("configura-sito", cmd_configura_sito,
+            "configura un sito online appena pubblicato: setup.php lanciato dall'hub, codici in cassaforte")
+    q.add_argument("--instance", required=True)
+    q.add_argument("--env", required=True, help="staging o production")
+    q.add_argument("--persone", help="altre persone, es. \"mario,editor;segreteria,viewer\"")
+    q.add_argument("--config-out", help="dove scrivere la copia di config.php per il cliente (es. E:\\config.php)")
+    q = add("aggiorna-siti", cmd_aggiorna_siti, "aggiorna tutti i siti online alla versione di questo hub (stop al primo errore)")
+    q.add_argument("--yes", action="store_true")
+    q.add_argument("--anche-staging", action="store_true")
+    ls = [a for a in sub.choices["licence"]._actions if isinstance(a, argparse._SubParsersAction)][0]
+    q = add("push", cmd_licence_push, "carica subito la licenza attuale sui siti online dell'installazione (FTP)", ls)
+    q.add_argument("instance")
     return ap
 
 

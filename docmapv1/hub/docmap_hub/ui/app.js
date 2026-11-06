@@ -299,7 +299,7 @@ async function pOverview(page) {
   $('#new-cust').onclick = newCustomer;
   $$('.al', page).forEach((el) => (el.onclick = () => {
     const a = d.alerts[+el.dataset.i];
-    if (a.kind === 'licence') openLicence(a.id); else if (a.kind === 'env') openEnv(a.id); else if (a.kind === 'backup' || a.kind === 'channel') location.hash = '#/impostazioni'; else if (a.kind === 'draft') location.hash = `#/nuovo-progetto/${a.id}/cliente`; else if (a.customer_id) location.hash = `#/clienti/${a.customer_id}`;
+    if (a.kind === 'licence') openLicence(a.id); else if (a.kind === 'env') openEnv(a.id); else if (a.kind === 'backup' || a.kind === 'channel') location.hash = '#/impostazioni'; else if (a.kind === 'draft') location.hash = `#/nuovo-progetto/${a.id}/cliente`; else if (a.kind === 'updates') location.hash = '#/deploy'; else if (a.customer_id) location.hash = `#/clienti/${a.customer_id}`;
   }));
 }
 const evSubj = (ev) => (ev.subject ? ` <span style="color:var(--mut)">· ${esc(ev.subject)}</span>` : ev.entity_id ? ` <span class="tag mono">${esc(String(ev.entity_id).slice(0, 12))}</span>` : '');
@@ -358,10 +358,29 @@ function customerPayload(d) {
   for (const [k, v] of Object.entries(d)) if (k.startsWith('x_')) extra[k.slice(2)] = k === 'x_tags' ? v.split(',').map((t) => t.trim()).filter(Boolean) : v.trim();
   return { name: d.name, vat_id: d.vat_id, email: d.email, notes: d.notes, status: d.status, extra };
 }
+// v0.9: «Nuovo cliente» opens the same guided masks as «Crea progetto con AI», starting empty (no AI needed)
 function newCustomer() {
+  const o = modal({
+    title: 'Nuovo cliente', submit: 'Avanti: percorso guidato',
+    body: `<p class="note" style="margin-top:0">Ti guido in 6 passi (cliente, licenza, sito online, sede, persone, conferma). Alla fine l'hub crea licenze, pacchetti e siti, e la scheda del cliente ti dice ogni volta il prossimo passo.</p>
+      ${fld('name', 'Ragione sociale', { req: true, attrs: 'required autofocus' })}${fld('vat_id', 'Partita IVA / C.F.', { hint: 'Serve a ritrovarlo: rifare il percorso non crea doppioni.' })}
+      <div class="f"><label>Cosa avrà il cliente</label>
+        <label class="check"><input type="checkbox" name="i_online" checked> <span><b>Sito online</b> (su hosting, raggiungibile anche dai telefoni fuori ufficio)</span></label>
+        <label class="check"><input type="checkbox" name="i_sede"> <span><b>Server in sede</b> (un PC dello studio; con il sito si sincronizzano da soli)</span></label></div>
+      <p style="margin:6px 0 0;font-size:12.5px"><a href="#" id="only-registry">Solo anagrafica, senza installazioni</a> · <a href="#/nuovo-progetto">Ho già il JSON dell'AI</a></p>`,
+    onSubmit: async (d) => {
+      const inst = [d.i_sede && 'sede', d.i_online && 'online'].filter(Boolean);
+      if (!inst.length) throw new Error('Scegli almeno sito online o server in sede (oppure «Solo anagrafica»).');
+      const r = await api('/api/drafts/blank', { name: d.name, vat_id: d.vat_id, installazioni: inst });
+      closeOverlay(); S.draft = null; location.hash = `#/nuovo-progetto/${r.id}/cliente`;
+    },
+  });
+  const a = $('#only-registry', o); if (a) a.onclick = (e) => { e.preventDefault(); closeOverlay(); newCustomerRegistry(); };
+}
+function newCustomerRegistry() {
   modal({
-    title: 'Nuovo cliente', submit: 'Crea cliente', wide: true,
-    body: `<p class="note" style="margin-top:0">Crea il cliente e il suo primo progetto. Siti, server e postazioni li aggiungi dalla sua scheda.</p>${customerForm()}${fld('project_name', 'Nome del progetto', { ph: 'DocMap <nome del cliente>' })}`,
+    title: 'Nuovo cliente (solo anagrafica)', submit: 'Crea cliente', wide: true,
+    body: `<p class="note" style="margin-top:0">Per una trattativa o un cliente senza installazioni. Quando serve, il percorso guidato («Nuovo cliente» con la stessa P.IVA) completa questo cliente senza doppioni.</p>${customerForm()}${fld('project_name', 'Nome del progetto', { ph: 'DocMap <nome del cliente>' })}`,
     onSubmit: async (d) => {
       const p = customerPayload(d); p.project_name = d.project_name;
       const r = await api('/api/customers', p); closeOverlay(); toast('Cliente creato.'); location.hash = `#/clienti/${r.id}`;
@@ -410,10 +429,69 @@ function newProject(c) {
 
 function tSummary(el, d) {
   if (!d.projects.length) { el.innerHTML = `<div class="card"><div class="empty"><div class="big">Nessun progetto</div>Crea un progetto per registrare siti, server e postazioni.</div></div>`; return; }
-  el.innerHTML = `<div class="grid g-main"><div>${d.projects.map((p) => projectBlock(p)).join('')}</div>
+  el.innerHTML = `${journeyCard(d.journey)}<div class="grid g-main"><div>${d.projects.map((p) => projectBlock(p)).join('')}</div>
     <div><div class="card mb"><div class="hd"><h3>Licenze</h3><div class="btns"><a class="btn ghost sm" href="#/clienti/${esc(d.customer.id)}/licenze">Gestisci</a></div></div><div class="bd flush">${licMini(d.licences.filter((l) => l.state !== 'superseded'))}</div></div>
     <div class="card"><div class="hd"><h3>Ultime attività</h3></div><div class="bd flush"><div class="feed">${d.events.slice(0, 8).map(evRow).join('') || '<div class="empty">Nessuna attività</div>'}</div></div></div></div></div>`;
-  bindNodes(el, d);
+  bindNodes(el, d); bindJourney(el, d);
+}
+// v0.9: «Percorso del cliente» — what is done and the ONE next thing to do, with its button
+const JACT = { deploy: 'Pubblica', promote: 'Pubblica in produzione', setup: 'Configura il sito', check: 'Controlla adesso', tab: 'Apri', env: 'Apri' };
+function journeyCard(j) {
+  if (!j || !j.total) return '';
+  const pct = Math.round((100 * j.done) / j.total);
+  return `<div class="card mb journey"><div class="hd"><h3>${j.complete ? 'Percorso completato' : 'Percorso del cliente'}</h3><span class="pill ${j.complete ? 'ok' : 'info'}">${j.done} di ${j.total}</span></div>
+    <div class="bd"><div class="jbar"><span style="width:${pct}%"></span></div>
+    ${j.next ? `<div class="jnext"><div><small>Prossimo passo</small><b>${esc(j.next.title)}</b>${j.next.hint ? `<p>${esc(j.next.hint)}</p>` : ''}</div>${j.next.action ? `<button class="btn pri" data-jact="${esc(j.next.id)}">${ic(j.next.action.do === 'setup' ? 'key' : j.next.action.do === 'check' ? 'refresh' : 'rocket')} ${esc(JACT[j.next.action.do] || 'Apri')}</button>` : ''}</div>` : '<div class="note" style="background:var(--ok-soft);color:var(--ok)">Tutto fatto: il cliente è operativo. Da qui in poi: rinnovi e aggiornamenti dalla Panoramica.</div>'}
+    <details ${j.complete ? '' : 'open'}><summary>Tutti i passi</summary><ol class="jsteps">${j.steps.map((s) => `<li class="${s.done ? 'done' : s === j.next || (j.next && s.id === j.next.id) ? 'cur' : ''}"><span>${s.done ? '✓' : '○'}</span><div><b>${esc(s.title)}</b>${!s.done && s.hint ? `<small>${esc(s.hint)}</small>` : ''}</div>${!s.done && s.action && !(j.next && s.id === j.next.id) ? `<button class="btn ghost sm" data-jact="${esc(s.id)}">${esc(JACT[s.action.do] || 'Apri')}</button>` : ''}</li>`).join('')}</ol></details></div></div>`;
+}
+function bindJourney(el, d) {
+  const j = d.journey; if (!j) return;
+  $$('[data-jact]', el).forEach((b) => (b.onclick = () => {
+    const st = j.steps.find((x) => x.id === b.dataset.jact); const a = st && st.action; if (!a) return;
+    const envs = d.projects.flatMap((p) => p.instances.flatMap((i) => i.envs));
+    const env = envs.find((e) => e.id === a.env_id);
+    if (a.do === 'deploy') return runPlan('env', a.env_id, env ? `${env.instance_label} · ${env.name_it}` : '');
+    if (a.do === 'promote') return runPlan('promote', a.instance_id, '');
+    if (a.do === 'setup') return siteSetup(a.env_id, env ? `${env.instance_label} · ${env.name_it}` : '');
+    if (a.do === 'check') return checkAll();
+    if (a.do === 'env') return openEnv(a.env_id);
+    if (a.do === 'tab') location.hash = `#/clienti/${d.customer.id}/${a.tab}`;
+  }));
+}
+// v0.9: the hub runs setup.php and puts every access code in the vault
+async function siteSetup(envId, label) {
+  const o = modal({
+    title: `Configura il sito${label ? ': ' + label : ''}`, submit: 'Configura adesso', wide: true,
+    body: `<p style="margin-top:0">L'hub apre da solo <span class="mono">setup.php</span> del sito: crea il database (in una cartella tutta sua, fuori dal sito), la chiave e un codice di accesso per ogni persona, e mette i codici <b>direttamente in cassaforte</b>. Non devi copiare niente.</p>
+      <ul style="margin:0 0 12px;padding-left:18px;color:var(--fg2);font-size:13px"><li><b>admin</b>: il tuo codice da amministratore</li><li><b>ponte-sync</b>: solo se il cliente ha anche il server in sede (sincronizzazione)</li><li>le persone previste nel progetto</li></ul>
+      <div class="f"><label for="f-people">Altre persone (facoltativo): una per riga, <span class="mono">nome,ruolo</span></label><textarea id="f-people" name="people" rows="3" placeholder="mario,editor&#10;segreteria,viewer" style="font-family:ui-monospace,monospace;font-size:13px"></textarea><div class="hint">Ruoli: admin, editor, viewer. Altre persone si aggiungono poi dall'app.</div></div>
+      <div class="note">La chiave del database (<span class="mono">config.php</span>) resta nell'hub solo se il cliente ha autorizzato la custodia; altrimenti alla fine la scarichi una volta e la consegni al cliente.</div>`,
+    onSubmit: async (f) => {
+      const r = await withVault(() => api(`/api/envs/${envId}/setup`, { people: f.people || '' }));
+      closeOverlay();
+      const jm = jobModal('Configurazione del sito', '<p class="note" style="margin-top:0">In corso…</p>');
+      try {
+        const j = await waitJob(r.job, showLog(jm)); const res = j.result || {};
+        $('#jm-det', jm).open = false;
+        $('#jm-body', jm).innerHTML = `<div class="okbox">${ic('key')}<div><b>Sito configurato</b><small>${(res.people || []).length === 1 ? '1 codice di accesso' : (res.people || []).length + ' codici di accesso'} in cassaforte: ${(res.people || []).map((p) => esc(p.user)).join(', ')}</small></div></div>
+          ${res.config_php ? `<div class="note warn mt"><b>Scarica adesso la copia di config.php</b> e consegnala al cliente (chiavetta o gestore di password): contiene la chiave del database e l'hub non la conserva. Senza copia, se il file sul server si perde, i dati online non si leggono più.</div>
+            <div class="btns mt"><button class="btn pri" id="dl-cfg">${ic('download')} Scarica config.php</button></div>` : '<div class="note mt">Chiave del database custodita in cassaforte (custodia autorizzata).</div>'}
+          <p style="color:var(--mut);font-size:12.5px">Codici delle persone: scheda del cliente → <b>Accessi</b> (si mostrano con la passphrase, e ogni lettura resta nel registro).</p>`;
+        const dl = $('#dl-cfg', jm); if (dl) dl.onclick = () => { download(res.config_name || 'config.php', atob(res.config_php), 'application/octet-stream'); dl.textContent = 'Scaricato'; };
+        toast('Sito configurato.'); route();
+      } catch (e) { $('#jm-body', jm).innerHTML = ''; jmError(jm, e.message); }
+    },
+  });
+  return o;
+}
+async function pushReport(jobId) {
+  try {
+    const j = await waitJob(jobId); const sites = (j.result || {}).sites || [];
+    const ok = sites.filter((x) => x.ok); const ko = sites.filter((x) => !x.ok);
+    const MODE_IT = { full: 'valida', grace: 'in tolleranza', read_only: 'sola lettura', invalid: 'non valida' };
+    if (ok.length) toast('Licenza già in vigore sui siti: ' + ok.map((x) => `${x.env} (${MODE_IT[x.mode] || 'inviata'})`).join(', '));
+    if (ko.length) toast('Non inviata a: ' + ko.map((x) => `${x.env}: ${x.error}`).join('; '), true);
+  } catch (e) { toast(e.message, true); }
 }
 function projectBlock(p) {
   const nodes = [];
@@ -587,6 +665,7 @@ async function openEnv(id) {
   const row = (k, v) => `<dt>${esc(k)}</dt><dd>${v}</dd>`;
   const acts = [];
   if (e.url && /^https?:\/\//.test(e.url)) acts.push(`<a class="btn sm" href="${esc(e.url)}" target="_blank" rel="noreferrer">${ic('ext')} Apri</a>`);
+  if (e.kind === 'web-php') acts.push(`<button class="btn sm" data-a="setup" title="setup.php lanciato dall'hub: database e codici in cassaforte">${ic('key')} Configura</button>`);
   if (e.kind === 'web-php') acts.push(`<button class="btn pri sm" data-a="plan">${ic('rocket')} ${e.name === 'production' ? 'Deploy produzione' : 'Deploy ' + esc(e.name_it.toLowerCase())}</button>`);
   if (e.kind === 'local-python') acts.push(`<button class="btn sm" data-a="start">${ic('play')} Avvia</button><button class="btn sm" data-a="stop">${ic('stop')} Ferma</button>`);
   acts.push(`<button class="btn sm" data-a="check">${ic('refresh')} Controlla</button>`);
@@ -605,6 +684,7 @@ async function openEnv(id) {
   $$('[data-a]', dr).forEach((b) => (b.onclick = async () => {
     const a = b.dataset.a;
     if (a === 'plan') { closeOverlay(); return runPlan('env', e.id, `${e.instance_label} · ${e.name_it}`); }
+    if (a === 'setup') { closeOverlay(); return siteSetup(e.id, `${e.instance_label} · ${e.name_it}`); }
     if (a === 'start' || a === 'stop') return envJob(e, a);
     if (a === 'edit') { closeOverlay(); return editEnvironment(e); }
     if (a === 'check') { closeOverlay(); await checkAll(); }
@@ -621,6 +701,7 @@ async function openLicence(id) {
   const ar = c.autorenew;
   const cur = c.is_current && r.state !== 'superseded';
   const acts = [`<a class="btn sm" href="/download/${esc(l.licence_id)}">${ic('download')} Scarica</a>`];
+  if (cur) acts.push(`<button class="btn sm" data-x="push" title="Carica questa licenza sui siti online dell'installazione (FTP)">${ic('rocket')} Invia ai siti</button>`);
   if (cur && c.status === 'active') acts.push(`<button class="btn pri sm" data-x="renew">${ic('refresh')} Rinnova</button>`, `<button class="btn sm" data-x="modify">${ic('edit')} Modifica</button>`, `<button class="btn sm" data-x="suspend">${ic('lock')} Sospendi</button>`);
   if (cur && c.status !== 'active') acts.push(`<button class="btn pri sm" data-x="reactivate">${ic('unlock')} Riattiva</button>`);
   if (cur && c.status !== 'revoked') acts.push(`<button class="btn ghost sm" data-x="revoke" style="color:var(--bad)">Revoca</button>`);
@@ -639,18 +720,21 @@ async function openLicence(id) {
   const iid = l.instance_id;
   const done = async (res, msg) => {
     closeOverlay(); toast(msg);
+    if (res.push_job) await pushReport(res.push_job);
+    else if (!S.session.vault || S.session.vault !== 'open') toast('Cassaforte chiusa: se ci sono siti online, la licenza arriva con il prossimo deploy o dal canale. Per subito: apri la cassaforte e premi «Invia ai siti».', true);
     if (res.publish_job) { try { await waitJob(res.publish_job); toast('Pubblicata nel canale: il server la scarica da solo.'); } catch (e) { toast(e.message, true); } }
     await route(); if (res.id) openLicence(res.id);
   };
   const act = (a, body) => api(`/api/instances/${iid}/licence/${a}`, body || {});
   $$('[data-x]', dr).forEach((b) => (b.onclick = () => {
     const x = b.dataset.x;
+    if (x === 'push') return (async () => { try { const r = await withVault(() => api(`/api/instances/${iid}/licence/push`, {})); toast('Invio in corso…'); await pushReport(r.job); } catch (e) { toast(e.message, true); } })();
     if (x === 'renew') return modal({
       title: 'Rinnova o estendi la licenza', submit: 'Firma il rinnovo',
       body: `<p class="note" style="margin-top:0">La nuova licenza vale subito e si somma alla scadenza attuale se non è ancora passata. Puoi anche cambiare piano.</p>
         ${fld('months', 'Mesi in più', { type: 'number', value: '12', attrs: 'min="1" max="120"' })}
         ${sel('plan', 'Piano', [['', `Stesso piano (${l.plan})`]].concat(Object.entries(S.cust?.plans || {}).map(([k, v]) => [k, `${v} (${k})`])))}`,
-      onSubmit: async (f) => { const n = await api(`/api/licences/${l.licence_id}/renew`, f); closeOverlay(); toast('Licenza rinnovata.'); await route(); openLicence(n.id); },
+      onSubmit: async (f) => { const n = await api(`/api/licences/${l.licence_id}/renew`, f); closeOverlay(); toast('Licenza rinnovata.'); if (n.push_job) await pushReport(n.push_job); await route(); openLicence(n.id); },
     });
     if (x === 'modify') {
       const lim = l.limits || {}; const v = (k) => (lim[k] === null || lim[k] === undefined ? '' : String(lim[k]));
@@ -669,7 +753,7 @@ async function openLicence(id) {
     }
     if (x === 'suspend') return modal({
       title: 'Sospendi la licenza', submit: 'Sospendi', danger: true,
-      body: `<p style="margin-top:0">L'installazione passa in <b>sola lettura</b> appena riceve la nuova licenza (dal canale, entro 6 ore, o installata a mano). I dati non si perdono: si consultano, si stampano e si esportano. Con «Riattiva» torna come prima, con la stessa scadenza.</p>${fld('reason', 'Motivo (resta solo nello storico dell\'hub)', { ph: 'es. fattura non pagata' })}`,
+      body: `<p style="margin-top:0">L'installazione passa in <b>sola lettura</b> appena riceve la nuova licenza: i <b>siti online</b> subito (l'hub la carica via FTP, con la cassaforte aperta), il <b>server in sede</b> dal canale entro 6 ore o installandola a mano. I dati non si perdono: si consultano, si stampano e si esportano. Con «Riattiva» torna come prima, con la stessa scadenza.</p>${fld('reason', 'Motivo (resta solo nello storico dell\'hub)', { ph: 'es. fattura non pagata' })}`,
       onSubmit: async (f) => done(await act('suspend', f), 'Licenza sospesa.'),
     });
     if (x === 'revoke') return modal({
@@ -808,7 +892,7 @@ async function pDraft(page, id, step) {
   const D = S.draft;
   setCrumbs([['Crea progetto con AI', '#/nuovo-progetto'], [D.title || 'Bozza']]);
   const confirmed = D.status === 'confirmed';
-  page.innerHTML = `<div class="ph"><div><h1>${esc(D.title || 'Bozza')}</h1><div class="sub">Bozza generata dal JSON · salvata da sola a ogni modifica · ${confirmed ? '<span class="pill ok">Confermata</span>' : '<span class="pill warn">Da confermare</span>'}</div></div>
+  page.innerHTML = `<div class="ph"><div><h1>${esc(D.title || 'Bozza')}</h1><div class="sub">Percorso guidato · salvato da solo a ogni modifica · ${confirmed ? '<span class="pill ok">Confermata</span>' : '<span class="pill warn">Da confermare</span>'}</div></div>
       <div class="btns"><button class="btn ghost" id="dl">${ic('download')} Esporta JSON</button>${confirmed && D.result ? `<a class="btn pri" href="#/clienti/${esc(D.result.customer_id)}">Apri il cliente</a>` : `<button class="btn danger" id="del">Elimina bozza</button>`}</div></div>
     <div class="grid" style="grid-template-columns:240px minmax(0,1fr);align-items:start" id="dgrid">
       <div class="card"><div class="bd flush" id="stepper"></div></div>
@@ -997,7 +1081,34 @@ async function pDeploys(page) {
   const list = await api('/api/deploys');
   page.innerHTML = `<div class="ph"><div><h1>Deploy e aggiornamenti</h1><div class="sub">Ogni pubblicazione: prima la prova, poi il backup, poi il caricamento e il controllo, con ripristino automatico se qualcosa non va.</div></div>
     <div class="btns"><a class="btn" href="/deploy">${ic('rocket')} Nuovo deploy (strumento classico)</a></div></div>
+    <div class="card mb" id="upd"><div class="bd" style="color:var(--mut)">Controllo le versioni…</div></div>
     <div class="card">${deployTable(list)}</div>`;
+  updatesCard($('#upd', page));
+}
+// v0.9: every online site behind this hub's version, updated one after the other (stop at the first failure)
+async function updatesCard(box) {
+  let u; try { u = await api('/api/updates'); } catch (e) { box.innerHTML = `<div class="bd"><div class="note warn">${esc(e.message)}</div></div>`; return; }
+  if (!u.target) { box.innerHTML = '<div class="bd"><div class="note warn">Non trovo la cartella di DocMap accanto all\'hub: non so quale versione pubblicare.</div></div>'; return; }
+  if (!u.sites.length) { box.innerHTML = `<div class="hd"><h3>Aggiornamenti</h3><span class="pill ok">tutti alla ${esc(u.target)}</span></div><div class="bd" style="color:var(--fg2)">Tutti i siti di produzione sono già alla versione di questo hub (o non sono mai stati controllati: premi «Controlla tutto»).</div>`; return; }
+  box.innerHTML = `<div class="hd"><h3>Siti da aggiornare alla ${esc(u.target)}</h3><span class="pill warn">${u.sites.length}</span></div><div class="bd">
+    <p style="margin-top:0;color:var(--fg2)">Uno dopo l'altro, con il solito deploy: backup del server, caricamento, controllo e ritorno automatico alla versione di prima se il sito non risponde. <b>Al primo errore mi fermo</b> e gli altri restano come sono. Prima prova la nuova versione su uno staging.</p>
+    <div class="tbl-wrap"><table class="t"><thead><tr><th><input type="checkbox" id="u-all" checked></th><th>Cliente</th><th>Sito</th><th>Versione adesso</th></tr></thead><tbody>
+    ${u.sites.map((x) => `<tr><td><input type="checkbox" data-u="${esc(x.env_id)}" checked></td><td>${esc(x.customer)}</td><td class="mono">${esc(x.url || '')}</td><td>${esc(x.version || 'sconosciuta')}</td></tr>`).join('')}</tbody></table></div>
+    <div class="btns mt"><button class="btn pri" id="u-go">${ic('rocket')} Aggiorna i siti scelti</button></div></div>`;
+  $('#u-all', box).onchange = (e) => $$('[data-u]', box).forEach((c) => (c.checked = e.target.checked));
+  $('#u-go', box).onclick = async () => {
+    const ids = $$('[data-u]', box).filter((c) => c.checked).map((c) => c.dataset.u);
+    if (!ids.length) return toast('Nessun sito scelto.', true);
+    if (!confirm(`Aggiornare ${ids.length} siti alla ${u.target}?`)) return;
+    let r; try { r = await withVault(() => api('/api/updates/run', { env_ids: ids })); } catch (e) { return toast(e.message, true); }
+    const jm = jobModal(`Aggiornamento di ${ids.length} siti`, '<p class="note" style="margin-top:0">Puoi chiudere: il lavoro continua e lo trovi in Attività.</p>');
+    try {
+      const j = await waitJob(r.job, showLog(jm)); const res = j.result || {};
+      $('#jm-body', jm).innerHTML = res.failed ? `<div class="err-box">Fermo a <b>${esc(res.failed.label)}</b>: ${esc(res.failed.error)}. Aggiornati: ${res.done.length}; non toccati: ${res.skipped.length}.</div>`
+        : `<div class="okbox">${ic('rocket')}<div><b>Aggiornati ${res.done.length} siti</b><small>tutti rispondono con la ${esc(u.target)}</small></div></div>`;
+    } catch (e) { jmError(jm, e.message); }
+    route();
+  };
 }
 async function pEvents(page) {
   setCrumbs([['Attività']]);

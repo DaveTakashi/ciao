@@ -16,7 +16,7 @@ online. Con `--no-server` si ottiene il sito statico della v10 (dati solo nel br
    Se una cartella protetta esiste già, toglila dopo aver installato la v12.
 2. Carica il contenuto di `deploy/studio-de/` in `public_html/studio-de/` (anche i `.htaccess`).
 3. Apri `https://docmap.pr-it.it/studio-de/server-php/setup.php` **una volta**: cartella dati (proposta: fuori da
-   `public_html`, es. `/home/customer/www/docmap.pr-it.it/docmap-data`), persone e ruoli → genera chiave AES-256 e
+   `public_html`; dalla 26.12.7 una per sito, es. `/home/customer/www/docmap.pr-it.it/docmap-data/studio-de`), persone e ruoli → genera chiave AES-256 e
    token, scrive `config.php`, si disattiva. Copia i token (mostrati una volta) e scarica una copia di `config.php`.
 4. Prova: `…/server-php/api.php?r=ping` → `{"ok":true}`; `…/server-php/config.php` e `…/server-php/data/` → 403/404.
 5. Primo caricamento dal PC: ⚙ Sincronizzazione › **Server online** → indirizzo + token admin → **Sincronizza con il

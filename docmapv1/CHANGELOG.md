@@ -17,6 +17,7 @@ Formato: versione · data · cosa cambia per chi la usa · dati/server.
 
 | Versione | Data | Novità | Dati / server |
 |---|---|---|---|
+| 26.12.7 (v12.7) | 2026-11-06 | `setup.php` propone una cartella dati **per ogni sito** (prima tutti i siti di un dominio ricevevano la stessa) e risponde in JSON al hub 0.9 («Configura il sito») | solo `server-php/setup.php`; nessuna migrazione (`AGGIORNAMENTO-v12.6-v12.7.md`) |
 | 26.12.6 (v12.6) | 2026-11-06 | «Primi passi» nell'Archivio (7 passi rilevati dai dati, con guida), stato della sincronizzazione anche sul PC da `file://` («sincronizzato 5 min fa»), aggiornatore `AGGIORNA-DOCMAP.bat` (copia di sicurezza + ripristino), avviso licenza giallo/rosso, messaggi di licenza in italiano, aiuto «Licenza» e «Primi passi», bozze commerciali | `api.php` controlla la licenza solo con `licence_required` (siti del hub 0.8); nessuna migrazione |
 | 26.12.5 (v12.5) | 2026-11-03 | selezione della modifica massiva che resta tra le ricerche, «Solo selezionati», colonna colore dopo la categoria, «Stampa solo queste N etichette», «Modifica i selezionati» negli archivi | nessuna modifica |
 | 26.12.4 (v12.4) | 2026-11-03 | 👁 mostra password, codice di accesso al server facoltativo, «Verifica dopo l'aggiornamento», `setup.php` non crea una chiave nuova se esiste già un database | procedura `AGGIORNARE-IL-SERVER.md` |
@@ -34,6 +35,7 @@ Formato: versione · data · cosa cambia per chi la usa · dati/server.
 
 | Versione | Data | Novità |
 |---|---|---|
+| 0.9 | 2026-11-06 | dall'autocritica del hub (`docs/AUTOCRITICA-HUB-0.9.md`): **Nuovo cliente** guidato senza AI, **Percorso del cliente** con prossimo passo e pulsante (anche in Panoramica), **Configura il sito** (setup.php lanciato dal hub, codici in cassaforte), licenza **inviata subito** ai siti dopo ogni cambio (`licence push`), **Siti da aggiornare** in fila con stop al primo errore (`aggiorna-siti`), `cliente percorso`, avviso backup solo su questo PC. Registro invariato |
 | 0.8 | 2026-11-06 | i siti online portano chiave pubblica e licenza corrente (ogni deploy consegna sospensioni e rinnovi), senza cambiare l'identità del codice per la promozione |
 | 0.7 | 2026-11-05 | licenze a distanza (sospendi/riattiva/revoca/modifica), rinnovo automatico breve, canale delle licenze, esportazione cifrata `.docmap-hub` |
 | 0.6 | 2026-11-05 | deploy e promozione dal gestionale con rollback automatico, cassaforte e segreti per sito, backup automatici |

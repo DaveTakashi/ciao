@@ -1,6 +1,14 @@
 # Wiki di DocMap Hub
 
-Vale per **hub 0.7.0**, **DocMap 26.12.5 (app v12.5)** e **strumenti di installazione 1.2.0**. Data: 5 novembre 2026.
+Vale per **hub 0.9.0**, **DocMap 26.12.7 (app v12.7)** e **strumenti di installazione 1.2.0**. Data: 6 novembre 2026.
+
+> **Novità 0.9.** **Nuovo cliente** guidato senza AI e **Percorso del cliente** con il prossimo passo e il suo pulsante;
+> **Configura il sito** (l'hub lancia `setup.php` e mette i codici in cassaforte, niente copia-incolla); licenza
+> **inviata subito** ai siti online dopo ogni cambio; **Siti da aggiornare** tutti in fila con stop al primo errore;
+> `setup.php` propone una cartella dati **per ogni sito** (capitolo 6.00). Aggiornamento: `AGGIORNAMENTO-HUB-0.9.md`;
+> perché: `AUTOCRITICA-HUB-0.9.md`.
+
+> **Novità 0.8.** I siti online costruiti dal hub portano chiave pubblica e licenza: il server PHP controlla la licenza.
 
 > **Novità 0.7.** Controllo delle licenze a distanza: **sospendi**, **riattiva**, **revoca**, **modifica** limiti e funzioni, **rinnovo automatico** con licenze brevi; **canale delle licenze** da cui i server Python scaricano da soli la licenza nuova; **esportazione cifrata** di tutto l'hub (capitolo 6.14). Aggiornamento: `AGGIORNAMENTO-HUB-0.7.md`.
 
@@ -209,7 +217,38 @@ Dove serve `--instance` puoi scrivere il nome completo (es. `"STUDIO ERMETE DALL
 **oppure le prime cifre del codice** mostrato da `instance list` (es. `--instance a2a6383d`): per un agente è più sicuro
 il codice.
 
-### 6.0 Crea progetto con AI (consigliato, dalla 0.5)
+### 6.00 Nuovo cliente e Percorso del cliente (consigliato, dalla 0.9)
+
+1. **Nuovo cliente** (Panoramica o Clienti): ragione sociale, P.IVA, spunta **Sito online** e/o **Server in sede** →
+   **Avanti: percorso guidato**. Si aprono le stesse 6 maschere del capitolo 6.0, ma vuote: **nessuna AI serve**.
+   Riempi, scrivi la password FTP nel Riepilogo e premi **Conferma e crea il progetto**.
+2. Nella scheda del cliente, in alto, c'è il **Percorso del cliente**: una barra «3 di 6», il **prossimo passo** con
+   il suo pulsante e l'elenco di tutti i passi. Basta seguire il pulsante:
+   - **Pubblica** (sito di prova o di produzione): il solito deploy, prova → conferma, con backup e ritorno automatico;
+   - **Configura il sito**: l'hub lancia `setup.php` del sito e mette in cassaforte i codici di `admin`, di
+     `ponte-sync` (solo se c'è la sede) e delle persone del progetto (più quelle che scrivi nel riquadro). Il database
+     va in una cartella tutta sua fuori dal sito. Alla fine **scarica config.php** e consegnalo al cliente (l'hub lo
+     tiene solo con la custodia autorizzata). Si fa **una volta** per sito;
+   - **Pubblica in produzione**: la promozione della versione già provata sullo staging;
+   - **Controlla adesso**: ping di tutti i siti;
+   - sede: pacchetto → `installa.bat` sul PC del cliente → scrivi l'indirizzo del server (`https://IP:8443/`) → ponte.
+3. In **Panoramica → Da fare** c'è una riga per ogni cliente ancora a metà percorso («Studio Rossi: sito di produzione
+   configurato»): un clic apre la sua scheda.
+
+Lo stesso dalla riga di comando: `cliente percorso --cliente "Studio Rossi"` (passi fatti e prossimo passo),
+`configura-sito --instance "Studio Rossi — online" --env staging --config-out E:\config-prova.php`.
+
+**Licenze ai siti, subito.** Da Licenze → una licenza: *Sospendi*, *Riattiva*, *Rinnova*, *Modifica* caricano da soli
+la licenza nuova su ogni sito online dell'installazione (serve la cassaforte aperta e l'accesso FTP) e l'hub ti dice
+cosa risponde il sito («sola lettura», «valida»). Pulsante **Invia ai siti** per rifarlo a mano;
+`licence push "<installazione>"` dalla riga di comando. Il server in sede la riceve come prima (canale o file).
+
+**Tutti i siti a una versione nuova.** Deploy → **Siti da aggiornare**: l'elenco dei siti di produzione più vecchi della
+versione del hub; scegli e premi **Aggiorna i siti scelti**. Uno dopo l'altro, con backup e ritorno automatico; al
+primo errore si ferma e gli altri restano come sono. Riga di comando: `aggiorna-siti` (`--yes`, `--anche-staging`).
+Prima prova la versione su uno staging.
+
+### 6.0 Crea progetto con AI (dalla 0.5; utile se hai già i dati in un documento o in una chat)
 
 1. Nella pagina premi **Crea progetto con AI** (in alto a sinistra).
 2. **Copia prompt per l'AI** e incollalo in una chat nuova di qualsiasi AI (Claude, ChatGPT, Gemini, un modello locale,
@@ -538,6 +577,11 @@ Codici di uscita: `0` riuscito, `1` errore (messaggio su stderr che inizia con "
 | `cliente scheda` | rifà la scheda | `--cliente`, `--con-segreti` |
 | `cliente token-ponte` | token del ponte | `--cliente`, `--salva`, `--esporta FILE` |
 | `cliente elenco` | clienti e cartelle | |
+| `cliente percorso` | passi fatti e prossimo passo (0.9) | `--cliente` |
+| `configura-sito` | lancia `setup.php` del sito, codici in cassaforte (0.9) | `--instance --env`, `--persone "mario,editor;…"`, `--config-out FILE` |
+| `licence push` | carica subito la licenza sui siti online (0.9) | `<installazione>` |
+| `licence suspend\|revoke\|reactivate\|publish` | controllo a distanza (0.7) | `<installazione>`, `--reason`, `--months` |
+| `aggiorna-siti` | tutti i siti di produzione alla versione del hub, stop al primo errore (0.9) | `--yes`, `--anche-staging` |
 | `vault init\|status\|list` | cassaforte | `list --instance` |
 | `vault set` | salva/sostituisce un segreto | `--instance --env --kind`, `--label`, `--field nome=valore`, `--json-file`, `--content-file` |
 | `vault reveal` | mostra un segreto (registrato) | `--instance --env --kind --label --reason` |

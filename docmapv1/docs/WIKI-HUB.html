@@ -13,7 +13,7 @@ pre{background:var(--box);padding:10px 12px;border-radius:6px;overflow-x:auto} p
 @media (max-width:820px){.wrap{display:block} nav{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line)} main{padding:16px}}
 @media print{nav{display:none} .wrap{display:block}}
 </style></head><body><div class="wrap"><nav><b>Wiki DocMap Hub</b><div class="toc">
-
+<div class="toc">
 <ul>
 <li><a href="#wiki-di-docmap-hub">Wiki di DocMap Hub</a><ul>
 <li><a href="#indice">Indice</a></li>
@@ -26,7 +26,8 @@ pre{background:var(--box);padding:10px 12px;border-radius:6px;overflow-x:auto} p
 <li><a href="#4-accesso-automatico-una-sola-passphrase-mai-piu-richieste">4. Accesso automatico: una sola passphrase, mai più richieste</a></li>
 <li><a href="#5-le-parole-del-hub">5. Le parole del hub</a></li>
 <li><a href="#6-ricette-passo-per-passo">6. Ricette passo per passo</a><ul>
-<li><a href="#60-crea-progetto-con-ai-consigliato-dalla-05">6.0 Crea progetto con AI (consigliato, dalla 0.5)</a></li>
+<li><a href="#600-nuovo-cliente-e-percorso-del-cliente-consigliato-dalla-09">6.00 Nuovo cliente e Percorso del cliente (consigliato, dalla 0.9)</a></li>
+<li><a href="#60-crea-progetto-con-ai-dalla-05-utile-se-hai-gia-i-dati-in-un-documento-o-in-una-chat">6.0 Crea progetto con AI (dalla 0.5; utile se hai già i dati in un documento o in una chat)</a></li>
 <li><a href="#61-cliente-nuovo-con-sede-e-online-il-caso-del-pilota">6.1 Cliente nuovo con sede e online (il caso del pilota)</a></li>
 <li><a href="#62-solo-sede-o-solo-online">6.2 Solo sede o solo online</a></li>
 <li><a href="#63-correggere-i-dati-ftp-di-un-ambiente">6.3 Correggere i dati FTP di un ambiente</a></li>
@@ -61,9 +62,16 @@ pre{background:var(--box);padding:10px 12px;border-radius:6px;overflow-x:auto} p
 </li>
 </ul>
 </div>
+</div>
 </nav><main><h1 id="wiki-di-docmap-hub">Wiki di DocMap Hub</h1>
-<p>Vale per <strong>hub 0.7.0</strong>, <strong>DocMap 26.12.5 (app v12.5)</strong> e <strong>strumenti di installazione 1.2.0</strong>. Data: 5 novembre 2026.</p>
+<p>Vale per <strong>hub 0.9.0</strong>, <strong>DocMap 26.12.7 (app v12.7)</strong> e <strong>strumenti di installazione 1.2.0</strong>. Data: 6 novembre 2026.</p>
 <blockquote>
+<p><strong>Novità 0.9.</strong> <strong>Nuovo cliente</strong> guidato senza AI e <strong>Percorso del cliente</strong> con il prossimo passo e il suo pulsante;
+<strong>Configura il sito</strong> (l'hub lancia <code>setup.php</code> e mette i codici in cassaforte, niente copia-incolla); licenza
+<strong>inviata subito</strong> ai siti online dopo ogni cambio; <strong>Siti da aggiornare</strong> tutti in fila con stop al primo errore;
+<code>setup.php</code> propone una cartella dati <strong>per ogni sito</strong> (capitolo 6.00). Aggiornamento: <code>AGGIORNAMENTO-HUB-0.9.md</code>;
+perché: <code>AUTOCRITICA-HUB-0.9.md</code>.</p>
+<p><strong>Novità 0.8.</strong> I siti online costruiti dal hub portano chiave pubblica e licenza: il server PHP controlla la licenza.</p>
 <p><strong>Novità 0.7.</strong> Controllo delle licenze a distanza: <strong>sospendi</strong>, <strong>riattiva</strong>, <strong>revoca</strong>, <strong>modifica</strong> limiti e funzioni, <strong>rinnovo automatico</strong> con licenze brevi; <strong>canale delle licenze</strong> da cui i server Python scaricano da soli la licenza nuova; <strong>esportazione cifrata</strong> di tutto l'hub (capitolo 6.14). Aggiornamento: <code>AGGIORNAMENTO-HUB-0.7.md</code>.</p>
 <p><strong>Novità 0.6.</strong> Si pubblica tutto dal gestionale: <strong>deploy</strong> di staging e produzione e <strong>promozione</strong> con prova, piano, conferma, avanzamento e ripristino automatico; <strong>cassaforte</strong> aperta dalla barra laterale e accessi salvati dalla scheda del sito; <strong>Aggiungi sito o server</strong> dal progetto; <strong>backup automatici</strong> dell'hub con seconda cartella (capitolo 6.13). Aggiornamento: <code>AGGIORNAMENTO-HUB-0.6.md</code>.</p>
 <p><strong>Novità 0.5 (il nuovo gestionale).</strong> La pagina dell'hub è ora un'applicazione organizzata per <strong>cliente</strong>: Panoramica, Clienti → scheda del cliente (progetto, siti, postazioni, licenze, accessi, storico), Istanze, Licenze, Deploy, ricerca <strong>Ctrl+K</strong>. <strong>Crea progetto con AI</strong> (capitolo 6.0) crea cliente, progetto, ambienti, licenza e postazioni da un JSON preparato con qualsiasi AI. La passphrase si scrive <strong>solo nel browser</strong>, una volta, e con <strong>Ricorda su questo PC</strong> non viene più chiesta. Aggiornamento dalla 0.3: <code>AGGIORNAMENTO-HUB-0.3-0.5.md</code>.</p>
@@ -391,7 +399,35 @@ cifrato (BitLocker). Non attivarlo su un PC condiviso.</p>
 Dove serve <code>--instance</code> puoi scrivere il nome completo (es. <code>"STUDIO ERMETE DALL'ASTA — online"</code>, con il trattino lungo)
 <strong>oppure le prime cifre del codice</strong> mostrato da <code>instance list</code> (es. <code>--instance a2a6383d</code>): per un agente è più sicuro
 il codice.</p>
-<h3 id="60-crea-progetto-con-ai-consigliato-dalla-05">6.0 Crea progetto con AI (consigliato, dalla 0.5)</h3>
+<h3 id="600-nuovo-cliente-e-percorso-del-cliente-consigliato-dalla-09">6.00 Nuovo cliente e Percorso del cliente (consigliato, dalla 0.9)</h3>
+<ol>
+<li><strong>Nuovo cliente</strong> (Panoramica o Clienti): ragione sociale, P.IVA, spunta <strong>Sito online</strong> e/o <strong>Server in sede</strong> →
+   <strong>Avanti: percorso guidato</strong>. Si aprono le stesse 6 maschere del capitolo 6.0, ma vuote: <strong>nessuna AI serve</strong>.
+   Riempi, scrivi la password FTP nel Riepilogo e premi <strong>Conferma e crea il progetto</strong>.</li>
+<li>Nella scheda del cliente, in alto, c'è il <strong>Percorso del cliente</strong>: una barra «3 di 6», il <strong>prossimo passo</strong> con
+   il suo pulsante e l'elenco di tutti i passi. Basta seguire il pulsante:</li>
+<li><strong>Pubblica</strong> (sito di prova o di produzione): il solito deploy, prova → conferma, con backup e ritorno automatico;</li>
+<li><strong>Configura il sito</strong>: l'hub lancia <code>setup.php</code> del sito e mette in cassaforte i codici di <code>admin</code>, di
+     <code>ponte-sync</code> (solo se c'è la sede) e delle persone del progetto (più quelle che scrivi nel riquadro). Il database
+     va in una cartella tutta sua fuori dal sito. Alla fine <strong>scarica config.php</strong> e consegnalo al cliente (l'hub lo
+     tiene solo con la custodia autorizzata). Si fa <strong>una volta</strong> per sito;</li>
+<li><strong>Pubblica in produzione</strong>: la promozione della versione già provata sullo staging;</li>
+<li><strong>Controlla adesso</strong>: ping di tutti i siti;</li>
+<li>sede: pacchetto → <code>installa.bat</code> sul PC del cliente → scrivi l'indirizzo del server (<code>https://IP:8443/</code>) → ponte.</li>
+<li>In <strong>Panoramica → Da fare</strong> c'è una riga per ogni cliente ancora a metà percorso («Studio Rossi: sito di produzione
+   configurato»): un clic apre la sua scheda.</li>
+</ol>
+<p>Lo stesso dalla riga di comando: <code>cliente percorso --cliente "Studio Rossi"</code> (passi fatti e prossimo passo),
+<code>configura-sito --instance "Studio Rossi — online" --env staging --config-out E:\config-prova.php</code>.</p>
+<p><strong>Licenze ai siti, subito.</strong> Da Licenze → una licenza: <em>Sospendi</em>, <em>Riattiva</em>, <em>Rinnova</em>, <em>Modifica</em> caricano da soli
+la licenza nuova su ogni sito online dell'installazione (serve la cassaforte aperta e l'accesso FTP) e l'hub ti dice
+cosa risponde il sito («sola lettura», «valida»). Pulsante <strong>Invia ai siti</strong> per rifarlo a mano;
+<code>licence push "&lt;installazione&gt;"</code> dalla riga di comando. Il server in sede la riceve come prima (canale o file).</p>
+<p><strong>Tutti i siti a una versione nuova.</strong> Deploy → <strong>Siti da aggiornare</strong>: l'elenco dei siti di produzione più vecchi della
+versione del hub; scegli e premi <strong>Aggiorna i siti scelti</strong>. Uno dopo l'altro, con backup e ritorno automatico; al
+primo errore si ferma e gli altri restano come sono. Riga di comando: <code>aggiorna-siti</code> (<code>--yes</code>, <code>--anche-staging</code>).
+Prima prova la versione su uno staging.</p>
+<h3 id="60-crea-progetto-con-ai-dalla-05-utile-se-hai-gia-i-dati-in-un-documento-o-in-una-chat">6.0 Crea progetto con AI (dalla 0.5; utile se hai già i dati in un documento o in una chat)</h3>
 <ol>
 <li>Nella pagina premi <strong>Crea progetto con AI</strong> (in alto a sinistra).</li>
 <li><strong>Copia prompt per l'AI</strong> e incollalo in una chat nuova di qualsiasi AI (Claude, ChatGPT, Gemini, un modello locale,
@@ -800,6 +836,31 @@ Codici di uscita: <code>0</code> riuscito, <code>1</code> errore (messaggio su s
 <td><code>cliente elenco</code></td>
 <td>clienti e cartelle</td>
 <td></td>
+</tr>
+<tr>
+<td><code>cliente percorso</code></td>
+<td>passi fatti e prossimo passo (0.9)</td>
+<td><code>--cliente</code></td>
+</tr>
+<tr>
+<td><code>configura-sito</code></td>
+<td>lancia <code>setup.php</code> del sito, codici in cassaforte (0.9)</td>
+<td><code>--instance --env</code>, <code>--persone "mario,editor;…"</code>, <code>--config-out FILE</code></td>
+</tr>
+<tr>
+<td><code>licence push</code></td>
+<td>carica subito la licenza sui siti online (0.9)</td>
+<td><code>&lt;installazione&gt;</code></td>
+</tr>
+<tr>
+<td><code>licence suspend\|revoke\|reactivate\|publish</code></td>
+<td>controllo a distanza (0.7)</td>
+<td><code>&lt;installazione&gt;</code>, <code>--reason</code>, <code>--months</code></td>
+</tr>
+<tr>
+<td><code>aggiorna-siti</code></td>
+<td>tutti i siti di produzione alla versione del hub, stop al primo errore (0.9)</td>
+<td><code>--yes</code>, <code>--anche-staging</code></td>
 </tr>
 <tr>
 <td><code>vault init\|status\|list</code></td>

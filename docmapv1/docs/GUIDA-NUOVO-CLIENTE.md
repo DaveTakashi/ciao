@@ -1,15 +1,22 @@
 # DocMap — Nuovo cliente, dall'inizio alla fine
 
-Guida per Dave. Vale per **DocMap 26.12.5 (app v12.5)**, **hub 0.3 e successivi (aggiornata per la 0.7)**, **strumenti di installazione 1.2.0**.
-(Per aggiornare uno studio che ha già la v12.4: `docs/AGGIORNAMENTO-v12.4-v12.5.md` — nessuna migrazione dei dati.)
+Guida per Dave. Vale per **DocMap 26.12.7 (app v12.7)**, **hub 0.9**, **strumenti di installazione 1.2.0**.
+(Per aggiornare uno studio esistente: `docs/AGGIORNAMENTO-v12.6-v12.7.md`; il hub: `docs/AGGIORNAMENTO-HUB-0.9.md`.)
 
-> **Con l'hub 0.5 c'è una strada più comoda**: nella pagina dell'hub premi **Crea progetto con AI** (wiki, capitolo 6.0).
-> Fa le stesse cose di `cliente nuovo` (stesso motore), più postazioni con nome, anagrafica completa e autoinstall web.
-> Questa guida resta valida per i passi dopo (caricare il sito, installare in sede, collegare sede e online).
+## In breve: dalla pagina del hub (consigliato)
 
-In breve: **un comando sul tuo PC** (`cliente nuovo`) registra il cliente, emette le licenze e prepara tutto quello
-che serve in una cartella: il **pacchetto di installazione personale** per il PC del cliente, il **sito** da
-caricare sull'hosting e la **scheda cliente** da stampare. Poi: carichi il sito, installi in sede, colleghi i due.
+1. Doppio clic su `run_windows.bat` (la prima volta un solo modulo crea la passphrase, la chiave di firma e la cassaforte).
+2. **Nuovo cliente** → ragione sociale, P.IVA, «sito online» e/o «server in sede» → 6 maschere con «Avanti» →
+   **Conferma**. L'hub registra il cliente, emette le licenze e prepara pacchetto della sede e siti.
+3. Nella scheda del cliente il **Percorso del cliente** mostra sempre il **prossimo passo con il suo pulsante**:
+   *Pubblica* il sito di prova → *Configura il sito* (l'hub lancia `setup.php` e mette i codici in cassaforte) →
+   *Pubblica in produzione* → *Configura il sito* → *Controlla*. Per la sede: pacchetto → `installa.bat` sul PC del
+   cliente → indirizzo del server → ponte.
+4. Alla fine di ogni «Configura il sito» scarica la copia di `config.php` e consegnala al cliente (l'hub non la tiene,
+   salvo custodia autorizzata).
+
+Tutto il resto di questa guida spiega gli stessi passi in dettaglio e con i comandi equivalenti (per automazioni o per
+l'agente). Prima di tutto, sull'hosting, servono cartella, SSL e account FTP (§2, punto 1): quelli l'hub non li può creare.
 
 Parole usate:
 
@@ -24,10 +31,10 @@ Parole usate:
 ## 0. Una volta sola, sul tuo PC
 
 1. Installa **Python 3.11 o più recente** da <https://www.python.org/downloads/> e spunta **"Add python.exe to PATH"**.
-2. Estrai lo zip **`DocMap-hub-0.7.zip` (o la versione più recente)** dove vuoi, per esempio `C:\DocMapHub\`. Dentro c'è la cartella completa
-   `DocMap-hub-0.7\` (hub, installer, server, sito): il hub la usa per costruire pacchetti e siti, **non spostare le
+2. Estrai lo zip **`DocMap-hub-0.9.zip` (o la versione più recente)** dove vuoi, per esempio `C:\DocMapHub\`. Dentro c'è la cartella completa
+   `DocMap-hub-0.9\` (hub, installer, server, sito): il hub la usa per costruire pacchetti e siti, **non spostare le
    sottocartelle**.
-3. Apri `DocMap-hub-0.7\hub\`, scrivi `cmd` nella barra dell'indirizzo di Esplora file e premi Invio. Nella finestra:
+3. Apri `DocMap-hub-0.9\hub\`, scrivi `cmd` nella barra dell'indirizzo di Esplora file e premi Invio. Nella finestra:
 
    ```bat
    run_windows.bat init
@@ -46,7 +53,9 @@ Parole usate:
 4. Facoltativo: per il deploy via SFTP, `.venv\Scripts\python.exe -m pip install paramiko` (FTPS non serve).
 
 Da qui in poi puoi usare la riga di comando (`run_windows.bat <comando>`) **oppure la pagina del hub**: doppio clic su
-`run_windows.bat` → passphrase → si apre il browser; la scheda **Nuovo cliente** fa le stesse cose del comando.
+`run_windows.bat` → passphrase → si apre il browser; **Nuovo cliente** fa le stesse cose del comando, con le maschere.
+Con la pagina i comandi di questo capitolo non servono: il primo avvio chiede una passphrase e crea chiave e cassaforte;
+i backup automatici partono da soli (scegli una **seconda cartella** in Impostazioni → Backup: chiavetta o cloud).
 
 ## 1. Creare il cliente: `cliente nuovo`
 
@@ -127,7 +136,18 @@ Salta questo capitolo se il cliente ha solo la sede.
 
    Il hub fa prima un backup di ciò che c'è sul server, carica in FTPS, controlla che risponda e, se no, rimette
    tutto com'era. In alternativa puoi caricare a mano il contenuto dello zip con un programma FTP (FileZilla, in FTPS).
-3. **setup.php, una volta per ambiente**: apri `https://…/studio-rossi-prova/server-php/setup.php`.
+3. **Configura il sito, una volta per ambiente** (dalla 0.9 lo fa l'hub): nel percorso del cliente premi **Configura
+   il sito**, oppure
+
+   ```bat
+   run_windows.bat configura-sito --instance "Studio Rossi — online" --env staging --config-out E:\config-prova.php
+   ```
+
+   L'hub lancia `setup.php`, crea il database in una cartella tutta sua (`docmap-data/studio-rossi-prova`, fuori dal
+   sito) e mette in cassaforte i codici di `admin`, di `ponte-sync` (se c'è la sede) e delle persone del progetto.
+   `config.php` (chiave del database) va **al cliente**: con la pagina lo scarichi alla fine, con il comando lo scrive
+   in `--config-out`. Nient'altro da copiare. Se preferisci farlo a mano, il vecchio modo resta valido:
+   apri `https://…/studio-rossi-prova/server-php/setup.php`.
    - Cartella dati: **fuori** da `public_html` (setup.php la propone). Se nella cartella c'è già un `docmap.sqlite`,
      setup.php **rifiuta** di creare una chiave nuova (protegge i dati esistenti).
    - Persone: una per riga, per esempio
@@ -154,8 +174,8 @@ Salta questo capitolo se il cliente ha solo la sede.
    run_windows.bat promote --instance "Studio Rossi — online"
    ```
 
-   poi **setup.php anche su production** (punto 3: è un database diverso, con i suoi token; salva quelli di
-   production). Senza staging: `deploy --env production` e poi setup.php.
+   poi **Configura il sito anche su production** (punto 3: è un database diverso, con i suoi codici). Senza staging:
+   `deploy --env production` e poi `configura-sito --env production`.
 
 ## 3. Sede: installazione sul PC del cliente
 
@@ -240,12 +260,16 @@ da solo in ogni pacchetto.
 
 ## 7. Rinnovi e aggiornamenti
 
+- **Licenza dei siti online**: dalla 0.9 ogni rinnovo, sospensione, riattivazione o modifica fatta dalla pagina
+  arriva **subito** ai siti (l'hub carica il file via FTP e ti dice cosa risponde il sito). Dalla riga di comando:
+  `run_windows.bat licence push "Studio Rossi — online"`.
 - **Rinnovo licenza** (il hub mostra le scadenze in `status` e nella pagina Licenze):
   `run_windows.bat licence renew "Studio Rossi — sede"` → nuovo file in `issued\` → al cliente (email o chiavetta) →
   in sede `C:\DocMap\strumenti\licenza.ps1 -File <file>` (il server lo vede subito). Scaduta: 30 giorni di tolleranza,
   poi **sola lettura** (mai dati bloccati).
-- **Nuova versione del sito**: estrai il nuovo zip del hub, poi `deploy --env staging`, prova, `promote`. config.php,
-  dati e setup già fatto non vengono mai toccati.
+- **Nuova versione del sito**: estrai il nuovo zip del hub, prova su uno staging (`deploy --env staging`, `promote`),
+  poi per tutti gli altri: pagina **Deploy → Siti da aggiornare** (o `run_windows.bat aggiorna-siti`): uno alla volta,
+  con backup e ritorno automatico, stop al primo errore. config.php, dati e setup già fatto non vengono mai toccati.
 - **Nuova versione in sede**: `run_windows.bat cliente nuovo …(stessi dati)… --rigenera` per un pacchetto personale
   nuovo (o un pacchetto generico: le chiavi pubbliche già installate restano), poi sul PC del cliente
   `C:\DocMap\strumenti\aggiorna.ps1 -Pacchetto <zip>`: backup, sostituzione, prova, e ritorno automatico alla versione
@@ -261,7 +285,8 @@ Tutto quanto sopra è provato su Linux con test automatici (hub, installer, serv
 - hosting reale: `deploy`/`promote` FTPS verso SiteGround con i siti preparati da `cliente nuovo`, setup.php sul
   sottodominio del cliente;
 - telefoni reali con il certificato dello studio; il ponte contro il sito vero (fai sempre prima la prova);
-- la pagina **Nuovo cliente** del hub su Windows (provata solo su Linux).
+- la pagina del hub su Windows (provata solo su Linux), **Configura il sito** e **Invia ai siti** contro SiteGround vero
+  (provati con PHP 8.3 reale dietro HTTPS, non con l'FTPS e il `DOCUMENT_ROOT` di SiteGround).
 
 Primo cliente: fallo prima su un PC di prova e con un sottodominio di prova, seguendo questa guida passo passo, e
 annota ogni differenza.

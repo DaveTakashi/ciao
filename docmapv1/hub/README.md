@@ -1,4 +1,12 @@
-# DocMap Hub — gestionale di clienti, progetti, installazioni, licenze e deploy (v0.5)
+# DocMap Hub — gestionale di clienti, progetti, installazioni, licenze e deploy (v0.9)
+
+> **Novità 0.9** — **Nuovo cliente** guidato senza AI, **Percorso del cliente** con il prossimo passo e il suo pulsante,
+> **Configura il sito** (l'hub lancia `setup.php` e mette i codici in cassaforte: niente più copia-incolla), licenza
+> **inviata subito** ai siti dopo sospensione/riattivazione/rinnovo, **Siti da aggiornare** tutti in fila. Comandi:
+> `configura-sito`, `licence push`, `aggiorna-siti`, `cliente percorso`. Aggiornamento:
+> [`../docs/AGGIORNAMENTO-HUB-0.9.md`](../docs/AGGIORNAMENTO-HUB-0.9.md); perché: [`../docs/AUTOCRITICA-HUB-0.9.md`](../docs/AUTOCRITICA-HUB-0.9.md).
+> Il modo consigliato è la **pagina** (doppio clic su `run_windows.bat`): la prima volta un solo modulo crea chiave di
+> firma e cassaforte. I comandi qui sotto restano per automazioni e per l'agente.
 
 > **Novità 0.5** — la pagina è un **gestionale per cliente** (Panoramica, Clienti → scheda progetto, Istanze, Licenze,
 > Deploy, Ctrl+K), con **Crea progetto con AI** (prompt da copiare in qualsiasi AI → JSON `docmap-progetto/1` → maschere
