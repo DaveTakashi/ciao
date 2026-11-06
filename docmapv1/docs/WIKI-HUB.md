@@ -1,6 +1,11 @@
 # Wiki di DocMap Hub
 
-Vale per **hub 0.9.0**, **DocMap 26.12.7 (app v12.7)** e **strumenti di installazione 1.2.0**. Data: 6 novembre 2026.
+Vale per **hub 0.10.0**, **DocMap 26.12.7 (app v12.7)** e **strumenti di installazione 1.2.0**. Data: 6 novembre 2026.
+
+> **Novità 0.10.** **Modelli cliente** (10 pronti, si creano e si cambiano dalle maschere), **Hosting predefinito**
+> (dominio e FTP scritti una volta), **Attiva tutto** (pubblica e configura demo e sito in fila) e **Kit di consegna**
+> (un solo zip con lettere di benvenuto, codici e copie di `config.php`): un cliente online in **5 clic** (capitolo
+> 6.000). Aggiornamento: `AGGIORNAMENTO-HUB-0.10.md`; perché: `AUTOCRITICA-HUB-0.10.md`.
 
 > **Novità 0.9.** **Nuovo cliente** guidato senza AI e **Percorso del cliente** con il prossimo passo e il suo pulsante;
 > **Configura il sito** (l'hub lancia `setup.php` e mette i codici in cassaforte, niente copia-incolla); licenza
@@ -217,7 +222,47 @@ Dove serve `--instance` puoi scrivere il nome completo (es. `"STUDIO ERMETE DALL
 **oppure le prime cifre del codice** mostrato da `instance list` (es. `--instance a2a6383d`): per un agente è più sicuro
 il codice.
 
-### 6.00 Nuovo cliente e Percorso del cliente (consigliato, dalla 0.9)
+### 6.000 Cliente nuovo da un modello, in 5 clic (consigliato, dalla 0.10)
+
+**Una volta sola:** Impostazioni → **Hosting predefinito** → dominio (`https://docmap.pr-it.it/`), server e utente FTP,
+password (va in cassaforte), cartella base come la vede l'account FTP (di solito `/`), suffisso della demo (`-demo`).
+
+**Per ogni cliente:**
+
+1. **Nuovo cliente** → ragione sociale e P.IVA → scegli il **modello** (quello proposto è già scelto) → **Crea il
+   cliente**. L'indirizzo viene dal nome: «Studio Neri S.r.l.» → `https://docmap.pr-it.it/studio-neri/` (e
+   `studio-neri-demo/` se il modello ha la demo). Se il nome è già usato da un altro cliente l'hub prende
+   `studio-neri-2`: due clienti non hanno mai lo stesso sito.
+2. Nella stessa finestra: l'elenco dei passi e **Attiva tutto** (è la conferma). In fila: pubblica la demo →
+   configura la demo → pubblica in produzione la versione provata → configura → controlla. Pubblica **solo su cartelle
+   vuote**; ogni deploy ha backup e ritorno automatico; al primo errore si ferma e dice dove.
+3. **Scarica il kit di consegna**: un solo zip con `1-lettere-di-benvenuto.html` (una pagina per persona: indirizzo,
+   codice, primo accesso), `2-scheda-tecnica.html` (tutti i codici, anche `admin` e `ponte-sync`), la scheda cliente e
+   `config/…-config.php` (chiave del database, se non c'è la custodia). L'hub non lo salva: consegnalo e cancella la
+   copia. Lo rifai quando vuoi dalla scheda del cliente (**Kit di consegna**, senza config.php).
+
+**Modelli.** Dieci pronti: commercialista solo online, online con demo, sede + online, solo sede; studio grande; conto
+terzi online e sede + online; prova gratuita 30 giorni; cliente di un rivenditore; appliance. Per cambiarne uno:
+Nuovo cliente → scegli il modello → **Rivedi i passi prima di creare** → modifica (piano, demo, persone, archivi,
+etichette…) → **Salva nel modello** oppure **Salva come nuovo modello**. Impostazioni → Modelli cliente: rinomina,
+elimina, «Proponi per primo», «Ripristina i predefiniti». Nome, P.IVA e contatti del cliente non entrano mai in un
+modello; cambiare un modello non tocca i clienti già creati.
+
+**Eccezioni.** Nel passo «Online» delle maschere: **Sul tuo hosting** (predefinito), **FTP del cliente** (suo hosting:
+host, utente, cartella; la password nel Riepilogo), **Nessun FTP** (autoinstall a mano). Spunta **Sito demo** per
+aggiungerla (indirizzo e cartella si compilano da soli) e **La demo usa un altro account FTP** se serve.
+
+**Riga di comando (tutto in un comando):**
+
+```bat
+run_windows.bat hosting --dominio https://docmap.pr-it.it/ --host ftp.pr-it.it --utente docmap@pr-it.it --cartella / --password
+run_windows.bat modelli
+run_windows.bat cliente da-modello --nome "Studio Neri S.r.l." --piva 01234567890 --modello "Commercialista · online con demo" --attiva --kit-out E:\
+run_windows.bat cliente attiva --cliente "Studio Neri S.r.l." --kit-out E:\
+run_windows.bat cliente kit --cliente "Studio Neri S.r.l." --out E:\
+```
+
+### 6.00 Nuovo cliente e Percorso del cliente (dalla 0.9)
 
 1. **Nuovo cliente** (Panoramica o Clienti): ragione sociale, P.IVA, spunta **Sito online** e/o **Server in sede** →
    **Avanti: percorso guidato**. Si aprono le stesse 6 maschere del capitolo 6.0, ma vuote: **nessuna AI serve**.
@@ -578,6 +623,11 @@ Codici di uscita: `0` riuscito, `1` errore (messaggio su stderr che inizia con "
 | `cliente token-ponte` | token del ponte | `--cliente`, `--salva`, `--esporta FILE` |
 | `cliente elenco` | clienti e cartelle | |
 | `cliente percorso` | passi fatti e prossimo passo (0.9) | `--cliente` |
+| `cliente da-modello` | cliente nuovo da un modello; con `--attiva` anche pubblicato, configurato e kit (0.10) | `--nome`, `--piva`, `--modello`, `--attiva`, `--kit-out FILE\|CARTELLA`, `--senza-pacchetti` |
+| `cliente attiva` | «Attiva tutto»: i passi online che mancano, stop al primo errore (0.10) | `--cliente`, `--kit-out` |
+| `cliente kit` | kit di consegna (lettere, scheda tecnica, scheda cliente) (0.10) | `--cliente`, `--out` |
+| `modelli` | elenco dei modelli cliente (0.10) | `mostra <modello>`, `importa --nome --file`, `elimina`, `predefinito`, `ripristina` |
+| `hosting` | hosting predefinito: dominio e FTP comuni (0.10) | `--dominio --host --utente --cartella --protocollo --porta --suffisso-demo --password`, `--togli` |
 | `configura-sito` | lancia `setup.php` del sito, codici in cassaforte (0.9) | `--instance --env`, `--persone "mario,editor;…"`, `--config-out FILE` |
 | `licence push` | carica subito la licenza sui siti online (0.9) | `<installazione>` |
 | `licence suspend\|revoke\|reactivate\|publish` | controllo a distanza (0.7) | `<installazione>`, `--reason`, `--months` |

@@ -1003,6 +1003,169 @@ def cmd_percorso(hub: Hub, args) -> int:
     return 0
 
 
+# ---------------------------------------------------------------------------
+# v0.10: customer templates, default hosting, a customer from a template, «Attiva tutto», kit
+# ---------------------------------------------------------------------------
+
+def cmd_modelli(hub: Hub, args) -> int:
+    from . import templates as T
+    rows = T.list_templates(hub.registry)
+    table([[("* " if t["default"] else "  ") + t["name"], ", ".join(t["summary"]["installazioni"]),
+            t["summary"]["piano"], "sì" if t["summary"]["demo"] else "no", t["summary"]["ftp"] or "-", t["id"]]
+           for t in rows], ["modello (* = predefinito)", "installazioni", "piano", "demo", "ftp", "id"])
+    return 0
+
+
+def cmd_modelli_mostra(hub: Hub, args) -> int:
+    from . import templates as T
+    t = T.get(hub.registry, args.modello)
+    print(json.dumps({"id": t["id"], "nome": t["name"], "descrizione": t["description"], "dati": t["data"]},
+                     ensure_ascii=False, indent=2))
+    return 0
+
+
+def cmd_modelli_importa(hub: Hub, args) -> int:
+    from . import templates as T
+    data = json.loads(Path(args.file).read_text("utf-8"))
+    data = data.get("dati", data)
+    try:
+        t = T.get(hub.registry, args.nome)
+        T.save(hub.registry, t["id"], data=data, description=args.descrizione)
+        out(f"Modello aggiornato: {t['name']}")
+    except T.TemplateError:
+        t = T.create(hub.registry, args.nome, data, args.descrizione or "")
+        out(f"Modello creato: {t['name']} ({t['id']})")
+    return 0
+
+
+def cmd_modelli_elimina(hub: Hub, args) -> int:
+    from . import templates as T
+    t = T.get(hub.registry, args.modello)
+    if not confirm_yes(args, f"Elimino il modello «{t['name']}»? (i clienti creati con lui non cambiano)"):
+        return 1
+    T.delete(hub.registry, t["id"])
+    out("Modello eliminato.")
+    return 0
+
+
+def cmd_modelli_predefinito(hub: Hub, args) -> int:
+    from . import templates as T
+    T.set_default(hub.registry, args.modello)
+    out(f"Modello predefinito: {T.get(hub.registry, args.modello)['name']}")
+    return 0
+
+
+def cmd_modelli_ripristina(hub: Hub, args) -> int:
+    from . import templates as T
+    out(f"Modelli predefiniti rimessi: {T.restore_builtins(hub.registry)}")
+    return 0
+
+
+def cmd_hosting(hub: Hub, args) -> int:
+    from . import hosting as H
+    if args.togli:
+        H.clear(hub.registry)
+        out("Hosting predefinito tolto (i siti già creati non cambiano).")
+        return 0
+    if any(getattr(args, k) is not None for k in ("dominio", "host", "utente", "cartella", "protocollo", "porta",
+                                                  "suffisso_demo")) or args.password:
+        vk = get_vault_key(hub, args)
+        pw = ""
+        if args.password:
+            pw = os.environ.get("DOCMAP_HUB_FTP_PASSWORD") or getpass.getpass("Password FTP dell'hosting (non si vede): ")
+        H.set_default(hub.registry, vk, {"base_url": args.dominio, "host": args.host, "user": args.utente,
+                                         "base_folder": args.cartella, "protocol": args.protocollo, "port": args.porta,
+                                         "staging_suffix": args.suffisso_demo, "password": pw})
+    h = H.get(hub.registry)
+    if not h:
+        out("Nessun hosting predefinito. Esempio: hosting --dominio https://docmap.pr-it.it/ --host ftp.pr-it.it "
+            "--utente docmap@pr-it.it --cartella / --password")
+        return 0
+    for k, v in h.items():
+        out(f"  {k:15s} {v}")
+    return 0
+
+
+def cmd_cliente_da_modello(hub: Hub, args) -> int:
+    from . import hosting as H
+    from . import pipeline as P
+    from . import templates as T
+    from .onboarding import Onboarding
+    reg = hub.registry
+    tref = args.modello or reg.get_setting(T.DEFAULT)
+    d = T.apply(hub, tref, args.nome, args.piva or "")
+    chk = P.validate(hub, d)
+    for w in chk["warnings"]:
+        out(f"  avviso: {w['msg']}")
+    if chk["errors"]:
+        raise CliError("Da correggere (oppure usa la pagina, passo per passo): "
+                       + "; ".join(f"{x['path']}: {x['msg']}" for x in chk["errors"]))
+    need = P.needs_ftp_password(d)
+    if need["ftp"] or need["ftp_staging"]:
+        raise CliError("Questo modello usa un FTP del cliente: crea il cliente dalla pagina (Riepilogo → password).")
+    vk = get_vault_key(hub, args)
+    on = d["online"]
+    acc = (H.ftp_access(reg, vk, on["ftp"]["cartella"])
+           if "online" in d["progetto"]["installazioni"] and on["ftp"]["modo"] == "dominio" else None)
+    req = P.to_request(d, None, hosting_access=acc)
+    req.validate(hub)
+    rec = reg.save_draft(d, title=P.title_of(d))
+    rep = Onboarding(hub, log=out).run(req, passphrase=get_passphrase(args), vk=vk, build=not args.senza_pacchetti)
+    P.apply_extras(hub, d, rep, rec["id"])
+    reg.save_draft(d, draft_id=rec["id"], title=P.title_of(d), status="confirmed",
+                   result={"customer_id": rep["customer_id"], "project_id": rep.get("project_id")})
+    out(f"Cliente pronto: {req.nome} (modello «{d['progetto']['modello'] or 'vuoto'}»)")
+    if req.url_online:
+        out(f"  sito: {req.url_online}" + (f"  ·  demo: {req.url_staging}" if req.url_staging else ""))
+    if args.attiva:
+        return _activate_and_kit(hub, vk, rep["customer_id"], args.kit_out)
+    out(f"Prossimo: attiva --cliente \"{req.nome}\" --kit-out E:\\kit.zip")
+    return 0
+
+
+def _activate_and_kit(hub: Hub, vk, cid: str, kit_out: str | None) -> int:
+    from . import activate as AC
+    r = AC.activate_customer(hub, vk, cid, log=out)
+    if r.get("nothing"):
+        out("Niente da fare online: tutto già pubblicato e configurato.")
+    elif r["failed"]:
+        out(f"FERMO a «{r['failed']['label']}»: {r['failed']['error']}")
+    name, data = AC.build_kit(hub, vk, cid, r.get("configs"))
+    path = Path(kit_out) if kit_out else None
+    if path is None:
+        if r.get("configs"):
+            raise CliError("Le copie di config.php vanno consegnate: rifai con --kit-out E:\\kit.zip. I siti sono "
+                           "configurati; recupera config.php dal server via FTP.")
+        out("Kit non scritto (usa --kit-out FILE per averlo).")
+        return 1 if r["failed"] else 0
+    if path.is_dir():
+        path = path / name
+    fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "wb") as f:
+        f.write(data)
+    out(f"Kit di consegna: {path}  (contiene codici riservati: consegnalo e poi cancellalo da qui)")
+    return 1 if r["failed"] else 0
+
+
+def cmd_attiva(hub: Hub, args) -> int:
+    c = hub.registry.get_customer(args.cliente)
+    return _activate_and_kit(hub, get_vault_key(hub, args), c["id"], args.kit_out)
+
+
+def cmd_kit(hub: Hub, args) -> int:
+    from . import activate as AC
+    c = hub.registry.get_customer(args.cliente)
+    name, data = AC.build_kit(hub, get_vault_key(hub, args), c["id"])
+    path = Path(args.out)
+    if path.is_dir():
+        path = path / name
+    fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "wb") as f:
+        f.write(data)
+    out(f"Kit di consegna: {path}")
+    return 0
+
+
 def cmd_cliente_elenco(hub: Hub, args) -> int:
     from .onboarding import Onboarding
     ob = Onboarding(hub, log=out)
@@ -1389,6 +1552,44 @@ def build_parser() -> argparse.ArgumentParser:
     q = add("aggiorna-siti", cmd_aggiorna_siti, "aggiorna tutti i siti online alla versione di questo hub (stop al primo errore)")
     q.add_argument("--yes", action="store_true")
     q.add_argument("--anche-staging", action="store_true")
+    # -- v0.10 -----------------------------------------------------------
+    q = add("da-modello", cmd_cliente_da_modello, "cliente nuovo da un modello: nome e P.IVA, il resto dal modello", cl)
+    q.add_argument("--nome", required=True)
+    q.add_argument("--piva")
+    q.add_argument("--modello", help="id o nome del modello (predefinito: quello segnato con * in 'modelli')")
+    q.add_argument("--attiva", action="store_true", help="poi pubblica e configura tutto (come «Attiva tutto»)")
+    q.add_argument("--kit-out", help="file o cartella del kit di consegna (con --attiva)")
+    q.add_argument("--senza-pacchetti", action="store_true")
+    q = add("attiva", cmd_attiva, "«Attiva tutto»: pubblica, configura e controlla i siti online che mancano", cl)
+    q.add_argument("--cliente", required=True)
+    q.add_argument("--kit-out", help="file o cartella del kit di consegna (obbligatorio se escono copie di config.php)")
+    q = add("kit", cmd_kit, "kit di consegna: lettere di benvenuto con i codici, scheda tecnica, scheda cliente", cl)
+    q.add_argument("--cliente", required=True)
+    q.add_argument("--out", required=True, help="file .zip o cartella")
+    p = add("modelli", cmd_modelli, "modelli cliente (elenco)")
+    ml = p.add_subparsers(dest="sub", metavar="azione")
+    q = add("mostra", cmd_modelli_mostra, "un modello in JSON", ml)
+    q.add_argument("modello")
+    q = add("importa", cmd_modelli_importa, "crea o aggiorna un modello da un file JSON (formato docmap-progetto/1)", ml)
+    q.add_argument("--nome", required=True)
+    q.add_argument("--file", required=True)
+    q.add_argument("--descrizione")
+    q = add("elimina", cmd_modelli_elimina, "elimina un modello (i clienti non cambiano)", ml)
+    q.add_argument("modello")
+    q.add_argument("--yes", action="store_true")
+    q = add("predefinito", cmd_modelli_predefinito, "modello proposto da «Nuovo cliente»", ml)
+    q.add_argument("modello")
+    add("ripristina", cmd_modelli_ripristina, "rimette i modelli predefiniti eliminati (non sovrascrive)", ml)
+    q = add("hosting", cmd_hosting, "hosting predefinito: dominio e FTP comuni ai siti dei clienti")
+    q.add_argument("--dominio", help="es. https://docmap.pr-it.it/")
+    q.add_argument("--protocollo", choices=["ftps", "sftp", "ftp", "local"])
+    q.add_argument("--host")
+    q.add_argument("--porta", type=int)
+    q.add_argument("--utente")
+    q.add_argument("--cartella", help="cartella base vista dall'account FTP (es. / o /public_html/)")
+    q.add_argument("--suffisso-demo", help="nome della demo accanto al sito (predefinito -demo)")
+    q.add_argument("--password", action="store_true", help="chiede la password FTP (o DOCMAP_HUB_FTP_PASSWORD)")
+    q.add_argument("--togli", action="store_true")
     ls = [a for a in sub.choices["licence"]._actions if isinstance(a, argparse._SubParsersAction)][0]
     q = add("push", cmd_licence_push, "carica subito la licenza attuale sui siti online dell'installazione (FTP)", ls)
     q.add_argument("instance")

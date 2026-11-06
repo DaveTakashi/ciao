@@ -1,9 +1,19 @@
 # DocMap — Nuovo cliente, dall'inizio alla fine
 
-Guida per Dave. Vale per **DocMap 26.12.7 (app v12.7)**, **hub 0.9**, **strumenti di installazione 1.2.0**.
-(Per aggiornare uno studio esistente: `docs/AGGIORNAMENTO-v12.6-v12.7.md`; il hub: `docs/AGGIORNAMENTO-HUB-0.9.md`.)
+Guida per Dave. Vale per **DocMap 26.12.7 (app v12.7)**, **hub 0.10**, **strumenti di installazione 1.2.0**.
+(Per aggiornare uno studio esistente: `docs/AGGIORNAMENTO-v12.6-v12.7.md`; il hub: `docs/AGGIORNAMENTO-HUB-0.10.md`.)
 
-## In breve: dalla pagina del hub (consigliato)
+## In breve: con un modello, 5 clic (consigliato, hub 0.10)
+
+1. **Una volta sola**: Impostazioni → **Hosting predefinito** (dominio, FTP, cartella base, password in cassaforte).
+2. **Nuovo cliente** → ragione sociale e P.IVA → modello (es. «Commercialista · online con demo») → **Crea il cliente**.
+3. **Attiva tutto**: demo e sito vero pubblicati, configurati e controllati, in fila, senza copiare codici.
+4. **Scarica il kit di consegna** (lettere di benvenuto, scheda tecnica, copie di `config.php`) e consegnalo.
+
+Sul tuo hosting comune non serve altro: la cartella del cliente la crea il deploy, l'SSL è quello del dominio. Per un
+cliente con un suo dominio o un suo FTP: «Rivedi i passi prima di creare» → passo Online. Dettagli: wiki §6.000.
+
+## Passo per passo dalla pagina del hub (0.9, sempre valido)
 
 1. Doppio clic su `run_windows.bat` (la prima volta un solo modulo crea la passphrase, la chiave di firma e la cassaforte).
 2. **Nuovo cliente** → ragione sociale, P.IVA, «sito online» e/o «server in sede» → 6 maschere con «Avanti» →

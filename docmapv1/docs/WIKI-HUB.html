@@ -13,7 +13,6 @@ pre{background:var(--box);padding:10px 12px;border-radius:6px;overflow-x:auto} p
 @media (max-width:820px){.wrap{display:block} nav{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line)} main{padding:16px}}
 @media print{nav{display:none} .wrap{display:block}}
 </style></head><body><div class="wrap"><nav><b>Wiki DocMap Hub</b><div class="toc">
-<div class="toc">
 <ul>
 <li><a href="#wiki-di-docmap-hub">Wiki di DocMap Hub</a><ul>
 <li><a href="#indice">Indice</a></li>
@@ -26,7 +25,8 @@ pre{background:var(--box);padding:10px 12px;border-radius:6px;overflow-x:auto} p
 <li><a href="#4-accesso-automatico-una-sola-passphrase-mai-piu-richieste">4. Accesso automatico: una sola passphrase, mai più richieste</a></li>
 <li><a href="#5-le-parole-del-hub">5. Le parole del hub</a></li>
 <li><a href="#6-ricette-passo-per-passo">6. Ricette passo per passo</a><ul>
-<li><a href="#600-nuovo-cliente-e-percorso-del-cliente-consigliato-dalla-09">6.00 Nuovo cliente e Percorso del cliente (consigliato, dalla 0.9)</a></li>
+<li><a href="#6000-cliente-nuovo-da-un-modello-in-5-clic-consigliato-dalla-010">6.000 Cliente nuovo da un modello, in 5 clic (consigliato, dalla 0.10)</a></li>
+<li><a href="#600-nuovo-cliente-e-percorso-del-cliente-dalla-09">6.00 Nuovo cliente e Percorso del cliente (dalla 0.9)</a></li>
 <li><a href="#60-crea-progetto-con-ai-dalla-05-utile-se-hai-gia-i-dati-in-un-documento-o-in-una-chat">6.0 Crea progetto con AI (dalla 0.5; utile se hai già i dati in un documento o in una chat)</a></li>
 <li><a href="#61-cliente-nuovo-con-sede-e-online-il-caso-del-pilota">6.1 Cliente nuovo con sede e online (il caso del pilota)</a></li>
 <li><a href="#62-solo-sede-o-solo-online">6.2 Solo sede o solo online</a></li>
@@ -62,10 +62,13 @@ pre{background:var(--box);padding:10px 12px;border-radius:6px;overflow-x:auto} p
 </li>
 </ul>
 </div>
-</div>
 </nav><main><h1 id="wiki-di-docmap-hub">Wiki di DocMap Hub</h1>
-<p>Vale per <strong>hub 0.9.0</strong>, <strong>DocMap 26.12.7 (app v12.7)</strong> e <strong>strumenti di installazione 1.2.0</strong>. Data: 6 novembre 2026.</p>
+<p>Vale per <strong>hub 0.10.0</strong>, <strong>DocMap 26.12.7 (app v12.7)</strong> e <strong>strumenti di installazione 1.2.0</strong>. Data: 6 novembre 2026.</p>
 <blockquote>
+<p><strong>Novità 0.10.</strong> <strong>Modelli cliente</strong> (10 pronti, si creano e si cambiano dalle maschere), <strong>Hosting predefinito</strong>
+(dominio e FTP scritti una volta), <strong>Attiva tutto</strong> (pubblica e configura demo e sito in fila) e <strong>Kit di consegna</strong>
+(un solo zip con lettere di benvenuto, codici e copie di <code>config.php</code>): un cliente online in <strong>5 clic</strong> (capitolo
+6.000). Aggiornamento: <code>AGGIORNAMENTO-HUB-0.10.md</code>; perché: <code>AUTOCRITICA-HUB-0.10.md</code>.</p>
 <p><strong>Novità 0.9.</strong> <strong>Nuovo cliente</strong> guidato senza AI e <strong>Percorso del cliente</strong> con il prossimo passo e il suo pulsante;
 <strong>Configura il sito</strong> (l'hub lancia <code>setup.php</code> e mette i codici in cassaforte, niente copia-incolla); licenza
 <strong>inviata subito</strong> ai siti online dopo ogni cambio; <strong>Siti da aggiornare</strong> tutti in fila con stop al primo errore;
@@ -399,7 +402,40 @@ cifrato (BitLocker). Non attivarlo su un PC condiviso.</p>
 Dove serve <code>--instance</code> puoi scrivere il nome completo (es. <code>"STUDIO ERMETE DALL'ASTA — online"</code>, con il trattino lungo)
 <strong>oppure le prime cifre del codice</strong> mostrato da <code>instance list</code> (es. <code>--instance a2a6383d</code>): per un agente è più sicuro
 il codice.</p>
-<h3 id="600-nuovo-cliente-e-percorso-del-cliente-consigliato-dalla-09">6.00 Nuovo cliente e Percorso del cliente (consigliato, dalla 0.9)</h3>
+<h3 id="6000-cliente-nuovo-da-un-modello-in-5-clic-consigliato-dalla-010">6.000 Cliente nuovo da un modello, in 5 clic (consigliato, dalla 0.10)</h3>
+<p><strong>Una volta sola:</strong> Impostazioni → <strong>Hosting predefinito</strong> → dominio (<code>https://docmap.pr-it.it/</code>), server e utente FTP,
+password (va in cassaforte), cartella base come la vede l'account FTP (di solito <code>/</code>), suffisso della demo (<code>-demo</code>).</p>
+<p><strong>Per ogni cliente:</strong></p>
+<ol>
+<li><strong>Nuovo cliente</strong> → ragione sociale e P.IVA → scegli il <strong>modello</strong> (quello proposto è già scelto) → <strong>Crea il
+   cliente</strong>. L'indirizzo viene dal nome: «Studio Neri S.r.l.» → <code>https://docmap.pr-it.it/studio-neri/</code> (e
+   <code>studio-neri-demo/</code> se il modello ha la demo). Se il nome è già usato da un altro cliente l'hub prende
+   <code>studio-neri-2</code>: due clienti non hanno mai lo stesso sito.</li>
+<li>Nella stessa finestra: l'elenco dei passi e <strong>Attiva tutto</strong> (è la conferma). In fila: pubblica la demo →
+   configura la demo → pubblica in produzione la versione provata → configura → controlla. Pubblica <strong>solo su cartelle
+   vuote</strong>; ogni deploy ha backup e ritorno automatico; al primo errore si ferma e dice dove.</li>
+<li><strong>Scarica il kit di consegna</strong>: un solo zip con <code>1-lettere-di-benvenuto.html</code> (una pagina per persona: indirizzo,
+   codice, primo accesso), <code>2-scheda-tecnica.html</code> (tutti i codici, anche <code>admin</code> e <code>ponte-sync</code>), la scheda cliente e
+   <code>config/…-config.php</code> (chiave del database, se non c'è la custodia). L'hub non lo salva: consegnalo e cancella la
+   copia. Lo rifai quando vuoi dalla scheda del cliente (<strong>Kit di consegna</strong>, senza config.php).</li>
+</ol>
+<p><strong>Modelli.</strong> Dieci pronti: commercialista solo online, online con demo, sede + online, solo sede; studio grande; conto
+terzi online e sede + online; prova gratuita 30 giorni; cliente di un rivenditore; appliance. Per cambiarne uno:
+Nuovo cliente → scegli il modello → <strong>Rivedi i passi prima di creare</strong> → modifica (piano, demo, persone, archivi,
+etichette…) → <strong>Salva nel modello</strong> oppure <strong>Salva come nuovo modello</strong>. Impostazioni → Modelli cliente: rinomina,
+elimina, «Proponi per primo», «Ripristina i predefiniti». Nome, P.IVA e contatti del cliente non entrano mai in un
+modello; cambiare un modello non tocca i clienti già creati.</p>
+<p><strong>Eccezioni.</strong> Nel passo «Online» delle maschere: <strong>Sul tuo hosting</strong> (predefinito), <strong>FTP del cliente</strong> (suo hosting:
+host, utente, cartella; la password nel Riepilogo), <strong>Nessun FTP</strong> (autoinstall a mano). Spunta <strong>Sito demo</strong> per
+aggiungerla (indirizzo e cartella si compilano da soli) e <strong>La demo usa un altro account FTP</strong> se serve.</p>
+<p><strong>Riga di comando (tutto in un comando):</strong></p>
+<pre><code class="language-bat">run_windows.bat hosting --dominio https://docmap.pr-it.it/ --host ftp.pr-it.it --utente docmap@pr-it.it --cartella / --password
+run_windows.bat modelli
+run_windows.bat cliente da-modello --nome &quot;Studio Neri S.r.l.&quot; --piva 01234567890 --modello &quot;Commercialista · online con demo&quot; --attiva --kit-out E:\
+run_windows.bat cliente attiva --cliente &quot;Studio Neri S.r.l.&quot; --kit-out E:\
+run_windows.bat cliente kit --cliente &quot;Studio Neri S.r.l.&quot; --out E:\
+</code></pre>
+<h3 id="600-nuovo-cliente-e-percorso-del-cliente-dalla-09">6.00 Nuovo cliente e Percorso del cliente (dalla 0.9)</h3>
 <ol>
 <li><strong>Nuovo cliente</strong> (Panoramica o Clienti): ragione sociale, P.IVA, spunta <strong>Sito online</strong> e/o <strong>Server in sede</strong> →
    <strong>Avanti: percorso guidato</strong>. Si aprono le stesse 6 maschere del capitolo 6.0, ma vuote: <strong>nessuna AI serve</strong>.
@@ -841,6 +877,31 @@ Codici di uscita: <code>0</code> riuscito, <code>1</code> errore (messaggio su s
 <td><code>cliente percorso</code></td>
 <td>passi fatti e prossimo passo (0.9)</td>
 <td><code>--cliente</code></td>
+</tr>
+<tr>
+<td><code>cliente da-modello</code></td>
+<td>cliente nuovo da un modello; con <code>--attiva</code> anche pubblicato, configurato e kit (0.10)</td>
+<td><code>--nome</code>, <code>--piva</code>, <code>--modello</code>, <code>--attiva</code>, <code>--kit-out FILE\|CARTELLA</code>, <code>--senza-pacchetti</code></td>
+</tr>
+<tr>
+<td><code>cliente attiva</code></td>
+<td>«Attiva tutto»: i passi online che mancano, stop al primo errore (0.10)</td>
+<td><code>--cliente</code>, <code>--kit-out</code></td>
+</tr>
+<tr>
+<td><code>cliente kit</code></td>
+<td>kit di consegna (lettere, scheda tecnica, scheda cliente) (0.10)</td>
+<td><code>--cliente</code>, <code>--out</code></td>
+</tr>
+<tr>
+<td><code>modelli</code></td>
+<td>elenco dei modelli cliente (0.10)</td>
+<td><code>mostra &lt;modello&gt;</code>, <code>importa --nome --file</code>, <code>elimina</code>, <code>predefinito</code>, <code>ripristina</code></td>
+</tr>
+<tr>
+<td><code>hosting</code></td>
+<td>hosting predefinito: dominio e FTP comuni (0.10)</td>
+<td><code>--dominio --host --utente --cartella --protocollo --porta --suffisso-demo --password</code>, <code>--togli</code></td>
 </tr>
 <tr>
 <td><code>configura-sito</code></td>

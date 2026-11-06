@@ -174,7 +174,19 @@ MIGRATIONS: list[tuple[int, list[str]]] = [
         )""",
         "CREATE INDEX IF NOT EXISTS ix_events_entity ON events(entity, entity_id)",
     ]),
-    # Future migrations: append (4, ["ALTER TABLE ... ADD COLUMN ..."]) here.
+    (4, [  # v0.10: customer templates («Modelli cliente») — additive, nothing else changes
+        """CREATE TABLE IF NOT EXISTS customer_templates (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE,
+            description TEXT,
+            json TEXT NOT NULL,
+            builtin TEXT,
+            position INTEGER NOT NULL DEFAULT 100,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )""",
+    ]),
+    # Future migrations: append (5, ["ALTER TABLE ... ADD COLUMN ..."]) here.
 ]
 SCHEMA_VERSION = MIGRATIONS[-1][0]
 

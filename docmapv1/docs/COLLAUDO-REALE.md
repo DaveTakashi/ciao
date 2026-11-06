@@ -35,6 +35,15 @@ il numero e l'immagine. Se un passo si blocca, salta al blocco successivo.
 - [ ] B6. **Licenza sul sito subito**: Licenze → la licenza online → **Sospendi**: entro pochi secondi il hub dice «sola lettura» e nel sito compare l'avviso rosso (si legge e si esporta tutto, non si salva). **Riattiva**: torna «valida».
 - [ ] B7. Deploy → **Siti da aggiornare** mostra i siti con versione vecchia (se ce ne sono) e li aggiorna in fila.
 
+**Hub 0.10 (modelli, hosting predefinito, Attiva tutto, kit)**
+
+- [ ] C1. Impostazioni → **Hosting predefinito** con il vero account FTP di docmap.pr-it.it (FTPS, cartella `/`). Esito: ____
+- [ ] C2. **Nuovo cliente** "Studio Prova Modello" con «Commercialista · online con demo» → **Crea il cliente**: indirizzi `docmap.pr-it.it/studio-prova-modello/` e `…-demo/`.
+- [ ] C3. **Attiva tutto**: la cartella del cliente viene **creata dall'FTP** su SiteGround, demo e sito rispondono, percorso «6 di 6». Minuti: ____
+- [ ] C4. **Kit di consegna**: apri `1-lettere-di-benvenuto.html`, stampa una pagina; con quel codice fai il primo accesso da un telefono.
+- [ ] C5. Rifai «Nuovo cliente» con lo stesso nome: l'hub propone `…-2` (mai lo stesso sito).
+- [ ] C6. «Salva come nuovo modello» dalle maschere e crea un cliente con quel modello.
+
 ## C. Installazione in sede sul PC di prova (30 min) — guida: `installer-windows/GUIDA-INSTALLAZIONE.md` §4
 
 - [ ] C1. Copia il pacchetto di "Studio Prova" sul PC di prova, doppio clic su `installa.bat`, accetta la richiesta di amministratore.

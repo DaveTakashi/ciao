@@ -283,6 +283,10 @@ ACTION_IT = {
     "vault.put": "Segreto salvato in cassaforte", "vault.reveal": "Segreto mostrato",
     "workstation.add": "Postazione aggiunta", "workstation.update": "Postazione modificata",
     "workstation.build": "Client della postazione generato", "workstation.revoke": "Postazione revocata",
+    "template.add": "Modello cliente creato", "template.update": "Modello cliente aggiornato",
+    "template.delete": "Modello cliente eliminato", "template.restore": "Modelli predefiniti ripristinati",
+    "hosting.set": "Hosting predefinito impostato", "hosting.clear": "Hosting predefinito tolto",
+    "customer.activate": "Attiva tutto", "customer.kit": "Kit di consegna preparato",
     "draft.add": "Bozza AI creata", "draft.delete": "Bozza AI eliminata", "draft.confirm": "Bozza AI confermata",
     "web.start": "Pagina dell'hub aperta", "web.login": "Accesso alla pagina", "web.remember": "Accesso ricordato su questo PC",
     "web.forget": "Accesso ricordato rimosso", "setting.set": "Impostazione cambiata",
@@ -696,9 +700,18 @@ def draft_confirm(app, did: str, body: dict) -> dict:
     if chk["errors"]:
         raise RegistryError("Correggi prima: " + "; ".join(f"{x['path']}: {x['msg']}" for x in chk["errors"][:4]))
     pw = body.get("ftp_password") or ""
-    req = P.to_request(d, pw)
-    if req.ftp and not pw:
-        raise RegistryError("Scrivi la password FTP (passo Online) oppure togli l'host FTP per usare l'autoinstall web.")
+    pw_stg = body.get("ftp_staging_password") or ""
+    need = P.needs_ftp_password(d)
+    hosting_access = None
+    on = d["online"]
+    if "online" in d["progetto"]["installazioni"] and on["ftp"]["modo"] == "dominio":
+        from . import hosting as H
+        hosting_access = H.ftp_access(reg, app.need_vault(), on["ftp"]["cartella"])
+    if need["ftp"] and not pw:
+        raise RegistryError("Scrivi la password FTP del cliente (Riepilogo) oppure scegli l'FTP del dominio.")
+    if need["ftp_staging"] and not pw_stg:
+        raise RegistryError("Scrivi la password dell'FTP della demo (Riepilogo).")
+    req = P.to_request(d, pw, hosting_access=hosting_access, ftp_staging_password=pw_stg)
     req.validate(app.hub)
     vk = app.need_vault() if req.ftp else None
     key = (app.key_id, app.private_key)
@@ -1157,23 +1170,117 @@ def updates_run(app, body: dict) -> dict:
 
 
 def draft_blank(app, body: dict) -> dict:
-    """«Nuovo cliente»: the same guided masks as «Crea progetto con AI», starting empty (no AI needed)."""
-    import copy as _copy
+    """«Nuovo cliente»: the guided masks, filled from a customer template (v0.10) or empty (no AI needed)."""
     import json as _json
-    from . import pipeline as P
-    name = _str(body, "name")
-    if not name:
-        raise RegistryError("Scrivi la ragione sociale.")
-    d = _copy.deepcopy(P.TEMPLATE)
-    d["cliente"]["ragione_sociale"] = name
-    d["cliente"]["partita_iva"] = _str(body, "vat_id")
-    d["progetto"]["nome"] = f"DocMap {name}"
-    d["progetto"]["nome_studio"] = name
-    inst = body.get("installazioni")
-    if isinstance(inst, list):
-        d["progetto"]["installazioni"] = [x for x in ("sede", "online") if x in inst]
-    d["online"]["ftp"]["password"] = ""
-    d["postazioni"] = []
-    d["utenti_iniziali"] = []
-    d["archivi"] = []
+    from . import templates as T
+    d = T.apply(app.hub, _str(body, "template") or None, _str(body, "name"), _str(body, "vat_id"),
+                body.get("installazioni") if isinstance(body.get("installazioni"), list) else None)
     return draft_create(app, {"text": _json.dumps(d, ensure_ascii=False)})
+
+
+# ---------------------------------------------------------------------------
+# v0.10: customer templates, default hosting, «Attiva tutto», delivery kit
+# ---------------------------------------------------------------------------
+
+def templates_view(app) -> dict:
+    from . import hosting as H
+    from . import templates as T
+    reg = app.hub.registry
+    return {"templates": T.list_templates(reg), "default": reg.get_setting(T.DEFAULT), "hosting": H.get(reg)}
+
+
+def template_create(app, body: dict) -> dict:
+    from . import templates as T
+    data = _template_source(app, body)
+    t = T.create(app.hub.registry, _str(body, "name"), data, _str(body, "description"))
+    return {"template": t, **templates_view(app)}
+
+
+def template_update(app, tid: str, body: dict) -> dict:
+    from . import templates as T
+    data = _template_source(app, body) if (body.get("draft_id") or isinstance(body.get("data"), dict)) else None
+    t = T.save(app.hub.registry, tid, data=data,
+               name=body.get("name") if isinstance(body.get("name"), str) else None,
+               description=body.get("description") if isinstance(body.get("description"), str) else None)
+    return {"template": t, **templates_view(app)}
+
+
+def _template_source(app, body: dict) -> dict:
+    if body.get("draft_id"):
+        return app.hub.registry.get_draft(_str(body, "draft_id"))["data"]
+    if isinstance(body.get("data"), dict):
+        return body["data"]
+    raise RegistryError("Da quale bozza salvo il modello?")
+
+
+def template_delete(app, tid: str, body: dict) -> dict:
+    from . import templates as T
+    T.delete(app.hub.registry, tid)
+    return templates_view(app)
+
+
+def template_default(app, body: dict) -> dict:
+    from . import templates as T
+    T.set_default(app.hub.registry, _str(body, "id") or None)
+    return templates_view(app)
+
+
+def templates_restore(app, body: dict) -> dict:
+    from . import templates as T
+    n = T.restore_builtins(app.hub.registry)
+    return {"added": n, **templates_view(app)}
+
+
+def hosting_view(app) -> dict:
+    from . import hosting as H
+    return {"hosting": H.get(app.hub.registry), "vault": app.vault_key is not None}
+
+
+def hosting_set(app, body: dict) -> dict:
+    from . import hosting as H
+    app.need_unlocked()
+    if body.get("clear"):
+        H.clear(app.hub.registry)
+        return hosting_view(app)
+    H.set_default(app.hub.registry, app.vault_key, body)
+    return hosting_view(app)
+
+
+def activate_plan(app, cid: str) -> dict:
+    from . import activate as AC
+    cust = app.hub.registry.get_customer(cid)
+    return {"steps": AC.plan(app.hub, cust["id"]), "escrow": bool(cust.get("key_escrow")),
+            "vault": app.vault_key is not None}
+
+
+def customer_activate(app, cid: str, body: dict) -> dict:
+    from . import activate as AC
+    vk = app.need_vault()
+    cust = app.hub.registry.get_customer(cid)
+
+    def run(h, job):
+        r = AC.activate_customer(h, vk, cust["id"], log=job.log)
+        if not r.get("nothing") and (r.get("configs") or r.get("people") or not r.get("failed")):
+            try:
+                job.kit = AC.build_kit(h, vk, cust["id"], r.pop("configs", {}))
+                r["kit"] = {"job": job.id, "name": job.kit[0]}
+                job.log("Kit di consegna pronto: scaricalo adesso (contiene i codici e le copie di config.php).")
+            except Exception as exc:  # noqa: BLE001 — the sites are done; the kit can be made again later
+                r["kit_error"] = str(exc)
+                job.log(f"Kit non preparato: {exc}")
+        r.pop("configs", None)
+        return r
+    job = app.jobs.start(f"Attiva tutto: {cust['name']}", "customer-activate", {}, run)
+    return {"job": job.id}
+
+
+def customer_kit(app, cid: str, body: dict) -> dict:
+    from . import activate as AC
+    vk = app.need_vault()
+    cust = app.hub.registry.get_customer(cid)
+
+    def run(h, job):
+        job.kit = AC.build_kit(h, vk, cust["id"])
+        return {"kit": {"job": job.id, "name": job.kit[0]}}
+    job = app.jobs.start(f"Kit di consegna: {cust['name']}", "customer-kit", {}, run)
+    return {"job": job.id}

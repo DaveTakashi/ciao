@@ -126,6 +126,7 @@ class ClienteNuovo:
     url_sede: str | None = None
     ftp: dict | None = None                  # host, user, password, protocol, port, remote_path
     ftp_cartella_staging: str | None = None
+    ftp_staging: dict | None = None          # v0.10: the demo on another FTP account (remote_path = cartella staging)
     note: str | None = None
     extra: dict = field(default_factory=dict)
     licenza_kw: dict = field(default_factory=dict)   # v0.5: months / limits for a newly issued licence
@@ -157,8 +158,14 @@ class ClienteNuovo:
             if self.url_staging and not self.ftp_cartella_staging:
                 raise OnboardingError("Con lo staging indica anche la sua cartella FTP (--ftp-cartella-staging), "
                                       "diversa da quella di production.")
-            if self.ftp_cartella_staging and self.ftp_cartella_staging.rstrip("/") == str(self.ftp["remote_path"]).rstrip("/"):
+            if (self.ftp_cartella_staging and not self.ftp_staging
+                    and self.ftp_cartella_staging.rstrip("/") == str(self.ftp["remote_path"]).rstrip("/")):
                 raise OnboardingError("La cartella FTP di staging deve essere diversa da quella di production.")
+        if self.ftp_staging:
+            if not self.ftp or not self.url_staging:
+                raise OnboardingError("L'FTP della demo serve solo con un sito di prova e l'FTP del sito.")
+            self.ftp_staging = validate_secret("ftp", dict(self.ftp_staging,
+                                                           remote_path=self.ftp_cartella_staging or "/"))
         if not hub.keys.active_id:
             raise OnboardingError("Nessuna chiave di firma: esegui prima 'keygen'.")
 
@@ -276,8 +283,8 @@ class Onboarding:
                     (rep["created"] if new else rep["reused"]).append("ambiente online/staging (web-php)")
                     envs["staging"] = e2["id"]
                 if req.ftp:
-                    for name, data in (("production", req.ftp),
-                                       ("staging", dict(req.ftp, remote_path=req.ftp_cartella_staging))):
+                    stg_ftp = req.ftp_staging or dict(req.ftp, remote_path=req.ftp_cartella_staging)
+                    for name, data in (("production", req.ftp), ("staging", stg_ftp)):
                         if name not in envs:
                             continue
                         had = self.vault.has(envs[name], "ftp")

@@ -28,6 +28,10 @@ In breve:
 12. (0.7) Sospendere, revocare o cambiare i limiti di una licenza è una decisione commerciale di Dave: non farlo
     mai di tua iniziativa. Per spostare l'hub usa `esporta-hub` / `importa-hub` (passphrase dell'esportazione separata
     dal file). Non pubblicare mai nella cartella `licenze/` file diversi da quelli prodotti dall'hub.
+14. (0.10) Cliente nuovo: parti da un **modello** (`modelli`, poi `cliente da-modello --nome … --piva … --modello …`).
+    `--attiva` pubblica e configura solo su cartelle vuote; usalo solo se Dave ha chiesto di mettere online il cliente.
+    Il kit (`--kit-out`, `cliente kit`) contiene codici e chiavi in chiaro: scrivilo solo dove dice Dave (chiavetta) e
+    non lasciarne copie. Non cambiare l'hosting predefinito né i modelli senza che Dave lo chieda.
 13. (0.9) Per sapere cosa manca a un cliente: `cliente percorso --cliente "Nome"` (o la scheda nella pagina): fai o
     proponi **solo il prossimo passo**. `configura-sito --instance … --env staging|production --config-out <file>`
     subito dopo il primo deploy di un sito (una volta sola; i codici vanno in cassaforte; `config.php` va al cliente,

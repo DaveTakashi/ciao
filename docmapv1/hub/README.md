@@ -1,5 +1,10 @@
-# DocMap Hub — gestionale di clienti, progetti, installazioni, licenze e deploy (v0.9)
+# DocMap Hub — gestionale di clienti, progetti, installazioni, licenze e deploy (v0.10)
 
+> **Novità 0.10** — **Modelli cliente** (10 pronti, creati e cambiati dalle maschere), **Hosting predefinito**
+> (dominio e FTP una volta sola), **Attiva tutto** e **Kit di consegna**: un cliente online in **5 clic**. Comandi:
+> `modelli`, `hosting`, `cliente da-modello --attiva --kit-out`, `cliente attiva`, `cliente kit`. Aggiornamento:
+> [`../docs/AGGIORNAMENTO-HUB-0.10.md`](../docs/AGGIORNAMENTO-HUB-0.10.md); perché: [`../docs/AUTOCRITICA-HUB-0.10.md`](../docs/AUTOCRITICA-HUB-0.10.md).
+>
 > **Novità 0.9** — **Nuovo cliente** guidato senza AI, **Percorso del cliente** con il prossimo passo e il suo pulsante,
 > **Configura il sito** (l'hub lancia `setup.php` e mette i codici in cassaforte: niente più copia-incolla), licenza
 > **inviata subito** ai siti dopo sospensione/riattivazione/rinnovo, **Siti da aggiornare** tutti in fila. Comandi:
