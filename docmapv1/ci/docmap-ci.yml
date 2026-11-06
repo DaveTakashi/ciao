@@ -25,7 +25,7 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: '3.11' }
       - uses: shivammathur/setup-php@v2
-        with: { php-version: '8.2', extensions: pdo_sqlite, openssl }
+        with: { php-version: '8.2', extensions: pdo_sqlite, openssl, sodium }
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
       - run: pip install fastapi uvicorn cryptography pyftpdlib httpx
@@ -41,7 +41,7 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: '3.11' }
       - uses: shivammathur/setup-php@v2
-        with: { php-version: '8.2', extensions: pdo_sqlite, openssl }
+        with: { php-version: '8.2', extensions: pdo_sqlite, openssl, sodium }
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
       - run: npm install -g playwright@1.48.2 pngjs jsqr && npx -y playwright@1.48.2 install --with-deps chromium

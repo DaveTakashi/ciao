@@ -34,7 +34,7 @@ log = logging.getLogger("docmap")
 
 DM_API = "docmap-php"
 DM_API_VERSION = 1
-DM_APP_VERSION = "26.12.5"   # v12.5 (was v12.4): DocMap release these server files belong to (ping app_version; the app compares it with its own)
+DM_APP_VERSION = "26.12.6"   # v12.6 (was v12.5): DocMap release these server files belong to (ping app_version; the app compares it with its own)
 DM_TYPES = ("binder", "client", "location", "archive", "status_event")   # v11: + location · v12: + archive + status_event
 DM_ROLES = {"viewer": 1, "editor": 2, "admin": 3}
 DM_MOBILE_FIELDS = ("archive_state", "contents_items", "room_code", "cabinet_code", "shelf_code", "sector_code", "notes",

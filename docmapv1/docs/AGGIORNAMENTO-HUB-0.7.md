@@ -53,8 +53,8 @@ sono casuali e i file non contengono password: solo i dati della licenza, firmat
 - **Server già installati con la versione vecchia**: vanno ancora in sola lettura con una licenza sospesa (la licenza
   sospesa è già scaduta e senza tolleranza, apposta), ma il file va installato a mano: scaricalo dal pannello della
   licenza e `python -m docmap_server licence install FILE`.
-- **Siti online in PHP (SiteGround)**: il server PHP **non controlla ancora la licenza**. Sospensione e limiti
-  valgono oggi per i server Python (sede e ambienti di prova). Il controllo nel PHP è il prossimo passo (0.8).
+- **Siti online in PHP (SiteGround)**: con la 0.7 il server PHP non controllava la licenza. **Aggiornamento:** dalla
+  app 26.12.6 + hub 0.8 la controlla (vedi `AGGIORNAMENTO-v12.5-v12.6.md`).
 - Un server **non accetta mai una licenza più vecchia** di quella installata (né dal canale né con `licence install`):
   così nessuno può rimettere una vecchia licenza annuale dopo una sospensione. Solo un amministratore, consapevolmente,
   può forzarla con `licence install FILE --force`.

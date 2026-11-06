@@ -1,6 +1,6 @@
 # Indice della documentazione DocMap
 
-> Mappa di tutti i documenti di `docmapv1/` (versione **26.12.5**): a cosa serve ognuno, chi lo deve leggere e in che
+> Mappa di tutti i documenti di `docmapv1/` (versione **26.12.6**): a cosa serve ognuno, chi lo deve leggere e in che
 > ordine. I percorsi sono relativi a `docmapv1/`.
 
 ## Per ripartire (tutti)
@@ -46,6 +46,9 @@
 | [`DEPLOY-WEB.md`](DEPLOY-WEB.md) | Costruire la cartella del sito (`tools/build_deploy.py`), installare il database online su SiteGround, instradamento dei QR `/q/<codice>`, nginx, test locale con `php -S`. |
 | [`SICUREZZA.md`](SICUREZZA.md) | Cosa è protetto e come (cifratura nel browser e sul server, token, ruoli, limiti), cosa resta da fare. |
 | [`AGGIORNAMENTI.md`](AGGIORNAMENTI.md) | La procedura che vale per **ogni** aggiornamento (utente e sviluppatore) e le regole di rilascio senza perdita di dati. |
+| [`AGGIORNAMENTO-v12.5-v12.6.md`](AGGIORNAMENTO-v12.5-v12.6.md) | **Guida dalla v12.5 alla v12.6**: Primi passi, stato sync sempre visibile, aggiornatore `AGGIORNA-DOCMAP.bat`, licenza controllata dai siti del hub. |
+| [`AGGIORNAMENTO-HUB-0.8.md`](AGGIORNAMENTO-HUB-0.8.md) | DocMap Hub: alla 0.8 (i siti online portano chiave pubblica e licenza: il PHP controlla la licenza). |
+| [`commerciale/README.md`](commerciale/README.md) | **Bozze commerciali**: scheda prodotto, listino, condizioni, nomina art. 28 GDPR, garanzia QR 10 anni, copione della demo. |
 | [`AGGIORNAMENTO-HUB-0.7.md`](AGGIORNAMENTO-HUB-0.7.md) | DocMap Hub: alla 0.7 (sospendi/riattiva/revoca/modifica licenze, rinnovo automatico, canale delle licenze, esportazione cifrata). |
 | [`AGGIORNAMENTO-HUB-0.6.md`](AGGIORNAMENTO-HUB-0.6.md) | DocMap Hub: alla 0.6 da 0.5 o 0.3 (deploy e promozione dal gestionale, cassaforte e accessi, siti e server dal progetto, backup automatici, ripristino). |
 | [`AGGIORNAMENTO-HUB-0.3-0.5.md`](AGGIORNAMENTO-HUB-0.3-0.5.md) | DocMap Hub: dalla 0.3 alla 0.5 (nuovo gestionale per cliente, Crea progetto con AI, postazioni, Ricorda su questo PC). |

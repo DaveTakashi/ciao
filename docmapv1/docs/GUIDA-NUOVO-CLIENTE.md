@@ -55,7 +55,7 @@ Scegli cosa ha il cliente:
 | Il cliente vuole… | `--installazioni` | Cosa ottiene |
 |---|---|---|
 | solo il PC in ufficio (dati solo da lui, niente online) | `sede` | pacchetto per il suo PC + licenza |
-| solo il sito web | `online` | sito per l'hosting + licenza (per ora la licenza online è solo registrata: il server PHP non la controlla) |
+| solo il sito web | `online` | sito per l'hosting + licenza (dalla app 26.12.6 + hub 0.8 il sito la controlla: scaduta oltre la tolleranza, sospesa o revocata = sola lettura) |
 | tutti e due, sincronizzati | `entrambe` | pacchetto + sito + sincronizzazione automatica ogni 10 minuti |
 
 Piani disponibili (`run_windows.bat plans`): `trial`, `studio` (5 utenti, 5000 faldoni), `studio_pro`, `conto_terzi`,

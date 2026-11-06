@@ -445,7 +445,7 @@ Ogni azione emette una **nuova licenza firmata** che sostituisce la precedente (
 licenza nella cartella `licenze/` di un tuo sito, a un indirizzo casuale scritto dentro la licenza firmata. Il server
 Python del cliente la scarica da solo ogni 6 ore (o subito con `python -m docmap_server licence update`) e la installa
 solo se è **più recente** di quella che ha. Senza canale, o per un server vecchio: «Scarica» nel pannello e
-`python -m docmap_server licence install FILE`. Il server PHP online non controlla ancora la licenza (previsto 0.8).
+`python -m docmap_server licence install FILE`. Dalla app 26.12.6 anche il server PHP online controlla la licenza: il sito costruito dal hub (0.8) porta la chiave pubblica e la licenza corrente, e ogni deploy consegna anche sospensioni e rinnovi; inoltre il PHP legge il canale delle licenze al massimo ogni 6 ore.
 
 **Riga di comando** (stesse operazioni): `run_windows.bat licence suspend <installazione> --reason "…"`,
 `licence revoke …`, `licence reactivate … [--months N]`, `licence publish [--instance …]`.
@@ -653,5 +653,5 @@ usa; `env start` sposta da solo l'ambiente su una porta libera.
 Provato con test automatici su Linux (hub 97 test, compresi FTP e FTPS reali su un server di prova) e nel browser
 (Chromium) per il gestionale. **Non ancora** su: Windows reale (accesso automatico e «Ricorda su questo PC» con DPAPI,
 pagina del hub, client delle postazioni `collega-questo-pc.bat`, `installa.bat`, sincronizzazione automatica),
-deploy FTPS verso SiteGround, telefoni con il certificato dello studio. La licenza del sito online viene emessa ma il
-server PHP non la controlla ancora.
+deploy FTPS verso SiteGround, telefoni con il certificato dello studio. Dalla app 26.12.6 il server PHP online
+controlla la licenza (sito costruito dal hub 0.8): da provare su SiteGround.

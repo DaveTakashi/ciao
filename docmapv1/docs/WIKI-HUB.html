@@ -615,7 +615,7 @@ file, riapri ed entra con la stessa passphrase (dettagli in <code>AGGIORNAMENTO-
 licenza nella cartella <code>licenze/</code> di un tuo sito, a un indirizzo casuale scritto dentro la licenza firmata. Il server
 Python del cliente la scarica da solo ogni 6 ore (o subito con <code>python -m docmap_server licence update</code>) e la installa
 solo se è <strong>più recente</strong> di quella che ha. Senza canale, o per un server vecchio: «Scarica» nel pannello e
-<code>python -m docmap_server licence install FILE</code>. Il server PHP online non controlla ancora la licenza (previsto 0.8).</p>
+<code>python -m docmap_server licence install FILE</code>. Dalla app 26.12.6 anche il server PHP online controlla la licenza: il sito costruito dal hub (0.8) porta la chiave pubblica e la licenza corrente, e ogni deploy consegna anche sospensioni e rinnovi; inoltre il PHP legge il canale delle licenze al massimo ogni 6 ore.</p>
 <p><strong>Riga di comando</strong> (stesse operazioni): <code>run_windows.bat licence suspend &lt;installazione&gt; --reason "…"</code>,
 <code>licence revoke …</code>, <code>licence reactivate … [--months N]</code>, <code>licence publish [--instance …]</code>.</p>
 <p><strong>Esportare tutto l'hub</strong> in un file cifrato: Impostazioni → Backup dell'hub → <strong>Esporta tutto l'hub (cifrato)</strong>, oppure
@@ -980,5 +980,5 @@ usa; <code>env start</code> sposta da solo l'ambiente su una porta libera.</p>
 <p>Provato con test automatici su Linux (hub 97 test, compresi FTP e FTPS reali su un server di prova) e nel browser
 (Chromium) per il gestionale. <strong>Non ancora</strong> su: Windows reale (accesso automatico e «Ricorda su questo PC» con DPAPI,
 pagina del hub, client delle postazioni <code>collega-questo-pc.bat</code>, <code>installa.bat</code>, sincronizzazione automatica),
-deploy FTPS verso SiteGround, telefoni con il certificato dello studio. La licenza del sito online viene emessa ma il
-server PHP non la controlla ancora.</p></main></div></body></html>
+deploy FTPS verso SiteGround, telefoni con il certificato dello studio. Dalla app 26.12.6 il server PHP online
+controlla la licenza (sito costruito dal hub 0.8): da provare su SiteGround.</p></main></div></body></html>

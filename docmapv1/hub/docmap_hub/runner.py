@@ -117,12 +117,17 @@ def app_version_of(api_php: Path) -> str | None:
 
 
 def run_build_deploy(target: Path, *, base_path: str = "/", slug: str = "studio", domain: str = "http://127.0.0.1",
-                     studio_name: str = "", reg: Registry | None = None, timeout: int = 300) -> dict:
+                     studio_name: str = "", reg: Registry | None = None, timeout: int = 300,
+                     trusted_keys: Path | None = None, licence: Path | None = None) -> dict:
     script = build_deploy_script(reg)
     cmd = [sys.executable, str(script), str(target), "--base-path", base_path or "/", "--slug", slug or "studio",
            "--domain", domain or "http://127.0.0.1"]
     if studio_name:
         cmd += ["--studio-name", studio_name]
+    if trusted_keys:   # app 26.12.6: the PHP site checks the licence (setup.php turns licence_required on)
+        cmd += ["--trusted-keys", str(trusted_keys)]
+    if licence:
+        cmd += ["--licence", str(licence)]
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
     if r.returncode != 0:
         raise RunnerError("Costruzione del deploy non riuscita: " + (r.stderr or r.stdout).strip()[-500:])

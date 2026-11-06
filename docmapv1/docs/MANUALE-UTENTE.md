@@ -393,6 +393,19 @@ Per ripristinare (prova a farlo almeno una volta: [`CHECKLIST-COLLAUDO.md`](CHEC
 
 ## 12. Aggiornare DocMap a una versione nuova
 
+> **Dalla v12.6 sul PC basta un doppio clic.** Metti lo zip nuovo in Download (o nella cartella sopra quella di
+> DocMap), poi doppio clic su `AGGIORNA-DOCMAP.bat` nella cartella di DocMap (oppure trascina lo zip sopra il file).
+> Lo script:
+>
+> 1. ti ricorda il backup;
+> 2. copia la versione attuale in `DocMap-copie\`;
+> 3. mette i file nuovi **nella stessa cartella**, tenendo il tuo `docmap.config.js` (i dati sono nel browser e non
+>    vengono toccati);
+> 4. controlla la versione e riapre DocMap.
+>
+> Se qualcosa non va, `AGGIORNA-DOCMAP.bat ripristina` rimette la copia. Il server si aggiorna come sempre, **prima**
+> dei PC.
+
 Segui sempre la guida della versione (`docs/AGGIORNAMENTO-vX-vY.md`) e le regole generali in [`AGGIORNAMENTI.md`](AGGIORNAMENTI.md). In breve:
 
 1. **Backup**: con la versione vecchia fai **Sincronizza con il server**, **Salva backup** e **Scarica docmap.sqlite** su ogni PC. Annota il numero di faldoni e clienti. Scarica anche la copia dal server (§11).
@@ -573,3 +586,38 @@ telefono, usa almeno 12 mm (meglio 18-24 mm).
 3. Con questi fogli nuovi fai prima una **Stampa prova di calibrazione**: le misure vengono dai modelli dei produttori
    e una stampante può spostarle di 1-2 mm (si corregge con gli offset).
 
+## 20. Primi passi (v12.6)
+
+In cima all'**Archivio** il riquadro **Primi passi** elenca le cose da fare all'inizio, nell'ordine:
+
+1. nome dello studio (Impostazioni);
+2. elenco dei clienti (Importa: CSV o Excel);
+3. il primo faldone vero (quelli di esempio, con tag `demo`, non contano);
+4. il foglio di prova su carta normale (Stampa › Prova di calibrazione);
+5. le prime etichette o il PDF;
+6. il primo backup;
+7. (facoltativo) il server online, per i telefoni e gli altri PC.
+
+Ogni passo si spunta da solo quando DocMap vede che è fatto. **Guidami** apre la guida con le frecce. **Nascondi**
+toglie il riquadro; per rivederlo: Impostazioni › Dati e sicurezza › Informazioni su DocMap › **Mostra i primi passi**.
+
+## 21. Avviso della licenza e stato della sincronizzazione (v12.6)
+
+**Stato in alto a destra.** Se usi il server, in alto c'è sempre lo stato. Può dire:
+
+- «Online · sincronizzato 5 min fa»;
+- «3 da inviare al server»;
+- «Offline»;
+- «Online · sola lettura».
+
+Un clic porta alla pagina Sincronizzazione. Sul PC aperto da `file://` lo stato compare appena configuri «Sincronizza con il server».
+
+**Avviso della licenza** (solo se il sito controlla la licenza, cioè siti preparati dal fornitore con il hub):
+
+- **giallo**: la licenza scade a breve, oppure è scaduta ma sei nei giorni di tolleranza. Si lavora normalmente;
+  rinnova.
+- **rosso**: la licenza è scaduta oltre la tolleranza, sospesa, revocata o manca. Il server non accetta modifiche, ma
+  si può sempre **leggere, cercare ed esportare** tutto. Le modifiche fatte sul PC restano in attesa e partono da sole
+  quando la licenza torna valida.
+
+Un **limite** della licenza raggiunto (numero di faldoni o di utenti) blocca solo le aggiunte e non toglie nulla.

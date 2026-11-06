@@ -415,9 +415,11 @@ class Onboarding:
                 rep["reused"].append(f"sito online {name} (già costruito: --rigenera per rifarlo)")
             else:
                 d.mkdir(parents=True, exist_ok=True)
+                from .deploy import site_licence_files
+                tk, lic = site_licence_files(self.hub, e, d)
                 res = run_build_deploy(site, base_path=s.get("base_path") or "/", slug=s.get("slug") or "studio",
                                        domain=s.get("domain") or "https://example.invalid", studio_name=s.get("studio_name") or "",
-                                       reg=self.reg)
+                                       reg=self.reg, trusted_keys=tk, licence=lic)
                 with zipfile.ZipFile(zp, "w", zipfile.ZIP_DEFLATED) as z:
                     for f in sorted(site.rglob("*")):
                         if f.is_file():

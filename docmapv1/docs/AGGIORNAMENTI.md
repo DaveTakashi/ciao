@@ -2,7 +2,7 @@
 
 Ogni nuova versione di DocMap deve potersi installare **sopra la precedente senza perdere dati**. Questo documento è
 la procedura che vale sempre; ogni rilascio aggiunge una guida specifica `docs/AGGIORNAMENTO-vX-vY.md` (esempi:
-`AGGIORNAMENTO-v10-v10.1.md`, `AGGIORNAMENTO-v10.1-v11.md`, `AGGIORNAMENTO-v11-v11.1.md`, `AGGIORNAMENTO-v11.1-v12.md`, `AGGIORNAMENTO-v12-v12.1.md`, `AGGIORNAMENTO-v12.1-v12.2.md`, `AGGIORNAMENTO-v12.2-v12.3.md`, `AGGIORNAMENTO-v12.3-v12.4.md`, `AGGIORNAMENTO-v12.4-v12.5.md`, la procedura del server `AGGIORNARE-IL-SERVER.md` e la guida diretta `AGGIORNAMENTO-v10-v12.md`) con le sole differenze. Elenco di tutti i documenti:
+`AGGIORNAMENTO-v10-v10.1.md`, `AGGIORNAMENTO-v10.1-v11.md`, `AGGIORNAMENTO-v11-v11.1.md`, `AGGIORNAMENTO-v11.1-v12.md`, `AGGIORNAMENTO-v12-v12.1.md`, `AGGIORNAMENTO-v12.1-v12.2.md`, `AGGIORNAMENTO-v12.2-v12.3.md`, `AGGIORNAMENTO-v12.3-v12.4.md`, `AGGIORNAMENTO-v12.4-v12.5.md`, `AGGIORNAMENTO-v12.5-v12.6.md`, la procedura del server `AGGIORNARE-IL-SERVER.md` e la guida diretta `AGGIORNAMENTO-v10-v12.md`) con le sole differenze. Elenco di tutti i documenti:
 `INDICE.md`; prova a secco dell'aggiornamento su una copia: `CHECKLIST-COLLAUDO.md` §8; versione per compiti:
 `MANUALE-UTENTE.md` §12.
 
@@ -13,7 +13,8 @@ la procedura che vale sempre; ogni rilascio aggiunge una guida specifica `docs/A
 2. **Se usi il database online**: dal PC fai **Sincronizza con il server** prima di aggiornare, e scarica dal server
    una copia della cartella dati (`docmap.sqlite*`) e di `config.php`.
 3. **Aggiorna prima il server** (punto 6), poi i PC, poi i telefoni: i client vecchi funzionano con il server nuovo, non il contrario.
-4. **Sostituisci i file nello stesso percorso** (stessa cartella, stesso browser) e riapri `index.html`.
+4. **Sostituisci i file nello stesso percorso** (stessa cartella, stesso browser) e riapri `index.html`. Dalla v12.6:
+   doppio clic su `AGGIORNA-DOCMAP.bat` (copia di sicurezza in `DocMap-copie\`, ritorno con `AGGIORNA-DOCMAP.bat ripristina`).
 5. **Controlla**: versione in Impostazioni, numero di faldoni e clienti, un paio di faldoni e foto.
 6. **Server** (se la versione lo richiede): carica la nuova cartella `deploy/studio-de/` sopra la vecchia **senza
    cancellare** `server-php/config.php` né la cartella dati; non rieseguire `setup.php`. Le note della versione dicono

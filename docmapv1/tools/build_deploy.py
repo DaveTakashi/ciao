@@ -261,6 +261,8 @@ def main():
     ap.add_argument('--domain', default='https://docmap.pr-it.it')
     ap.add_argument('--studio-name', default='')
     ap.add_argument('--no-server', action='store_true', help='static deploy without server-php (apiBase null)')
+    ap.add_argument('--trusted-keys', help='v12.6: public keys of the hub (export-public-key --format json) → server-php/trusted_keys.json')
+    ap.add_argument('--licence', help='v12.6: .docmap-licence of this site → server-php/licence.docmap-licence (installed by api.php when newer)')
     a = ap.parse_args()
     a.base_path = norm_base(a.base_path)
     if not re.fullmatch(r'[a-z0-9-]{1,40}', a.slug):
@@ -284,6 +286,18 @@ def main():
         dst = os.path.join(target, rel)
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         shutil.copyfile(os.path.join(APP, rel), dst)
+    extra = {}   # v12.6 licence files from the hub (not secret: public key + signed licence)
+    if not a.no_server:
+        for opt, rel in ((a.trusted_keys, 'server-php/trusted_keys.json'), (a.licence, 'server-php/licence.docmap-licence')):
+            if opt:
+                with open(opt, 'rb') as f:
+                    raw = f.read()
+                json.loads(raw.decode('utf-8-sig'))   # must be JSON
+                os.makedirs(os.path.dirname(os.path.join(target, rel)), exist_ok=True)
+                with open(os.path.join(target, rel), 'wb') as f:
+                    f.write(raw)
+                extra[rel] = True
+    files += sorted(extra)
     gen = {'docmap.config.js': config_js(a), '.htaccess': htaccess(a), '404.html': page_404(a), 'robots.txt': 'User-agent: *\nDisallow: /\n',
            'nginx-docmap.conf.example': nginx(a), 'README-DEPLOY.md': readme(a)}
     for rel in sorted(gen):

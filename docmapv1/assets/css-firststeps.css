@@ -1,0 +1,11 @@
+/* v12.6 "Primi passi" (06p-firststeps.js) */
+.fs-card{margin:0 0 14px}
+.fs-bar{height:6px;border-radius:99px;background:var(--line,#E2E8F0);overflow:hidden;margin:8px 0 4px}
+.fs-bar span{display:block;height:100%;background:var(--green,#10B981)}
+.fs-list{list-style:none;margin:6px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px}
+.fs-step{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line,#E2E8F0);border-radius:10px}
+.fs-step .fs-txt{flex:1;min-width:0}
+.fs-mark{width:22px;height:22px;flex:0 0 22px;border-radius:50%;border:2px solid var(--line,#CBD5E1);display:inline-flex;align-items:center;justify-content:center;font-weight:800;color:#fff}
+.fs-ok .fs-mark{background:var(--green,#10B981);border-color:var(--green,#10B981)}
+.fs-ok .fs-txt b{text-decoration:line-through;opacity:.7}
+@media print{.fs-card{display:none!important}}

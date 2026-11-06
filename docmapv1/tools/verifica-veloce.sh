@@ -14,8 +14,10 @@ for f in server-php/*.php; do run php -l "$f" >/dev/null; done
 step "hub (Python)";              (cd hub && run python3 -m unittest discover -s tests)
 step "server-python";             (cd server-python && run python3 -m unittest discover -s tests)
 step "PHP <-> Python parity";     run python3 server-python/tests/diff_test.py
+step "PHP <-> Python licence";    run python3 server-python/tests/diff_licence_test.py
 step "installer-windows";         (cd installer-windows && run python3 -m unittest discover -s tests)
 step "smoke test app (Playwright)"; (cd tests && NODE_PATH="${NODE_PATH:-$(npm root -g)}" run node smoke.js)
+step "v12.6 licenza e stato sync (Playwright + php)"; (cd tests && NODE_PATH="${NODE_PATH:-$(npm root -g)}" run node v126.js)
 echo
 if [ $fail = 0 ]; then echo "VERIFICA VELOCE: tutto OK"; else echo "VERIFICA VELOCE: ci sono errori (vedi ✗ sopra)"; fi
 exit $fail

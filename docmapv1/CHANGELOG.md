@@ -5,6 +5,10 @@ Formato: versione · data · cosa cambia per chi la usa · dati/server.
 
 ## Da rilasciare
 
+- (niente)
+
+## 2026-11-06 — app 26.12.6, hub 0.8, consolidamento
+
 - **Consolidamento** (2026-11-06): un solo ramo con app, server Python, installatore e hub; `tools/verifica-veloce.sh`,
   `tests/smoke.js`, CI pronta (`ci/docmap-ci.yml`), `CLAUDE.md`, `STATO.md`, questo file, `docs/RILASCIO.md`,
   `docs/COLLAUDO-REALE.md`. Nessuna modifica all'app né ai dati.
@@ -13,6 +17,7 @@ Formato: versione · data · cosa cambia per chi la usa · dati/server.
 
 | Versione | Data | Novità | Dati / server |
 |---|---|---|---|
+| 26.12.6 (v12.6) | 2026-11-06 | «Primi passi» nell'Archivio (7 passi rilevati dai dati, con guida), stato della sincronizzazione anche sul PC da `file://` («sincronizzato 5 min fa»), aggiornatore `AGGIORNA-DOCMAP.bat` (copia di sicurezza + ripristino), avviso licenza giallo/rosso, messaggi di licenza in italiano, aiuto «Licenza» e «Primi passi», bozze commerciali | `api.php` controlla la licenza solo con `licence_required` (siti del hub 0.8); nessuna migrazione |
 | 26.12.5 (v12.5) | 2026-11-03 | selezione della modifica massiva che resta tra le ricerche, «Solo selezionati», colonna colore dopo la categoria, «Stampa solo queste N etichette», «Modifica i selezionati» negli archivi | nessuna modifica |
 | 26.12.4 (v12.4) | 2026-11-03 | 👁 mostra password, codice di accesso al server facoltativo, «Verifica dopo l'aggiornamento», `setup.php` non crea una chiave nuova se esiste già un database | procedura `AGGIORNARE-IL-SERVER.md` |
 | 26.12.3 (v12.3) | 2026-11-03 | stampa dei QR delle ubicazioni, etichettatrici a rotolo (~50 formati), striscia ubicazione + faldoni, QR + campo a scelta, 6 fogli Avery piccoli | nessuna |
@@ -29,6 +34,7 @@ Formato: versione · data · cosa cambia per chi la usa · dati/server.
 
 | Versione | Data | Novità |
 |---|---|---|
+| 0.8 | 2026-11-06 | i siti online portano chiave pubblica e licenza corrente (ogni deploy consegna sospensioni e rinnovi), senza cambiare l'identità del codice per la promozione |
 | 0.7 | 2026-11-05 | licenze a distanza (sospendi/riattiva/revoca/modifica), rinnovo automatico breve, canale delle licenze, esportazione cifrata `.docmap-hub` |
 | 0.6 | 2026-11-05 | deploy e promozione dal gestionale con rollback automatico, cassaforte e segreti per sito, backup automatici |
 | 0.5 | 2026-11-04 | «Crea progetto con AI», postazioni con nome |

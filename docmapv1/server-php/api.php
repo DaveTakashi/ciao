@@ -47,7 +47,7 @@ declare(strict_types=1);
 
 const DM_API = 'docmap-php';
 const DM_API_VERSION = 1;
-const DM_APP_VERSION = '26.12.5';   // v12.4: DocMap release these server files belong to (ping 'app_version'; the app compares it with its own)
+const DM_APP_VERSION = '26.12.6';   // v12.4: DocMap release these server files belong to (ping 'app_version'; the app compares it with its own)
 const DM_TYPES = ['binder', 'client', 'location', 'archive', 'status_event'];   // v11: + location (tree of boxes) · v12: + archive (clusters) + status_event (append-only status log); generic records, no schema change
 const DM_ROLES = ['viewer' => 1, 'editor' => 2, 'admin' => 3];
 const DM_MOBILE_FIELDS = ['archive_state', 'contents_items', 'room_code', 'cabinet_code', 'shelf_code', 'sector_code', 'notes', 'tags', 'location_id', 'location_code'];   // v11: + location (association mode)
@@ -440,6 +440,7 @@ function r_push(PDO $db, array $c, array $who): array {
   $bad = function ($type, $id, string $reason, ?string $u) use (&$jr) { jr_item($jr, is_string($type) ? substr($type, 0, 40) : '', is_string($id) ? substr($id, 0, 100) : '', 'rejected-invalid', ['reason' => $reason, 'client_updated_at' => $u]); };
   $db->exec('BEGIN IMMEDIATE');
   try {
+    if (lic_required($c)) lic_push_binder_limit($db, $c, $b);   // v12.6 licence limit 'binders'
     foreach ((array)($b['records'] ?? []) as $r) {
       $jr['n']['sent']++;
       $type = $r['type'] ?? ''; $id = $r['id'] ?? ''; $data = $r['data'] ?? null; $u = (string)($r['updated_at'] ?? ($data['updated_at'] ?? ''));
@@ -750,6 +751,7 @@ function r_tokens(PDO $db, array $c): array {
 function r_token_create(PDO $db, array $c, array $who): array {
   $user = trim((string)param($c, 'user', '')); $role = (string)param($c, 'role', 'editor');
   if (!preg_match('/^[\p{L}\p{N} ._@-]{1,60}$/u', $user) || !isset(DM_ROLES[$role])) fail(422, 'invalid', 'user (1-60 chars) and role viewer|editor|admin required');
+  if (lic_required($c)) { $u = lic_active_users($db, $c); lic_limit_block($c, 'users', count($u), isset($u[$user]) ? 0 : 1); }   // v12.6 licence limit 'users'
   $tok = rtrim(strtr(base64_encode(random_bytes(24)), '+/', '-_'), '=');
   $id = bin2hex(random_bytes(8));
   $db->prepare('INSERT INTO tokens (id, token_sha256, user, role, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?)')->execute([$id, hash('sha256', $tok), $user, $role, now_iso(), $who['user']]);
@@ -886,15 +888,247 @@ function r_seen(PDO $db, array $c, array $who): array {
   return ['recorded' => $rec, 'skipped' => $skip, 'server_time' => now_iso()];
 }
 
+/* ---------------- licence (v12.6, optional) ----------------
+   Same rules as server-python/docmap_server/licence.py + licence_verify.py (the hub's verifier): OFF unless config.php
+   says 'licence_required' => true; then the licence is <data_dir>/licence/licence.docmap-licence (Ed25519 signature
+   checked with libsodium against the TRUSTED keys: the constant below + server-php/trusted_keys.json written by the hub
+   + 'licence_public_keys' in config.php, TESTS ONLY). full / grace → writable; read_only / invalid → write routes answer
+   403 licence_read_only (reads, pull and exports keep working: the licence never locks the data); limits binders/users
+   → 403 licence_limit. PHP only: a licence shipped with the site (server-php/licence.docmap-licence, put there by the
+   hub's site build) is installed into the data folder when it is newer; the licence channel (update_url signed in the
+   licence) is checked after the answer at most every 6 hours. */
+const DM_LIC_TRUSTED = [];   // {key_id: base64 Ed25519 public key}; production keys usually come from trusted_keys.json
+const DM_LIC_GRACE_DEFAULT = 30, DM_LIC_WARN_DAYS = 30, DM_LIC_SKEW = 86400, DM_LIC_UPDATE_SECONDS = 21600, DM_LIC_MAX_BYTES = 65536;
+const DM_LIC_FIELDS = ['licence_id', 'format', 'customer', 'instance_id', 'plan', 'issued_at', 'valid_from', 'expires_at', 'grace_days', 'limits', 'features', 'reseller', 'branding', 'key_id'];
+const DM_LIC_MSG = [
+  'ok' => 'Licenza valida.',
+  'expiring_soon' => 'La licenza scade tra pochi giorni: contatta il fornitore per il rinnovo.',
+  'expired_in_grace' => 'Licenza scaduta: periodo di tolleranza in corso. Rinnova per evitare la sola lettura.',
+  'expired_beyond_grace' => 'Licenza scaduta oltre la tolleranza: archivio in sola lettura. I dati restano consultabili ed esportabili.',
+  'not_yet_valid' => 'La licenza non è ancora attiva (data di inizio futura): archivio in sola lettura.',
+  'missing' => 'Nessuna licenza installata: archivio in sola lettura.',
+  'bad_file' => 'File di licenza illeggibile: archivio in sola lettura.',
+  'unsupported_format' => 'Formato di licenza non supportato da questa versione: archivio in sola lettura.',
+  'bad_fields' => 'Licenza incompleta o con campi non validi: archivio in sola lettura.',
+  'unknown_key' => 'Licenza firmata con una chiave sconosciuta: archivio in sola lettura.',
+  'key_id_mismatch' => 'Licenza incoerente (identificativo chiave): archivio in sola lettura.',
+  'bad_signature' => 'Firma della licenza non valida (file modificato?): archivio in sola lettura.',
+  'instance_mismatch' => "La licenza è intestata a un'altra installazione: archivio in sola lettura.",
+  'suspended' => 'Licenza sospesa dal fornitore: archivio in sola lettura. I dati restano consultabili ed esportabili.',
+  'revoked' => 'Licenza revocata: archivio in sola lettura. I dati restano consultabili ed esportabili.',
+];
+function lic_required(array $c): bool { $v = $c['licence_required'] ?? null; return $v === true || $v === 1; }
+function lic_b64key($v): bool { if (!is_string($v) || trim($v) === '' || strlen($v) > 100) return false; $r = base64_decode(trim($v), true); return $r !== false && strlen($r) === 32; }
+function lic_trusted(array $c): array {
+  $keys = [];
+  $f = __DIR__ . '/trusted_keys.json';
+  if (is_file($f) && filesize($f) <= DM_LIC_MAX_BYTES) {
+    $o = json_decode((string)@file_get_contents($f), true);
+    if (is_array($o) && is_array($o['keys'] ?? null)) foreach ($o['keys'] as $k => $v) {
+      if (preg_match('/^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/', (string)$k) && lic_b64key($v)) $keys[(string)$k] = trim($v); else error_log('docmap: trusted_keys.json: key ignored');
+    }
+  }
+  foreach (DM_LIC_TRUSTED as $k => $v) $keys[(string)$k] = $v;
+  if (is_array($c['licence_public_keys'] ?? null)) foreach ($c['licence_public_keys'] as $k => $v) if (is_string($v)) $keys[(string)$k] = $v;   // TESTS / DEVELOPMENT ONLY
+  return $keys;
+}
+/* canonical JSON = Python json.dumps(sort_keys=True, separators=(',', ':'), ensure_ascii=False); input decoded as objects */
+function lic_canon($v): string {
+  if (is_float($v)) throw new InvalidArgumentException('float in licence');
+  if ($v instanceof stdClass) { $a = get_object_vars($v); ksort($a, SORT_STRING); $p = []; foreach ($a as $k => $x) $p[] = lic_canon((string)$k) . ':' . lic_canon($x); return '{' . implode(',', $p) . '}'; }
+  if (is_array($v)) return '[' . implode(',', array_map('lic_canon', $v)) . ']';
+  $s = json_encode($v, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_LINE_TERMINATORS);
+  if ($s === false) throw new InvalidArgumentException('not encodable');
+  return $s;
+}
+function lic_time($v): ?float {
+  if (!is_string($v) || trim($v) === '') return null;
+  $t = trim($v); if (!preg_match('/(Z|z|[+-]\d{2}:?\d{2})$/', $t)) return null;
+  if (!preg_match('/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d{1,6})?)?(Z|z|[+-]\d{2}:?\d{2})$/', $t)) return null;
+  try { $d = new DateTimeImmutable(strtoupper(substr($t, -1)) === 'Z' ? substr($t, 0, -1) . '+00:00' : $t); return (float)$d->format('U.u'); } catch (Throwable $e) { return null; }
+}
+function lic_days(float $sec): int { return $sec >= 0 ? (int)ceil($sec / 86400) : -(int)ceil(-$sec / 86400); }
+function lic_truthy($v): bool { return !($v === null || $v === false || $v === 0 || $v === '' || $v === [] || ($v instanceof stdClass && !get_object_vars($v))); }
+function lic_fields($lic): array {
+  if (!($lic instanceof stdClass)) return ['licence is not an object'];
+  $e = []; $a = get_object_vars($lic);
+  foreach (DM_LIC_FIELDS as $f) if (!array_key_exists($f, $a)) $e[] = 'missing field: ' . $f;
+  if ($e) return $e;
+  if ($a['format'] !== 1) $e[] = 'format must be 1';
+  foreach (['licence_id', 'instance_id', 'plan', 'key_id'] as $f) if (!is_string($a[$f]) || trim($a[$f]) === '') $e[] = $f . ' must be a non-empty string';
+  $cu = $a['customer']; if (!($cu instanceof stdClass) || !is_string($cu->name ?? null) || trim($cu->name) === '') $e[] = 'customer.name is required';
+  $bad = false; foreach (['issued_at', 'valid_from', 'expires_at'] as $f) if (lic_time($a[$f]) === null) { $e[] = $f . ' is not an ISO UTC timestamp'; $bad = true; }
+  if (!$e && lic_time($a['expires_at']) <= lic_time($a['valid_from'])) $e[] = 'expires_at must be after valid_from';
+  if (!is_int($a['grace_days']) || $a['grace_days'] < 0) $e[] = 'grace_days must be a non-negative integer';
+  if (!($a['limits'] instanceof stdClass)) $e[] = 'limits must be an object';
+  else foreach (get_object_vars($a['limits']) as $k => $v) if ($v !== null && (!is_int($v) || $v < 0)) $e[] = 'limits.' . $k . ' must be a non-negative integer or null';
+  if (!is_array($a['features']) || array_filter($a['features'], fn($x) => !is_string($x))) $e[] = 'features must be a list of strings';
+  $r = $a['reseller']; if ($r !== null && (!($r instanceof stdClass) || !lic_truthy($r->id ?? null) || !lic_truthy($r->name ?? null))) $e[] = 'reseller must be null or {id, name}';
+  $b = $a['branding']; if ($b !== null && (!($b instanceof stdClass) || !is_string($b->product_name ?? null))) $e[] = 'branding must be null or {product_name, ...}';
+  if (array_key_exists('status', $a) && !in_array($a['status'], ['active', 'suspended', 'revoked'], true)) $e[] = 'status must be one of active, suspended, revoked';
+  if (array_key_exists('update_url', $a)) { $u = $a['update_url']; if (!is_string($u) || !preg_match('#^https?://#', $u) || mb_strlen($u) > 400 || preg_match('/\s/u', $u)) $e[] = 'update_url must be an http(s) URL'; }
+  if (array_key_exists('resume', $a) && !($a['resume'] instanceof stdClass)) $e[] = 'resume must be an object';
+  return $e;
+}
+function lic_st(string $mode, string $reason, $lic = null, bool $sig = false): array {
+  return ['mode' => $mode, 'reasons' => [$reason], 'licence' => $lic, 'signature_ok' => $sig, 'days_left' => null, 'grace_days_left' => null, 'expiring_soon' => false];
+}
+function lic_verify(?string $raw, array $keys, ?string $iid, ?float $now = null): array {
+  if ($raw === null || trim($raw) === '') return lic_st('invalid', 'missing');
+  if (substr($raw, 0, 3) === "\xEF\xBB\xBF") $raw = substr($raw, 3);
+  $o = json_decode($raw, false);
+  if (!($o instanceof stdClass) || !(($o->licence ?? null) instanceof stdClass)) return lic_st('invalid', 'bad_file');
+  $lic = $o->licence;
+  if (($o->format ?? null) !== 1 || ($lic->format ?? null) !== 1) return lic_st('invalid', 'unsupported_format', $lic);
+  $kid = $o->key_id ?? null;
+  if (!is_string($kid) || $kid !== ($lic->key_id ?? null)) return lic_st('invalid', 'key_id_mismatch', $lic);
+  if (!array_key_exists($kid, $keys)) return lic_st('invalid', 'unknown_key', $lic);
+  try {
+    $pub = base64_decode(trim((string)$keys[$kid]), true); $sig = base64_decode((string)($o->signature ?? ''), true);
+    if ($pub === false || strlen($pub) !== 32 || $sig === false || strlen($sig) !== 64 || !function_exists('sodium_crypto_sign_verify_detached')
+        || !sodium_crypto_sign_verify_detached($sig, lic_canon($lic), $pub)) return lic_st('invalid', 'bad_signature', $lic);
+  } catch (Throwable $e) { return lic_st('invalid', 'bad_signature', $lic); }
+  if (lic_fields($lic)) return lic_st('invalid', 'bad_fields', $lic);
+  if ($iid !== null && $lic->instance_id !== $iid) return lic_st('invalid', 'instance_mismatch', $lic);
+  $t = $now ?? microtime(true);
+  $from = lic_time($lic->valid_from); $exp = lic_time($lic->expires_at); $gend = $exp + $lic->grace_days * 86400;
+  $st = lic_st('full', 'ok', $lic, true); $st['days_left'] = lic_days($exp - $t);
+  $status = $lic->status ?? null;
+  if ($status === 'suspended' || $status === 'revoked') { $st['mode'] = 'read_only'; $st['grace_days_left'] = 0; $st['reasons'] = [$status]; }
+  elseif ($t + DM_LIC_SKEW < $from) { $st['mode'] = 'read_only'; $st['reasons'] = ['not_yet_valid']; }
+  elseif ($t < $exp) { $st['expiring_soon'] = $st['days_left'] <= DM_LIC_WARN_DAYS; $st['reasons'] = [$st['expiring_soon'] ? 'expiring_soon' : 'ok']; }
+  elseif ($t < $gend) { $st['mode'] = 'grace'; $st['grace_days_left'] = lic_days($gend - $t); $st['reasons'] = ['expired_in_grace']; }
+  else { $st['mode'] = 'read_only'; $st['grace_days_left'] = 0; $st['reasons'] = ['expired_beyond_grace']; }
+  return $st;
+}
+function lic_writable(array $st): bool { return $st['mode'] === 'full' || $st['mode'] === 'grace'; }
+function lic_message(array $st): string {
+  foreach ($st['reasons'] as $r) {
+    if ($r === 'ok') continue;
+    if ($r === 'expiring_soon' && $st['days_left'] !== null) return 'La licenza scade tra ' . $st['days_left'] . ' giorni: contatta il fornitore per il rinnovo.';
+    if ($r === 'expired_in_grace' && $st['grace_days_left'] !== null) return 'Licenza scaduta: restano ' . $st['grace_days_left'] . " giorni di tolleranza, poi l'archivio passa in sola lettura. Rinnova la licenza.";
+    return DM_LIC_MSG[$r] ?? '';
+  }
+  return DM_LIC_MSG['ok'];
+}
+function lic_path(array $c): string { return rtrim((string)$c['data_dir'], '/\\') . '/licence/licence.docmap-licence'; }
+function lic_iid_path(array $c): string { return rtrim((string)$c['data_dir'], '/\\') . '/instance.json'; }
+function lic_read_iid(array $c): ?string {
+  $f = lic_iid_path($c); if (!is_file($f)) return null;
+  $raw = (string)@file_get_contents($f); if (substr($raw, 0, 3) === "\xEF\xBB\xBF") $raw = substr($raw, 3);
+  $o = json_decode($raw, true); $i = is_array($o) ? ($o['instance_id'] ?? null) : null;
+  return is_string($i) && trim($i) !== '' ? $i : null;
+}
+function lic_write_iid(array $c, string $iid): void { $f = lic_iid_path($c); @file_put_contents($f . '.tmp', json_encode(['instance_id' => $iid], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n"); @rename($f . '.tmp', $f); }
+function lic_install(array $c, string $raw, array $st): void {
+  $d = dirname(lic_path($c)); if (!is_dir($d)) @mkdir($d, 0700, true);
+  if (is_file(lic_path($c))) @copy(lic_path($c), $d . '/licence.prev.docmap-licence');
+  if (@file_put_contents(lic_path($c) . '.tmp', $raw) !== false) @rename(lic_path($c) . '.tmp', lic_path($c));
+  if (lic_read_iid($c) === null) lic_write_iid($c, $st['licence']->instance_id);
+  $GLOBALS['DM_LIC_CACHE'] = null;
+}
+/* may $raw replace the installed licence? (genuine, this installation, issued after the installed one) */
+function lic_newer(array $c, string $raw, array $keys): ?array {
+  $st = lic_verify($raw, $keys, lic_read_iid($c));
+  if (!$st['signature_ok'] || $st['mode'] === 'invalid') return null;
+  $cur = lic_verify(is_file(lic_path($c)) ? (string)@file_get_contents(lic_path($c)) : null, $keys, lic_read_iid($c));
+  if ($cur['signature_ok'] && $cur['licence']) {
+    if ($st['licence']->licence_id === $cur['licence']->licence_id) return null;
+    if (lic_time($st['licence']->issued_at) < lic_time($cur['licence']->issued_at)) return null;
+  }
+  return $st;
+}
+function lic_status(array $c): array {
+  if (isset($GLOBALS['DM_LIC_CACHE']) && $GLOBALS['DM_LIC_CACHE']) return $GLOBALS['DM_LIC_CACHE'];
+  $keys = lic_trusted($c);
+  $ship = __DIR__ . '/licence.docmap-licence';   // shipped with the site by the hub
+  if (is_file($ship) && filesize($ship) <= DM_LIC_MAX_BYTES) { $raw = (string)@file_get_contents($ship); $st = lic_newer($c, $raw, $keys); if ($st) lic_install($c, $raw, $st); }
+  $raw = is_file(lic_path($c)) ? (string)@file_get_contents(lic_path($c)) : null;
+  $iid = lic_read_iid($c);
+  $st = lic_verify($raw, $keys, $iid);
+  if ($iid === null && $st['signature_ok'] && $st['licence'] && is_string($st['licence']->instance_id ?? null)) lic_write_iid($c, $st['licence']->instance_id);
+  return $GLOBALS['DM_LIC_CACHE'] = $st;
+}
+function lic_summary(array $st, bool $detailed): array {
+  $out = ['mode' => $st['mode'], 'writable' => lic_writable($st), 'message_it' => lic_message($st), 'reasons' => $st['reasons'],
+    'days_left' => $st['days_left'], 'grace_days_left' => $st['grace_days_left'], 'expiring_soon' => $st['expiring_soon']];
+  if ($detailed) {
+    $ok = $st['signature_ok'] && $st['licence']; $lic = $ok ? $st['licence'] : null;
+    $feats = $ok && is_array($lic->features ?? null) ? array_values(array_unique($lic->features)) : []; sort($feats, SORT_STRING);
+    $cust = $ok && ($lic->customer ?? null) instanceof stdClass ? $lic->customer : new stdClass();
+    $out += ['features' => $feats, 'limits' => $ok && ($lic->limits ?? null) instanceof stdClass ? get_object_vars($lic->limits) : [],   // empty = [] like the Python port's PHP-compatible encoder
+      'branding' => $ok ? ($lic->branding ?? null) : null,
+      'licence' => $ok ? ['licence_id' => $lic->licence_id ?? null, 'customer' => ['name' => $cust->name ?? null], 'plan' => $lic->plan ?? null, 'valid_from' => $lic->valid_from ?? null,
+        'expires_at' => $lic->expires_at ?? null, 'instance_id' => $lic->instance_id ?? null] : null];
+  }
+  return $out;
+}
+function lic_write_block(array $c): void {
+  if (!lic_required($c)) return;
+  $st = lic_status($c);
+  if (!lic_writable($st)) fail(403, 'licence_read_only', 'licence expired or missing: the server is in read-only mode', ['mode' => $st['mode'], 'reasons' => $st['reasons'], 'message_it' => lic_message($st)]);
+}
+function lic_limit_block(array $c, string $name, int $used, int $adding): void {
+  if (!lic_required($c) || $adding <= 0) return;
+  $st = lic_status($c);
+  $lim = $st['signature_ok'] && $st['licence'] && ($st['licence']->limits ?? null) instanceof stdClass ? ($st['licence']->limits->$name ?? null) : null;
+  $u = $used + $adding - 1;
+  if (lic_writable($st) && ($lim === null || $u < $lim)) return;
+  fail(403, 'licence_limit', 'licence limit reached: ' . $name, ['limit' => $name, 'max' => $lim, 'used' => $used, 'adding' => $adding,
+    'message_it' => 'Limite della licenza raggiunto (' . $name . '): contatta il fornitore per ampliare il piano.']);
+}
+function lic_active_users(PDO $db, array $c): array {
+  $n = [];
+  foreach ((array)$c['tokens'] as $i => $t) if (is_array($t) && empty($t['disabled'])) $n[(string)($t['user'] ?? 'user' . $i)] = 1;
+  foreach ($db->query('SELECT DISTINCT user FROM tokens WHERE revoked_at IS NULL') as $r) $n[(string)$r['user']] = 1;
+  return $n;
+}
+function lic_push_binder_limit(PDO $db, array $c, array $b): void {
+  $new = [];
+  foreach ((array)($b['records'] ?? []) as $r) {
+    if (!is_array($r)) continue;
+    $id = $r['id'] ?? ''; $data = $r['data'] ?? null;
+    if (($r['type'] ?? '') !== 'binder' || !valid_id($id) || !is_array($data)) continue;
+    $u = (string)($r['updated_at'] ?? ($data['updated_at'] ?? ''));
+    if (ts_ms($u) <= 0) continue;
+    $cur = rec_load($db, 'binder', $id);
+    if ($cur === null || ((int)$cur['deleted'] && ts_ms($u) > ts_ms($cur['updated_at']))) $new[$id] = 1;
+  }
+  if (!$new) return;
+  $used = (int)$db->query("SELECT COUNT(*) FROM records WHERE type = 'binder' AND deleted = 0")->fetchColumn();
+  lic_limit_block($c, 'binders', $used, count($new));
+}
+/* licence channel: after the answer, at most every 6 hours (PHP has no background thread) */
+function lic_channel_update(array $c): void {
+  try {
+    if (!lic_required($c)) return;
+    $stamp = dirname(lic_path($c)) . '/.last-update';
+    if (is_file($stamp) && time() - (int)@filemtime($stamp) < DM_LIC_UPDATE_SECONDS) return;
+    if (!is_dir(dirname($stamp))) @mkdir(dirname($stamp), 0700, true);
+    @touch($stamp);
+    $url = is_string($c['licence_update_url'] ?? null) && preg_match('#^https?://#', $c['licence_update_url']) ? $c['licence_update_url'] : null;
+    $st = lic_status($c);
+    if (!$url && $st['signature_ok'] && is_string($st['licence']->update_url ?? null)) $url = $st['licence']->update_url;
+    if (!$url || !preg_match('#^https?://#', $url)) return;
+    $ctx = stream_context_create(['http' => ['timeout' => 10, 'header' => "User-Agent: DocMap-php licence update\r\nCache-Control: no-cache\r\n", 'ignore_errors' => false]]);
+    $raw = @file_get_contents($url, false, $ctx, 0, DM_LIC_MAX_BYTES + 1);
+    if (!is_string($raw) || $raw === '' || strlen($raw) > DM_LIC_MAX_BYTES) return;
+    $new = lic_newer($c, $raw, lic_trusted($c));
+    if ($new) { lic_install($c, $raw, $new); error_log('docmap: new licence installed from the channel (' . $new['licence']->licence_id . ')'); }
+  } catch (Throwable $e) { error_log('docmap: licence update failed: ' . $e->getMessage()); }
+}
+
 /* ---------------- dispatch ---------------- */
 if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) {
   try {
     $route = (string)($_GET['r'] ?? '');
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     if ($route === 'ping'){   // works without config (set-up check) and lets the app measure the clock skew
-      try { cors(load_config()); } catch (Throwable $e) {}   // CORS headers only for allowed origins
+      $pc = null; try { $pc = load_config(); cors($pc); } catch (Throwable $e) {}   // CORS headers only for allowed origins
       if ($method === 'OPTIONS') { http_response_code(204); exit; }
-      out(200, r_ping([])); exit;
+      $res = r_ping([]);
+      if ($pc !== null && lic_required($pc)) $res['licence'] = lic_summary(lic_status($pc), false);   // v12.6: short, no customer data (ping needs no token)
+      out(200, $res); exit;
     }
     $c = load_config();
     cors($c);
@@ -906,9 +1140,12 @@ if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) {
     if (!in_array($method, ['GET', 'POST'], true)) fail(405, 'method', 'use GET or POST');
     $db = db($c);
     $who = auth($db, $c, $reads[$route] ?? $writes[$route]);
+    if (isset($writes[$route]) && $route !== 'seen') lic_write_block($c);   // v12.6 licence (only with licence_required): 'seen' records a read, never blocked
     switch ($route) {
       case 'me': $res = ['user' => $who['user'], 'role' => $who['role'], 'token_id' => $who['token_id'], 'studio_name' => (string)$c['studio_name'], 'server_time' => now_iso(),
-        'remember_minutes' => is_numeric($c['remember_minutes']) ? (int)$c['remember_minutes'] : null]; break;   // v12: phone sign-in policy (null = device setting)
+        'remember_minutes' => is_numeric($c['remember_minutes']) ? (int)$c['remember_minutes'] : null];
+        if (lic_required($c)) $res['licence'] = lic_summary(lic_status($c), true);   // v12.6
+        break;   // v12: phone sign-in policy (null = device setting)
       case 'pull': $res = r_pull($db, $c, $who); break;
       case 'push': $res = r_push($db, $c, $who); break;
       case 'binder': $res = r_binder($db, $c); header('ETag: "' . $res['etag'] . '"'); acc_after_read($db, $c, $who, $route, $res); break;   // v12: + access_log
@@ -925,6 +1162,7 @@ if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) {
       default: $res = r_token_revoke($db, $c);
     }
     out(200, $res);
+    if (lic_required($c)) { if (function_exists('fastcgi_finish_request')) @fastcgi_finish_request(); lic_channel_update($c); }   // v12.6 licence channel, after the answer
   } catch (ApiError $e) {
     out($e->status, array_merge(['error' => array_merge(['code' => $e->codeName, 'message' => $e->getMessage()], $e->extra)], array_intersect_key($e->extra, ['current' => 1, 'current_etag' => 1])), $e->headers);
   } catch (Throwable $e) {

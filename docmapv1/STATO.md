@@ -7,12 +7,13 @@
 
 | Componente | Versione | Dove si legge | Zip per Dave (file del progetto) |
 |---|---|---|---|
-| App DocMap (PC, web, telefono) | **26.12.5** (v12.5) | `APP_VERSION` in `assets/js/02-core.js` | `docmapv1/docmap_v12.5.zip`, `docmapv1/DocMap-COMPLETO-26.12.5.zip` |
+| App DocMap (PC, web, telefono) | **26.12.6** (v12.6) | `APP_VERSION` in `assets/js/02-core.js` | `docmapv1/docmap_v12.6.zip` |
 | Database locale (SQLite nel browser) | schema **9** | `DB_SCHEMA_VERSION` in `assets/js/06-db.js` | — |
-| Server web PHP (`server-php/api.php`) | 26.12.5, schema **3** | `DM_APP_VERSION`, `DM_SCHEMA` | dentro lo zip dell'app (`deploy/`) |
-| Server Python (sede) | pacchetto 1.0.0, parità con PHP 26.12.5 | `server-python/docmap_server/__init__.py` | dentro l'installer |
-| Strumenti di installazione Windows | 1.2.0 | `TOOLS_VERSION` in `installer-windows/docmap_tools.py` | `docmapv1/python/DocMap-installer-26.12.5.zip` |
-| Hub (PC di Dave) | **0.7.0**, registro schema in `registry.py` | `hub/docmap_hub/__init__.py` | `docmapv1/python/DocMap-hub-0.7.zip` |
+| Server web PHP (`server-php/api.php`) | 26.12.6, schema **3**, licenza con `licence_required` | `DM_APP_VERSION`, `DM_SCHEMA` | dentro lo zip dell'app (`deploy/`) |
+| Server Python (sede) | pacchetto 1.0.0, parità con PHP 26.12.6 (anche sulla licenza) | `server-python/docmap_server/__init__.py` | dentro l'installer |
+| Strumenti di installazione Windows | 1.2.0 | `TOOLS_VERSION` in `installer-windows/docmap_tools.py` | `docmapv1/python/DocMap-installer-26.12.6.zip` |
+| Hub (PC di Dave) | **0.8.0**, registro schema in `registry.py` | `hub/docmap_hub/__init__.py` | `docmapv1/python/DocMap-hub-0.8.zip` |
+| Aggiornatore del PC | con l'app | `AGGIORNA-DOCMAP.bat` + `tools/aggiorna-app.ps1` | dentro lo zip dell'app |
 
 Regola: lo **stesso numero 26.12.x** deve comparire in app, `api.php` e server Python. Il server PHP e quello Python
 leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza conversione).
@@ -27,9 +28,15 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
 
 | Cosa | Comando | Durata | Ultimo esito |
 |---|---|---|---|
-| Verifica veloce (tutto tranne la suite completa) | `bash tools/verifica-veloce.sh` | ~3 min | 2026-11-06: tutto OK (hub 112, server 33, parità PHP⇄Python 7/306 confronti, installer 70, smoke 13) |
+| Verifica veloce (tutto tranne la suite completa) | `bash tools/verifica-veloce.sh` | ~4 min | vedi §3bis |
 | Suite completa app (Playwright) | `cd tests && NODE_PATH=$(npm root -g) node suite.js` | ~35 min | v12.5: 1374/1374 |
 | CI su GitHub | `ci/docmap-ci.yml` (attivo solo se copiato in `.github/workflows/`) | — | in attesa del sì di Dave |
+
+### 3bis. Ultimo esito (2026-11-06, app 26.12.6, hub 0.8)
+
+- Verifica veloce: tutto OK — hub 114, server Python 33, parità PHP ⇄ Python 306 confronti, **licenza PHP ⇄ Python
+  201 confronti**, installatore 75 (anche l'aggiornatore del PC), smoke 13, `tests/v126.js` 17.
+- Suite completa: vedi la riga della v12.6 in `CHANGELOG.md` / il messaggio di rilascio.
 
 ## 4. Mai provato su dispositivi veri (bloccante prima di vendere)
 
@@ -43,10 +50,12 @@ Scheda unica da seguire: [`docs/COLLAUDO-REALE.md`](docs/COLLAUDO-REALE.md).
 
 ## 5. Limiti noti
 
-- Il server **PHP registra la licenza ma non la applica** (sospendere o revocare dall'hub non ha effetto sui siti web).
-  Il server Python la applica solo con `licence_required`.
+- La licenza è applicata (PHP e Python) **solo con `licence_required`**: i siti del hub 0.8 la attivano da soli con
+  `setup.php`; `studio-de` e i siti fatti a mano no. Il PHP legge il canale delle licenze solo durante le richieste
+  (al massimo ogni 6 ore), non in background.
 - Le foto degli armadi restano solo sul PC.
-- Nessun aggiornamento automatico: si sostituiscono i file seguendo la guida della versione.
+- Aggiornamento del PC con `AGGIORNA-DOCMAP.bat` (mai provato su Windows reale); server e telefoni come prima.
+- I documenti commerciali (`docs/commerciale/`) sono bozze: prezzi non validati, testi legali da rivedere.
 
 ## 6. Decisioni in vigore
 
@@ -56,6 +65,8 @@ Vedi `docs/ROADMAP.md` §5 (D1–D7) e la memoria del progetto. Aggiunte:
 |---|---|---|---|
 | D8 | 2026-11-06 | Un solo ramo/PR di consolidamento verso `main`, poi un ramo per thread da `main` | le PR a catena facevano partire i thread dal ramo sbagliato |
 | D9 | 2026-11-06 | `tools/verifica-veloce.sh` prima di ogni push; suite completa prima di ogni rilascio e ogni notte in CI | 35 minuti a ogni modifica non sono sostenibili |
+| D11 | 2026-11-06 | Controllo licenza nel PHP spento di default; acceso da `setup.php` solo se il sito porta `trusted_keys.json` (siti del hub) | nessuno studio esistente deve finire in sola lettura per un aggiornamento |
+| D12 | 2026-11-06 | Il sito del hub porta la licenza corrente in `server-php/`; `api.php` la installa solo se autentica e più recente | SiteGround non ha processi in background: il deploy è il canale sicuro |
 | D10 | 2026-11-06 | `STATO.md` + `CHANGELOG.md` sono la fonte unica; i vecchi `PROGRESS*.md` restano come diario | 4 registri separati non dicevano "dove siamo" |
 
 ## 7. Prossimi passi (ordine concordato con Dave il 2026-11-06)

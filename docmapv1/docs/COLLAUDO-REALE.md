@@ -2,7 +2,7 @@
 
 > Per Dave. Una mattina (2-3 ore) con un **cliente finto**, un **PC Windows di prova**, un **sottodominio di prova**,
 > la stampante e due telefoni. Tutto quello che c'è qui è provato solo su Linux con test automatici: questa scheda
-> serve a scoprire cosa cambia sui dispositivi veri. Valida per **app 26.12.5, hub 0.7, strumenti di installazione 1.2.0**.
+> serve a scoprire cosa cambia sui dispositivi veri. Valida per **app 26.12.6, hub 0.8, strumenti di installazione 1.2.0**.
 
 **Come riportare i risultati**: per ogni riga metti ✅ oppure ❌. Per ogni ❌ fai una foto o uno screenshot del
 messaggio e incollalo nel thread del progetto con il numero della riga (es. "B4 ❌" + foto). Non serve spiegare: basta
@@ -10,7 +10,7 @@ il numero e l'immagine. Se un passo si blocca, salta al blocco successivo.
 
 ## Cosa preparare
 
-- [ ] PC di Dave con l'**hub 0.7** (`python/DocMap-hub-0.7.zip`) e Python 3.11+.
+- [ ] PC di Dave con l'**hub 0.8** (`python/DocMap-hub-0.8.zip`) e Python 3.11+.
 - [ ] Un **PC Windows di prova** (va bene un portatile vecchio) collegato alla stessa rete, con Python 3.11+.
 - [ ] Un **sottodominio di prova** su SiteGround, es. `prova.docmap.pr-it.it`, con un account FTP dedicato.
 - [ ] Un foglio **MRINK143** (A4, 4 etichette 105×148) e qualche foglio bianco.
@@ -23,7 +23,7 @@ il numero e l'immagine. Se un passo si blocca, salta al blocco successivo.
 - [ ] A2. Se è la prima volta: `init`, `keygen`, `vault init`, `export-public-key`, `backup` (guida §0). Passphrase **su carta**.
 - [ ] A3. Copia lo zip del backup sulla chiavetta.
 - [ ] A4. «Ricorda su questo PC» attivo: chiudi e riapri il hub, **non** chiede la passphrase.
-- [ ] A5. `run_windows.bat info` dice `DocMap Hub 0.7.0`.
+- [ ] A5. `run_windows.bat info` dice `DocMap Hub 0.8.0`.
 
 ## B. Cliente finto "Studio Prova" (20 min) — guida: `GUIDA-NUOVO-CLIENTE.md` §1-2
 
@@ -31,7 +31,7 @@ il numero e l'immagine. Se un passo si blocca, salta al blocco successivo.
 - [ ] B2. Il hub crea: pacchetto per il PC, sito, foglio stampabile con i codici. Stampa il foglio.
 - [ ] B3. **Deploy** del sito sul sottodominio (FTPS): il piano mostra i file, conferma, finisce senza errori.
 - [ ] B4. Apri `https://<sottodominio>/server-php/setup.php` e segui il foglio; poi `.../server-php/api.php?r=ping` mostra `"schema":3` e `"app_version":"26.12.5"`.
-- [ ] B5. Sospendi la licenza dal hub e riattivala: il hub non dà errori. (Il sito PHP non la controlla ancora: è noto.)
+- [ ] B5. **Licenza sul sito** (app 26.12.6): sospendi la licenza dal hub e rifai il deploy; nel sito compare l'avviso rosso «Licenza sospesa» e le modifiche non si salvano, ma si legge e si esporta tutto. Riattiva + deploy: l'avviso sparisce e si torna a scrivere.
 
 ## C. Installazione in sede sul PC di prova (30 min) — guida: `installer-windows/GUIDA-INSTALLAZIONE.md` §4
 
@@ -64,6 +64,8 @@ il numero e l'immagine. Se un passo si blocca, salta al blocco successivo.
 - [ ] F1. Sul PC di Dave, con i dati veri della v10: segui `AGGIORNAMENTO-v10-v12.md`; dopo, stesso numero di faldoni e clienti.
 - [ ] F2. Sul PC di prova: ripristina il backup `.docmap-backup` di C6 con `ripristina.ps1`: i faldoni ci sono.
 - [ ] F3. Dal PC: **Verifica dopo l'aggiornamento** contro il sito di prova: tutte le righe verdi.
+- [ ] F4. **Aggiornatore del PC** (app 26.12.6): metti lo zip nuovo in Download, doppio clic su `AGGIORNA-DOCMAP.bat`: chiede il backup, copia la versione vecchia in `DocMap-copie\`, riapre DocMap con la versione nuova e gli stessi dati. Poi `AGGIORNA-DOCMAP.bat ripristina` rimette la versione di prima.
+- [ ] F5. **Primi passi** (app 26.12.6): in un browser nuovo (o in una finestra InPrivate) il riquadro nell'Archivio si spunta da solo man mano che fai i passi.
 
 ## Dopo il collaudo
 

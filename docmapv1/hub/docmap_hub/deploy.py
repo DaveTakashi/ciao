@@ -56,7 +56,7 @@ from .vault import Vault, VaultKey, EscrowRefused
 
 MANIFEST = "DEPLOY-MANIFEST.txt"
 GENERATED_PER_ENV = {"docmap.config.js", ".htaccess", "404.html", "README-DEPLOY.md", "nginx-docmap.conf.example",
-                     "robots.txt", MANIFEST}
+                     "robots.txt", MANIFEST, "server-php/trusted_keys.json", "server-php/licence.docmap-licence"}
 HTACCESS = {".htaccess", "server-php/.htaccess"}
 DATA_PREFIX = "server-php/data/"
 CONFIG = "server-php/config.php"
@@ -453,14 +453,36 @@ class Build:
             self.tmp = None
 
 
+def site_licence_files(hub, env: dict, folder: Path):
+    """(trusted_keys.json, licence file) for a web-php site of this installation, or (None, None).
+
+    App 26.12.6: the site carries the hub's PUBLIC key and the installation's current signed licence (neither is secret);
+    api.php installs the licence into its data folder when it is newer, so every deploy also delivers a suspension, a
+    reactivation or a renewal. Nothing is added when the hub has no key or the installation has no licence yet."""
+    if env.get("kind") != "web-php":
+        return None, None
+    try:
+        keys = hub.keys.export("json")
+        cur = hub.registry.latest_licence(env["instance_id"])
+    except Exception:   # noqa: BLE001 - no key / no licence: a plain site, as before
+        return None, None
+    if not cur or not cur.get("file_text"):
+        return None, None
+    tk, lic = folder / "trusted_keys.json", folder / "licence.docmap-licence"
+    tk.write_text(keys, "utf-8", newline="\n")
+    lic.write_text(cur["file_text"], "utf-8", newline="\n")
+    return tk, lic
+
+
 def build_for(hub, env: dict) -> Build:
     s = env.get("settings") or {}
     td = tempfile.TemporaryDirectory(prefix="docmap-hub-build-")
     target = Path(td.name) / "site"
     try:
+        tk, lic = site_licence_files(hub, env, Path(td.name))
         res = run_build_deploy(target, base_path=s.get("base_path") or "/", slug=s.get("slug") or "studio",
                                domain=s.get("domain") or "https://example.invalid",
-                               studio_name=s.get("studio_name") or "", reg=hub.registry)
+                               studio_name=s.get("studio_name") or "", reg=hub.registry, trusted_keys=tk, licence=lic)
     except Exception:
         td.cleanup()
         raise
