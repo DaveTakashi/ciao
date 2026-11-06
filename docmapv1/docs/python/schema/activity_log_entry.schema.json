@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DocMap activity log entry (riga del Registro attività)",
+  "description": "One user operation (logAct / logNorm in assets/js/06e-log.js). Same shape in memory (LOG.entries), in the workspace JSON key activity_log, in sync packages, in server pull/push (activity_log) and, flattened, in the SQLite table activity_log (target_type/target_id/target_code, details_json). Entries are append-only: merged by id, never modified. Contract: docs/MODELLO-DATI.md §7.2.",
+  "type": "object",
+  "required": ["id", "at", "who", "action", "target", "summary", "details", "source"],
+  "properties": {
+    "id": {"type": "string", "minLength": 1, "description": "Unique id (uuid; entries written by the server for a phone patch may use 32 hex characters)."},
+    "at": {"type": "string", "format": "date-time"},
+    "who": {"type": "string", "description": "settings.operator of the device, 'Questo PC' when empty; server user for phone patches."},
+    "action": {"type": "string", "pattern": "^[a-z_]+(\\.[a-z_]+)?$", "description": "Stable id '<group>.<verb>' (binder.create, binder.edit, binder.locate, import.merge, print.pdf, sync.import, sync.restore, location.create, undo, ...). New actions may appear at any time."},
+    "target": {
+      "description": "The object touched, or null.",
+      "oneOf": [
+        {"type": "null"},
+        {"type": "object", "required": ["type", "id", "code"], "properties": {
+          "type": {"type": "string", "description": "binder · client · info · session · file · location · settings · ..."},
+          "id": {"type": "string"}, "code": {"type": "string"}}, "additionalProperties": true}
+      ]
+    },
+    "summary": {"type": "string", "description": "Short human text, always Italian."},
+    "details": {"oneOf": [{"type": "object"}, {"type": "array", "maxItems": 0}], "description": "Small JSON: {changed:{field:[old, new]}}, counts, codes, file names, binder.locate {from, to, via, device, user}, ... An EMPTY object comes back from the PHP server as [] (json_decode with assoc: {} and [] are the same PHP array); the client accepts both."},
+    "source": {"enum": ["ui", "import", "ai", "restore", "mobile", "sync"], "description": "Unknown values are read as 'ui'."}
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,5 @@
+_trash/
+__pycache__/
+*.pyc
+wheels/
+_pacchetto*/

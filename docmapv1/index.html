@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DocMap 2026 — Phygital Archive &amp; Precision Label Studio</title>
+<meta name="description" content="DocMap 2026 (DM26): archivio fisico-digitale, mappatura scaffali, stampa millimetrica di etichette con QR qr7.it, database SQLite locale. Funziona offline con doppio clic.">
+<script src="docmap.config.js"></script>   <!-- v10: mode local | web (static upload); see docs/DEPLOY-WEB.md -->
+<link rel="stylesheet" href="assets/docmap.css">
+<link rel="stylesheet" href="assets/css-info.css">
+<link rel="stylesheet" href="assets/css-editor.css">
+<link rel="stylesheet" href="assets/css-import.css">
+<link rel="stylesheet" href="assets/css-labels.css">
+<link rel="stylesheet" href="assets/css-bulk.css">
+<link rel="stylesheet" href="assets/css-auth.css">
+<link rel="stylesheet" href="assets/css-help.css">
+<link rel="stylesheet" href="assets/css-journal.css">
+<link rel="stylesheet" href="assets/css-locations.css">   <!-- v11: location tree + association mode -->
+<link rel="stylesheet" href="assets/css-status.css">   <!-- v12: statuses / check-out -->
+<link rel="stylesheet" href="assets/css-licence.css">   <!-- v12.6: licence banner -->
+<link rel="stylesheet" href="assets/css-firststeps.css">   <!-- v12.6: Primi passi -->
+<link rel="stylesheet" href="assets/css-helpx.css">   <!-- v11.1: Informazioni su DocMap, FAQ, phone-width polish -->
+<link rel="stylesheet" href="assets/css-archives.css">   <!-- v12: archives (clusters), Configura archivio, NFC -->
+<link rel="stylesheet" href="assets/css-search.css">   <!-- v12: search, Ricordami, Chi l'ha visto / Accessi -->
+<link rel="stylesheet" href="assets/css-tape.css">   <!-- v12.3: tape / roll label printers -->
+<style id="page-style">@page{size:210mm 297mm;margin:0mm}</style>
+</head>
+<body>
+<div id="banner-root"></div>
+<header class="topbar"><div class="topbar-in" id="topbar"></div></header>
+<main id="view"></main>
+<div id="modal-root"></div>
+<div id="help-root"></div>
+<div id="guide-root"></div>
+<div id="toasts"></div>
+<div id="print-root"></div>
+<input type="file" id="file-import" accept=".xlsx,.xlsm,.xls,.csv,.json,.txt,text/csv,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" class="hidden">
+<input type="file" id="file-manifest" accept=".csv,.txt,text/csv" class="hidden">
+<input type="file" id="file-restore" accept=".json,application/json" class="hidden">
+<input type="file" id="file-sqlite" accept=".sqlite,.sqlite3,.db,application/x-sqlite3,application/vnd.sqlite3" class="hidden">
+<noscript><div style="padding:40px;font-family:sans-serif">DocMap 2026 richiede JavaScript attivo. / DocMap 2026 requires JavaScript.</div></noscript>
+
+<!-- Classic scripts (not modules) so everything runs from file:// with a double-click. Order matters. -->
+<script src="vendor/sql-wasm.js"></script>
+<script src="assets/js/01-qr.js"></script>
+<script src="assets/js/02-core.js"></script>
+<script src="assets/js/02c-locations.js"></script>   <!-- v11: location tree model (shared with scan.html) -->
+<script src="assets/js/02e-archives.js"></script>   <!-- v12: archives (clusters) model, per-archive levels -->
+<script src="assets/js/02d-status.js"></script>   <!-- v12: status types + status_event model (shared with scan.html) -->
+<script src="assets/js/02b-colors.js"></script>
+<script src="assets/js/03-print.js"></script>
+<script src="assets/js/04-ui.js"></script>
+<script src="assets/js/04b-typeahead.js"></script>
+<script src="assets/js/04c-search.js"></script>   <!-- v12: search engine (shared with scan.html) -->
+<script src="assets/js/05-views.js"></script>
+<script src="assets/js/05b-import-map.js"></script>
+<script src="assets/js/05c-pdf.js"></script>
+<script src="assets/js/05d-bulk.js"></script>
+<script src="assets/js/06-db.js"></script>
+<script src="assets/js/06b-photos.js"></script>
+<script src="assets/js/06c-clients.js"></script>
+<script src="assets/js/06d-info.js"></script>
+<script src="assets/js/06e-log.js"></script>
+<script src="assets/js/06f-sync.js"></script>
+<script src="assets/js/06g-server.js"></script>   <!-- v10.1: shared online database (server-php) -->
+<script src="assets/js/06h-locations.js"></script>   <!-- v11: Ubicazioni, location QR labels, association mode -->
+<script src="assets/js/06i-journal.js"></script>   <!-- v11: sync journal (Registro sincronizzazioni) -->
+<script src="assets/js/06l-archives.js"></script>   <!-- v12: Archivi, switcher, Configura archivio, nested association -->
+<script src="assets/js/06j-status.js"></script>   <!-- v12: statuses / check-out (Fuori archivio) -->
+<script src="assets/js/07-help.js"></script>
+<script src="assets/js/08-guide.js"></script>
+<script src="assets/js/07b-helpx.js"></script>   <!-- v11.1: knowledge base, tours, Informazioni su DocMap -->
+<script src="assets/js/10-auth.js"></script>
+<script src="assets/js/06k-access.js"></script>   <!-- v12: remembered sign-in, views / access log (after 10-auth.js) -->
+<script src="assets/js/11b-assoc.js"></script>   <!-- v11: camera QR scanner (association mode) -->
+<script src="assets/js/11e-nfc.js"></script>   <!-- v12: tag dispatcher onTagScanned (QR / NFC / keyboard), Web NFC -->
+<script src="assets/js/11d-search.js"></script>   <!-- v12: search UI (archive + phone) -->
+<script src="assets/js/06m-v12-glue.js"></script>   <!-- v12: connects statuses / archives / access log to the search and the status card -->
+<script src="assets/js/06n-tape.js"></script>   <!-- v12.3: tape / roll label printers, format search, location strips -->
+<script src="assets/js/06o-licence.js"></script>   <!-- v12.6: licence banner + sync status also on the PC from file:// -->
+<script src="assets/js/06p-firststeps.js"></script>   <!-- v12.6: "Primi passi" checklist in the Archivio -->
+<script src="assets/js/09-actions.js"></script>
+</body>
+</html>

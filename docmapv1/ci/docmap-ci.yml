@@ -1,0 +1,52 @@
+# DocMap CI. To activate it, this file must live at .github/workflows/docmap-ci.yml in the repository root
+# (GitHub only reads workflows there). It only looks at docmapv1/.
+name: DocMap CI
+on:
+  push:
+    paths: ['docmapv1/**', '.github/workflows/docmap-ci.yml']
+  pull_request:
+    paths: ['docmapv1/**', '.github/workflows/docmap-ci.yml']
+  schedule:
+    - cron: '30 2 * * *'          # every night: full regression suite
+  workflow_dispatch:
+    inputs:
+      full:
+        description: 'Run the full Playwright suite (~35 min)'
+        type: boolean
+        default: false
+jobs:
+  fast:
+    name: Verifica veloce
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }      # diff_test.py reads old api.php versions from git history
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - uses: shivammathur/setup-php@v2
+        with: { php-version: '8.2', extensions: pdo_sqlite, openssl, sodium }
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: pip install fastapi uvicorn cryptography pyftpdlib httpx
+      - run: npm install -g playwright@1.48.2 pngjs jsqr && npx -y playwright@1.48.2 install --with-deps chromium
+      - run: NODE_PATH=$(npm root -g) bash docmapv1/tools/verifica-veloce.sh
+  full:
+    name: Suite completa
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.full)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - uses: shivammathur/setup-php@v2
+        with: { php-version: '8.2', extensions: pdo_sqlite, openssl, sodium }
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm install -g playwright@1.48.2 pngjs jsqr && npx -y playwright@1.48.2 install --with-deps chromium
+      - run: pip install pypdfium2
+      - run: cd docmapv1/tests && NODE_PATH=$(npm root -g) node suite.js
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with: { name: suite-shots, path: docmapv1/tests/shots, retention-days: 7 }

@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DocMap sync package (pacchetto di sincronizzazione)",
+  "description": "The file exchanged by ⚙ Funzioni avanzate › Sincronizzazione (docmap-sync-<device>-<AAAAMMGG-hhmmss>.json): syncBuildPackage() in assets/js/06f-sync.js, optionally wrapped by syncEncrypt() into the 'docmap-sync-enc' envelope. Each server pull is turned into the same plain package inside the client. Contract: docs/SYNC.md §4.",
+  "oneOf": [{"$ref": "#/$defs/plain"}, {"$ref": "#/$defs/encrypted"}],
+  "$defs": {
+    "plain": {
+      "type": "object",
+      "required": ["format", "version", "app", "appVersion", "exportedAt", "source", "since", "target", "ack", "records", "tombstones", "settingsSubset", "activity_log", "counts"],
+      "properties": {
+        "format": {"const": "docmap-sync"},
+        "version": {"const": 1},
+        "app": {"const": "DocMap26"},
+        "appVersion": {"type": "string"},
+        "exportedAt": {"type": "string", "format": "date-time", "description": "Clock of the EXPORTING device."},
+        "source": {
+          "type": "object", "required": ["deviceId", "deviceLabel", "mode", "operator"],
+          "properties": {"deviceId": {"type": "string"}, "deviceLabel": {"type": "string"}, "mode": {"enum": ["local", "web"]}, "operator": {"type": "string"}},
+          "additionalProperties": true
+        },
+        "since": {"type": ["string", "null"], "description": "null = FULL package; ISO = only records with updated_at > since and tombstones with deletedAt > since."},
+        "target": {"type": "string", "description": "deviceId of the intended receiver, '' = any."},
+        "ack": {"type": "object", "additionalProperties": {"type": "string"}, "description": "{peerDeviceId: that peer's exportedAt of the last package imported from it}"},
+        "records": {
+          "type": "object", "required": ["binders", "clients"],
+          "properties": {
+            "binders": {"type": "array", "items": {"$ref": "binder.schema.json"}},
+            "clients": {"type": "array", "items": {"$ref": "client.schema.json"}},
+            "locations": {"type": "array", "items": {"$ref": "location.schema.json"}, "description": "v11; older readers ignore the key."},
+            "archives": {"type": "array", "items": {"$ref": "archive.schema.json"}, "description": "v12; older readers ignore the key."},
+            "status_events": {"type": "array", "items": {"$ref": "status_event.schema.json"}, "description": "v12: status events recorded (or received from another peer) after `since`; merged by id, never LWW. Older readers ignore the key."}
+          },
+          "additionalProperties": {"type": "array"}
+        },
+        "tombstones": {"type": "array", "items": {"$ref": "#/$defs/tombstone"}},
+        "settingsSubset": {
+          "type": "object",
+          "description": "Shared settings, applied only when the user ticks 'Applica anche le impostazioni condivise'. The colour block applies as a whole when colorUpdatedAt is newer; the location levels when locLevelsAt is newer; the saved searches (v12) when savedSearchesAt is newer.",
+          "properties": {
+            "studioName": {"type": "string"}, "destTemplate": {"type": "string"}, "catColors": {"type": "object"},
+            "colorMode": {"type": "string"}, "catFamilies": {"type": "object"}, "colorRules": {"type": "object"}, "colorUpdatedAt": {"type": "string"},
+            "locLevels": {"type": "array"}, "locLevelsAt": {"type": "string"},
+            "savedSearches": {"type": "array"}, "savedSearchesAt": {"type": "string"},
+                        "statusTypes": {"type": "array"}, "statusTypesAt": {"type": "string"}
+          },
+          "additionalProperties": true
+        },
+        "activity_log": {"type": "array", "items": {"$ref": "activity_log_entry.schema.json"}},
+        "counts": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}, "description": "binders, clients, locations, archives, tombstones, log"}
+      },
+      "additionalProperties": true
+    },
+    "encrypted": {
+      "type": "object",
+      "description": "Passphrase envelope (WebCrypto): AES-256-GCM, key = PBKDF2-SHA256(passphrase NFC UTF-8, salt, iterations) → 256 bit, AAD = 'docmap-sync-enc/1'; ct = ciphertext + 16-byte tag, base64. The plaintext is the JSON of a plain package.",
+      "required": ["format", "v", "kdf", "cipher", "iv", "ct"],
+      "properties": {
+        "format": {"const": "docmap-sync-enc"},
+        "v": {"const": 1},
+        "kdf": {
+          "type": "object", "required": ["name", "hash", "iterations", "salt"],
+          "properties": {"name": {"const": "PBKDF2"}, "hash": {"const": "SHA-256"}, "iterations": {"type": "integer", "minimum": 100000, "maximum": 10000000}, "salt": {"type": "string", "contentEncoding": "base64"}}
+        },
+        "cipher": {"const": "AES-256-GCM"},
+        "iv": {"type": "string", "contentEncoding": "base64", "description": "12 random bytes"},
+        "ct": {"type": "string", "contentEncoding": "base64"}
+      },
+      "additionalProperties": false
+    },
+    "tombstone": {
+      "type": "object", "required": ["type", "id", "code", "deletedAt"],
+      "properties": {
+        "type": {"enum": ["binder", "client", "location", "archive"]},
+        "id": {"type": "string"},
+        "code": {"type": "string", "description": "Human code at deletion time (speaking code, Multi code / name, location code)."},
+        "deletedAt": {"type": "string", "format": "date-time"},
+        "who": {"type": "string"}
+      },
+      "additionalProperties": true
+    }
+  }
+}
