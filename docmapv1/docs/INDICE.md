@@ -3,6 +3,13 @@
 > Mappa di tutti i documenti di `docmapv1/` (versione **26.12.5**): a cosa serve ognuno, chi lo deve leggere e in che
 > ordine. I percorsi sono relativi a `docmapv1/`.
 
+## Per ripartire (tutti)
+
+- [`../STATO.md`](../STATO.md): **dove siamo** — versioni correnti, test, cose non ancora provate, limiti, prossimi passi.
+- [`../CHANGELOG.md`](../CHANGELOG.md): tutte le versioni di app, hub, server e installatore in un solo elenco.
+- [`COLLAUDO-REALE.md`](COLLAUDO-REALE.md): **la scheda unica** per provare tutto su Windows, SiteGround, stampante e telefoni.
+- Agenti: [`../CLAUDE.md`](../CLAUDE.md) (regole fisse) e [`RILASCIO.md`](RILASCIO.md) (procedura di ogni rilascio).
+
 ## Chi legge cosa
 
 | Chi | Parte da | Poi |

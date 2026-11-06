@@ -108,15 +108,15 @@ aggiornare è sicuro: sostituire la cartella del programma non tocca mai i dati.
 
 1. Chiudi la pagina del hub (finestra nera: Ctrl+C) e ogni comando in corso.
 2. `run_windows.bat backup` e copia lo zip sulla chiavetta (per scrupolo).
-3. Estrai il nuovo zip in una cartella temporanea, apri la cartella `DocMap-hub-0.3.1\` e **copia tutto il suo
+3. Estrai il nuovo zip in una cartella temporanea, apri la cartella `DocMap-hub-<versione>\` (es. `DocMap-hub-0.7\`) e **copia tutto il suo
    contenuto dentro `C:\DocMapHub\`**, scegliendo **«Sostituisci i file nella destinazione»**.
    - Non cancellare `C:\DocMapHub\hub\.venv\` (l'ambiente Python: se lo cancelli si ricrea da solo, serve Internet).
    - Il file `chiave-pubblica.json` che avevi esportato può restare: non è segreto.
-4. Controlla: `run_windows.bat info` → deve dire `DocMap Hub 0.3.1` e mostrare la stessa chiave attiva di prima.
+4. Controlla: `run_windows.bat info` → deve dire la versione nuova (es. `DocMap Hub 0.7.0`) e mostrare la stessa chiave attiva di prima.
 5. Se `info` segnala un'impostazione che punta a una cartella che non esiste più (`installer_dir`, `docmap_dir`,
    `server_python_dir`), toglila: `run_windows.bat settings set installer_dir ""`.
 
-In alternativa puoi estrarre la versione nuova in una cartella nuova (es. `C:\DocMapHub-0.3.1\`) e usare quella: i dati
+In alternativa puoi estrarre la versione nuova in una cartella nuova (es. `C:\DocMapHub-0.7\`) e usare quella: i dati
 sono gli stessi perché stanno in `%APPDATA%`. La prima volta ricrea `.venv`.
 
 **Cosa non fare mai:** cancellare `%APPDATA%\DocMapHub\`, oppure lanciare `keygen --rotate` "per sicurezza" (crea una

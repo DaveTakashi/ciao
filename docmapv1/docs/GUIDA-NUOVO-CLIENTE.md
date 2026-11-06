@@ -1,6 +1,6 @@
 # DocMap — Nuovo cliente, dall'inizio alla fine
 
-Guida per Dave. Vale per **DocMap 26.12.5 (app v12.5)**, **hub 0.3**, **strumenti di installazione 1.2.0**.
+Guida per Dave. Vale per **DocMap 26.12.5 (app v12.5)**, **hub 0.3 e successivi (aggiornata per la 0.7)**, **strumenti di installazione 1.2.0**.
 (Per aggiornare uno studio che ha già la v12.4: `docs/AGGIORNAMENTO-v12.4-v12.5.md` — nessuna migrazione dei dati.)
 
 > **Con l'hub 0.5 c'è una strada più comoda**: nella pagina dell'hub premi **Crea progetto con AI** (wiki, capitolo 6.0).
@@ -24,10 +24,10 @@ Parole usate:
 ## 0. Una volta sola, sul tuo PC
 
 1. Installa **Python 3.11 o più recente** da <https://www.python.org/downloads/> e spunta **"Add python.exe to PATH"**.
-2. Estrai lo zip **`DocMap-hub-0.3.zip`** dove vuoi, per esempio `C:\DocMapHub\`. Dentro c'è la cartella completa
-   `DocMap-hub-0.3\` (hub, installer, server, sito): il hub la usa per costruire pacchetti e siti, **non spostare le
+2. Estrai lo zip **`DocMap-hub-0.7.zip` (o la versione più recente)** dove vuoi, per esempio `C:\DocMapHub\`. Dentro c'è la cartella completa
+   `DocMap-hub-0.7\` (hub, installer, server, sito): il hub la usa per costruire pacchetti e siti, **non spostare le
    sottocartelle**.
-3. Apri `DocMap-hub-0.3\hub\`, scrivi `cmd` nella barra dell'indirizzo di Esplora file e premi Invio. Nella finestra:
+3. Apri `DocMap-hub-0.7\hub\`, scrivi `cmd` nella barra dell'indirizzo di Esplora file e premi Invio. Nella finestra:
 
    ```bat
    run_windows.bat init

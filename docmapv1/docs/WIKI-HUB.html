@@ -197,15 +197,15 @@ aggiornare è sicuro: sostituire la cartella del programma non tocca mai i dati.
 <ol>
 <li>Chiudi la pagina del hub (finestra nera: Ctrl+C) e ogni comando in corso.</li>
 <li><code>run_windows.bat backup</code> e copia lo zip sulla chiavetta (per scrupolo).</li>
-<li>Estrai il nuovo zip in una cartella temporanea, apri la cartella <code>DocMap-hub-0.3.1\</code> e <strong>copia tutto il suo
+<li>Estrai il nuovo zip in una cartella temporanea, apri la cartella <code>DocMap-hub-&lt;versione&gt;\</code> (es. <code>DocMap-hub-0.7\</code>) e <strong>copia tutto il suo
    contenuto dentro <code>C:\DocMapHub\</code></strong>, scegliendo <strong>«Sostituisci i file nella destinazione»</strong>.</li>
 <li>Non cancellare <code>C:\DocMapHub\hub\.venv\</code> (l'ambiente Python: se lo cancelli si ricrea da solo, serve Internet).</li>
 <li>Il file <code>chiave-pubblica.json</code> che avevi esportato può restare: non è segreto.</li>
-<li>Controlla: <code>run_windows.bat info</code> → deve dire <code>DocMap Hub 0.3.1</code> e mostrare la stessa chiave attiva di prima.</li>
+<li>Controlla: <code>run_windows.bat info</code> → deve dire la versione nuova (es. <code>DocMap Hub 0.7.0</code>) e mostrare la stessa chiave attiva di prima.</li>
 <li>Se <code>info</code> segnala un'impostazione che punta a una cartella che non esiste più (<code>installer_dir</code>, <code>docmap_dir</code>,
    <code>server_python_dir</code>), toglila: <code>run_windows.bat settings set installer_dir ""</code>.</li>
 </ol>
-<p>In alternativa puoi estrarre la versione nuova in una cartella nuova (es. <code>C:\DocMapHub-0.3.1\</code>) e usare quella: i dati
+<p>In alternativa puoi estrarre la versione nuova in una cartella nuova (es. <code>C:\DocMapHub-0.7\</code>) e usare quella: i dati
 sono gli stessi perché stanno in <code>%APPDATA%</code>. La prima volta ricrea <code>.venv</code>.</p>
 <p><strong>Cosa non fare mai:</strong> cancellare <code>%APPDATA%\DocMapHub\</code>, oppure lanciare <code>keygen --rotate</code> "per sicurezza" (crea una
 chiave nuova: le licenze vecchie restano valide, ma i pacchetti nuovi avranno una chiave pubblica diversa).</p>

@@ -40,7 +40,9 @@ Sul PC funziona **offline**, con un doppio clic e senza installare niente. Il **
 | aggiornare dalla v11.1 alla v12 | [`docs/AGGIORNAMENTO-v11.1-v12.md`](docs/AGGIORNAMENTO-v11.1-v12.md) |
 | aggiornare dalla v11 alla v11.1 | [`docs/AGGIORNAMENTO-v11-v11.1.md`](docs/AGGIORNAMENTO-v11-v11.1.md) (regole generali: [`docs/AGGIORNAMENTI.md`](docs/AGGIORNAMENTI.md)) |
 | pubblicare il sito e il database online | [`docs/DEPLOY-WEB.md`](docs/DEPLOY-WEB.md) |
-| sviluppare (JavaScript) | [`AGENTS.md`](AGENTS.md) |
+| sapere a che punto siamo (versioni, test, cose da provare) | [`STATO.md`](STATO.md), [`CHANGELOG.md`](CHANGELOG.md) |
+| provare tutto su Windows, SiteGround, stampante e telefoni | [`docs/COLLAUDO-REALE.md`](docs/COLLAUDO-REALE.md) |
+| sviluppare (JavaScript) | [`CLAUDE.md`](CLAUDE.md), [`AGENTS.md`](AGENTS.md) |
 | portare il server in Python | [`docs/HANDOFF_PROMPT.md`](docs/HANDOFF_PROMPT.md), [`docs/python/PORTING.md`](docs/python/PORTING.md) |
 
 ## Cosa c'è nella cartella
@@ -51,6 +53,10 @@ scan.html           la pagina che si apre scansionando un QR (telefono)
 docmap.config.js    modalità: local (predefinita) o web
 assets/, vendor/    codice, stili, caratteri, sql.js (tutto incluso, niente Internet)
 server-php/         il database online condiviso (api.php, setup.php) per SiteGround
+server-python/      lo stesso server in Python, per l'installazione in sede
+installer-windows/  installazione in sede su Windows (C:\DocMap)
+hub/                DocMap Hub: clienti, licenze, deploy (PC di Dave)
+ci/                 test automatici su GitHub (file da attivare)
 tools/              build_deploy.py (cartella da caricare sul sito) e altri strumenti
 tests/              test automatici (solo per chi sviluppa)
 docs/               documentazione (inizia da docs/INDICE.md)
@@ -58,8 +64,11 @@ docs/               documentazione (inizia da docs/INDICE.md)
 
 ## Test (solo per chi sviluppa)
 
+Controllo veloce di tutto (~3 minuti, da fare prima di ogni push): `bash tools/verifica-veloce.sh`.
+Suite completa dell'app (prima di ogni rilascio, ~35 minuti):
+
 ```
 cd tests && npm i playwright jsqr pngjs && pip install pypdfium2 && node suite.js
 ```
 
-Servono anche PHP 8 con `pdo_sqlite` e `openssl` per le sezioni del server. La suite apre l'app in Chromium e fa circa 1050 controlli, in circa 6 minuti. Deve finire con `0 failed` ed `errors: none`. Dettagli in [`AGENTS.md`](AGENTS.md).
+Servono anche PHP 8 con `pdo_sqlite` e `openssl` per le sezioni del server. La suite apre l'app in Chromium e fa circa 1370 controlli, in circa 35 minuti. Deve finire con `0 failed` ed `errors: none`. Dettagli in [`AGENTS.md`](AGENTS.md).
