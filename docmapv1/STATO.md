@@ -39,7 +39,7 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
   PHP ⇄ Python 7 gruppi, licenza PHP ⇄ Python 3 gruppi, installatore 75, smoke 13, `tests/v126.js` 17.
 - In più: percorso completo «Nuovo cliente → sito di prova → produzione» nel browser contro PHP 8.3 reale dietro HTTPS
   (25 clic, nessun codice copiato a mano) e sospensione/riattivazione della licenza verificata sul sito.
-- Suite completa: in corso per la 26.12.7 (l'app cambia solo nel numero di versione).
+- Suite completa: **1373/1374**; l'unico errore era README e HANDOFF_PROMPT ancora a 26.12.6 (corretti, controllo D rifatto: OK).
 
 ### Esito precedente (2026-11-06, app 26.12.6, hub 0.8)
 
