@@ -18,14 +18,14 @@ Object.assign(I18N.it, {
   lic_grace:'Licenza scaduta: periodo di tolleranza in corso ({n} giorni). Rinnova per evitare la sola lettura.',
   lic_soon:'La licenza scade tra {n} giorni: contatta il fornitore per il rinnovo.', lic_limit:'Limite della licenza raggiunto: contatta il fornitore per ampliare il piano.',
   lic_help:'Con la licenza scaduta (oltre i giorni di tolleranza), sospesa o revocata il server non accetta modifiche ma lascia sempre leggere, cercare ed esportare tutto. Quando arriva la licenza nuova si torna a scrivere da soli, senza perdere niente. Le modifiche fatte nel frattempo su questo PC restano in attesa e partono alla sincronizzazione successiva.',
-  sb_ago_now:'sincronizzato ora', sb_ago_m:'sincronizzato {n} min fa', sb_ago_h:'sincronizzato {n} h fa', sb_ago_d:'sincronizzato {n} g fa', sb_local_wait:'{n} da inviare al server', sb_local_never:'Server: mai sincronizzato', sb_local_ok:'Server: {t}'
+  sb_ago_now:'sincronizzato ora', sb_ago_m:'sincronizzato {n} min fa', sb_ago_h:'sincronizzato {n} h fa', sb_ago_d:'sincronizzato {n} g fa', sb_local_wait:'{n} da inviare al server', sb_srv:'Server online', sb_local_never:'Server: mai sincronizzato', sb_local_ok:'Server: {t}'
 });
 Object.assign(I18N.en, {
   lic_h:'Licence', lic_more:'What it means', lic_ro:'Licence expired or suspended: the archive is read-only. Data stays readable and exportable.',
   lic_grace:'Licence expired: grace period running ({n} days). Renew to avoid read-only mode.',
   lic_soon:'The licence expires in {n} days: contact your supplier to renew.', lic_limit:'Licence limit reached: contact your supplier to extend the plan.',
   lic_help:'With an expired (beyond grace), suspended or revoked licence the server accepts no changes but always lets you read, search and export everything. When the new licence arrives writing works again by itself, nothing is lost. Changes made meanwhile on this PC wait and go out with the next sync.',
-  sb_ago_now:'synced just now', sb_ago_m:'synced {n} min ago', sb_ago_h:'synced {n} h ago', sb_ago_d:'synced {n} d ago', sb_local_wait:'{n} to send to the server', sb_local_never:'Server: never synced', sb_local_ok:'Server: {t}'
+  sb_ago_now:'synced just now', sb_ago_m:'synced {n} min ago', sb_ago_h:'synced {n} h ago', sb_ago_d:'synced {n} d ago', sb_local_wait:'{n} to send to the server', sb_srv:'Online server', sb_local_never:'Server: never synced', sb_local_ok:'Server: {t}'
 });
 
 const LIC = { s:null, blocked:false, retryTimer:0 };
@@ -137,7 +137,7 @@ function sbLocalHTML(){
   if (st === 'syncing' || st === 'denied' || st === 'offline' || st === 'ro') return srvStatusHTML();
   const cls = n ? 'warn' : last ? 'ok' : 'warn';
   const txt = n ? t('sb_local_wait', {n}) : last ? t('sb_local_ok', {t:sbAgo(last)}) : t('sb_local_never');
-  return '<button type="button" class="status srv-st ' + cls + ' srv-local" id="srv-status" data-srv-state="' + esc(st) + '" data-a="nav" data-v="sync" title="' + esc((SRV.err || t('sv_h')) + (last ? ' · ' + syDate(last) : '')) + '"><span class="dot"></span><span class="sb-t">' + esc(txt) + '</span></button>';
+  return '<button type="button" class="status srv-st ' + cls + ' srv-local" id="srv-status" data-srv-state="' + esc(st) + '" data-a="nav" data-v="sync" title="' + esc((SRV.err || t('sb_srv')) + (last ? ' · ' + syDate(last) : '')) + '"><span class="dot"></span><span class="sb-t">' + esc(txt) + '</span></button>';
 }
 function sbInsertLocal(){
   if (typeof srvAuto !== 'function' || srvAuto() || typeof srvConf !== 'function' || !srvConf()) return;

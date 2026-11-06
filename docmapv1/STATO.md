@@ -29,14 +29,14 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
 | Cosa | Comando | Durata | Ultimo esito |
 |---|---|---|---|
 | Verifica veloce (tutto tranne la suite completa) | `bash tools/verifica-veloce.sh` | ~4 min | vedi §3bis |
-| Suite completa app (Playwright) | `cd tests && NODE_PATH=$(npm root -g) node suite.js` | ~35 min | v12.5: 1374/1374 |
+| Suite completa app (Playwright) | `cd tests && NODE_PATH=$(npm root -g) node suite.js` | ~35 min | v12.6: 1374/1374 (2026-11-06) |
 | CI su GitHub | `ci/docmap-ci.yml` (attivo solo se copiato in `.github/workflows/`) | — | in attesa del sì di Dave |
 
 ### 3bis. Ultimo esito (2026-11-06, app 26.12.6, hub 0.8)
 
 - Verifica veloce: tutto OK — hub 114, server Python 33, parità PHP ⇄ Python 306 confronti, **licenza PHP ⇄ Python
   201 confronti**, installatore 75 (anche l'aggiornatore del PC), smoke 13, `tests/v126.js` 17.
-- Suite completa: vedi la riga della v12.6 in `CHANGELOG.md` / il messaggio di rilascio.
+- Suite completa: **1374/1374** (errors: none).
 
 ## 4. Mai provato su dispositivi veri (bloccante prima di vendere)
 
