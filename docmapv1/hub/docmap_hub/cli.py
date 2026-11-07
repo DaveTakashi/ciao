@@ -1130,14 +1130,12 @@ def _activate_and_kit(hub: Hub, vk, cid: str, kit_out: str | None) -> int:
         out("Niente da fare online: tutto già pubblicato e configurato.")
     elif r["failed"]:
         out(f"FERMO a «{r['failed']['label']}»: {r['failed']['error']}")
-    name, data = AC.build_kit(hub, vk, cid, r.get("configs"))
     path = Path(kit_out) if kit_out else None
     if path is None:
-        if r.get("configs"):
-            raise CliError("Le copie di config.php vanno consegnate: rifai con --kit-out E:\\kit.zip. I siti sono "
-                           "configurati; recupera config.php dal server via FTP.")
-        out("Kit non scritto (usa --kit-out FILE per averlo).")
+        out("Kit non scritto: fallo con  cliente kit --cliente … --out E:\\  (riprende anche le copie di config.php "
+            "dai siti).")
         return 1 if r["failed"] else 0
+    name, data = AC.build_kit(hub, vk, cid, r.get("configs"), log=out)
     if path.is_dir():
         path = path / name
     fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -1155,7 +1153,7 @@ def cmd_attiva(hub: Hub, args) -> int:
 def cmd_kit(hub: Hub, args) -> int:
     from . import activate as AC
     c = hub.registry.get_customer(args.cliente)
-    name, data = AC.build_kit(hub, get_vault_key(hub, args), c["id"])
+    name, data = AC.build_kit(hub, get_vault_key(hub, args), c["id"], log=out)
     path = Path(args.out)
     if path.is_dir():
         path = path / name

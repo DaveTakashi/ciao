@@ -63,7 +63,7 @@ pre{background:var(--box);padding:10px 12px;border-radius:6px;overflow-x:auto} p
 </ul>
 </div>
 </nav><main><h1 id="wiki-di-docmap-hub">Wiki di DocMap Hub</h1>
-<p>Vale per <strong>hub 0.10.0</strong>, <strong>DocMap 26.12.7 (app v12.7)</strong> e <strong>strumenti di installazione 1.2.0</strong>. Data: 6 novembre 2026.</p>
+<p>Vale per <strong>hub 0.10.1</strong>, <strong>DocMap 26.12.7 (app v12.7)</strong> e <strong>strumenti di installazione 1.2.0</strong>. Data: 6 novembre 2026.</p>
 <blockquote>
 <p><strong>Novità 0.10.</strong> <strong>Modelli cliente</strong> (10 pronti, si creano e si cambiano dalle maschere), <strong>Hosting predefinito</strong>
 (dominio e FTP scritti una volta), <strong>Attiva tutto</strong> (pubblica e configura demo e sito in fila) e <strong>Kit di consegna</strong>
@@ -413,11 +413,12 @@ password (va in cassaforte), cartella base come la vede l'account FTP (di solito
    <code>studio-neri-2</code>: due clienti non hanno mai lo stesso sito.</li>
 <li>Nella stessa finestra: l'elenco dei passi e <strong>Attiva tutto</strong> (è la conferma). In fila: pubblica la demo →
    configura la demo → pubblica in produzione la versione provata → configura → controlla. Pubblica <strong>solo su cartelle
-   vuote</strong>; ogni deploy ha backup e ritorno automatico; al primo errore si ferma e dice dove.</li>
+   vuote</strong> (se c'è DocMap o un altro sito si ferma); ogni deploy ha backup e ritorno automatico; al primo errore si ferma e dice dove.</li>
 <li><strong>Scarica il kit di consegna</strong>: un solo zip con <code>1-lettere-di-benvenuto.html</code> (una pagina per persona: indirizzo,
    codice, primo accesso), <code>2-scheda-tecnica.html</code> (tutti i codici, anche <code>admin</code> e <code>ponte-sync</code>), la scheda cliente e
    <code>config/…-config.php</code> (chiave del database, se non c'è la custodia). L'hub non lo salva: consegnalo e cancella la
-   copia. Lo rifai quando vuoi dalla scheda del cliente (<strong>Kit di consegna</strong>, senza config.php).</li>
+   copia. Lo rifai quando vuoi dalla scheda del cliente (<strong>Kit di consegna</strong>): le copie di config.php si riprendono dai
+   siti via FTP (0.10.1), quindi perdere il kit non fa perdere la chiave.</li>
 </ol>
 <p><strong>Modelli.</strong> Dieci pronti: commercialista solo online, online con demo, sede + online, solo sede; studio grande; conto
 terzi online e sede + online; prova gratuita 30 giorni; cliente di un rivenditore; appliance. Per cambiarne uno:

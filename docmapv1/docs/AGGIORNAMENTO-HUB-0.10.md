@@ -22,7 +22,7 @@ Comandi nuovi: `modelli` (`mostra`, `importa`, `elimina`, `predefinito`, `ripris
 1. Chiudi il hub. `run_windows.bat backup` (o Impostazioni → Backup → «Fai un backup adesso»).
 2. Estrai `DocMap-hub-0.10.zip` e copia il contenuto **sopra** `C:\DocMapHub\` (sostituisci i file). La cartella dati
    `%APPDATA%\DocMapHub\` non si tocca.
-3. Avvia: in basso a sinistra **v0.10.0**. Al primo avvio il registro passa allo **schema 4**: si aggiunge solo la
+3. Avvia: in basso a sinistra **v0.10.1**. Al primo avvio il registro passa allo **schema 4**: si aggiunge solo la
    tabella dei modelli; prima l'hub fa da solo una copia del registro in `backups\registro-prima-dello-schema-4-…`.
 4. **Impostazioni → Hosting predefinito → Imposta adesso**: dominio (`https://docmap.pr-it.it/`), server e utente FTP,
    password (va in cassaforte), cartella base come la vede l'account FTP (di solito `/`), suffisso della demo (`-demo`).
@@ -36,6 +36,9 @@ Comandi nuovi: `modelli` (`mostra`, `importa`, `elimina`, `predefinito`, `ripris
 - La password dell'hosting è cifrata con la chiave della cassaforte e viene ricifrata se cambi la passphrase.
 - «Attiva tutto» **non sovrascrive** un sito già in uso: se nella cartella c'è DocMap si ferma (usa «Pubblica»).
 - Due clienti non possono avere lo stesso indirizzo: le maschere lo bloccano (sarebbe lo stesso database).
+- Se perdi il kit, rifallo dalla scheda del cliente («Kit di consegna»): le copie di `config.php` si riprendono
+  dai siti via FTP (0.10.1).
+- «Attiva tutto» si ferma anche se nella cartella c'è un altro sito (cartella non vuota, 0.10.1).
 - Il **kit** contiene codici e chiavi del database in chiaro: l'hub non lo salva sul disco; scaricalo, consegnalo in
   modo sicuro e poi cancella la copia.
 

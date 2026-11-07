@@ -55,6 +55,20 @@ Risultato: sito e demo pubblicati, configurati, controllati; percorso «6 di 6»
 2 copie di `config.php`; nessun codice copiato. **Prima 24 clic per cliente (più il modulo FTP), ora 5** (4 con il
 modello proposto). Dalla riga di comando: 1 comando.
 
+## 4bis. Terzo giro (hub 0.10.1, 2026-11-07)
+
+Riletto il codice nuovo cercando i casi in cui si perde qualcosa o si tocca il sito sbagliato.
+
+| Problema | Correzione |
+|---|---|
+| Le copie di `config.php` (chiave del database) esistevano **solo nel kit appena fatto**: chiudendo la finestra, riavviando il hub o dopo 40 attività la copia era persa (e senza custodia l'hub non la conserva) | il **Kit di consegna** dalla scheda del cliente (o `cliente kit`) **riprende le copie dai siti via FTP**; se un sito non risponde il kit lo dice (LEGGIMI e scheda tecnica). Perdere il kit non è più un problema |
+| «Attiva tutto» si fermava solo se nella cartella c'era **DocMap**: in una cartella con **un altro sito** (nome già usato sull'hosting) avrebbe aggiunto i suoi file | si ferma se la cartella **non è vuota**, qualunque cosa contenga; il sito che c'era resta com'è (test) |
+| Il passo «Controlla che risponda» interrogava **tutti i siti di tutti i clienti** (lento con centinaia di clienti) | controlla solo il sito appena attivato |
+| Doppio clic o seconda scheda su «Attiva tutto» avrebbero avviato **due pubblicazioni insieme** | un solo «Attiva tutto» per cliente: il secondo segue quello già in corso |
+
+Prova: 145 test del hub (3 nuovi), verifica veloce completa; kit rifatto con `cliente kit` su un cliente della
+simulazione: due copie di `config.php` riprese dai siti.
+
 ## 4. Cosa resta (onesto)
 
 - **Da provare davvero** (righe C1–C6 in `COLLAUDO-REALE.md`): l'hosting predefinito su SiteGround in FTPS, la cartella
@@ -65,3 +79,4 @@ modello proposto). Dalla riga di comando: 1 comando.
 - La **sede** resta il passo più lungo (Windows: `installa.bat`). Il kit porta già il codice `ponte-sync` nella scheda
   tecnica; prossimo: il pacchetto della sede che lo contiene cifrato, così la chiavetta sparisce.
 - Il kit contiene codici in chiaro: va consegnato in modo sicuro e cancellato dopo (lo dicono il kit e la pagina).
+- Da provare su SiteGround (C7 in `COLLAUDO-REALE.md`): rifare il kit dalla scheda e trovare le copie di config.php.

@@ -59,6 +59,21 @@ def plan(hub, cid: str) -> list[dict]:
     return steps
 
 
+def _check_one(hub, vk: VaultKey, env_id: str) -> dict:
+    """Ping ONLY this site (check_all would ping every customer's sites: slow with hundreds of them)."""
+    from . import health
+    t = [x for x in health.targets(hub, vk) if x["env_id"] == env_id]
+    res = health.probe_all(t, timeout=10.0)
+    health.store_results(hub, res)
+    return res.get(env_id) or {}
+
+
+def running_activation(jobs, cid: str):
+    """The «Attiva tutto» job already running for this customer, if any (two at once would deploy twice)."""
+    return next((j for j in jobs if j.kind == "customer-activate" and j.status == "running"
+                 and (j.params or {}).get("customer_id") == cid), None)
+
+
 def _missing_ftp(hub, cid: str) -> list[str]:
     reg, vault = hub.registry, Vault(hub.registry)
     out = []
@@ -77,7 +92,7 @@ def activate_customer(hub, vk: VaultKey, cid: str, *, log=lambda m: None, deploy
     from . import health
     D = deploy_mod or D
     setup_fn = setup_fn or (lambda env_id: SS.setup_site(hub, vk, env_id, log=log))
-    check_fn = check_fn or (lambda: health.check_all(hub, vk))
+    check_fn = check_fn or (lambda env_id: _check_one(hub, vk, env_id))
     reg = hub.registry
     cust = reg.get_customer(cid)
     steps = plan(hub, cust["id"])
@@ -101,6 +116,11 @@ def activate_customer(hub, vk: VaultKey, cid: str, *, log=lambda m: None, deploy
                         raise ActivateError(
                             f"Nella cartella del sito {env['name']} c'è già DocMap (versione {dry['remote_version']}): "
                             "«Attiva tutto» pubblica solo su cartelle vuote. Usa «Pubblica» (con il piano da leggere).")
+                    if dry.get("remote_file_count"):
+                        raise ActivateError(
+                            f"La cartella del sito {env['name']} non è vuota ({dry['remote_file_count']} file di un "
+                            "altro sito?): «Attiva tutto» pubblica solo su cartelle vuote. Controlla l'indirizzo e la "
+                            "cartella del sito oppure usa «Pubblica» (con il piano da leggere).")
                     stg = next((s for _, s, p in _web_envs(reg, cust["id"]) if p and p["id"] == env["id"]), None)
                     if env["name"] == "production" and stg and reg.get_environment(stg["id"]).get("verified_version"):
                         D.promote(hub, vk, env["instance_id"], build=build, log=log)
@@ -114,8 +134,7 @@ def activate_customer(hub, vk: VaultKey, cid: str, *, log=lambda m: None, deploy
                 if r.get("config_php"):
                     configs[env["name"]] = r["config_php"]
             elif st["do"] == "check":
-                res = check_fn() or {}
-                r = res.get(env["id"]) or {}
+                r = check_fn(env["id"]) or {}
                 if r and not r.get("ok"):
                     raise ActivateError(f"Il sito non risponde: {r.get('error') or 'errore'}.")
         except Exception as exc:  # noqa: BLE001 — stop at the first failure, say which step
@@ -201,7 +220,8 @@ def tech_html(cust: dict, codes: list[dict], configs: dict, escrow: bool) -> str
            if configs else
            ("<p>La chiave del database è custodita nella cassaforte del hub (custodia autorizzata dal cliente).</p>"
             if escrow else
-            "<p>Nessuna copia di config.php in questo kit: è stata consegnata quando il sito è stato configurato.</p>"))
+            "<p><b>Nessuna copia di config.php in questo kit</b> (sito non raggiungibile via FTP?): rifai il kit più "
+            "tardi o scarica <b>server-php/config.php</b> via FTP e consegnalo al cliente.</p>"))
     return (f"<!doctype html><html lang='it'><meta charset='utf-8'><title>Scheda tecnica · {_e(cust['name'])}</title>"
             f"<style>{LETTER_CSS}</style><body><div class='p'><h1>Scheda tecnica · {_e(cust['name'])}</h1>"
             f"<p class='mut'>Per chi installa. Contiene codici riservati: non lasciarla in giro.</p>"
@@ -210,14 +230,50 @@ def tech_html(cust: dict, codes: list[dict], configs: dict, escrow: bool) -> str
             f"server in sede per sincronizzarsi (configura-sync.ps1).</p><h2>Chiave del database</h2>{cfg}</div></body></html>")
 
 
-def build_kit(hub, vk: VaultKey, cid: str, configs: dict | None = None) -> tuple[str, bytes]:
+def fetch_configs(hub, vk: VaultKey, cid: str, *, skip=(), remote_for=None, log=lambda m: None) -> tuple[dict, list]:
+    """Copies of ``server-php/config.php`` read back from the customer's sites over their FTP access.
+
+    So a lost or never-downloaded kit is not a lost database key: «Kit di consegna» can be made again at any time
+    with the copies. Returns ({env_name: b64}, [env_name not read])."""
+    from .deploy import CONFIG, open_remote
+    reg, vault = hub.registry, Vault(hub.registry)
+    got, missing = {}, []
+    for _iid, stg, prod in _web_envs(reg, cid):
+        for e in (prod, stg):
+            if not e or e["name"] in skip or not SS.is_configured(hub, e):
+                continue
+            try:
+                sec = vault.get(vk, e["id"], "ftp", reason="kit di consegna: copia di config.php", required=False)
+                if not sec:
+                    raise ActivateError("nessun accesso FTP")
+                rem = remote_for(e, sec) if remote_for else open_remote(sec, known_hosts=hub.dir / "known_hosts")
+                try:
+                    b = rem.read(CONFIG)
+                finally:
+                    rem.close()
+                if not b:
+                    raise ActivateError("config.php non trovato sul sito")
+                got[e["name"]] = base64.b64encode(b).decode()
+                log(f"  copia di config.php ripresa dal sito {e['name']}")
+            except Exception as exc:  # noqa: BLE001 — the kit is still useful without it; say so
+                missing.append(e["name"])
+                log(f"  config.php del sito {e['name']} non ripreso: {exc}")
+    return got, missing
+
+
+def build_kit(hub, vk: VaultKey, cid: str, configs: dict | None = None, *, fetch: bool = True, remote_for=None,
+              log=lambda m: None) -> tuple[str, bytes]:
     from .onboarding import Onboarding, scheda_html
     from .templates import web_slug
     reg = hub.registry
     cust = reg.get_customer(cid)
     codes = _codes(hub, vk, cust["id"])
-    configs = configs or {}
+    configs = dict(configs or {})
     escrow = bool(cust.get("key_escrow"))
+    missing = []
+    if fetch and not escrow:
+        more, missing = fetch_configs(hub, vk, cust["id"], skip=tuple(configs), remote_for=remote_for, log=log)
+        configs.update(more)
     slug = web_slug(cust["name"])
     stamp = datetime.now().strftime("%Y%m%d-%H%M")
     buf = io.BytesIO()
@@ -230,6 +286,8 @@ def build_kit(hub, vk: VaultKey, cid: str, configs: dict | None = None) -> tuple
             "3-scheda-cliente.html        riepilogo del cliente (indirizzi, licenze, pacchetti).\r\n"
             + ("config/                      copie di config.php (chiave del database): consegnale al cliente.\r\n"
                if configs else "")
+            + (f"ATTENZIONE: copia di config.php non ripresa per: {', '.join(missing)} (riprovala più tardi o "
+               "scaricala via FTP: server-php/config.php).\r\n" if missing else "")
             + "\r\nContiene codici riservati: consegnalo su chiavetta o in modo sicuro, poi cancella le copie.\r\n"))
         z.writestr("1-lettere-di-benvenuto.html", letters_html(cust, codes))
         z.writestr("2-scheda-tecnica.html", tech_html(cust, codes, configs, escrow))

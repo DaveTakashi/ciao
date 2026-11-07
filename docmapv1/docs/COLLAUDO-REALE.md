@@ -43,6 +43,7 @@ il numero e l'immagine. Se un passo si blocca, salta al blocco successivo.
 - [ ] C4. **Kit di consegna**: apri `1-lettere-di-benvenuto.html`, stampa una pagina; con quel codice fai il primo accesso da un telefono.
 - [ ] C5. Rifai «Nuovo cliente» con lo stesso nome: l'hub propone `…-2` (mai lo stesso sito).
 - [ ] C6. «Salva come nuovo modello» dalle maschere e crea un cliente con quel modello.
+- [ ] C7. Scheda del cliente → **Kit di consegna**: nel kit ci sono le due copie di config.php riprese da SiteGround.
 
 ## C. Installazione in sede sul PC di prova (30 min) — guida: `installer-windows/GUIDA-INSTALLAZIONE.md` §4
 

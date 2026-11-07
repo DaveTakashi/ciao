@@ -12,7 +12,7 @@
 | Server web PHP (`server-php/api.php`) | 26.12.7, schema **3**, licenza con `licence_required`; `setup.php` con cartella per sito e modalità JSON | `DM_APP_VERSION`, `DM_SCHEMA` | dentro lo zip dell'app (`deploy/`) |
 | Server Python (sede) | pacchetto 1.0.0, parità con PHP 26.12.7 (anche sulla licenza) | `server-python/docmap_server/__init__.py` | dentro l'installer |
 | Strumenti di installazione Windows | 1.2.0 | `TOOLS_VERSION` in `installer-windows/docmap_tools.py` | `docmapv1/python/DocMap-installer-26.12.7.zip` |
-| Hub (PC di Dave) | **0.10.0**, registro schema **4** (modelli cliente) (`registry.py`) | `hub/docmap_hub/__init__.py` | `docmapv1/python/DocMap-hub-0.10.zip` |
+| Hub (PC di Dave) | **0.10.1**, registro schema **4** (modelli cliente) (`registry.py`) | `hub/docmap_hub/__init__.py` | `docmapv1/python/DocMap-hub-0.10.1.zip` |
 | Aggiornatore del PC | con l'app | `AGGIORNA-DOCMAP.bat` + `tools/aggiorna-app.ps1` | dentro lo zip dell'app |
 
 Regola: lo **stesso numero 26.12.x** deve comparire in app, `api.php` e server Python. Il server PHP e quello Python
@@ -22,7 +22,7 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
 
 - Ramo di consolidamento: `claude/project-thread-5qvqr5` (contiene tutto: app v12.6 + server Python + installer + hub 0.8),
   PR #4 verso `main`. Sostituisce le PR a catena #1 (app), #2 (Python), #3 (hub).
-- Hub 0.9 + app 26.12.7 (autocritica del hub) e hub 0.10 (modelli, Attiva tutto, kit): ramo `claude/project-thread-acqq2g`, PR #5 sopra la #4.
+- Hub 0.9 + app 26.12.7 (autocritica del hub) e hub 0.10/0.10.1 (modelli, Attiva tutto, kit): ramo `claude/project-thread-acqq2g`, PR #5 sopra la #4.
 - Dopo l'unione: `main` è la versione vera; ogni thread parte da `main`.
 
 ## 3. Test
@@ -33,7 +33,12 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
 | Suite completa app (Playwright) | `cd tests && NODE_PATH=$(npm root -g) node suite.js` | ~35 min | v12.6: 1374/1374 (2026-11-06) |
 | CI su GitHub | `ci/docmap-ci.yml` (attivo solo se copiato in `.github/workflows/`) | — | in attesa del sì di Dave |
 
-### 3bis. Ultimo esito (2026-11-06, app 26.12.7, hub 0.10)
+### 3bis. Ultimo esito (2026-11-07, app 26.12.7, hub 0.10.1)
+
+- Terzo giro (`AUTOCRITICA-HUB-0.10.md` §4bis): kit rifatto con le copie di config.php riprese dai siti, stop su
+  cartelle non vuote, controllo del solo sito attivato, un «Attiva tutto» per cliente. Hub 145 test, verifica veloce OK.
+
+### Esito 2026-11-06, hub 0.10
 
 - Hub: 142 test (17 nuovi in `test_v10_modelli.py`, con `setup.php` vero). `tools/verifica-veloce.sh`: tutto OK (hub, server Python, installer, smoke app 13/13, v12.6 17/17).
 - Nel browser contro PHP 8.3 reale dietro HTTPS, deploy vero: **Nuovo cliente da modello → Attiva tutto → kit** in

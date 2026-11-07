@@ -1,6 +1,6 @@
 # Wiki di DocMap Hub
 
-Vale per **hub 0.10.0**, **DocMap 26.12.7 (app v12.7)** e **strumenti di installazione 1.2.0**. Data: 6 novembre 2026.
+Vale per **hub 0.10.1**, **DocMap 26.12.7 (app v12.7)** e **strumenti di installazione 1.2.0**. Data: 6 novembre 2026.
 
 > **Novità 0.10.** **Modelli cliente** (10 pronti, si creano e si cambiano dalle maschere), **Hosting predefinito**
 > (dominio e FTP scritti una volta), **Attiva tutto** (pubblica e configura demo e sito in fila) e **Kit di consegna**
@@ -235,11 +235,12 @@ password (va in cassaforte), cartella base come la vede l'account FTP (di solito
    `studio-neri-2`: due clienti non hanno mai lo stesso sito.
 2. Nella stessa finestra: l'elenco dei passi e **Attiva tutto** (è la conferma). In fila: pubblica la demo →
    configura la demo → pubblica in produzione la versione provata → configura → controlla. Pubblica **solo su cartelle
-   vuote**; ogni deploy ha backup e ritorno automatico; al primo errore si ferma e dice dove.
+   vuote** (se c'è DocMap o un altro sito si ferma); ogni deploy ha backup e ritorno automatico; al primo errore si ferma e dice dove.
 3. **Scarica il kit di consegna**: un solo zip con `1-lettere-di-benvenuto.html` (una pagina per persona: indirizzo,
    codice, primo accesso), `2-scheda-tecnica.html` (tutti i codici, anche `admin` e `ponte-sync`), la scheda cliente e
    `config/…-config.php` (chiave del database, se non c'è la custodia). L'hub non lo salva: consegnalo e cancella la
-   copia. Lo rifai quando vuoi dalla scheda del cliente (**Kit di consegna**, senza config.php).
+   copia. Lo rifai quando vuoi dalla scheda del cliente (**Kit di consegna**): le copie di config.php si riprendono dai
+   siti via FTP (0.10.1), quindi perdere il kit non fa perdere la chiave.
 
 **Modelli.** Dieci pronti: commercialista solo online, online con demo, sede + online, solo sede; studio grande; conto
 terzi online e sede + online; prova gratuita 30 giorni; cliente di un rivenditore; appliance. Per cambiarne uno:

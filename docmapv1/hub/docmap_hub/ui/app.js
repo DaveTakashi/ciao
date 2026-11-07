@@ -444,14 +444,14 @@ async function activateIn(o, cid, created) {
     let r; try { r = await api(`/api/customers/${encodeURIComponent(cid)}/activate`, {}); } catch (e) { ev.target.disabled = false; return jmError(o, e.message); }
     $('#jm-det', o).hidden = false; $('#jm-det', o).open = true;
     $('#jm-ft', o).innerHTML = '<button type="button" class="btn ghost" data-close>Chiudi</button>'; $$('[data-close]', o).forEach((b) => (b.onclick = closeOverlay));
-    $('#jm-body', o).innerHTML = '<p class="note" style="margin-top:0">In corso: puoi chiudere, il lavoro continua (Attività). Non chiudere però prima di aver scaricato il kit alla fine.</p>';
+    $('#jm-body', o).innerHTML = '<p class="note" style="margin-top:0">In corso: puoi chiudere, il lavoro continua (Attività). Il kit di consegna si rifà quando vuoi dalla scheda del cliente.</p>';
     const tick = (j) => { showLog(o)(j); const done = j.lines.filter((l) => /\[\d+\/\d+\]/.test(l)).length; $$('.jsteps li', o).forEach((li, i) => { li.className = i < done - 1 ? 'done' : i === done - 1 ? 'cur' : ''; li.firstElementChild.textContent = i < done - 1 ? '✓' : '○'; }); };
     try {
       const j = await waitJob(r.job, tick); const res = j.result || {};
       $('#jm-det', o).open = !!res.failed;
       $('#jm-body', o).innerHTML = `${res.failed ? `<div class="err-box">Fermo a «${esc(res.failed.label)}»: ${esc(res.failed.error)}</div>` : `<div class="okbox">${ic('rocket')}<div><b>Tutto online e configurato</b><small>${(res.done || []).length} passi fatti, nessun codice copiato a mano.</small></div></div>`}
         ${res.done && res.done.length && res.failed ? `<p>Fatti: ${res.done.map(esc).join(' · ')}</p>` : ''}
-        ${res.kit ? `<div class="note warn mt"><b>Scarica adesso il kit di consegna.</b> Contiene i codici di accesso${Object.keys(res.people || {}).length ? '' : ''} e, se c'erano, le copie di config.php (chiave del database), che l'hub non conserva. Consegnalo al cliente o installalo tu, poi cancella la copia.</div>
+        ${res.kit ? `<div class="note warn mt"><b>Scarica adesso il kit di consegna.</b> Contiene i codici di accesso e le copie di config.php (chiave del database). L'hub non lo conserva: se lo perdi, rifallo dalla scheda del cliente («Kit di consegna»), le copie si riprendono dal sito. Consegnalo al cliente o installalo tu, poi cancella la copia.</div>
           <div class="btns mt"><a class="btn pri" id="jm-kit" href="/scarica/kit/${esc(res.kit.job)}">${ic('download')} Scarica il kit di consegna</a></div>` : ''}${res.kit_error ? `<div class="note warn mt">Kit non preparato: ${esc(res.kit_error)}. Rifallo dalla scheda del cliente («Kit di consegna»).</div>` : ''}`;
       $('#jm-ft', o).innerHTML = `<button type="button" class="btn ghost" data-close>Chiudi</button>${open}`;
       $$('[data-close]', o).forEach((b) => (b.onclick = () => { closeOverlay(); if (b.href) location.hash = `#/clienti/${cid}`; route(); }));

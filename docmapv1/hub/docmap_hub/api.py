@@ -1257,12 +1257,15 @@ def customer_activate(app, cid: str, body: dict) -> dict:
     from . import activate as AC
     vk = app.need_vault()
     cust = app.hub.registry.get_customer(cid)
+    cur = AC.running_activation(list(app.jobs.items.values()), cust["id"])
+    if cur:  # a double click or a second tab: follow the job already running
+        return {"job": cur.id, "already": True}
 
     def run(h, job):
         r = AC.activate_customer(h, vk, cust["id"], log=job.log)
         if not r.get("nothing") and (r.get("configs") or r.get("people") or not r.get("failed")):
             try:
-                job.kit = AC.build_kit(h, vk, cust["id"], r.pop("configs", {}))
+                job.kit = AC.build_kit(h, vk, cust["id"], r.pop("configs", {}), log=job.log)
                 r["kit"] = {"job": job.id, "name": job.kit[0]}
                 job.log("Kit di consegna pronto: scaricalo adesso (contiene i codici e le copie di config.php).")
             except Exception as exc:  # noqa: BLE001 — the sites are done; the kit can be made again later
@@ -1270,7 +1273,7 @@ def customer_activate(app, cid: str, body: dict) -> dict:
                 job.log(f"Kit non preparato: {exc}")
         r.pop("configs", None)
         return r
-    job = app.jobs.start(f"Attiva tutto: {cust['name']}", "customer-activate", {}, run)
+    job = app.jobs.start(f"Attiva tutto: {cust['name']}", "customer-activate", {"customer_id": cust["id"]}, run)
     return {"job": job.id}
 
 
@@ -1280,7 +1283,7 @@ def customer_kit(app, cid: str, body: dict) -> dict:
     cust = app.hub.registry.get_customer(cid)
 
     def run(h, job):
-        job.kit = AC.build_kit(h, vk, cust["id"])
+        job.kit = AC.build_kit(h, vk, cust["id"], log=job.log)
         return {"kit": {"job": job.id, "name": job.kit[0]}}
     job = app.jobs.start(f"Kit di consegna: {cust['name']}", "customer-kit", {}, run)
     return {"job": job.id}

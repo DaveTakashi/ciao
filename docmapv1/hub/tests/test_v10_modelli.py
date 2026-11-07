@@ -246,7 +246,9 @@ class FakeDeploy:
     def deploy(self, hub, vk, instance, env_name, *, dry_run=False, build=None, log=None, **kw):
         env = hub.registry.get_environment(instance, env_name)
         if dry_run:
-            return {"remote_version": "26.12.6" if env_name in self.existing else None}
+            f = self._folder(env)
+            n = sum(1 for x in f.rglob("*") if x.is_file()) if f.is_dir() else 0
+            return {"remote_version": "26.12.6" if env_name in self.existing else None, "remote_file_count": n}
         self.calls.append(("deploy", env_name))
         sp = self._folder(env) / "server-php"
         sp.mkdir(parents=True, exist_ok=True)
@@ -289,7 +291,7 @@ class TestActivateAndKit(Case):
         labels = [s["do"] for s in AC.plan(self.hub, cid)]
         self.assertEqual(labels, ["deploy", "setup", "deploy", "setup", "check"])
         fake = FakeDeploy(self.hub, self.vk)
-        r = AC.activate_customer(self.hub, self.vk, cid, deploy_mod=fake, check_fn=lambda: {})
+        r = AC.activate_customer(self.hub, self.vk, cid, deploy_mod=fake, check_fn=lambda env_id: {})
         self.assertIsNone(r["failed"], r)
         self.assertEqual(fake.calls, [("deploy", "staging"), ("promote", "production")])   # the verified version
         self.assertEqual(set(r["configs"]), {"staging", "production"})                      # no escrow → handed back
@@ -310,14 +312,59 @@ class TestActivateAndKit(Case):
         self.assertIn(b"aes_key", z.read("config/sito-vero-config.php"))
         self.assertFalse(list((self.tmp / "hub").rglob("*kit*.zip")))   # never written to disk by the hub
 
+    def test_lost_kit_is_made_again_with_config_copies(self):
+        """v0.10.1: the kit made later (kit lost, never downloaded, hub restarted) reads config.php back from the
+        sites, so the database key copy is never lost with the kit."""
+        d, rep = self.create("Studio Lilla", "tpl-commercialista-online-demo")
+        self._point_to_php(rep)
+        cid = rep["customer_id"]
+        r = AC.activate_customer(self.hub, self.vk, cid, deploy_mod=FakeDeploy(self.hub, self.vk),
+                                 check_fn=lambda env_id: {})
+        self.assertIsNone(r["failed"], r)
+        _name, data = AC.build_kit(self.hub, self.vk, cid)          # no configs passed: as from the customer page
+        z = zipfile.ZipFile(io.BytesIO(data))
+        self.assertEqual(z.read("config/sito-vero-config.php"), base64.b64decode(r["configs"]["production"]))
+        self.assertIn("config/demo-config.php", z.namelist())
+        self.assertNotIn("ATTENZIONE", z.read("LEGGIMI.txt").decode())
+        # a site that cannot be read: the kit is still made and says what is missing
+        def broken(env, sec):
+            raise OSError("FTP non raggiungibile")
+        _name, data = AC.build_kit(self.hub, self.vk, cid, remote_for=broken)
+        z = zipfile.ZipFile(io.BytesIO(data))
+        self.assertFalse([n for n in z.namelist() if n.startswith("config/")])
+        self.assertIn("ATTENZIONE", z.read("LEGGIMI.txt").decode())
+        self.assertIn("server-php/config.php", z.read("2-scheda-tecnica.html").decode())
+
+    def test_one_activation_per_customer(self):
+        class J:
+            def __init__(self, kind, status, cid):
+                self.kind, self.status, self.params = kind, status, {"customer_id": cid}
+        jobs = [J("customer-activate", "ok", "c1"), J("customer-kit", "running", "c1"),
+                J("customer-activate", "running", "c2")]
+        self.assertIsNone(AC.running_activation(jobs, "c1"))
+        self.assertIs(AC.running_activation(jobs, "c2"), jobs[2])
+
     def test_never_overwrites_a_folder_with_docmap(self):
         d, rep = self.create("Studio Rosa", "tpl-commercialista-online")
         self._point_to_php(rep)
         fake = FakeDeploy(self.hub, self.vk, existing={"production"})
-        r = AC.activate_customer(self.hub, self.vk, rep["customer_id"], deploy_mod=fake, check_fn=lambda: {})
+        r = AC.activate_customer(self.hub, self.vk, rep["customer_id"], deploy_mod=fake, check_fn=lambda env_id: {})
         self.assertIn("già DocMap", r["failed"]["error"])
         self.assertEqual(fake.calls, [])
         self.assertEqual(r["done"], [])
+
+    def test_never_writes_into_a_folder_with_other_files(self):
+        d, rep = self.create("Studio Ambra", "tpl-commercialista-online")
+        self._point_to_php(rep)
+        env = self.reg.get_environment(rep["envs"]["online"]["production"])
+        f = Path(self.vault.get(self.vk, env["id"], "ftp", reason="t")["remote_path"])
+        f.mkdir(parents=True, exist_ok=True)
+        (f / "index.html").write_text("<h1>un altro sito</h1>")
+        fake = FakeDeploy(self.hub, self.vk)
+        r = AC.activate_customer(self.hub, self.vk, rep["customer_id"], deploy_mod=fake, check_fn=lambda env_id: {})
+        self.assertIn("non è vuota", r["failed"]["error"])
+        self.assertEqual(fake.calls, [])
+        self.assertEqual((f / "index.html").read_text(), "<h1>un altro sito</h1>")
 
     def test_stops_at_first_failure(self):
         d, rep = self.create("Studio Blu", "tpl-commercialista-online-demo")
@@ -327,7 +374,7 @@ class TestActivateAndKit(Case):
         def bad_setup(env_id):
             raise SS.SetupError("setup.php non risponde")
         r = AC.activate_customer(self.hub, self.vk, rep["customer_id"], deploy_mod=fake, setup_fn=bad_setup,
-                                 check_fn=lambda: {})
+                                 check_fn=lambda env_id: {})
         self.assertEqual(r["done"], ["Pubblica il sito demo"])
         self.assertIn("setup.php", r["failed"]["error"])
         self.assertEqual(fake.calls, [("deploy", "staging")])   # production untouched
