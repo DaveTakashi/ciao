@@ -264,3 +264,26 @@ details summary{cursor:pointer;font-size:13px;color:var(--fg2);padding:4px 0}
 .okbox svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.8}
 .okbox small{display:block;color:var(--fg2);margin-top:2px}
 @media (max-width:520px){.stats3{grid-template-columns:1fr 1fr 1fr}.stats3 b{font-size:18px}}
+/* v0.9 · Percorso del cliente */
+.journey .jbar{height:6px;border-radius:99px;background:var(--line);overflow:hidden;margin-bottom:14px}
+.journey .jbar span{display:block;height:100%;background:var(--acc);border-radius:99px;transition:width .3s}
+.journey .jnext{display:flex;gap:16px;align-items:center;justify-content:space-between;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--acc-soft);margin-bottom:10px}
+.journey .jnext small{display:block;color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.journey .jnext b{font-size:15px}.journey .jnext p{margin:4px 0 0;color:var(--fg2);font-size:13px}
+.journey .jnext .btn{flex:none}
+.journey summary{cursor:pointer;color:var(--mut);font-size:13px;margin:4px 0}
+.jsteps{list-style:none;margin:8px 0 0;padding:0}
+.jsteps li{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-top:1px solid var(--line)}
+.jsteps li:first-child{border-top:0}
+.jsteps li>span{width:20px;flex:none;text-align:center;color:var(--mut);font-weight:700}
+.jsteps li.done>span{color:var(--ok)}.jsteps li.done b{color:var(--mut);font-weight:500}
+.jsteps li.cur>span{color:var(--acc)}
+.jsteps li>div{flex:1;min-width:0}.jsteps li small{display:block;color:var(--mut);font-size:12.5px}
+@media (max-width:640px){.journey .jnext{flex-direction:column;align-items:stretch}}
+/* v0.10: customer templates and FTP mode as selectable cards */
+.tplgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.tplc{display:flex;gap:8px;align-items:flex-start;padding:9px 11px;border:1px solid var(--line);border-radius:9px;cursor:pointer;background:var(--panel)}
+.tplc:hover{border-color:var(--acc)}
+.tplc:has(input:checked){border-color:var(--acc);background:var(--acc-soft)}
+.tplc input{margin-top:3px;flex:none}
+.tplc b{display:block;font-size:13.5px}.tplc small{display:block;color:var(--mut);font-size:12px;line-height:1.35;margin-top:2px}

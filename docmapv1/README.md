@@ -1,4 +1,4 @@
-# DocMap 2026 (DM26) — versione 26.12.6
+# DocMap 2026 (DM26) — versione 26.12.7
 
 Archivio fisico-digitale dello studio. Ogni faldone ha:
 
@@ -32,6 +32,7 @@ Sul PC funziona **offline**, con un doppio clic e senza installare niente. Il **
 | aggiornare il server online senza perdere niente | [`docs/AGGIORNARE-IL-SERVER.md`](docs/AGGIORNARE-IL-SERVER.md) |
 | aggiornare dalla v12.4 alla v12.5 | [`docs/AGGIORNAMENTO-v12.4-v12.5.md`](docs/AGGIORNAMENTO-v12.4-v12.5.md) |
 | aggiornare dalla v12.3 alla v12.4 | [`docs/AGGIORNAMENTO-v12.3-v12.4.md`](docs/AGGIORNAMENTO-v12.3-v12.4.md) |
+| aggiornare dalla v12.6 alla v12.7 (solo il server web; hub 0.9: [`docs/AGGIORNAMENTO-HUB-0.9.md`](docs/AGGIORNAMENTO-HUB-0.9.md)) | [`docs/AGGIORNAMENTO-v12.6-v12.7.md`](docs/AGGIORNAMENTO-v12.6-v12.7.md) |
 | aggiornare dalla v12.5 alla v12.6 (e poi con un doppio clic su `AGGIORNA-DOCMAP.bat`) | [`docs/AGGIORNAMENTO-v12.5-v12.6.md`](docs/AGGIORNAMENTO-v12.5-v12.6.md) |
 | listino, condizioni, GDPR, garanzia QR, demo (bozze) | [`docs/commerciale/README.md`](docs/commerciale/README.md) |
 | aggiornare dalla v12.2 alla v12.3 | [`docs/AGGIORNAMENTO-v12.2-v12.3.md`](docs/AGGIORNAMENTO-v12.2-v12.3.md) |

@@ -2,7 +2,7 @@
 
 > Per Dave. Una mattina (2-3 ore) con un **cliente finto**, un **PC Windows di prova**, un **sottodominio di prova**,
 > la stampante e due telefoni. Tutto quello che c'è qui è provato solo su Linux con test automatici: questa scheda
-> serve a scoprire cosa cambia sui dispositivi veri. Valida per **app 26.12.6, hub 0.8, strumenti di installazione 1.2.0**.
+> serve a scoprire cosa cambia sui dispositivi veri. Valida per **app 26.12.7, hub 0.9, strumenti di installazione 1.2.0**.
 
 **Come riportare i risultati**: per ogni riga metti ✅ oppure ❌. Per ogni ❌ fai una foto o uno screenshot del
 messaggio e incollalo nel thread del progetto con il numero della riga (es. "B4 ❌" + foto). Non serve spiegare: basta
@@ -10,7 +10,7 @@ il numero e l'immagine. Se un passo si blocca, salta al blocco successivo.
 
 ## Cosa preparare
 
-- [ ] PC di Dave con l'**hub 0.8** (`python/DocMap-hub-0.8.zip`) e Python 3.11+.
+- [ ] PC di Dave con l'**hub 0.9** (`python/DocMap-hub-0.9.zip`) e Python 3.11+.
 - [ ] Un **PC Windows di prova** (va bene un portatile vecchio) collegato alla stessa rete, con Python 3.11+.
 - [ ] Un **sottodominio di prova** su SiteGround, es. `prova.docmap.pr-it.it`, con un account FTP dedicato.
 - [ ] Un foglio **MRINK143** (A4, 4 etichette 105×148) e qualche foglio bianco.
@@ -20,18 +20,30 @@ il numero e l'immagine. Se un passo si blocca, salta al blocco successivo.
 ## A. Hub sul PC di Dave (20 min) — guida: `GUIDA-NUOVO-CLIENTE.md` §0, `WIKI-HUB.md`
 
 - [ ] A1. Estrai lo zip in `C:\DocMapHub\`, doppio clic su `hub\run_windows.bat`: si apre la pagina del hub nel browser.
-- [ ] A2. Se è la prima volta: `init`, `keygen`, `vault init`, `export-public-key`, `backup` (guida §0). Passphrase **su carta**.
+- [ ] A2. Se è la prima volta la pagina chiede **una** passphrase (crea chiave e cassaforte). Passphrase **su carta**. Impostazioni → Backup: scegli la chiavetta come **seconda cartella** (l'avviso in Panoramica sparisce).
 - [ ] A3. Copia lo zip del backup sulla chiavetta.
 - [ ] A4. «Ricorda su questo PC» attivo: chiudi e riapri il hub, **non** chiede la passphrase.
-- [ ] A5. `run_windows.bat info` dice `DocMap Hub 0.8.0`.
+- [ ] A5. In basso a sinistra c'è `v0.9.0` (o `run_windows.bat info` dice `DocMap Hub 0.9.0`).
 
 ## B. Cliente finto "Studio Prova" (20 min) — guida: `GUIDA-NUOVO-CLIENTE.md` §1-2
 
-- [ ] B1. Dalla pagina del hub: **Nuovo cliente** → "Studio Prova", installazioni **entrambe**, sito = il sottodominio di prova, ambiente **staging**.
-- [ ] B2. Il hub crea: pacchetto per il PC, sito, foglio stampabile con i codici. Stampa il foglio.
-- [ ] B3. **Deploy** del sito sul sottodominio (FTPS): il piano mostra i file, conferma, finisce senza errori.
-- [ ] B4. Apri `https://<sottodominio>/server-php/setup.php` e segui il foglio; poi `.../server-php/api.php?r=ping` mostra `"schema":3` e `"app_version":"26.12.5"`.
-- [ ] B5. **Licenza sul sito** (app 26.12.6): sospendi la licenza dal hub e rifai il deploy; nel sito compare l'avviso rosso «Licenza sospesa» e le modifiche non si salvano, ma si legge e si esporta tutto. Riattiva + deploy: l'avviso sparisce e si torna a scrivere.
+- [ ] B1. Dalla pagina del hub: **Nuovo cliente** → "Studio Prova", spunta **Sito online** e **Server in sede** → maschere → sito = il sottodominio di prova, staging = una sua sottocartella, dati FTP → **Conferma**. Annota quanti minuti ci hai messo: ____
+- [ ] B2. Si apre la scheda con il **Percorso del cliente** («1 di N»). Il hub ha creato pacchetto per il PC e siti.
+- [ ] B3. Prossimo passo **Pubblica** (FTPS): il piano mostra i file, conferma, finisce senza errori.
+- [ ] B4. Prossimo passo **Configura il sito** → «Configura adesso»: finisce con «Sito configurato», i codici sono in Scheda → Accessi, **Scarica config.php** funziona. Nel File Manager di SiteGround il database sta in `docmap-data/<nome-del-sito>` **fuori** da `public_html`. `.../server-php/api.php?r=ping` mostra `"app_version":"26.12.7"`.
+- [ ] B5. **Pubblica in produzione** + **Configura il sito** di produzione: percorso del sito completato senza copiare nessun codice a mano.
+- [ ] B6. **Licenza sul sito subito**: Licenze → la licenza online → **Sospendi**: entro pochi secondi il hub dice «sola lettura» e nel sito compare l'avviso rosso (si legge e si esporta tutto, non si salva). **Riattiva**: torna «valida».
+- [ ] B7. Deploy → **Siti da aggiornare** mostra i siti con versione vecchia (se ce ne sono) e li aggiorna in fila.
+
+**Hub 0.10 (modelli, hosting predefinito, Attiva tutto, kit)**
+
+- [ ] C1. Impostazioni → **Hosting predefinito** con il vero account FTP di docmap.pr-it.it (FTPS, cartella `/`). Esito: ____
+- [ ] C2. **Nuovo cliente** "Studio Prova Modello" con «Commercialista · online con demo» → **Crea il cliente**: indirizzi `docmap.pr-it.it/studio-prova-modello/` e `…-demo/`.
+- [ ] C3. **Attiva tutto**: la cartella del cliente viene **creata dall'FTP** su SiteGround, demo e sito rispondono, percorso «6 di 6». Minuti: ____
+- [ ] C4. **Kit di consegna**: apri `1-lettere-di-benvenuto.html`, stampa una pagina; con quel codice fai il primo accesso da un telefono.
+- [ ] C5. Rifai «Nuovo cliente» con lo stesso nome: l'hub propone `…-2` (mai lo stesso sito).
+- [ ] C6. «Salva come nuovo modello» dalle maschere e crea un cliente con quel modello.
+- [ ] C7. Scheda del cliente → **Kit di consegna**: nel kit ci sono le due copie di config.php riprese da SiteGround.
 
 ## C. Installazione in sede sul PC di prova (30 min) — guida: `installer-windows/GUIDA-INSTALLAZIONE.md` §4
 

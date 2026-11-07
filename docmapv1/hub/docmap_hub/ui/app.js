@@ -260,7 +260,7 @@ async function route() {
     else if (r === 'licenze') await pLicences(page);
     else if (r === 'deploy') await pDeploys(page);
     else if (r === 'attivita') await pEvents(page);
-    else if (r === 'impostazioni') await pSettings(page);
+    else if (r === 'impostazioni') await pSettings(page, parts[1]);
     else if (r === 'nuovo-progetto') await pPipeline(page, parts[1], parts[2]);
     else page.innerHTML = '<div class="empty"><div class="big">Pagina non trovata</div></div>';
   } catch (e) {
@@ -299,7 +299,7 @@ async function pOverview(page) {
   $('#new-cust').onclick = newCustomer;
   $$('.al', page).forEach((el) => (el.onclick = () => {
     const a = d.alerts[+el.dataset.i];
-    if (a.kind === 'licence') openLicence(a.id); else if (a.kind === 'env') openEnv(a.id); else if (a.kind === 'backup' || a.kind === 'channel') location.hash = '#/impostazioni'; else if (a.kind === 'draft') location.hash = `#/nuovo-progetto/${a.id}/cliente`; else if (a.customer_id) location.hash = `#/clienti/${a.customer_id}`;
+    if (a.kind === 'licence') openLicence(a.id); else if (a.kind === 'env') openEnv(a.id); else if (a.kind === 'backup' || a.kind === 'channel') location.hash = '#/impostazioni'; else if (a.kind === 'draft') location.hash = `#/nuovo-progetto/${a.id}/cliente`; else if (a.kind === 'updates') location.hash = '#/deploy'; else if (a.customer_id) location.hash = `#/clienti/${a.customer_id}`;
   }));
 }
 const evSubj = (ev) => (ev.subject ? ` <span style="color:var(--mut)">· ${esc(ev.subject)}</span>` : ev.entity_id ? ` <span class="tag mono">${esc(String(ev.entity_id).slice(0, 12))}</span>` : '');
@@ -358,10 +358,116 @@ function customerPayload(d) {
   for (const [k, v] of Object.entries(d)) if (k.startsWith('x_')) extra[k.slice(2)] = k === 'x_tags' ? v.split(',').map((t) => t.trim()).filter(Boolean) : v.trim();
   return { name: d.name, vat_id: d.vat_id, email: d.email, notes: d.notes, status: d.status, extra };
 }
-function newCustomer() {
+// v0.9: «Nuovo cliente» opens the same guided masks as «Crea progetto con AI», starting empty (no AI needed)
+// v0.10: «Nuovo cliente» = a template + name + VAT → the customer, then «Attiva tutto» in the same window
+const PLAN_IT = (k) => ((S.pp && S.pp.plans && S.pp.plans[k]) || k);
+function tplSummary(m) {
+  if (!m) return '';
+  const inst = m.installazioni.map((x) => (x === 'sede' ? 'PC in sede' : 'sito online')).join(' + ');
+  return [inst, m.demo ? 'con demo' : '', m.ftp === 'dominio' ? 'sul tuo hosting' : m.ftp === 'cliente' ? 'FTP del cliente' : m.ftp === 'nessuno' ? 'carico a mano' : '',
+    'piano ' + PLAN_IT(m.piano) + (m.mesi ? ` (${m.mesi} mesi)` : ''), m.persone ? `${m.persone} ${m.persone === 1 ? 'persona' : 'persone'}` : ''].filter(Boolean).join(' · ');
+}
+async function newCustomer() {
+  let tv = { templates: [], hosting: null };
+  try { [tv, S.pp] = await Promise.all([api('/api/templates'), S.pp ? S.pp : api('/api/pipeline/prompt')]); } catch (e) { toast(e.message, true); }
+  S.tpl = tv;
+  const def = tv.templates.find((t) => t.default) || tv.templates[0];
+  const card = (t) => `<label class="tplc"><input type="radio" name="tpl" value="${esc(t.id)}"${def && t.id === def.id ? ' checked' : ''}><span><b>${esc(t.name)}</b><small>${esc(tplSummary(t.summary))}</small></span></label>`;
+  const o = modal({
+    title: 'Nuovo cliente', submit: 'Crea il cliente', wide: true,
+    body: `<div class="frow">${fld('name', 'Ragione sociale', { req: true, attrs: 'required autofocus' })}${fld('vat_id', 'Partita IVA / C.F.', { hint: 'Serve a ritrovarlo: rifare il percorso non crea doppioni.' })}</div>
+      <div class="f"><label>Modello <a href="#/impostazioni/modelli" id="nc-manage" style="font-weight:400;margin-left:6px">gestisci i modelli</a></label>
+        <div class="tplgrid">${tv.templates.map(card).join('')}<label class="tplc"><input type="radio" name="tpl" value=""${def ? '' : ' checked'}><span><b>Nessun modello</b><small>maschere vuote: compili tu ogni passo</small></span></label></div></div>
+      <div id="nc-note"></div>
+      <p style="margin:6px 0 0;font-size:12.5px"><a href="#" id="nc-review">Rivedi i passi prima di creare</a> · <a href="#" id="only-registry">Solo anagrafica, senza installazioni</a> · <a href="#/nuovo-progetto">Ho già il JSON dell'AI</a></p>`,
+    onSubmit: (d) => quickCreate(o, d, false),
+  });
+  const note = () => {
+    const id = ($('input[name=tpl]:checked', o) || {}).value || '';
+    const t = tv.templates.find((x) => x.id === id);
+    const needHosting = t && t.summary.ftp === 'dominio' && !(S.tpl.hosting && S.tpl.hosting.has_password);
+    $('#nc-note', o).innerHTML = needHosting ? `<div class="note warn">Questo modello pubblica sul tuo hosting, che non è ancora impostato. <a href="#" id="nc-host">Imposta l'hosting predefinito</a> (una volta sola: dominio e FTP), poi torna qui.</div>`
+      : t ? `<div class="note">${esc(t.description || '')}${t.summary.ftp === 'dominio' && S.tpl.hosting ? ` Indirizzo: <span class="mono">${esc(S.tpl.hosting.base_url)}&lt;nome&gt;/</span>` : ''}</div>` : '';
+    const h = $('#nc-host', o); if (h) h.onclick = (e) => { e.preventDefault(); hostingModal(() => newCustomer()); };
+  };
+  $$('input[name=tpl]', o).forEach((r) => (r.onchange = note)); note();
+  $('#nc-review', o).onclick = (e) => { e.preventDefault(); const f = formData(o); quickCreate(o, f, true).catch((err) => { const eb = $('.err-box', o); eb.textContent = err.message; eb.hidden = false; }); };
+  $('#nc-manage', o).onclick = () => closeOverlay();
+  const a = $('#only-registry', o); if (a) a.onclick = (e) => { e.preventDefault(); closeOverlay(); newCustomerRegistry(); };
+}
+async function quickCreate(o, d, review) {
+  if (!(d.name || '').trim()) throw new Error('Scrivi la ragione sociale.');
+  const tpl = ($('input[name=tpl]:checked', o) || {}).value || '';
+  const r = await api('/api/drafts/blank', { name: d.name, vat_id: d.vat_id, template: tpl });
+  S.draft = r;
+  const stop = r.check.errors.length || r.passwords.ftp || r.passwords.ftp_staging;
+  if (review || stop) {
+    closeOverlay(); location.hash = `#/nuovo-progetto/${r.id}/${review ? 'cliente' : 'riepilogo'}`;
+    if (!review) toast(r.check.errors.length ? 'Manca qualcosa: completa il riepilogo e conferma.' : 'Scrivi la password FTP e conferma.', !!r.check.errors.length);
+    return;
+  }
+  await confirmDraft(r.id, d.name.trim());
+}
+// confirm a draft (job), then propose «Attiva tutto» in the same window
+async function confirmDraft(id, title, extra = {}) {
+  if (S.session && S.session.vault !== 'open') await unlockVault();
+  const r = await api(`/api/drafts/${id}/confirm`, Object.assign({ build: true }, extra));
+  const o = jobModal(`Nuovo cliente: ${title || ''}`, '<p class="note" style="margin-top:0">Creo cliente, progetto, licenze e pacchetti…</p>');
+  try {
+    const j = await waitJob(r.job, showLog(o));
+    S.draft = null; $('#jm-det', o).open = false;
+    await activateIn(o, j.result.customer_id, true);
+  } catch (e) { $('#jm-body', o).innerHTML = ''; jmError(o, e.message); }
+}
+async function activateModal(cid) {
+  const o = jobModal('Attiva tutto', '<p class="note" style="margin-top:0">Preparo l\'elenco…</p>');
+  $('#jm-det', o).hidden = true;
+  await activateIn(o, cid, false);
+}
+async function activateIn(o, cid, created) {
+  const p = await api(`/api/customers/${encodeURIComponent(cid)}/activate`);
+  const open = `<a class="btn" href="#/clienti/${esc(cid)}" data-close>Apri il cliente</a>`;
+  const head = created ? `<div class="okbox">${ic('users')}<div><b>Cliente creato</b><small>Licenze, progetto e pacchetti pronti.</small></div></div>` : '';
+  if (!p.steps.length) {
+    $('#jm-body', o).innerHTML = `${head}<p class="mt">Online non c'è altro da fare. ${created ? 'Se ha la sede, il prossimo passo è installare il pacchetto sul PC dello studio (scheda del cliente).' : ''}</p>`;
+    $('#jm-ft', o).innerHTML = `<button type="button" class="btn ghost" data-close>Chiudi</button>${open}`;
+    $$('[data-close]', o).forEach((b) => (b.onclick = () => { closeOverlay(); if (b.href) location.hash = `#/clienti/${cid}`; }));
+    return;
+  }
+  $('#jm-body', o).innerHTML = `${head}<h4 style="margin:${created ? '16px' : '0'} 0 8px">${created ? 'Adesso metto online tutto, in fila:' : 'In fila, solo quello che manca:'}</h4>
+    <ol class="jsteps">${p.steps.map((s) => `<li><span>○</span><div><b>${esc(s.label)}</b></div></li>`).join('')}</ol>
+    <div class="note mt">Pubblico solo su cartelle vuote (un sito già in uso si aggiorna con «Pubblica», piano compreso). Ogni passo ha il suo backup e controllo; al primo errore mi fermo e ti dico dove. Alla fine scarichi <b>un solo kit di consegna</b>: lettere di benvenuto con i codici${p.escrow ? '' : ' e copie di config.php'}.</div>`;
+  $('#jm-ft', o).innerHTML = `<button type="button" class="btn ghost" id="jm-later">Più tardi</button><button type="button" class="btn pri" id="jm-go">${ic('rocket')} Attiva tutto</button>`;
+  $('#jm-later', o).onclick = () => { closeOverlay(); location.hash = `#/clienti/${cid}`; route(); };
+  $('#jm-go', o).onclick = async (ev) => {
+    ev.target.disabled = true; $('.err-box', o).hidden = true;
+    let r; try { r = await api(`/api/customers/${encodeURIComponent(cid)}/activate`, {}); } catch (e) { ev.target.disabled = false; return jmError(o, e.message); }
+    $('#jm-det', o).hidden = false; $('#jm-det', o).open = true;
+    $('#jm-ft', o).innerHTML = '<button type="button" class="btn ghost" data-close>Chiudi</button>'; $$('[data-close]', o).forEach((b) => (b.onclick = closeOverlay));
+    $('#jm-body', o).innerHTML = '<p class="note" style="margin-top:0">In corso: puoi chiudere, il lavoro continua (Attività). Il kit di consegna si rifà quando vuoi dalla scheda del cliente.</p>';
+    const tick = (j) => { showLog(o)(j); const done = j.lines.filter((l) => /\[\d+\/\d+\]/.test(l)).length; $$('.jsteps li', o).forEach((li, i) => { li.className = i < done - 1 ? 'done' : i === done - 1 ? 'cur' : ''; li.firstElementChild.textContent = i < done - 1 ? '✓' : '○'; }); };
+    try {
+      const j = await waitJob(r.job, tick); const res = j.result || {};
+      $('#jm-det', o).open = !!res.failed;
+      $('#jm-body', o).innerHTML = `${res.failed ? `<div class="err-box">Fermo a «${esc(res.failed.label)}»: ${esc(res.failed.error)}</div>` : `<div class="okbox">${ic('rocket')}<div><b>Tutto online e configurato</b><small>${(res.done || []).length} passi fatti, nessun codice copiato a mano.</small></div></div>`}
+        ${res.done && res.done.length && res.failed ? `<p>Fatti: ${res.done.map(esc).join(' · ')}</p>` : ''}
+        ${res.kit ? `<div class="note warn mt"><b>Scarica adesso il kit di consegna.</b> Contiene i codici di accesso e le copie di config.php (chiave del database). L'hub non lo conserva: se lo perdi, rifallo dalla scheda del cliente («Kit di consegna»), le copie si riprendono dal sito. Consegnalo al cliente o installalo tu, poi cancella la copia.</div>
+          <div class="btns mt"><a class="btn pri" id="jm-kit" href="/scarica/kit/${esc(res.kit.job)}">${ic('download')} Scarica il kit di consegna</a></div>` : ''}${res.kit_error ? `<div class="note warn mt">Kit non preparato: ${esc(res.kit_error)}. Rifallo dalla scheda del cliente («Kit di consegna»).</div>` : ''}`;
+      $('#jm-ft', o).innerHTML = `<button type="button" class="btn ghost" data-close>Chiudi</button>${open}`;
+      $$('[data-close]', o).forEach((b) => (b.onclick = () => { closeOverlay(); if (b.href) location.hash = `#/clienti/${cid}`; route(); }));
+      const k = $('#jm-kit', o); if (k) k.addEventListener('click', () => setTimeout(() => { k.textContent = 'Scaricato'; k.classList.remove('pri'); }, 300));
+      toast(res.failed ? 'Attiva tutto: fermo al primo errore.' : 'Cliente online e configurato.', !!res.failed);
+    } catch (e) { jmError(o, e.message); }
+  };
+}
+async function kitJob(cid) {
+  let r; try { r = await withVault(() => api(`/api/customers/${encodeURIComponent(cid)}/kit`, {})); } catch (e) { return toast(e.message, true); }
+  try { const j = await waitJob(r.job); location.href = `/scarica/kit/${j.result.kit.job}`; toast('Kit di consegna scaricato: contiene codici riservati.'); } catch (e) { toast(e.message, true); }
+}
+function newCustomerRegistry() {
   modal({
-    title: 'Nuovo cliente', submit: 'Crea cliente', wide: true,
-    body: `<p class="note" style="margin-top:0">Crea il cliente e il suo primo progetto. Siti, server e postazioni li aggiungi dalla sua scheda.</p>${customerForm()}${fld('project_name', 'Nome del progetto', { ph: 'DocMap <nome del cliente>' })}`,
+    title: 'Nuovo cliente (solo anagrafica)', submit: 'Crea cliente', wide: true,
+    body: `<p class="note" style="margin-top:0">Per una trattativa o un cliente senza installazioni. Quando serve, il percorso guidato («Nuovo cliente» con la stessa P.IVA) completa questo cliente senza doppioni.</p>${customerForm()}${fld('project_name', 'Nome del progetto', { ph: 'DocMap <nome del cliente>' })}`,
     onSubmit: async (d) => {
       const p = customerPayload(d); p.project_name = d.project_name;
       const r = await api('/api/customers', p); closeOverlay(); toast('Cliente creato.'); location.hash = `#/clienti/${r.id}`;
@@ -410,10 +516,74 @@ function newProject(c) {
 
 function tSummary(el, d) {
   if (!d.projects.length) { el.innerHTML = `<div class="card"><div class="empty"><div class="big">Nessun progetto</div>Crea un progetto per registrare siti, server e postazioni.</div></div>`; return; }
-  el.innerHTML = `<div class="grid g-main"><div>${d.projects.map((p) => projectBlock(p)).join('')}</div>
+  el.innerHTML = `${journeyCard(d.journey)}<div class="grid g-main"><div>${d.projects.map((p) => projectBlock(p)).join('')}</div>
     <div><div class="card mb"><div class="hd"><h3>Licenze</h3><div class="btns"><a class="btn ghost sm" href="#/clienti/${esc(d.customer.id)}/licenze">Gestisci</a></div></div><div class="bd flush">${licMini(d.licences.filter((l) => l.state !== 'superseded'))}</div></div>
     <div class="card"><div class="hd"><h3>Ultime attività</h3></div><div class="bd flush"><div class="feed">${d.events.slice(0, 8).map(evRow).join('') || '<div class="empty">Nessuna attività</div>'}</div></div></div></div></div>`;
-  bindNodes(el, d);
+  bindNodes(el, d); bindJourney(el, d);
+}
+// v0.9: «Percorso del cliente» — what is done and the ONE next thing to do, with its button
+const JACT = { deploy: 'Pubblica', promote: 'Pubblica in produzione', setup: 'Configura il sito', check: 'Controlla adesso', tab: 'Apri', env: 'Apri' };
+function journeyCard(j) {
+  if (!j || !j.total) return '';
+  const pct = Math.round((100 * j.done) / j.total);
+  const online = j.steps.some((s) => /^(pub|cfg|chk)-/.test(s.id));
+  const auto = j.steps.some((s) => !s.done && /^(pub|cfg|chk)-/.test(s.id));
+  return `<div class="card mb journey"><div class="hd"><h3>${j.complete ? 'Percorso completato' : 'Percorso del cliente'}</h3><span class="pill ${j.complete ? 'ok' : 'info'}">${j.done} di ${j.total}</span>
+    <div class="btns" style="margin-left:auto">${online ? `<button class="btn sm" data-kit>${ic('download')} Kit di consegna</button>` : ''}${auto ? `<button class="btn pri sm" data-activate>${ic('rocket')} Attiva tutto</button>` : ''}</div></div>
+    <div class="bd"><div class="jbar"><span style="width:${pct}%"></span></div>
+    ${j.next ? `<div class="jnext"><div><small>Prossimo passo</small><b>${esc(j.next.title)}</b>${j.next.hint ? `<p>${esc(j.next.hint)}</p>` : ''}</div>${j.next.action ? `<button class="btn pri" data-jact="${esc(j.next.id)}">${ic(j.next.action.do === 'setup' ? 'key' : j.next.action.do === 'check' ? 'refresh' : 'rocket')} ${esc(JACT[j.next.action.do] || 'Apri')}</button>` : ''}</div>` : '<div class="note" style="background:var(--ok-soft);color:var(--ok)">Tutto fatto: il cliente è operativo. Da qui in poi: rinnovi e aggiornamenti dalla Panoramica.</div>'}
+    <details ${j.complete ? '' : 'open'}><summary>Tutti i passi</summary><ol class="jsteps">${j.steps.map((s) => `<li class="${s.done ? 'done' : s === j.next || (j.next && s.id === j.next.id) ? 'cur' : ''}"><span>${s.done ? '✓' : '○'}</span><div><b>${esc(s.title)}</b>${!s.done && s.hint ? `<small>${esc(s.hint)}</small>` : ''}</div>${!s.done && s.action && !(j.next && s.id === j.next.id) ? `<button class="btn ghost sm" data-jact="${esc(s.id)}">${esc(JACT[s.action.do] || 'Apri')}</button>` : ''}</li>`).join('')}</ol></details></div></div>`;
+}
+function bindJourney(el, d) {
+  const j = d.journey; if (!j) return;
+  const ac = $('[data-activate]', el); if (ac) ac.onclick = () => withVault(async () => { if (S.session && S.session.vault !== 'open') await unlockVault(); return activateModal(d.customer.id); }).catch((e) => toast(e.message, true));
+  const kt = $('[data-kit]', el); if (kt) kt.onclick = () => kitJob(d.customer.id);
+  $$('[data-jact]', el).forEach((b) => (b.onclick = () => {
+    const st = j.steps.find((x) => x.id === b.dataset.jact); const a = st && st.action; if (!a) return;
+    const envs = d.projects.flatMap((p) => p.instances.flatMap((i) => i.envs));
+    const env = envs.find((e) => e.id === a.env_id);
+    if (a.do === 'deploy') return runPlan('env', a.env_id, env ? `${env.instance_label} · ${env.name_it}` : '');
+    if (a.do === 'promote') return runPlan('promote', a.instance_id, '');
+    if (a.do === 'setup') return siteSetup(a.env_id, env ? `${env.instance_label} · ${env.name_it}` : '');
+    if (a.do === 'check') return checkAll();
+    if (a.do === 'env') return openEnv(a.env_id);
+    if (a.do === 'tab') location.hash = `#/clienti/${d.customer.id}/${a.tab}`;
+  }));
+}
+// v0.9: the hub runs setup.php and puts every access code in the vault
+async function siteSetup(envId, label) {
+  const o = modal({
+    title: `Configura il sito${label ? ': ' + label : ''}`, submit: 'Configura adesso', wide: true,
+    body: `<p style="margin-top:0">L'hub apre da solo <span class="mono">setup.php</span> del sito: crea il database (in una cartella tutta sua, fuori dal sito), la chiave e un codice di accesso per ogni persona, e mette i codici <b>direttamente in cassaforte</b>. Non devi copiare niente.</p>
+      <ul style="margin:0 0 12px;padding-left:18px;color:var(--fg2);font-size:13px"><li><b>admin</b>: il tuo codice da amministratore</li><li><b>ponte-sync</b>: solo se il cliente ha anche il server in sede (sincronizzazione)</li><li>le persone previste nel progetto</li></ul>
+      <div class="f"><label for="f-people">Altre persone (facoltativo): una per riga, <span class="mono">nome,ruolo</span></label><textarea id="f-people" name="people" rows="3" placeholder="mario,editor&#10;segreteria,viewer" style="font-family:ui-monospace,monospace;font-size:13px"></textarea><div class="hint">Ruoli: admin, editor, viewer. Altre persone si aggiungono poi dall'app.</div></div>
+      <div class="note">La chiave del database (<span class="mono">config.php</span>) resta nell'hub solo se il cliente ha autorizzato la custodia; altrimenti alla fine la scarichi una volta e la consegni al cliente.</div>`,
+    onSubmit: async (f) => {
+      const r = await withVault(() => api(`/api/envs/${envId}/setup`, { people: f.people || '' }));
+      closeOverlay();
+      const jm = jobModal('Configurazione del sito', '<p class="note" style="margin-top:0">In corso…</p>');
+      try {
+        const j = await waitJob(r.job, showLog(jm)); const res = j.result || {};
+        $('#jm-det', jm).open = false;
+        $('#jm-body', jm).innerHTML = `<div class="okbox">${ic('key')}<div><b>Sito configurato</b><small>${(res.people || []).length === 1 ? '1 codice di accesso' : (res.people || []).length + ' codici di accesso'} in cassaforte: ${(res.people || []).map((p) => esc(p.user)).join(', ')}</small></div></div>
+          ${res.config_php ? `<div class="note warn mt"><b>Scarica adesso la copia di config.php</b> e consegnala al cliente (chiavetta o gestore di password): contiene la chiave del database e l'hub non la conserva. Senza copia, se il file sul server si perde, i dati online non si leggono più.</div>
+            <div class="btns mt"><button class="btn pri" id="dl-cfg">${ic('download')} Scarica config.php</button></div>` : '<div class="note mt">Chiave del database custodita in cassaforte (custodia autorizzata).</div>'}
+          <p style="color:var(--mut);font-size:12.5px">Codici delle persone: scheda del cliente → <b>Accessi</b> (si mostrano con la passphrase, e ogni lettura resta nel registro).</p>`;
+        const dl = $('#dl-cfg', jm); if (dl) dl.onclick = () => { download(res.config_name || 'config.php', atob(res.config_php), 'application/octet-stream'); dl.textContent = 'Scaricato'; };
+        toast('Sito configurato.'); route();
+      } catch (e) { $('#jm-body', jm).innerHTML = ''; jmError(jm, e.message); }
+    },
+  });
+  return o;
+}
+async function pushReport(jobId) {
+  try {
+    const j = await waitJob(jobId); const sites = (j.result || {}).sites || [];
+    const ok = sites.filter((x) => x.ok); const ko = sites.filter((x) => !x.ok);
+    const MODE_IT = { full: 'valida', grace: 'in tolleranza', read_only: 'sola lettura', invalid: 'non valida' };
+    if (ok.length) toast('Licenza già in vigore sui siti: ' + ok.map((x) => `${x.env} (${MODE_IT[x.mode] || 'inviata'})`).join(', '));
+    if (ko.length) toast('Non inviata a: ' + ko.map((x) => `${x.env}: ${x.error}`).join('; '), true);
+  } catch (e) { toast(e.message, true); }
 }
 function projectBlock(p) {
   const nodes = [];
@@ -587,6 +757,7 @@ async function openEnv(id) {
   const row = (k, v) => `<dt>${esc(k)}</dt><dd>${v}</dd>`;
   const acts = [];
   if (e.url && /^https?:\/\//.test(e.url)) acts.push(`<a class="btn sm" href="${esc(e.url)}" target="_blank" rel="noreferrer">${ic('ext')} Apri</a>`);
+  if (e.kind === 'web-php') acts.push(`<button class="btn sm" data-a="setup" title="setup.php lanciato dall'hub: database e codici in cassaforte">${ic('key')} Configura</button>`);
   if (e.kind === 'web-php') acts.push(`<button class="btn pri sm" data-a="plan">${ic('rocket')} ${e.name === 'production' ? 'Deploy produzione' : 'Deploy ' + esc(e.name_it.toLowerCase())}</button>`);
   if (e.kind === 'local-python') acts.push(`<button class="btn sm" data-a="start">${ic('play')} Avvia</button><button class="btn sm" data-a="stop">${ic('stop')} Ferma</button>`);
   acts.push(`<button class="btn sm" data-a="check">${ic('refresh')} Controlla</button>`);
@@ -605,6 +776,7 @@ async function openEnv(id) {
   $$('[data-a]', dr).forEach((b) => (b.onclick = async () => {
     const a = b.dataset.a;
     if (a === 'plan') { closeOverlay(); return runPlan('env', e.id, `${e.instance_label} · ${e.name_it}`); }
+    if (a === 'setup') { closeOverlay(); return siteSetup(e.id, `${e.instance_label} · ${e.name_it}`); }
     if (a === 'start' || a === 'stop') return envJob(e, a);
     if (a === 'edit') { closeOverlay(); return editEnvironment(e); }
     if (a === 'check') { closeOverlay(); await checkAll(); }
@@ -621,6 +793,7 @@ async function openLicence(id) {
   const ar = c.autorenew;
   const cur = c.is_current && r.state !== 'superseded';
   const acts = [`<a class="btn sm" href="/download/${esc(l.licence_id)}">${ic('download')} Scarica</a>`];
+  if (cur) acts.push(`<button class="btn sm" data-x="push" title="Carica questa licenza sui siti online dell'installazione (FTP)">${ic('rocket')} Invia ai siti</button>`);
   if (cur && c.status === 'active') acts.push(`<button class="btn pri sm" data-x="renew">${ic('refresh')} Rinnova</button>`, `<button class="btn sm" data-x="modify">${ic('edit')} Modifica</button>`, `<button class="btn sm" data-x="suspend">${ic('lock')} Sospendi</button>`);
   if (cur && c.status !== 'active') acts.push(`<button class="btn pri sm" data-x="reactivate">${ic('unlock')} Riattiva</button>`);
   if (cur && c.status !== 'revoked') acts.push(`<button class="btn ghost sm" data-x="revoke" style="color:var(--bad)">Revoca</button>`);
@@ -639,18 +812,21 @@ async function openLicence(id) {
   const iid = l.instance_id;
   const done = async (res, msg) => {
     closeOverlay(); toast(msg);
+    if (res.push_job) await pushReport(res.push_job);
+    else if (!S.session.vault || S.session.vault !== 'open') toast('Cassaforte chiusa: se ci sono siti online, la licenza arriva con il prossimo deploy o dal canale. Per subito: apri la cassaforte e premi «Invia ai siti».', true);
     if (res.publish_job) { try { await waitJob(res.publish_job); toast('Pubblicata nel canale: il server la scarica da solo.'); } catch (e) { toast(e.message, true); } }
     await route(); if (res.id) openLicence(res.id);
   };
   const act = (a, body) => api(`/api/instances/${iid}/licence/${a}`, body || {});
   $$('[data-x]', dr).forEach((b) => (b.onclick = () => {
     const x = b.dataset.x;
+    if (x === 'push') return (async () => { try { const r = await withVault(() => api(`/api/instances/${iid}/licence/push`, {})); toast('Invio in corso…'); await pushReport(r.job); } catch (e) { toast(e.message, true); } })();
     if (x === 'renew') return modal({
       title: 'Rinnova o estendi la licenza', submit: 'Firma il rinnovo',
       body: `<p class="note" style="margin-top:0">La nuova licenza vale subito e si somma alla scadenza attuale se non è ancora passata. Puoi anche cambiare piano.</p>
         ${fld('months', 'Mesi in più', { type: 'number', value: '12', attrs: 'min="1" max="120"' })}
         ${sel('plan', 'Piano', [['', `Stesso piano (${l.plan})`]].concat(Object.entries(S.cust?.plans || {}).map(([k, v]) => [k, `${v} (${k})`])))}`,
-      onSubmit: async (f) => { const n = await api(`/api/licences/${l.licence_id}/renew`, f); closeOverlay(); toast('Licenza rinnovata.'); await route(); openLicence(n.id); },
+      onSubmit: async (f) => { const n = await api(`/api/licences/${l.licence_id}/renew`, f); closeOverlay(); toast('Licenza rinnovata.'); if (n.push_job) await pushReport(n.push_job); await route(); openLicence(n.id); },
     });
     if (x === 'modify') {
       const lim = l.limits || {}; const v = (k) => (lim[k] === null || lim[k] === undefined ? '' : String(lim[k]));
@@ -669,7 +845,7 @@ async function openLicence(id) {
     }
     if (x === 'suspend') return modal({
       title: 'Sospendi la licenza', submit: 'Sospendi', danger: true,
-      body: `<p style="margin-top:0">L'installazione passa in <b>sola lettura</b> appena riceve la nuova licenza (dal canale, entro 6 ore, o installata a mano). I dati non si perdono: si consultano, si stampano e si esportano. Con «Riattiva» torna come prima, con la stessa scadenza.</p>${fld('reason', 'Motivo (resta solo nello storico dell\'hub)', { ph: 'es. fattura non pagata' })}`,
+      body: `<p style="margin-top:0">L'installazione passa in <b>sola lettura</b> appena riceve la nuova licenza: i <b>siti online</b> subito (l'hub la carica via FTP, con la cassaforte aperta), il <b>server in sede</b> dal canale entro 6 ore o installandola a mano. I dati non si perdono: si consultano, si stampano e si esportano. Con «Riattiva» torna come prima, con la stessa scadenza.</p>${fld('reason', 'Motivo (resta solo nello storico dell\'hub)', { ph: 'es. fattura non pagata' })}`,
       onSubmit: async (f) => done(await act('suspend', f), 'Licenza sospesa.'),
     });
     if (x === 'revoke') return modal({
@@ -805,11 +981,13 @@ function issuesFor(prefixes) {
 }
 async function pDraft(page, id, step) {
   if (!S.draft || S.draft.id !== id) S.draft = await api(`/api/drafts/${encodeURIComponent(id)}`);
+  if (!S.tpl) { try { S.tpl = await api('/api/templates'); } catch (e) { S.tpl = { templates: [], hosting: null }; } }
   const D = S.draft;
-  setCrumbs([['Crea progetto con AI', '#/nuovo-progetto'], [D.title || 'Bozza']]);
+  const curTpl = S.tpl.templates.find((t) => t.name === D.data.progetto.modello);
+  setCrumbs([['Nuovo cliente', '#/nuovo-progetto'], [D.title || 'Bozza']]);
   const confirmed = D.status === 'confirmed';
-  page.innerHTML = `<div class="ph"><div><h1>${esc(D.title || 'Bozza')}</h1><div class="sub">Bozza generata dal JSON · salvata da sola a ogni modifica · ${confirmed ? '<span class="pill ok">Confermata</span>' : '<span class="pill warn">Da confermare</span>'}</div></div>
-      <div class="btns"><button class="btn ghost" id="dl">${ic('download')} Esporta JSON</button>${confirmed && D.result ? `<a class="btn pri" href="#/clienti/${esc(D.result.customer_id)}">Apri il cliente</a>` : `<button class="btn danger" id="del">Elimina bozza</button>`}</div></div>
+  page.innerHTML = `<div class="ph"><div><h1>${esc(D.title || 'Bozza')}</h1><div class="sub">Percorso guidato · salvato da solo a ogni modifica · ${confirmed ? '<span class="pill ok">Confermata</span>' : '<span class="pill warn">Da confermare</span>'}</div></div>
+      <div class="btns">${confirmed ? '' : `${curTpl ? `<button class="btn ghost" id="tpl-save" title="Il modello prende i valori di queste maschere (non il nome del cliente)">Salva nel modello «${esc(curTpl.name)}»</button>` : ''}<button class="btn ghost" id="tpl-new">Salva come nuovo modello</button>`}<button class="btn ghost" id="dl">${ic('download')} Esporta JSON</button>${confirmed && D.result ? `<a class="btn pri" href="#/clienti/${esc(D.result.customer_id)}">Apri il cliente</a>` : `<button class="btn danger" id="del">Elimina bozza</button>`}</div></div>
     <div class="grid" style="grid-template-columns:240px minmax(0,1fr);align-items:start" id="dgrid">
       <div class="card"><div class="bd flush" id="stepper"></div></div>
       <div class="card"><div class="hd"><h3 id="st-title"></h3><div class="btns" id="st-badges"></div></div><div class="bd" id="st-body"></div>
@@ -817,6 +995,15 @@ async function pDraft(page, id, step) {
     </div>`;
   if (window.innerWidth < 820) $('#dgrid').style.gridTemplateColumns = '1fr';
   $('#dl').onclick = () => download(`${(D.title || 'progetto').replace(/[^\w-]+/g, '-')}.json`, JSON.stringify(D.data, null, 2));
+  const ts = $('#tpl-save'); if (ts) ts.onclick = async () => {
+    if (!confirm(`Aggiorno il modello «${curTpl.name}» con i valori di queste maschere? I clienti già creati non cambiano.`)) return;
+    try { await api(`/api/drafts/${D.id}`, { data: S.draft.data }); S.tpl = await api(`/api/templates/${curTpl.id}`, { draft_id: D.id }); toast('Modello aggiornato.'); } catch (e) { toast(e.message, true); }
+  };
+  const tn = $('#tpl-new'); if (tn) tn.onclick = () => modal({
+    title: 'Salva come nuovo modello', submit: 'Salva il modello',
+    body: `<p class="note" style="margin-top:0">Il modello prende installazioni, piano, demo, hosting, persone e archivi di queste maschere. Nome, P.IVA e contatti del cliente <b>non</b> entrano nel modello; l'indirizzo del sito diventa «hosting + nome del cliente».</p>${fld('name', 'Nome del modello', { req: true, attrs: 'required', ph: 'Commercialista · online con demo' })}${fld('description', 'Descrizione (facoltativa)')}`,
+    onSubmit: async (f) => { await api(`/api/drafts/${D.id}`, { data: S.draft.data }); S.tpl = await api('/api/templates', { draft_id: D.id, name: f.name, description: f.description }); closeOverlay(); toast('Modello salvato: lo trovi in «Nuovo cliente».'); pDraft(page, id, step); },
+  });
   const del = $('#del'); if (del) del.onclick = async () => { if (!confirm('Eliminare questa bozza?')) return; await api(`/api/drafts/${D.id}/delete`, {}); S.draft = null; location.hash = '#/nuovo-progetto'; };
   const idx = Math.max(0, STEPS.findIndex((s) => s[0] === step));
   const drawStepper = () => {
@@ -836,7 +1023,7 @@ async function pDraft(page, id, step) {
   const save = () => {
     clearTimeout(timer);
     timer = setTimeout(async () => {
-      try { const r = await api(`/api/drafts/${D.id}`, { data: S.draft.data }); S.draft.check = r.check; S.draft.title = r.title; markErrors(); }
+      try { const r = await api(`/api/drafts/${D.id}`, { data: S.draft.data }); S.draft.check = r.check; S.draft.passwords = r.passwords; S.draft.title = r.title; markErrors(); }
       catch (e) { toast(e.message, true); }
     }, 350);
   };
@@ -883,14 +1070,36 @@ async function pDraft(page, id, step) {
       <div class="f"><label>Note del progetto</label><textarea data-p="progetto.note" rows="2" style="font-family:inherit;font-size:14px">${esc(d.progetto.note)}</textarea></div><div id="st-issues"></div>`;
     $$('[data-inst]', body).forEach((cb) => (cb.onchange = () => { const s = new Set(d.progetto.installazioni); cb.checked ? s.add(cb.dataset.inst) : s.delete(cb.dataset.inst); d.progetto.installazioni = ['sede', 'online'].filter((x) => s.has(x)); save(); }));
   } else if (k === 'online') {
-    const on = d.progetto.installazioni.includes('online');
+    const on = d.progetto.installazioni.includes('online'); const f = d.online.ftp; const H = S.tpl.hosting;
+    const demo = !!d.online.staging; const otherStg = !!d.online.ftp_staging.host || S.draft._stgOther;
+    const mode = (v, t, sub) => `<label class="tplc"><input type="radio" name="ftpmode" value="${v}"${f.modo === v ? ' checked' : ''}><span><b>${t}</b><small>${sub}</small></span></label>`;
     body.innerHTML = `${on ? '' : '<div class="note warn mb">L\'installazione online non è scelta (passo 2): questi dati verranno ignorati.</div>'}
-      <div class="frow">${pf('online.indirizzo', 'Indirizzo del sito (produzione)', { ph: 'https://docmap.pr-it.it/studio-rossi/' })}${pf('online.staging', 'Indirizzo dello staging (prova)', { ph: 'https://docmap.pr-it.it/studio-rossi-prova/' })}</div>
-      <h4 style="margin:6px 0 10px">Accesso FTP <span style="font-weight:400;color:var(--mut)">(vuoto = scarichi l'autoinstall web e carichi tu)</span></h4>
+      <div class="f" data-wrap="online.ftp.modo"><label>Come si pubblica il sito</label><div class="tplgrid">
+        ${mode('dominio', 'Sul tuo hosting', H ? `FTP del dominio: ${esc(H.host || H.protocol)} · ${esc(H.base_url)}` : 'non ancora impostato: Impostazioni → Hosting predefinito')}
+        ${mode('cliente', 'FTP del cliente', 'il cliente ha un suo hosting o un suo account')}
+        ${mode('nessuno', 'Nessun FTP', 'scarichi l\'autoinstall web e carichi tu')}</div><div class="hint perr" style="color:var(--bad)"></div>
+        ${f.modo === 'dominio' && !(H && H.has_password) ? '<div class="note warn" style="margin-top:8px">Hosting predefinito da completare: <a href="#" id="set-host">impostalo adesso</a> (dominio, FTP, cartella: una volta sola).</div>' : ''}</div>
+      <div class="frow">${pf('online.indirizzo', 'Indirizzo del sito', { ph: 'https://docmap.pr-it.it/studio-rossi/' })}${f.modo !== 'nessuno' ? pf('online.ftp.cartella', 'Cartella del sito (FTP)', { ph: '/studio-rossi/' }) : ''}</div>
+      <label class="check" style="margin:2px 0 12px"><input type="checkbox" id="demo" ${demo ? 'checked' : ''}> <span><b>Sito demo</b> accanto al sito vero (per provare gli aggiornamenti prima)</span></label>
+      ${demo ? `<div class="frow">${pf('online.staging', 'Indirizzo della demo', { ph: 'https://docmap.pr-it.it/studio-rossi-demo/' })}${f.modo !== 'nessuno' ? pf('online.ftp.cartella_staging', 'Cartella della demo (FTP)', { ph: '/studio-rossi-demo/' }) : ''}</div>` : ''}
+      ${f.modo === 'cliente' ? `<h4 style="margin:6px 0 10px">FTP del cliente</h4>
       <div class="frow">${psel('online.ftp.protocollo', 'Protocollo', [['ftps', 'FTPS (consigliato)'], ['sftp', 'SFTP'], ['ftp', 'FTP senza cifratura']])}${pf('online.ftp.host', 'Host', { ph: 'ftp.tuohosting.it' })}</div>
-      <div class="frow">${pf('online.ftp.utente', 'Utente')}${pf('online.ftp.porta', 'Porta', { type: 'int', hint: 'Vuoto = standard.' })}</div>
-      <div class="frow">${pf('online.ftp.cartella', 'Cartella del sito', { ph: '/studio-rossi/' })}${pf('online.ftp.cartella_staging', 'Cartella dello staging', { ph: '/studio-rossi-prova/' })}</div>
-      <div class="note">La password FTP la scrivi nel passo «Riepilogo e conferma»: va dritta in cassaforte e non resta nella bozza.</div><div id="st-issues" style="margin-top:10px"></div>`;
+      <div class="frow">${pf('online.ftp.utente', 'Utente')}${pf('online.ftp.porta', 'Porta', { type: 'int', hint: 'Vuoto = standard.' })}</div>` : ''}
+      ${demo && f.modo !== 'nessuno' ? `<label class="check" style="margin:6px 0 10px"><input type="checkbox" id="stg-other" ${otherStg ? 'checked' : ''}> <span>La demo usa <b>un altro account FTP</b></span></label>
+      ${otherStg ? `<div class="frow">${psel('online.ftp_staging.protocollo', 'Protocollo (demo)', [['ftps', 'FTPS (consigliato)'], ['sftp', 'SFTP'], ['ftp', 'FTP senza cifratura']])}${pf('online.ftp_staging.host', 'Host (demo)')}</div>
+      <div class="frow">${pf('online.ftp_staging.utente', 'Utente (demo)')}${pf('online.ftp_staging.porta', 'Porta (demo)', { type: 'int' })}</div>` : ''}` : ''}
+      <div class="note">${f.modo === 'dominio' ? 'La password è quella dell\'hosting predefinito, già in cassaforte: qui non scrivi nessuna password.' : f.modo === 'cliente' ? 'La password FTP la scrivi nel «Riepilogo e conferma»: va dritta in cassaforte e non resta nella bozza.' : 'Senza FTP «Attiva tutto» non può pubblicare: scarichi l\'autoinstall dalla scheda del cliente.'}</div><div id="st-issues" style="margin-top:10px"></div>`;
+    $$('input[name=ftpmode]', body).forEach((r) => (r.onchange = () => { f.modo = r.value; save(); pDraft(page, id, step); }));
+    const sh = $('#set-host', body); if (sh) sh.onclick = (e) => { e.preventDefault(); hostingModal(async () => { S.tpl = null; save(); pDraft(page, id, step); }); };
+    const suffix = (H && H.staging_suffix) || '-demo';
+    $('#demo', body).onchange = (e) => {
+      if (e.target.checked) {
+        const base = (d.online.indirizzo || '').replace(/\/+$/, ''); d.online.staging = base ? base + suffix + '/' : '';
+        const c = f.cartella || ''; f.cartella_staging = c ? c.replace(/\/+$/, '') + suffix + (c.endsWith('/') ? '/' : '') : '';
+      } else { d.online.staging = ''; f.cartella_staging = ''; Object.assign(d.online.ftp_staging, { host: '', utente: '', porta: null }); }
+      save(); pDraft(page, id, step);
+    };
+    const so = $('#stg-other', body); if (so) so.onchange = (e) => { S.draft._stgOther = e.target.checked; if (!e.target.checked) Object.assign(d.online.ftp_staging, { host: '', utente: '', porta: null }); save(); pDraft(page, id, step); };
   } else if (k === 'sede') {
     const se = d.progetto.installazioni.includes('sede');
     body.innerHTML = `${se ? '' : '<div class="note warn mb">L\'installazione in sede non è scelta (passo 2).</div>'}
@@ -903,26 +1112,26 @@ async function pDraft(page, id, step) {
       <h4 style="margin:18px 0 8px">Domande aperte</h4>${d.domande_aperte.length ? `<ul style="margin:0;padding-left:18px">${d.domande_aperte.map((q) => `<li>${esc(q)}</li>`).join('')}</ul>` : '<span style="color:var(--mut)">Nessuna.</span>'}
       <div class="note mt">Utenti e archivi sono salvati nel progetto come piano di avvio. Nell'hub 0.5 li crei tu al primo accesso (o con setup.php); la creazione a distanza arriva con la gestione utenti remota.</div><div id="st-issues"></div>`;
   } else {
-    const c = S.draft.check, ftp = d.progetto.installazioni.includes('online') && d.online.ftp.host;
+    const c = S.draft.check, pw = S.draft.passwords || {}, fm = d.online.ftp.modo;
     body.innerHTML = `${c.errors.length ? `<div class="err-box">Da correggere prima di confermare:<ul style="margin:6px 0 0;padding-left:18px">${c.errors.map((x) => `<li><b>${esc(x.path)}</b>: ${esc(x.msg)}</li>`).join('')}</ul></div>` : '<div class="note mb" style="background:var(--ok-soft);color:var(--ok)">Tutto pronto: nessun errore.</div>'}
       ${c.warnings.length ? `<div class="note warn mb"><ul style="margin:0;padding-left:18px">${c.warnings.map((x) => `<li>${esc(x.msg)}</li>`).join('')}</ul></div>` : ''}
       <dl class="kv" style="margin-bottom:18px"><dt>Cliente</dt><dd><b>${esc(d.cliente.ragione_sociale)}</b> ${esc(d.cliente.partita_iva)}</dd><dt>Progetto</dt><dd>${esc(d.progetto.nome || '—')}</dd>
         <dt>Installazioni</dt><dd>${d.progetto.installazioni.map((x) => `<span class="tag">${esc(x)}</span>`).join(' ') || '—'}</dd><dt>Licenza</dt><dd>${esc(S.pp.plans[d.licenza.piano] || d.licenza.piano)}${d.licenza.mesi ? ` · ${esc(d.licenza.mesi)} mesi` : ''}</dd>
-        ${d.progetto.installazioni.includes('online') ? `<dt>Sito</dt><dd class="mono">${esc(d.online.indirizzo)}${d.online.staging ? `<br>${esc(d.online.staging)} (staging)` : ''}</dd><dt>Pubblicazione</dt><dd>${ftp ? `FTP ${esc(d.online.ftp.protocollo)} su ${esc(d.online.ftp.host)}` : 'autoinstall web (nessun FTP)'}</dd>` : ''}
+        ${d.progetto.installazioni.includes('online') ? `<dt>Sito</dt><dd class="mono">${esc(d.online.indirizzo)}${d.online.staging ? `<br>${esc(d.online.staging)} (demo)` : ''}</dd><dt>Pubblicazione</dt><dd>${fm === 'dominio' ? `sul tuo hosting (${esc((S.tpl.hosting || {}).host || 'da impostare')})` : fm === 'cliente' ? `FTP del cliente ${esc(d.online.ftp.protocollo)} su ${esc(d.online.ftp.host)}` : 'autoinstall web (nessun FTP)'}${d.online.ftp_staging.host ? ` · demo su ${esc(d.online.ftp_staging.host)}` : ''}</dd>` : ''}
         <dt>Postazioni</dt><dd>${d.postazioni.map((p) => esc(p.nome)).join(', ') || '—'}</dd><dt>Utenti</dt><dd>${d.utenti_iniziali.length}</dd><dt>Archivi</dt><dd>${d.archivi.map((a) => esc(a.nome)).join(', ') || '—'}</dd></dl>
       ${confirmed ? `<div class="note" style="background:var(--ok-soft);color:var(--ok)">Bozza confermata: il cliente è stato creato.</div>` : `
-      ${ftp ? fld('ftp_password', 'Password FTP (va in cassaforte, non nella bozza)', { type: 'password', attrs: 'data-keep="1" autocomplete="off"' }) : ''}
+      ${pw.ftp ? fld('ftp_password', 'Password FTP del cliente (va in cassaforte, non nella bozza)', { type: 'password', attrs: 'data-keep="1" autocomplete="off"' }) : ''}
+      ${pw.ftp_staging ? fld('ftp_staging_password', 'Password FTP della demo', { type: 'password', attrs: 'data-keep="1" autocomplete="off"' }) : ''}
       <label class="check mb"><input type="checkbox" id="build" checked data-keep="1"> <span><b>Prepara subito i pacchetti</b>: installer del server di sede e sito online (qualche minuto). Puoi farlo anche dopo.</span></label>
-      <button class="btn ai" id="go" ${c.errors.length ? 'disabled' : ''} style="padding:12px 20px;font-size:15px">${ic('sparkle')} Conferma e crea il progetto</button>
-      <pre class="log mt" id="jlog" hidden></pre>`}`;
+      <button class="btn pri" id="go" ${c.errors.length ? 'disabled' : ''} style="padding:12px 20px;font-size:15px">${ic('rocket')} Conferma e crea il cliente</button>`}`;
     const go = $('#go');
     if (go) go.onclick = async () => {
-      go.disabled = true; const log = $('#jlog'); log.hidden = false; log.textContent = 'Avvio…';
+      go.disabled = true;
       try {
-        const r = await api(`/api/drafts/${D.id}/confirm`, { ftp_password: ($('#f-ftp_password') || {}).value || '', build: $('#build').checked });
-        const j = await waitJob(r.job, (jj) => { log.textContent = jj.lines.join('\n'); log.scrollTop = log.scrollHeight; });
-        toast('Progetto creato.'); S.draft = null; location.hash = `#/clienti/${j.result.customer_id}`;
-      } catch (e) { toast(e.message, true); log.textContent += `\n\nERRORE: ${e.message}`; go.disabled = false; }
+        clearTimeout(timer); await api(`/api/drafts/${D.id}`, { data: S.draft.data });
+        await confirmDraft(D.id, D.data.cliente.ragione_sociale, { ftp_password: ($('#f-ftp_password') || {}).value || '', ftp_staging_password: ($('#f-ftp_staging_password') || {}).value || '', build: $('#build').checked });
+      } catch (e) { toast(e.message, true); }
+      go.disabled = false;
     };
   }
   $$('[data-rm]', body).forEach((b) => (b.onclick = () => { const [key, i] = b.dataset.rm.split('.'); d[key].splice(+i, 1); save(); pDraft(page, id, step); }));
@@ -997,7 +1206,34 @@ async function pDeploys(page) {
   const list = await api('/api/deploys');
   page.innerHTML = `<div class="ph"><div><h1>Deploy e aggiornamenti</h1><div class="sub">Ogni pubblicazione: prima la prova, poi il backup, poi il caricamento e il controllo, con ripristino automatico se qualcosa non va.</div></div>
     <div class="btns"><a class="btn" href="/deploy">${ic('rocket')} Nuovo deploy (strumento classico)</a></div></div>
+    <div class="card mb" id="upd"><div class="bd" style="color:var(--mut)">Controllo le versioni…</div></div>
     <div class="card">${deployTable(list)}</div>`;
+  updatesCard($('#upd', page));
+}
+// v0.9: every online site behind this hub's version, updated one after the other (stop at the first failure)
+async function updatesCard(box) {
+  let u; try { u = await api('/api/updates'); } catch (e) { box.innerHTML = `<div class="bd"><div class="note warn">${esc(e.message)}</div></div>`; return; }
+  if (!u.target) { box.innerHTML = '<div class="bd"><div class="note warn">Non trovo la cartella di DocMap accanto all\'hub: non so quale versione pubblicare.</div></div>'; return; }
+  if (!u.sites.length) { box.innerHTML = `<div class="hd"><h3>Aggiornamenti</h3><span class="pill ok">tutti alla ${esc(u.target)}</span></div><div class="bd" style="color:var(--fg2)">Tutti i siti di produzione sono già alla versione di questo hub (o non sono mai stati controllati: premi «Controlla tutto»).</div>`; return; }
+  box.innerHTML = `<div class="hd"><h3>Siti da aggiornare alla ${esc(u.target)}</h3><span class="pill warn">${u.sites.length}</span></div><div class="bd">
+    <p style="margin-top:0;color:var(--fg2)">Uno dopo l'altro, con il solito deploy: backup del server, caricamento, controllo e ritorno automatico alla versione di prima se il sito non risponde. <b>Al primo errore mi fermo</b> e gli altri restano come sono. Prima prova la nuova versione su uno staging.</p>
+    <div class="tbl-wrap"><table class="t"><thead><tr><th><input type="checkbox" id="u-all" checked></th><th>Cliente</th><th>Sito</th><th>Versione adesso</th></tr></thead><tbody>
+    ${u.sites.map((x) => `<tr><td><input type="checkbox" data-u="${esc(x.env_id)}" checked></td><td>${esc(x.customer)}</td><td class="mono">${esc(x.url || '')}</td><td>${esc(x.version || 'sconosciuta')}</td></tr>`).join('')}</tbody></table></div>
+    <div class="btns mt"><button class="btn pri" id="u-go">${ic('rocket')} Aggiorna i siti scelti</button></div></div>`;
+  $('#u-all', box).onchange = (e) => $$('[data-u]', box).forEach((c) => (c.checked = e.target.checked));
+  $('#u-go', box).onclick = async () => {
+    const ids = $$('[data-u]', box).filter((c) => c.checked).map((c) => c.dataset.u);
+    if (!ids.length) return toast('Nessun sito scelto.', true);
+    if (!confirm(`Aggiornare ${ids.length} siti alla ${u.target}?`)) return;
+    let r; try { r = await withVault(() => api('/api/updates/run', { env_ids: ids })); } catch (e) { return toast(e.message, true); }
+    const jm = jobModal(`Aggiornamento di ${ids.length} siti`, '<p class="note" style="margin-top:0">Puoi chiudere: il lavoro continua e lo trovi in Attività.</p>');
+    try {
+      const j = await waitJob(r.job, showLog(jm)); const res = j.result || {};
+      $('#jm-body', jm).innerHTML = res.failed ? `<div class="err-box">Fermo a <b>${esc(res.failed.label)}</b>: ${esc(res.failed.error)}. Aggiornati: ${res.done.length}; non toccati: ${res.skipped.length}.</div>`
+        : `<div class="okbox">${ic('rocket')}<div><b>Aggiornati ${res.done.length} siti</b><small>tutti rispondono con la ${esc(u.target)}</small></div></div>`;
+    } catch (e) { jmError(jm, e.message); }
+    route();
+  };
 }
 async function pEvents(page) {
   setCrumbs([['Attività']]);
@@ -1005,7 +1241,7 @@ async function pEvents(page) {
   page.innerHTML = `<div class="ph"><div><h1>Attività</h1><div class="sub">Tutto ciò che è successo nell'hub, in ordine.</div></div></div>
     <div class="card"><div class="feed">${list.map((ev) => `<div class="ev"><time>${fmtDT(ev.at)}</time><div>${esc(ev.text)}${evSubj(ev)}</div></div>`).join('') || '<div class="empty">Nessuna attività</div>'}</div></div>`;
 }
-async function pSettings(page) {
+async function pSettings(page, part) {
   setCrumbs([['Impostazioni']]);
   S.session = await api('/api/session'); S.csrf = S.session.csrf || S.csrf;
   const s = S.session; const theme = localStorageGet('hub.theme') || 'auto';
@@ -1018,6 +1254,8 @@ async function pSettings(page) {
       <div class="card"><div class="hd"><h3>${ic('lock')} Cassaforte</h3></div><div class="bd">
         <p style="margin-top:0">${s.vault === 'open' ? '<span class="pill ok">Aperta</span> Le password FTP e i codici sono disponibili per deploy e controlli.' : s.vault === 'closed' ? '<span class="pill warn">Chiusa</span> Aprila per fare deploy e controlli protetti.' : '<span class="pill mut">Non creata</span>'}</p>
         <div class="btns">${s.vault === 'open' ? '<button class="btn" id="vlock">Chiudi la cassaforte</button>' : `<button class="btn pri" id="vunlock">${s.vault === 'none' ? 'Crea la cassaforte' : 'Apri la cassaforte'}</button>`}<a class="btn ghost" href="/vault">Strumenti avanzati (cambio passphrase, esporta)</a></div></div></div>
+      <div class="card" style="grid-column:1/-1" id="host-card"><div class="hd"><h3>${ic('globe')} Hosting predefinito</h3></div><div class="bd" id="host-box">Carico…</div></div>
+      <div class="card" style="grid-column:1/-1" id="tpl-card"><div class="hd"><h3>${ic('users')} Modelli cliente</h3><div class="btns"><button class="btn sm" id="tpl-restore">Ripristina i predefiniti</button></div></div><div class="bd flush" id="tpl-box">Carico…</div></div>
       <div class="card" style="grid-column:1/-1"><div class="hd"><h3>${ic('key')} Canale delle licenze</h3></div><div class="bd" id="ch-box">Carico…</div></div>
       <div class="card" style="grid-column:1/-1"><div class="hd"><h3>${ic('download')} Backup dell'hub</h3><div class="btns"><button class="btn sm" id="exp-hub">${ic('lock')} Esporta tutto l'hub (cifrato)</button></div></div><div class="bd" id="bk-box">Carico…</div></div>
       <div class="card"><div class="hd"><h3>${ic('moon')} Aspetto</h3></div><div class="bd">${sel('theme', 'Tema', [['auto', 'Automatico (come Windows)'], ['light', 'Chiaro'], ['dark', 'Scuro']], theme)}</div></div>
@@ -1026,6 +1264,9 @@ async function pSettings(page) {
       <div class="card"><div class="hd"><h3>Informazioni</h3></div><div class="bd"><dl class="kv"><dt>Versione</dt><dd>${esc(s.version)}</dd><dt>Chiave di firma</dt><dd class="mono">${esc(s.key_id || '—')}</dd><dt>Cartella dati</dt><dd class="mono">${esc(s.data_dir || '')}</dd></dl></div></div>
     </div>`;
   backupsCard($('#bk-box')); channelCard($('#ch-box')); $('#exp-hub').onclick = exportHub;
+  hostingCard($('#host-box')); templatesCard($('#tpl-box'));
+  $('#tpl-restore').onclick = async () => { try { const r = await api('/api/templates/restore', {}); S.tpl = r; toast(r.added ? `Rimessi ${r.added} modelli.` : 'Ci sono già tutti.'); templatesCard($('#tpl-box')); } catch (e) { toast(e.message, true); } };
+  if (part === 'modelli' || part === 'hosting') setTimeout(() => { const c = $(part === 'modelli' ? '#tpl-card' : '#host-card'); if (c) c.scrollIntoView({ block: 'start' }); }, 50);
   const vu = $('#vunlock'); if (vu) vu.onclick = async () => { await unlockVault(); route(); };
   const vl = $('#vlock'); if (vl) vl.onclick = async () => { await api('/api/vault/lock', {}); S.session.vault = 'closed'; paintVaultState(); toast('Cassaforte chiusa.'); route(); };
   const t = $('#f-theme'); t.onchange = () => { localStorageSet('hub.theme', t.value); applyTheme(); };
@@ -1304,6 +1545,51 @@ async function backupsCard(box) {
       <div class="frow mt">${fld('every_hours', 'Ogni quante ore', { type: 'number', value: c.every_hours, attrs: 'min="1" max="168"' })}${fld('keep', 'Quanti tenerne', { type: 'number', value: c.keep, attrs: 'min="1" max="365"' })}</div>
       ${fld('copy_dir', 'Copia anche in questa cartella (facoltativo)', { value: c.copy_dir, ph: 'E:\\Backup-DocMap  oppure  C:\\Users\\Dave\\OneDrive\\DocMap', hint: 'Se la chiavetta non è inserita il backup resta comunque sul PC e la copia si salta.' })}`,
     onSubmit: async (v) => { await api('/api/backups', v); closeOverlay(); toast('Salvato.'); backupsCard(box); },
+  });
+}
+
+// ---- v0.10: default hosting and customer templates ------------------------------------------
+async function hostingCard(box) {
+  let v; try { v = await api('/api/hosting'); } catch (e) { box.innerHTML = `<div class="note warn">${esc(e.message)}</div>`; return; }
+  const h = v.hosting;
+  box.innerHTML = `<p style="margin-top:0;color:var(--fg2)">Il tuo dominio e il tuo account FTP, scritti <b>una volta sola</b>. I modelli «sul tuo hosting» danno a ogni cliente nuovo l'indirizzo <span class="mono">dominio/&lt;nome-del-cliente&gt;/</span> e la cartella con lo stesso nome; la demo, se c'è, ha il suffisso${h ? ` <span class="mono">${esc(h.staging_suffix)}</span>` : ''}. Un cliente può sempre avere il suo FTP (passo «Online» delle maschere).</p>
+    ${h ? `<dl class="kv"><dt>Dominio</dt><dd class="mono">${esc(h.base_url)}</dd><dt>FTP</dt><dd>${esc(h.protocol)}${h.host ? ' · ' + esc(h.host) : ''}${h.user ? ' · ' + esc(h.user) : ''}${h.port ? ':' + esc(h.port) : ''}</dd><dt>Cartella base</dt><dd class="mono">${esc(h.base_folder)}</dd><dt>Password</dt><dd>${h.has_password ? '<span class="pill ok">in cassaforte</span>' : '<span class="pill warn">mancante</span>'}</dd><dt>Esempio</dt><dd class="mono">${esc(h.base_url)}studio-rossi/ · ${esc(h.base_url)}studio-rossi${esc(h.staging_suffix)}/</dd></dl>` : '<div class="note warn">Non impostato: i modelli «sul tuo hosting» chiedono di impostarlo.</div>'}
+    <div class="btns mt"><button class="btn ${h ? '' : 'pri'} sm" id="host-edit">${ic('edit')} ${h ? 'Modifica' : 'Imposta adesso'}</button>${h ? '<button class="btn ghost sm" id="host-clear">Togli</button>' : ''}</div>
+    <p style="color:var(--mut);font-size:12.5px">Cambiarlo vale per i clienti nuovi: i siti già creati tengono il loro accesso (scheda del sito → Accessi).</p>`;
+  $('#host-edit', box).onclick = () => hostingModal(() => hostingCard(box));
+  const c = $('#host-clear', box); if (c) c.onclick = async () => { if (!confirm('Tolgo l\'hosting predefinito? I siti già creati non cambiano.')) return; await api('/api/hosting', { clear: true }); S.tpl = null; hostingCard(box); };
+}
+async function hostingModal(after) {
+  let v = { hosting: null }; try { v = await api('/api/hosting'); } catch (e) { /* not set yet */ }
+  const h = v.hosting || {};
+  if (S.session && S.session.vault !== 'open') await unlockVault();
+  modal({
+    title: 'Hosting predefinito', submit: 'Salva', wide: true,
+    body: `<p class="note" style="margin-top:0">Esempio SiteGround: dominio <span class="mono">https://docmap.pr-it.it/</span>, un account FTP con cartella <span class="mono">/</span> = la cartella del dominio. Dentro, ogni cliente avrà la sua cartella.</p>
+      ${fld('base_url', 'Dominio (indirizzo base dei siti)', { req: true, value: h.base_url || '', ph: 'https://docmap.pr-it.it/' })}
+      <div class="frow">${sel('protocol', 'Protocollo', [['ftps', 'FTPS (consigliato)'], ['sftp', 'SFTP'], ['ftp', 'FTP senza cifratura']].concat(h.protocol === 'local' ? [['local', 'cartella locale (prove)']] : []), h.protocol || 'ftps')}${fld('port', 'Porta', { type: 'number', value: h.port || '', ph: 'standard' })}</div>
+      <div class="frow">${fld('host', 'Server FTP', { value: h.host || '', ph: 'ftp.pr-it.it' })}${fld('user', 'Utente FTP', { value: h.user || '', ph: 'docmap@pr-it.it' })}</div>
+      <div class="frow">${fld('password', h.has_password ? 'Password FTP (vuoto = resta quella salvata)' : 'Password FTP', { type: 'password', attrs: 'autocomplete="new-password"' })}${fld('base_folder', 'Cartella base vista dall\'FTP', { value: h.base_folder || '/', ph: '/' })}</div>
+      ${fld('staging_suffix', 'Suffisso della demo', { value: h.staging_suffix || '-demo', hint: 'studio-rossi → studio-rossi-demo' })}
+      <div class="note">La password va in cassaforte (cifrata), mai in chiaro nel registro.</div>`,
+    onSubmit: async (f) => { await api('/api/hosting', f); closeOverlay(); S.tpl = null; toast('Hosting predefinito salvato.'); if (after) after(); },
+  });
+}
+async function templatesCard(box) {
+  let v; try { if (!S.pp) S.pp = await api('/api/pipeline/prompt'); v = await api('/api/templates'); S.tpl = v; } catch (e) { box.innerHTML = `<div class="note warn" style="margin:12px">${esc(e.message)}</div>`; return; }
+  box.innerHTML = `<div class="tbl-wrap"><table class="t"><thead><tr><th>Modello</th><th>Cosa prepara</th><th></th></tr></thead><tbody>
+    ${v.templates.map((t) => `<tr data-t="${esc(t.id)}"><td><b>${esc(t.name)}</b>${t.default ? ' <span class="pill ok">proposto</span>' : ''}<div style="color:var(--mut);font-size:12.5px">${esc(t.description || '')}</div></td><td style="font-size:13px">${esc(tplSummary(t.summary))}</td>
+      <td class="r" style="white-space:nowrap">${t.default ? '' : '<button class="btn ghost sm" data-def>Proponi per primo</button>'}<button class="btn ghost sm" data-ren title="Nome e descrizione">${ic('edit')}</button><button class="btn ghost sm" data-del title="Elimina">${ic('x')}</button></td></tr>`).join('') || '<tr><td colspan="3"><div class="empty">Nessun modello: «Ripristina i predefiniti».</div></td></tr>'}</tbody></table></div>
+    <p style="color:var(--mut);font-size:12.5px;margin:10px 16px 14px">Per cambiare cosa prepara un modello: «Nuovo cliente» → scegli il modello → «Rivedi i passi» → modifica → <b>Salva nel modello</b> (oppure <b>Salva come nuovo modello</b>). I modelli non toccano mai i clienti già creati.</p>`;
+  $$('[data-t]', box).forEach((tr) => {
+    const t = v.templates.find((x) => x.id === tr.dataset.t);
+    const df = $('[data-def]', tr); if (df) df.onclick = async () => { await api('/api/templates/default', { id: t.id }); templatesCard(box); };
+    $('[data-del]', tr).onclick = async () => { if (!confirm(`Elimino il modello «${t.name}»? I clienti creati con lui non cambiano.`)) return; try { await api(`/api/templates/${t.id}/delete`, {}); toast('Modello eliminato.'); } catch (e) { toast(e.message, true); } templatesCard(box); };
+    $('[data-ren]', tr).onclick = () => modal({
+      title: 'Modello cliente', submit: 'Salva',
+      body: `${fld('name', 'Nome', { req: true, value: t.name, attrs: 'required' })}${fld('description', 'Descrizione', { value: t.description || '' })}`,
+      onSubmit: async (f) => { await api(`/api/templates/${t.id}`, f); closeOverlay(); templatesCard(box); },
+    });
   });
 }
 

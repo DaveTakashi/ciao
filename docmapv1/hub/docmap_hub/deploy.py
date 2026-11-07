@@ -128,6 +128,8 @@ class LocalRemote(Remote):
 
     def __init__(self, root: str | Path):
         self.root = Path(root)
+        if not self.root.is_dir() and self.root.parent.is_dir():
+            self.root.mkdir()   # v0.10: like FTP, a new site's folder is created (its parent must exist)
         if not self.root.is_dir():
             raise DeployError(f"Cartella di destinazione inesistente: {self.root}")
 

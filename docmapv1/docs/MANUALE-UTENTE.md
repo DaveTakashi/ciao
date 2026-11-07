@@ -283,7 +283,7 @@ scansionalo e premi **Reinserito**. Chi lo scansiona dopo vede subito "Preso da 
 2. **Non** proteggere `public_html/studio-de/` con Site Tools › Sicurezza › **Directory protette**: il telefono chiederebbe utente e password a ogni QR. I dati sono già protetti dai codici di accesso, dal PIN e dalla cifratura. Se l'avevi messa, toglila dopo aver installato la v12.
 3. Carica **il contenuto** di `deploy/studio-de/` in `public_html/studio-de/`, compresi i file `.htaccess`.
 4. Apri **una sola volta** `https://docmap.pr-it.it/studio-de/server-php/setup.php` e compila:
-   - "Cartella del database": meglio fuori da `public_html`, per esempio `/home/customer/www/docmap.pr-it.it/docmap-data`;
+   - "Cartella del database": meglio fuori da `public_html`, per esempio `/home/customer/www/docmap.pr-it.it/docmap-data/studio-de` (dalla 26.12.7 `setup.php` propone già una cartella per ogni sito);
    - "Persone che useranno DocMap": una per riga, `nome,ruolo`, con ruolo `admin`, `editor` o `viewer`;
    - lascia spuntato "Consenti la sincronizzazione dal programma sul PC";
    - premi **Genera chiave e token**.

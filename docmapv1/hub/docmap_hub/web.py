@@ -405,6 +405,12 @@ def make_handler(app: HubWebApp):
                         f = B.path_of(app.hub, ref)
                         name, data = f.name, f.read_bytes()
                         app.hub.registry.log("hub.backup.download", details={"file": f.name})
+                    elif kind == "kit":  # v0.10: kept in memory by the job, never written to disk
+                        job = app.jobs.get(ref)
+                        if not job or not getattr(job, "kit", None):
+                            raise RegistryError("Kit non più disponibile: preparalo di nuovo dalla scheda del cliente.")
+                        name, data = job.kit
+                        app.hub.registry.log("customer.kit.download", details={"file": name})
                     elif kind in ("sede", "web"):
                         if kind == "sede":
                             f = packages.sede_zip(app.hub, app.hub.registry.get_customer(ref)["id"])
@@ -620,6 +626,7 @@ def _api_routes():
     from . import api as A
     r = re.compile
     return [
+        ("POST", r(r"/api/drafts/blank"), A.draft_blank),   # v0.9, before /api/drafts/<id>
         ("GET", r(r"/api/overview"), A.overview),
         ("GET", r(r"/api/customers"), A.customers),
         ("GET", r(r"/api/customers/([\w-]+)"), A.customer_detail),
@@ -676,6 +683,23 @@ def _api_routes():
         ("POST", r(r"/api/licence-channel"), A.licence_channel_set),
         ("POST", r(r"/api/licence-channel/publish"), A.licence_channel_publish),
         ("POST", r(r"/api/export"), A.hub_export),
+        # v0.9
+        ("POST", r(r"/api/envs/([\w-]+)/setup"), A.env_setup),
+        ("POST", r(r"/api/instances/([\w-]+)/licence/push"), A.licence_push),
+        ("GET", r(r"/api/updates"), A.updates),
+        ("POST", r(r"/api/updates/run"), A.updates_run),
+        # v0.10
+        ("GET", r(r"/api/templates"), A.templates_view),
+        ("POST", r(r"/api/templates"), A.template_create),
+        ("POST", r(r"/api/templates/default"), A.template_default),
+        ("POST", r(r"/api/templates/restore"), A.templates_restore),
+        ("POST", r(r"/api/templates/([\w-]+)"), A.template_update),
+        ("POST", r(r"/api/templates/([\w-]+)/delete"), A.template_delete),
+        ("GET", r(r"/api/hosting"), A.hosting_view),
+        ("POST", r(r"/api/hosting"), A.hosting_set),
+        ("GET", r(r"/api/customers/([\w-]+)/activate"), A.activate_plan),
+        ("POST", r(r"/api/customers/([\w-]+)/activate"), A.customer_activate),
+        ("POST", r(r"/api/customers/([\w-]+)/kit"), A.customer_kit),
     ]
 
 

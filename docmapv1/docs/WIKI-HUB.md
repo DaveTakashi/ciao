@@ -1,6 +1,19 @@
 # Wiki di DocMap Hub
 
-Vale per **hub 0.7.0**, **DocMap 26.12.5 (app v12.5)** e **strumenti di installazione 1.2.0**. Data: 5 novembre 2026.
+Vale per **hub 0.10.1**, **DocMap 26.12.7 (app v12.7)** e **strumenti di installazione 1.2.0**. Data: 6 novembre 2026.
+
+> **Novità 0.10.** **Modelli cliente** (10 pronti, si creano e si cambiano dalle maschere), **Hosting predefinito**
+> (dominio e FTP scritti una volta), **Attiva tutto** (pubblica e configura demo e sito in fila) e **Kit di consegna**
+> (un solo zip con lettere di benvenuto, codici e copie di `config.php`): un cliente online in **5 clic** (capitolo
+> 6.000). Aggiornamento: `AGGIORNAMENTO-HUB-0.10.md`; perché: `AUTOCRITICA-HUB-0.10.md`.
+
+> **Novità 0.9.** **Nuovo cliente** guidato senza AI e **Percorso del cliente** con il prossimo passo e il suo pulsante;
+> **Configura il sito** (l'hub lancia `setup.php` e mette i codici in cassaforte, niente copia-incolla); licenza
+> **inviata subito** ai siti online dopo ogni cambio; **Siti da aggiornare** tutti in fila con stop al primo errore;
+> `setup.php` propone una cartella dati **per ogni sito** (capitolo 6.00). Aggiornamento: `AGGIORNAMENTO-HUB-0.9.md`;
+> perché: `AUTOCRITICA-HUB-0.9.md`.
+
+> **Novità 0.8.** I siti online costruiti dal hub portano chiave pubblica e licenza: il server PHP controlla la licenza.
 
 > **Novità 0.7.** Controllo delle licenze a distanza: **sospendi**, **riattiva**, **revoca**, **modifica** limiti e funzioni, **rinnovo automatico** con licenze brevi; **canale delle licenze** da cui i server Python scaricano da soli la licenza nuova; **esportazione cifrata** di tutto l'hub (capitolo 6.14). Aggiornamento: `AGGIORNAMENTO-HUB-0.7.md`.
 
@@ -209,7 +222,79 @@ Dove serve `--instance` puoi scrivere il nome completo (es. `"STUDIO ERMETE DALL
 **oppure le prime cifre del codice** mostrato da `instance list` (es. `--instance a2a6383d`): per un agente è più sicuro
 il codice.
 
-### 6.0 Crea progetto con AI (consigliato, dalla 0.5)
+### 6.000 Cliente nuovo da un modello, in 5 clic (consigliato, dalla 0.10)
+
+**Una volta sola:** Impostazioni → **Hosting predefinito** → dominio (`https://docmap.pr-it.it/`), server e utente FTP,
+password (va in cassaforte), cartella base come la vede l'account FTP (di solito `/`), suffisso della demo (`-demo`).
+
+**Per ogni cliente:**
+
+1. **Nuovo cliente** → ragione sociale e P.IVA → scegli il **modello** (quello proposto è già scelto) → **Crea il
+   cliente**. L'indirizzo viene dal nome: «Studio Neri S.r.l.» → `https://docmap.pr-it.it/studio-neri/` (e
+   `studio-neri-demo/` se il modello ha la demo). Se il nome è già usato da un altro cliente l'hub prende
+   `studio-neri-2`: due clienti non hanno mai lo stesso sito.
+2. Nella stessa finestra: l'elenco dei passi e **Attiva tutto** (è la conferma). In fila: pubblica la demo →
+   configura la demo → pubblica in produzione la versione provata → configura → controlla. Pubblica **solo su cartelle
+   vuote** (se c'è DocMap o un altro sito si ferma); ogni deploy ha backup e ritorno automatico; al primo errore si ferma e dice dove.
+3. **Scarica il kit di consegna**: un solo zip con `1-lettere-di-benvenuto.html` (una pagina per persona: indirizzo,
+   codice, primo accesso), `2-scheda-tecnica.html` (tutti i codici, anche `admin` e `ponte-sync`), la scheda cliente e
+   `config/…-config.php` (chiave del database, se non c'è la custodia). L'hub non lo salva: consegnalo e cancella la
+   copia. Lo rifai quando vuoi dalla scheda del cliente (**Kit di consegna**): le copie di config.php si riprendono dai
+   siti via FTP (0.10.1), quindi perdere il kit non fa perdere la chiave.
+
+**Modelli.** Dieci pronti: commercialista solo online, online con demo, sede + online, solo sede; studio grande; conto
+terzi online e sede + online; prova gratuita 30 giorni; cliente di un rivenditore; appliance. Per cambiarne uno:
+Nuovo cliente → scegli il modello → **Rivedi i passi prima di creare** → modifica (piano, demo, persone, archivi,
+etichette…) → **Salva nel modello** oppure **Salva come nuovo modello**. Impostazioni → Modelli cliente: rinomina,
+elimina, «Proponi per primo», «Ripristina i predefiniti». Nome, P.IVA e contatti del cliente non entrano mai in un
+modello; cambiare un modello non tocca i clienti già creati.
+
+**Eccezioni.** Nel passo «Online» delle maschere: **Sul tuo hosting** (predefinito), **FTP del cliente** (suo hosting:
+host, utente, cartella; la password nel Riepilogo), **Nessun FTP** (autoinstall a mano). Spunta **Sito demo** per
+aggiungerla (indirizzo e cartella si compilano da soli) e **La demo usa un altro account FTP** se serve.
+
+**Riga di comando (tutto in un comando):**
+
+```bat
+run_windows.bat hosting --dominio https://docmap.pr-it.it/ --host ftp.pr-it.it --utente docmap@pr-it.it --cartella / --password
+run_windows.bat modelli
+run_windows.bat cliente da-modello --nome "Studio Neri S.r.l." --piva 01234567890 --modello "Commercialista · online con demo" --attiva --kit-out E:\
+run_windows.bat cliente attiva --cliente "Studio Neri S.r.l." --kit-out E:\
+run_windows.bat cliente kit --cliente "Studio Neri S.r.l." --out E:\
+```
+
+### 6.00 Nuovo cliente e Percorso del cliente (dalla 0.9)
+
+1. **Nuovo cliente** (Panoramica o Clienti): ragione sociale, P.IVA, spunta **Sito online** e/o **Server in sede** →
+   **Avanti: percorso guidato**. Si aprono le stesse 6 maschere del capitolo 6.0, ma vuote: **nessuna AI serve**.
+   Riempi, scrivi la password FTP nel Riepilogo e premi **Conferma e crea il progetto**.
+2. Nella scheda del cliente, in alto, c'è il **Percorso del cliente**: una barra «3 di 6», il **prossimo passo** con
+   il suo pulsante e l'elenco di tutti i passi. Basta seguire il pulsante:
+   - **Pubblica** (sito di prova o di produzione): il solito deploy, prova → conferma, con backup e ritorno automatico;
+   - **Configura il sito**: l'hub lancia `setup.php` del sito e mette in cassaforte i codici di `admin`, di
+     `ponte-sync` (solo se c'è la sede) e delle persone del progetto (più quelle che scrivi nel riquadro). Il database
+     va in una cartella tutta sua fuori dal sito. Alla fine **scarica config.php** e consegnalo al cliente (l'hub lo
+     tiene solo con la custodia autorizzata). Si fa **una volta** per sito;
+   - **Pubblica in produzione**: la promozione della versione già provata sullo staging;
+   - **Controlla adesso**: ping di tutti i siti;
+   - sede: pacchetto → `installa.bat` sul PC del cliente → scrivi l'indirizzo del server (`https://IP:8443/`) → ponte.
+3. In **Panoramica → Da fare** c'è una riga per ogni cliente ancora a metà percorso («Studio Rossi: sito di produzione
+   configurato»): un clic apre la sua scheda.
+
+Lo stesso dalla riga di comando: `cliente percorso --cliente "Studio Rossi"` (passi fatti e prossimo passo),
+`configura-sito --instance "Studio Rossi — online" --env staging --config-out E:\config-prova.php`.
+
+**Licenze ai siti, subito.** Da Licenze → una licenza: *Sospendi*, *Riattiva*, *Rinnova*, *Modifica* caricano da soli
+la licenza nuova su ogni sito online dell'installazione (serve la cassaforte aperta e l'accesso FTP) e l'hub ti dice
+cosa risponde il sito («sola lettura», «valida»). Pulsante **Invia ai siti** per rifarlo a mano;
+`licence push "<installazione>"` dalla riga di comando. Il server in sede la riceve come prima (canale o file).
+
+**Tutti i siti a una versione nuova.** Deploy → **Siti da aggiornare**: l'elenco dei siti di produzione più vecchi della
+versione del hub; scegli e premi **Aggiorna i siti scelti**. Uno dopo l'altro, con backup e ritorno automatico; al
+primo errore si ferma e gli altri restano come sono. Riga di comando: `aggiorna-siti` (`--yes`, `--anche-staging`).
+Prima prova la versione su uno staging.
+
+### 6.0 Crea progetto con AI (dalla 0.5; utile se hai già i dati in un documento o in una chat)
 
 1. Nella pagina premi **Crea progetto con AI** (in alto a sinistra).
 2. **Copia prompt per l'AI** e incollalo in una chat nuova di qualsiasi AI (Claude, ChatGPT, Gemini, un modello locale,
@@ -538,6 +623,16 @@ Codici di uscita: `0` riuscito, `1` errore (messaggio su stderr che inizia con "
 | `cliente scheda` | rifà la scheda | `--cliente`, `--con-segreti` |
 | `cliente token-ponte` | token del ponte | `--cliente`, `--salva`, `--esporta FILE` |
 | `cliente elenco` | clienti e cartelle | |
+| `cliente percorso` | passi fatti e prossimo passo (0.9) | `--cliente` |
+| `cliente da-modello` | cliente nuovo da un modello; con `--attiva` anche pubblicato, configurato e kit (0.10) | `--nome`, `--piva`, `--modello`, `--attiva`, `--kit-out FILE\|CARTELLA`, `--senza-pacchetti` |
+| `cliente attiva` | «Attiva tutto»: i passi online che mancano, stop al primo errore (0.10) | `--cliente`, `--kit-out` |
+| `cliente kit` | kit di consegna (lettere, scheda tecnica, scheda cliente) (0.10) | `--cliente`, `--out` |
+| `modelli` | elenco dei modelli cliente (0.10) | `mostra <modello>`, `importa --nome --file`, `elimina`, `predefinito`, `ripristina` |
+| `hosting` | hosting predefinito: dominio e FTP comuni (0.10) | `--dominio --host --utente --cartella --protocollo --porta --suffisso-demo --password`, `--togli` |
+| `configura-sito` | lancia `setup.php` del sito, codici in cassaforte (0.9) | `--instance --env`, `--persone "mario,editor;…"`, `--config-out FILE` |
+| `licence push` | carica subito la licenza sui siti online (0.9) | `<installazione>` |
+| `licence suspend\|revoke\|reactivate\|publish` | controllo a distanza (0.7) | `<installazione>`, `--reason`, `--months` |
+| `aggiorna-siti` | tutti i siti di produzione alla versione del hub, stop al primo errore (0.9) | `--yes`, `--anche-staging` |
 | `vault init\|status\|list` | cassaforte | `list --instance` |
 | `vault set` | salva/sostituisce un segreto | `--instance --env --kind`, `--label`, `--field nome=valore`, `--json-file`, `--content-file` |
 | `vault reveal` | mostra un segreto (registrato) | `--instance --env --kind --label --reason` |

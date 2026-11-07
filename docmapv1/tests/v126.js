@@ -27,7 +27,7 @@ const ok = (c, n, x) => { if (c) passes++; else { fails++; console.log('  ✗ FA
     p.on('dialog', d => d.accept());
     await p.goto('file://' + path.join(APP, 'index.html')); await p.waitForTimeout(1200);
     await p.evaluate(() => { const m = document.querySelector('.modal-f [data-a="modal-btn"]'); if (m) m.click(); });
-    ok(await p.evaluate(() => APP_VERSION === '26.12.6' && typeof licSet === 'function' && typeof sbLocalHTML === 'function'), 'v12.6 loaded');
+    ok(await p.evaluate(() => /^26\.12\.([6-9]|[1-9]\d)$/.test(APP_VERSION) && typeof licSet === 'function' && typeof sbLocalHTML === 'function'), 'v12.6 loaded');
     ok(await p.evaluate(() => !document.getElementById('lic-banner') && !document.getElementById('srv-status')), 'no banner and no server badge without a server');
 
     // banner states (unit level)
