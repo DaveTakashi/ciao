@@ -12,7 +12,7 @@
 | Server web PHP (`server-php/api.php`) | 26.12.7, schema **3**, licenza con `licence_required`; `setup.php` con cartella per sito e modalità JSON | `DM_APP_VERSION`, `DM_SCHEMA` | dentro lo zip dell'app (`deploy/`) |
 | Server Python (sede) | pacchetto 1.0.0, parità con PHP 26.12.7 (anche sulla licenza) | `server-python/docmap_server/__init__.py` | dentro l'installer |
 | Strumenti di installazione Windows | 1.2.0 | `TOOLS_VERSION` in `installer-windows/docmap_tools.py` | `docmapv1/python/DocMap-installer-26.12.7.zip` |
-| Hub (PC di Dave) | **0.10.1**, registro schema **4** (modelli cliente) (`registry.py`) | `hub/docmap_hub/__init__.py` | `docmapv1/python/DocMap-hub-0.10.1.zip` |
+| Hub (PC di Dave) | **0.10.2**, registro schema **4** (modelli cliente) (`registry.py`) | `hub/docmap_hub/__init__.py` | `docmapv1/python/DocMap-hub-0.10.2.zip` |
 | Aggiornatore del PC | con l'app | `AGGIORNA-DOCMAP.bat` + `tools/aggiorna-app.ps1` | dentro lo zip dell'app |
 
 Regola: lo **stesso numero 26.12.x** deve comparire in app, `api.php` e server Python. Il server PHP e quello Python

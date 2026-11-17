@@ -20,9 +20,9 @@ Comandi nuovi: `modelli` (`mostra`, `importa`, `elimina`, `predefinito`, `ripris
 ## Passi (5 minuti)
 
 1. Chiudi il hub. `run_windows.bat backup` (o Impostazioni → Backup → «Fai un backup adesso»).
-2. Estrai `DocMap-hub-0.10.zip` e copia il contenuto **sopra** `C:\DocMapHub\` (sostituisci i file). La cartella dati
-   `%APPDATA%\DocMapHub\` non si tocca.
-3. Avvia: in basso a sinistra **v0.10.1**. Al primo avvio il registro passa allo **schema 4**: si aggiunge solo la
+2. Estrai **tutto** `DocMap-hub-0.10.2.zip` in `C:\DocMapHub\` e avvia `hub\run_windows.bat` da lì: l'hub usa le
+   cartelle accanto (`tools`, `installer-windows`, `server-python`). La cartella dati `%APPDATA%\DocMapHub\` non si tocca.
+3. Avvia: in basso a sinistra **v0.10.2**. Al primo avvio il registro passa allo **schema 4**: si aggiunge solo la
    tabella dei modelli; prima l'hub fa da solo una copia del registro in `backups\registro-prima-dello-schema-4-…`.
 4. **Impostazioni → Hosting predefinito → Imposta adesso**: dominio (`https://docmap.pr-it.it/`), server e utente FTP,
    password (va in cassaforte), cartella base come la vede l'account FTP (di solito `/`), suffisso della demo (`-demo`).

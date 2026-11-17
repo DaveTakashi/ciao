@@ -1,6 +1,6 @@
 # Wiki di DocMap Hub
 
-Vale per **hub 0.10.1**, **DocMap 26.12.7 (app v12.7)** e **strumenti di installazione 1.2.0**. Data: 6 novembre 2026.
+Vale per **hub 0.10.2**, **DocMap 26.12.7 (app v12.7)** e **strumenti di installazione 1.2.0**. Data: 6 novembre 2026.
 
 > **Novità 0.10.** **Modelli cliente** (10 pronti, si creano e si cambiano dalle maschere), **Hosting predefinito**
 > (dominio e FTP scritti una volta), **Attiva tutto** (pubblica e configura demo e sito in fila) e **Kit di consegna**

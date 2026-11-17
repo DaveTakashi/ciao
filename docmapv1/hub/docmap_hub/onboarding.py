@@ -47,7 +47,7 @@ from urllib.parse import urlsplit
 
 from . import licence as L
 from .registry import RegistryError
-from .runner import DOCMAPV1, run_build_deploy
+from .runner import docmap_roots, run_build_deploy
 from .vault import Vault, VaultKey, validate as validate_secret
 
 INSTALLS = ("sede", "online")
@@ -78,21 +78,17 @@ def installer_dir(reg) -> Path:
     cands = []
     if reg.get_setting("installer_dir"):
         cands.append(Path(reg.get_setting("installer_dir")))
-    if reg.get_setting("docmap_dir"):
-        cands.append(Path(reg.get_setting("docmap_dir")) / "installer-windows")
-    cands.append(DOCMAPV1 / "installer-windows")
+    cands += [r / "installer-windows" for r in docmap_roots(reg)]
     for c in cands:
         if (c / "docmap_tools.py").is_file():
             return c.resolve()
-    raise OnboardingError("Cartella installer-windows non trovata. Indicala con: settings set installer_dir "
-                          "C:\\percorso\\docmapv1\\installer-windows")
+    raise OnboardingError("Cartella installer-windows non trovata. Estrai di nuovo TUTTO lo zip dell'hub e avvia "
+                          "hub\\run_windows.bat da lì, oppure: settings set docmap_dir "
+                          "C:\\DocMapHub\\DocMap-hub-<versione>")
 
 
 def guide_file(reg) -> Path | None:
-    cands = []
-    if reg.get_setting("docmap_dir"):
-        cands.append(Path(reg.get_setting("docmap_dir")) / "docs" / "GUIDA-NUOVO-CLIENTE.md")
-    cands.append(DOCMAPV1 / "docs" / "GUIDA-NUOVO-CLIENTE.md")
+    cands = [r / "docs" / "GUIDA-NUOVO-CLIENTE.md" for r in docmap_roots(reg)]
     return next((c for c in cands if c.is_file()), None)
 
 
