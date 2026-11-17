@@ -45,6 +45,14 @@ il numero e l'immagine. Se un passo si blocca, salta al blocco successivo.
 - [ ] C6. «Salva come nuovo modello» dalle maschere e crea un cliente con quel modello.
 - [ ] C7. Scheda del cliente → **Kit di consegna**: nel kit ci sono le due copie di config.php riprese da SiteGround.
 
+**Hub 0.11 (elimina cliente, pacchetto pronto, più PC, sposta il sito)**
+
+- [ ] H1. Scheda di un cliente di prova → **Elimina**: scrivi il nome, compare il nome del backup; il cliente sparisce, il sito online risponde ancora.
+- [ ] H2. Cliente con sede e online → Postazioni → **Scarica il pacchetto della sede** → sul PC di prova `INSTALLA-SENZA-DOMANDE.bat`: nessuna domanda, licenza VALIDA, ponte attivo, `cliente\token-ponte.txt` non c'è più. Minuti: ____
+- [ ] H3. Pacchetto di una postazione su un **secondo PC**: «DocMap - <studio>» apre il sito online; con il PC della sede **spento** si lavora lo stesso; riacceso, entro 10 minuti la sede ha i faldoni nuovi.
+- [ ] H4. Sito → **Sposta il sito** verso `https://docmap.pr-it.it/prova/trasloco/`: faldoni presenti sul nuovo, il vecchio indirizzo (anche `…/q/<codice>`) rimanda al nuovo, kit con codici nuovi. Esito: ____
+- [ ] H5. Dopo H4, sul PC della sede: `aggiorna-ponte\AGGIORNA-PONTE.bat` dal kit; un faldone nuovo in sede arriva sul nuovo indirizzo.
+
 ## C. Installazione in sede sul PC di prova (30 min) — guida: `installer-windows/GUIDA-INSTALLAZIONE.md` §4
 
 - [ ] C1. Copia il pacchetto di "Studio Prova" sul PC di prova, doppio clic su `installa.bat`, accetta la richiesta di amministratore.

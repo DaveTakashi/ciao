@@ -49,6 +49,7 @@
 | [`AGGIORNAMENTO-v12.5-v12.6.md`](AGGIORNAMENTO-v12.5-v12.6.md) | **Guida dalla v12.5 alla v12.6**: Primi passi, stato sync sempre visibile, aggiornatore `AGGIORNA-DOCMAP.bat`, licenza controllata dai siti del hub. |
 | [`AGGIORNAMENTO-HUB-0.8.md`](AGGIORNAMENTO-HUB-0.8.md) | DocMap Hub: alla 0.8 (i siti online portano chiave pubblica e licenza: il PHP controlla la licenza). |
 | [`AGGIORNAMENTO-v12.6-v12.7.md`](AGGIORNAMENTO-v12.6-v12.7.md) | **Guida dalla v12.6 alla v12.7**: solo `setup.php` (cartella dati per ogni sito, risposta JSON per il hub). Nessuna migrazione. |
+| [`AGGIORNAMENTO-HUB-0.11.md`](AGGIORNAMENTO-HUB-0.11.md) | DocMap Hub: alla 0.11 (elimina cliente, pacchetto della sede pronto, più PC con il sito online, sposta il sito). Registro invariato. |
 | [`AGGIORNAMENTO-HUB-0.10.md`](AGGIORNAMENTO-HUB-0.10.md) | DocMap Hub: alla 0.10 (modelli cliente, hosting predefinito, Attiva tutto, kit di consegna). Registro schema 4, solo una tabella in più. |
 | [`AUTOCRITICA-HUB-0.10.md`](AUTOCRITICA-HUB-0.10.md) | Secondo giro di autocritica: dove andavano i 25 clic, cosa è cambiato, 5 clic misurati nel browser, cosa resta. |
 | [`AGGIORNAMENTO-HUB-0.9.md`](AGGIORNAMENTO-HUB-0.9.md) | DocMap Hub: alla 0.9 (Nuovo cliente senza AI, Percorso del cliente, Configura il sito, licenza subito ai siti, Siti da aggiornare). |

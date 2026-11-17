@@ -1,6 +1,12 @@
 # Wiki di DocMap Hub
 
-Vale per **hub 0.10.2**, **DocMap 26.12.7 (app v12.7)** e **strumenti di installazione 1.2.0**. Data: 6 novembre 2026.
+Vale per **hub 0.11.0**, **DocMap 26.12.7 (app v12.7)** e **strumenti di installazione 1.2.0**. Data: 17 novembre 2026.
+
+> **Novità 0.11.** **Elimina cliente** (backup prima, per ripartire da zero; capitolo 6.15), **pacchetto della sede
+> pronto** con `INSTALLA-SENZA-DOMANDE.bat` e il codice del ponte già dentro (6.16), **più PC con il sito online come
+> riferimento**: le postazioni aprono il sito online e il PC della sede può essere spento (6.16), **Sposta il sito** su un
+> altro dominio o un'altra cartella, dati copiati e vecchio indirizzo che rimanda al nuovo (6.17). Aggiornamento:
+> `AGGIORNAMENTO-HUB-0.11.md`.
 
 > **Novità 0.10.** **Modelli cliente** (10 pronti, si creano e si cambiano dalle maschere), **Hosting predefinito**
 > (dominio e FTP scritti una volta), **Attiva tutto** (pubblica e configura demo e sito in fila) e **Kit di consegna**
@@ -539,6 +545,76 @@ solo se è **più recente** di quella che ha. Senza canale, o per un server vecc
 `run_windows.bat esporta-hub --out E:\`. Su un PC nuovo: installa l'hub, poi `run_windows.bat importa-hub FILE`
 (solo in una cartella dati vuota) ed entra con la passphrase di sempre.
 
+### 6.15 Eliminare un cliente (0.11)
+
+Scheda del cliente → **Elimina** (in alto a destra). La finestra elenca cosa sparisce dal hub (progetti, installazioni,
+siti e server, postazioni, licenze, codici in cassaforte) e cosa **resta fuori**: siti online già pubblicati e server in
+sede **non si toccano** e le licenze già consegnate valgono fino alla scadenza (se serve, **revocale prima**). Per
+confermare scrivi il nome esatto del cliente.
+
+Prima di eliminare l'hub fa **un backup completo** (il nome compare alla fine): per tornare indietro ripristini quel
+backup (6.13). I server locali del cliente sul tuo PC si fermano e i loro dati, come la cartella `clienti\<nome>`, vanno
+in `_trash` (non si cancella niente dal disco). Nel registro resta l'evento `customer.delete`.
+
+Riga di comando: `run_windows.bat cliente elimina --cliente "Studio Rossi"` (chiede il nome; `--conferma "Studio Rossi"`
+per gli script).
+
+### 6.16 Più PC e sito online; pacchetto della sede pronto (0.11)
+
+**Modello consigliato con il sito online.** Il **riferimento è il sito online**: ogni PC dello studio (2, 3 o più) e ogni
+telefono apre l'indirizzo online ed entra con il proprio codice. Il **PC della sede** (se c'è) tiene una copia locale
+aggiornata dal ponte ogni pochi minuti: se è spento non succede niente, gli altri lavorano online e alla riaccensione si
+riallinea. Deve restare acceso in orario d'ufficio **solo** nel modello «solo sede» (niente sito online).
+
+**Postazioni** (scheda del cliente → Postazioni → pacchetto della postazione): se il cliente ha il sito online,
+`collega-questo-pc.bat` crea il collegamento **«DocMap - <studio>»** che apre il sito online (niente certificato da
+installare); se c'è anche la sede aggiunge **«DocMap (ufficio) - <studio>»** per lavorare in rete locale.
+
+**Pacchetto della sede pronto.** Scheda del cliente → Postazioni → **Scarica il pacchetto della sede**: lo zip contiene
+già licenza, modello del ponte e, se il cliente ha il sito, il **codice del ponte** (`cliente\token-ponte.txt`, messo
+solo nello zip scaricato, mai salvato sul disco del hub). Sul PC della sede: estrai tutto, doppio clic su
+**`INSTALLA-SENZA-DOMANDE.bat`** › Sì. Nome dello studio dal pacchetto, amministratore `admin`, porta standard, ponte
+configurato e codice del ponte **cancellato dal PC** subito dopo. Restano da fare: copiare il codice amministratore e
+stampare il Kit di emergenza. `installa.bat` (con le domande) resta valido.
+
+### 6.17 Spostare il sito su un altro dominio o un'altra cartella (0.11)
+
+Quando: compri `docmap.it`, il cliente vuole il sito sul **suo** dominio, oppure vuoi una cartella diversa, anche a più
+livelli (`https://www.studio.it/archivio/docmap/`).
+
+**Dal gestionale**: clic sul sito (scheda del cliente o Istanze) → **Sposta il sito**. Scrivi il nuovo indirizzo e scegli
+dove caricarlo:
+
+| Scelta | Quando |
+|---|---|
+| **Hosting predefinito** | il nuovo indirizzo è sul dominio dell'hosting predefinito (la cartella si calcola da sola) |
+| **Stesso FTP, altra cartella** | stesso spazio SiteGround, altro dominio collegato o altra cartella: scrivi la cartella come la vede l'FTP |
+| **Un altro FTP** | lo spazio del cliente o un hosting nuovo: server, utente, password, protocollo e cartella |
+
+Cosa fa, in fila e con stop al primo errore: **backup** del hub; pubblica il programma nella cartella nuova (solo se è
+**vuota**); **configura** il sito nuovo (database nuovo, chiave nuova, **codici nuovi** per tutte le persone); **copia
+tutti i dati** dal sito vecchio al nuovo con il ponte; mette sul vecchio indirizzo un **reindirizzamento** (il
+`.htaccess` di prima resta come `.htaccess.prima-dello-spostamento`), così link salvati e collegamenti dei PC portano al
+nuovo. **Il sito vecchio non si cancella** (lo togli tu via FTP quando vuoi). Le **etichette stampate** puntano a
+`qr7.it` e non cambiano: aggiorna solo la destinazione su QR7 se la usi.
+
+Alla fine scarichi il **kit di consegna** con i codici nuovi (e le copie di `config.php` se non c'è la custodia). Se il
+cliente ha la **sede**, nel kit c'è la cartella `aggiorna-ponte`: copiala sul PC della sede e lancia
+**`AGGIORNA-PONTE.bat`** (il ponte passa al nuovo indirizzo con il nuovo codice).
+
+**Se si ferma**: riapri «Sposta il sito», compare lo spostamento a metà: **Riprendi** riparte dal passo fermo; prima
+della copia dei dati puoi anche **annullarlo** (il hub torna al sito di prima con i codici di prima).
+
+Riga di comando:
+
+```
+run_windows.bat cliente sposta-sito --cliente "Studio Rossi" --url https://docmap.it/studio-rossi/ --ftp stesso --cartella /docmap.it/studio-rossi/ --kit-out E:\
+run_windows.bat cliente sposta-sito --cliente "Studio Rossi" --annulla
+```
+
+`--ftp dominio|stesso|cliente` (con `cliente`: `--ftp-host --ftp-utente [--ftp-porta --ftp-protocollo]`, la password
+la chiede), `--env staging` per la demo/staging, `--senza-reindirizzo` per non toccare il vecchio sito.
+
 ---
 
 ## 7. La pagina web del hub (il gestionale)
@@ -626,6 +702,8 @@ Codici di uscita: `0` riuscito, `1` errore (messaggio su stderr che inizia con "
 | `cliente percorso` | passi fatti e prossimo passo (0.9) | `--cliente` |
 | `cliente da-modello` | cliente nuovo da un modello; con `--attiva` anche pubblicato, configurato e kit (0.10) | `--nome`, `--piva`, `--modello`, `--attiva`, `--kit-out FILE\|CARTELLA`, `--senza-pacchetti` |
 | `cliente attiva` | «Attiva tutto»: i passi online che mancano, stop al primo errore (0.10) | `--cliente`, `--kit-out` |
+| `cliente elimina` | elimina un cliente dal hub, backup prima (0.11) | `--cliente`, `--conferma "<nome>"` |
+| `cliente sposta-sito` | sposta il sito online su un altro dominio o cartella (0.11) | `--cliente --url`, `--ftp dominio\|stesso\|cliente`, `--cartella`, `--ftp-host --ftp-utente`, `--env`, `--senza-reindirizzo`, `--kit-out`, `--annulla` |
 | `cliente kit` | kit di consegna (lettere, scheda tecnica, scheda cliente) (0.10) | `--cliente`, `--out` |
 | `modelli` | elenco dei modelli cliente (0.10) | `mostra <modello>`, `importa --nome --file`, `elimina`, `predefinito`, `ripristina` |
 | `hosting` | hosting predefinito: dominio e FTP comuni (0.10) | `--dominio --host --utente --cartella --protocollo --porta --suffisso-demo --password`, `--togli` |
@@ -749,4 +827,7 @@ Provato con test automatici su Linux (hub 97 test, compresi FTP e FTPS reali su 
 (Chromium) per il gestionale. **Non ancora** su: Windows reale (accesso automatico e «Ricorda su questo PC» con DPAPI,
 pagina del hub, client delle postazioni `collega-questo-pc.bat`, `installa.bat`, sincronizzazione automatica),
 deploy FTPS verso SiteGround, telefoni con il certificato dello studio. Dalla app 26.12.6 il server PHP online
-controlla la licenza (sito costruito dal hub 0.8): da provare su SiteGround.
+controlla la licenza (sito costruito dal hub 0.8): da provare su SiteGround. Dalla 0.11, provati solo in simulazione (PHP
+reale con `php -S`, ponte reale, FTP simulato): **Sposta il sito** (il reindirizzamento `.htaccess` va provato su
+SiteGround), `INSTALLA-SENZA-DOMANDE.bat` e il codice del ponte nel pacchetto (Windows reale), il doppio collegamento
+online/ufficio delle postazioni.

@@ -599,6 +599,46 @@ async function siteSetup(envId, label) {
   });
   return o;
 }
+// v0.11: «Sposta il sito» — new domain or folder; data copied by the bridge, old address redirected (QR included)
+async function moveSite(e) {
+  const label = `${e.customer_name} · ${e.name_it}`;
+  let st = null; try { st = (await api(`/api/envs/${e.id}/move/preview`, {})).resume; } catch (_) { /* no state */ }
+  const o = modal({
+    title: `Sposta il sito: ${label}`, submit: st ? 'Riprendi lo spostamento' : 'Controlla e sposta', wide: true,
+    body: `${st ? `<div class="note warn" style="margin-top:0"><b>C'è uno spostamento rimasto a metà</b> verso <span class="mono">${esc(st.new_url)}</span> (passi fatti: ${esc((st.steps || []).join(', ') || 'nessuno')}). Riprendilo con lo stesso indirizzo${(st.steps || []).includes('sync') ? '' : ' oppure <button type="button" class="btn sm" id="mv-cancel">annullalo</button> (il hub torna al sito di prima, niente si cancella)'}.</div>` : ''}
+      <p style="margin-top:0">Adesso: <span class="mono">${esc(e.url)}</span>. Puoi andare su <b>un altro dominio</b> (es. <span class="mono">https://docmap.it/studio-rossi/</span>) o <b>un'altra cartella</b>, anche a più livelli (es. <span class="mono">https://www.studio.it/archivio/docmap/</span>).</p>
+      ${fld('url', 'Nuovo indirizzo', { value: st ? st.new_url : '', ph: 'https://dominio.it/percorso/', req: true })}
+      ${sel('ftp_mode', 'Dove lo carico (FTP)', [['dominio', 'Hosting predefinito del hub (la cartella si calcola dall\'indirizzo)'], ['stesso', 'Stesso accesso FTP del sito di adesso, altra cartella'], ['cliente', 'Un altro accesso FTP (es. il dominio del cliente)']], 'dominio')}
+      <div id="mv-folder">${fld('folder', 'Cartella vista dall\'FTP', { ph: '/public_html/docmap/', hint: 'Dove l\'account FTP vede il nuovo sito. Deve essere vuota o non esistere.' })}</div>
+      <div id="mv-ftp" class="grid g2">${fld('host', 'Server FTP', { ph: 'ftp.dominio.it' })}${fld('user', 'Utente FTP')}${fld('password', 'Password FTP', { type: 'password' })}${sel('protocol', 'Protocollo', [['ftps', 'FTPS (consigliato)'], ['sftp', 'SFTP'], ['ftp', 'FTP semplice']], 'ftps')}</div>
+      <div class="f"><label><input type="checkbox" name="redirect" checked> Il vecchio indirizzo rimanda al nuovo (consigliato: le etichette e i link salvati continuano a funzionare)</label></div>
+      <div class="note">Cosa succede: backup, pubblico il programma nella cartella nuova, configuro il sito (database nuovo e <b>codici nuovi</b>), copio <b>tutti i dati</b> dal sito vecchio al nuovo, metto il reindirizzamento sul vecchio. Il sito vecchio non si cancella. I QR stampati puntano a qr7.it e restano validi. Alla fine scarichi il kit con i codici nuovi; se il cliente ha il server in sede, nel kit c'è anche <span class="mono">aggiorna-ponte</span> da lanciare sul PC server.</div>`,
+    onSubmit: async (f) => {
+      const body = { url: f.url, ftp_mode: f.ftp_mode, folder: f.folder, redirect: f.redirect };
+      if (f.ftp_mode === 'cliente') body.ftp = { host: f.host, user: f.user, password: f.password, protocol: f.protocol };
+      const pv = await api(`/api/envs/${e.id}/move/preview`, body);
+      const r = await withVault(() => api(`/api/envs/${e.id}/move`, body));
+      closeOverlay();
+      const jm = jobModal('Sposta il sito', `<p class="note" style="margin-top:0">Verso <span class="mono">${esc(pv.url)}</span> (cartella FTP <span class="mono">${esc(pv.folder)}</span>). In corso: puoi chiudere, il lavoro continua (Attività).</p>`);
+      try {
+        const j = await waitJob(r.job, showLog(jm)); const res = j.result || {};
+        $('#jm-det', jm).open = false;
+        $('#jm-body', jm).innerHTML = `<div class="okbox">${ic('rocket')}<div><b>Sito spostato</b><small>Adesso è su ${esc(res.url)}${res.sync ? '; dati copiati' : ''}${res.redirect && res.redirect.done ? '; il vecchio indirizzo rimanda al nuovo' : ''}.</small></div></div>
+          ${(res.notes || []).map((n) => `<div class="note mt">${esc(n)}</div>`).join('')}
+          ${res.kit ? `<div class="note warn mt"><b>Scarica adesso il kit di consegna</b>: codici NUOVI per tutti${res.has_sede ? ' e la cartella <span class="mono">aggiorna-ponte</span> per il PC server della sede (lancia AGGIORNA-PONTE.bat)' : ''}. Su PC e telefoni basta aprire il nuovo indirizzo ed entrare con il codice nuovo.</div>
+            <div class="btns mt"><a class="btn pri" href="/scarica/kit/${esc(res.kit.job)}">${ic('download')} Scarica il kit</a></div>` : ''}${res.kit_error ? `<div class="note warn mt">Kit non preparato: ${esc(res.kit_error)}. Rifallo dalla scheda del cliente («Kit di consegna»).</div>` : ''}`;
+        toast('Sito spostato.'); route();
+      } catch (err) { jmError(jm, err.message + ' — riapri «Sposta il sito»: riprende da dove si è fermato.'); }
+    },
+  });
+  const sync = () => { const m = $('[name=ftp_mode]', o).value; $('#mv-folder', o).hidden = m === 'dominio'; $('#mv-ftp', o).hidden = m !== 'cliente'; };
+  $('[name=ftp_mode]', o).onchange = sync; sync();
+  const c = $('#mv-cancel', o);
+  if (c) c.onclick = async () => {
+    try { const r = await withVault(() => api(`/api/envs/${e.id}/move/cancel`, {})); closeOverlay(); toast(`Spostamento annullato: il sito resta su ${r.url}.`); route(); } catch (err) { toast(err.message, true); }
+  };
+  return o;
+}
 async function pushReport(jobId) {
   try {
     const j = await waitJob(jobId); const sites = (j.result || {}).sites || [];
@@ -652,10 +692,12 @@ function licMini(lics) {
 
 function tWorkstations(el, d) {
   const hasSede = d.projects.some((p) => p.instances.some((i) => i.role === 'sede'));
+  const hasOnline = d.projects.some((p) => p.instances.some((i) => i.envs.some((e) => e.kind === 'web-php' && e.name === 'production')));
+  const onlineNote = hasOnline ? `<div class="note mb"><b>Il riferimento è il sito online.</b> Ogni postazione apre il sito (funziona anche se il PC server è spento, da casa e dal telefono)${hasSede ? '; con il server in ufficio acceso aggiunge anche «DocMap (ufficio)», più veloce in rete locale' : ''}. Genera un client per ogni PC e fai doppio clic su <span class="mono">collega-questo-pc.bat</span>.</div>` : '';
   const pk = d.packages || {};
-  const sede = hasSede ? `<div class="card mb"><div class="hd"><span style="color:var(--acc)">${ic('building')}</span><h3>Server di sede (il primo PC)</h3><div class="btns">${pk.sede ? `<a class="btn pri sm" href="/scarica/sede/${esc(d.customer.id)}">${ic('download')} Scarica l'installer (${Math.round(pk.sede.size / 1048576 * 10) / 10} MB)</a>` : ''}</div></div>
-    <div class="bd" style="color:var(--fg2)">${pk.sede ? `Installer personalizzato con licenza e chiave pubblica: <span class="mono">${esc(pk.sede.name)}</span>. Va sul PC che fa da server; poi le postazioni qui sotto si collegano a lui.` : 'Installer non ancora preparato: confermalo da «Crea progetto con AI» con «Prepara subito i pacchetti», oppure da Strumenti classici, Nuovo cliente guidato.'}</div></div>` : '';
-  el.innerHTML = sede + d.projects.map((p) => {
+  const sede = hasSede ? `<div class="card mb"><div class="hd"><span style="color:var(--acc)">${ic('building')}</span><h3>Server di sede (il primo PC)</h3><div class="btns">${pk.sede ? `<a class="btn pri sm" href="/scarica/sede/${esc(d.customer.id)}">${ic('download')} Scarica il pacchetto della sede (${Math.round(pk.sede.size / 1048576 * 10) / 10} MB)</a>` : ''}</div></div>
+    <div class="bd" style="color:var(--fg2)">${pk.sede ? `Pacchetto pronto: licenza, nome dello studio e${hasOnline ? ' il collegamento al sito (codice del ponte, se il sito è già attivato e la cassaforte è aperta),' : ''} tutto dentro <span class="mono">${esc(pk.sede.name)}</span>. Sul PC: estrai e doppio clic su <b>INSTALLA-SENZA-DOMANDE.bat</b> (oppure installa.bat per la versione guidata). Va sul PC che fa da server in ufficio: tiene una copia completa e la allinea con il sito ogni 10 minuti. ${hasOnline ? 'Se è spento non si ferma nessuno: PC e telefoni lavorano sul sito online.' : 'È il riferimento dello studio: deve restare acceso in orario di lavoro.'}` : 'Installer non ancora preparato: confermalo da «Crea progetto con AI» con «Prepara subito i pacchetti», oppure da Strumenti classici, Nuovo cliente guidato.'}</div></div>` : '';
+  el.innerHTML = onlineNote + sede + d.projects.map((p) => {
     const ws = p.workstations;
     return `<div class="card mb"><div class="hd"><h3>${esc(p.name)}</h3><div class="btns"><button class="btn pri sm" data-addws="${esc(p.id)}">${ic('plus')} Aggiungi postazione</button></div></div>
       <div class="bd flush">${ws.length ? `<div class="tbl-wrap"><table class="t"><thead><tr><th>Postazione</th><th>Etichetta</th><th>Stato</th><th>Client</th><th>Creata</th><th></th></tr></thead><tbody>
@@ -785,6 +827,7 @@ async function openEnv(id) {
   if (e.kind === 'local-python') acts.push(`<button class="btn sm" data-a="start">${ic('play')} Avvia</button><button class="btn sm" data-a="stop">${ic('stop')} Ferma</button>`);
   acts.push(`<button class="btn sm" data-a="check">${ic('refresh')} Controlla</button>`);
   if (e.kind !== 'local-python') acts.push(`<button class="btn sm" data-a="edit">${ic('edit')} Indirizzi</button>`);
+  if (e.kind === 'web-php' && e.url) acts.push(`<button class="btn sm" data-a="move" title="Nuovo dominio o nuova cartella: dati copiati, vecchio indirizzo reindirizzato">${ic('ext')} Sposta il sito</button>`);
   const dr = drawer(`${esc(e.name_it)} · ${esc(e.instance_label)}`, `<a href="#/clienti/${esc(e.customer_id)}">${esc(e.customer_name)}</a>${e.project_name ? ' · ' + esc(e.project_name) : ''}`,
     `<div class="sect"><h4>Stato</h4><dl class="kv">${row('Stato', pill(ENV_STATUS, e.status))}${e.error ? row('Dettaglio', esc(e.error)) : ''}${row('Ultimo controllo', ago(e.last_check))}
       ${row('Versione', esc(e.app_version || '—'))}${row('Verificata su staging', esc(e.verified_version || '—'))}${row('Ultimo deploy', ago(e.last_deploy_at))}${row('Ultimo backup', ago(e.last_backup_at))}</dl></div>
@@ -802,6 +845,7 @@ async function openEnv(id) {
     if (a === 'setup') { closeOverlay(); return siteSetup(e.id, `${e.instance_label} · ${e.name_it}`); }
     if (a === 'start' || a === 'stop') return envJob(e, a);
     if (a === 'edit') { closeOverlay(); return editEnvironment(e); }
+    if (a === 'move') { closeOverlay(); return moveSite(e); }
     if (a === 'check') { closeOverlay(); await checkAll(); }
   }));
 }

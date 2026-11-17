@@ -1171,6 +1171,59 @@ def cmd_cliente_elimina(hub: Hub, args) -> int:
     return 0
 
 
+def _customer_web_env(hub: Hub, cid: str, name: str) -> dict:
+    envs = [e for e in hub.registry.list_environments()
+            if e["customer_id"] == cid and e["kind"] == "web-php" and e["name"] == name]
+    if not envs:
+        raise RegistryError(f"Il cliente non ha un sito online «{name}» (usa --env staging o production).")
+    if len(envs) > 1:
+        raise RegistryError("Il cliente ha più siti online con questo nome: usa le API o la pagina del hub.")
+    return envs[0]
+
+
+def cmd_sposta_sito(hub: Hub, args) -> int:
+    """v0.11: «Sposta il sito» — new domain or folder; data copied, old address redirected, kit with the new codes."""
+    from . import activate as AC
+    from . import move as M
+    c = hub.registry.get_customer(args.cliente)
+    env = _customer_web_env(hub, c["id"], args.env)
+    vk = get_vault_key(hub, args)
+    if args.annulla:
+        r = M.cancel(hub, vk, env["id"])
+        out(f"Spostamento annullato: il hub torna a {r.get('url') or env.get('url')}.")
+        return 0
+    if not args.url:
+        raise RegistryError("Scrivi il nuovo indirizzo: --url https://dominio/percorso/")
+    ftp = None
+    if args.ftp == "cliente":
+        ftp = {k: v for k, v in (("protocol", args.ftp_protocollo), ("host", args.ftp_host), ("port", args.ftp_porta),
+                                 ("user", args.ftp_utente)) if v}
+        if ftp:
+            import getpass
+            ftp["password"] = getpass.getpass("Password FTP del nuovo spazio: ")
+    pv = M.preview(hub, env["id"], args.url, args.ftp, args.cartella)
+    out(f"Sposto {c['name']} · {env['name']}: {env.get('url')} → {pv['url']}  (cartella FTP {pv['folder']})")
+    r = M.move_site(hub, vk, env["id"], args.url, ftp_mode=args.ftp, folder=args.cartella, ftp=ftp,
+                    redirect_old=not args.senza_reindirizzo, log=out)
+    for n in r.get("notes") or []:
+        out(f"  nota: {n}")
+    extra = M.bridge_files(hub, vk, c["id"], r["url"], c["name"]) if r.get("has_sede") else {}
+    if not args.kit_out:
+        out("ATTENZIONE: kit non scritto (codici nuovi e config.php). Rifallo con  cliente kit --cliente … --out E:\\")
+        return 0
+    name, data = AC.build_kit(hub, vk, c["id"], r.get("configs"), log=out, extra=extra)
+    path = Path(args.kit_out)
+    if path.is_dir():
+        path = path / name
+    fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "wb") as f:
+        f.write(data)
+    out(f"Kit di consegna: {path}  (codici NUOVI: consegnalo e poi cancellalo da qui)")
+    if extra:
+        out("Sul PC della sede: apri la cartella aggiorna-ponte del kit e lancia AGGIORNA-PONTE.bat.")
+    return 0
+
+
 def cmd_kit(hub: Hub, args) -> int:
     from . import activate as AC
     c = hub.registry.get_customer(args.cliente)
@@ -1585,6 +1638,21 @@ def build_parser() -> argparse.ArgumentParser:
     q = add("elimina", cmd_cliente_elimina, "elimina un cliente dal hub (backup prima; siti online e sede non si toccano)", cl)
     q.add_argument("--cliente", required=True)
     q.add_argument("--conferma", help="il nome esatto del cliente (altrimenti lo chiede)")
+    q = add("sposta-sito", cmd_sposta_sito,
+            "sposta il sito online su un altro dominio o percorso (dati copiati, vecchio indirizzo reindirizzato)", cl)
+    q.add_argument("--cliente", required=True)
+    q.add_argument("--env", default="production", help="production (predefinito) o staging")
+    q.add_argument("--url", help="nuovo indirizzo, es. https://docmap.it/studio-rossi/")
+    q.add_argument("--ftp", choices=("dominio", "stesso", "cliente"), default="dominio",
+                   help="dominio: hosting predefinito; stesso: FTP attuale del sito; cliente: un altro FTP")
+    q.add_argument("--cartella", help="cartella del nuovo sito vista dall'FTP (con --ftp stesso o cliente)")
+    q.add_argument("--ftp-host")
+    q.add_argument("--ftp-utente")
+    q.add_argument("--ftp-porta", type=int)
+    q.add_argument("--ftp-protocollo", choices=("ftps", "sftp", "ftp"))
+    q.add_argument("--senza-reindirizzo", action="store_true", help="non mettere il reindirizzamento sul vecchio sito")
+    q.add_argument("--kit-out", help="file o cartella del kit con i codici nuovi")
+    q.add_argument("--annulla", action="store_true", help="annulla uno spostamento rimasto a metà")
     q = add("kit", cmd_kit, "kit di consegna: lettere di benvenuto con i codici, scheda tecnica, scheda cliente", cl)
     q.add_argument("--cliente", required=True)
     q.add_argument("--out", required=True, help="file .zip o cartella")

@@ -223,7 +223,9 @@ sicuro perché vince sempre il più recente e i pari restano conflitti.
 
 ## 8. Domande frequenti
 
-**Il PC dello studio deve restare acceso?** Sì, il ponte gira lì. Da spento non si perde nulla: si sincronizza alla riaccensione.
+**Il PC dello studio deve restare acceso?** No, se lo studio lavora sul sito online (il riferimento): PC e telefoni
+usano l'indirizzo online anche a PC spento. Il ponte gira sul PC della sede e da spento non si perde nulla: si
+sincronizza alla riaccensione. Solo chi lavora **in rete locale** su quel PC (`https://192.168.…`) ha bisogno che sia acceso.
 
 **E se uno studio vuole tenere i dati solo in sede?** Non installare il ponte (o toglierlo con `schtasks /Delete`):
 il server dello studio funziona da solo.

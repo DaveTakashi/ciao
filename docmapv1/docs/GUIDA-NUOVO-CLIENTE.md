@@ -189,12 +189,19 @@ Salta questo capitolo se il cliente ha solo la sede.
 
 ## 3. Sede: installazione sul PC del cliente
 
-Cosa porti: una **chiavetta USB** con `sede\DocMap-studio-rossi-sede.zip` (e, se c'è il sito, il token del ponte su
-file: `run_windows.bat cliente token-ponte --cliente "Studio Rossi" --esporta E:\token-ponte.txt`), la **scheda
-cliente** stampata.
+Cosa porti: una **chiavetta USB** con il **pacchetto pronto** scaricato dalla scheda del cliente (hub 0.11: scheda
+**Postazioni** › «Scarica il pacchetto della sede»; dentro c'è già il codice del ponte se il cliente ha il sito
+online) e la **scheda cliente** stampata.
 
-Il PC del cliente: Windows 10/11, sempre acceso in orario d'ufficio, collegato via cavo, possibilmente con **IP fisso**
-(impostalo nel router). Serve Internet la prima volta (Python e pacchetti).
+Il PC della sede: Windows 10/11, collegato via cavo, possibilmente con **IP fisso** (impostalo nel router). Serve
+Internet la prima volta (Python e pacchetti). **Con il sito online** il PC della sede può essere spento: gli altri PC e
+i telefoni lavorano sul sito online (il riferimento) e la copia in sede si riallinea alla riaccensione. Deve restare
+acceso in orario d'ufficio **solo** nel modello «solo sede» (nessun sito online).
+
+**Strada veloce (hub 0.11)**: estrai il pacchetto e fai doppio clic su **`INSTALLA-SENZA-DOMANDE.bat`** › **Sì**:
+nome dello studio dal pacchetto, amministratore `admin`, porta standard, licenza e ponte già configurati, codice del
+ponte cancellato dal PC dopo l'uso. Alla fine segui solo il punto 2 (copia il codice amministratore) e il punto 4 (Kit
+di emergenza). La strada con le domande, qui sotto, resta valida.
 
 1. Copia lo zip sul PC, tasto destro › **Estrai tutto**, doppio clic su **`installa.bat`** › **Sì**.
 2. Rispondi alle domande (dettagli in `GUIDA-INSTALLAZIONE.md` §4): il nome dello studio è già proposto; scegli il nome

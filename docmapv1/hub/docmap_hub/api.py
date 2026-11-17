@@ -1159,6 +1159,57 @@ def env_setup(app, env_id: str, body: dict) -> dict:
     return {"job": job.id}
 
 
+def _move_args(body: dict) -> dict:
+    ftp = None
+    if body.get("ftp_mode") == "cliente":
+        f = body.get("ftp") or {}
+        ftp = {k: f.get(k) for k in ("protocol", "host", "port", "user", "password") if f.get(k) not in (None, "")}
+    return {"ftp_mode": body.get("ftp_mode") or "dominio", "folder": (body.get("folder") or "").strip() or None,
+            "ftp": ftp}
+
+
+def env_move_preview(app, env_id: str, body: dict) -> dict:
+    from . import move as M
+    a = _move_args(body)
+    if not (body.get("url") or "").strip():     # the dialog opens: only "is a move half done?"
+        env = app.hub.registry.get_environment(env_id)
+        return {"resume": M.state(app.hub.registry, env["id"]), "url": None}
+    return M.preview(app.hub, env_id, _str(body, "url"), a["ftp_mode"], a["folder"])
+
+
+def env_move(app, env_id: str, body: dict) -> dict:
+    """v0.11: «Sposta il sito» as a job; at the end the delivery kit (new codes, config.php, aggiorna-ponte)."""
+    from . import activate as AC
+    from . import move as M
+    vk = app.need_vault()
+    env = app.hub.registry.get_environment(env_id)
+    a = _move_args(body)
+    url = _str(body, "url")
+    M.preview(app.hub, env["id"], url, a["ftp_mode"], a["folder"])     # errors before the job starts
+    for j in app.jobs.items.values():
+        if j.kind == "site-move" and j.status == "running" and (j.params or {}).get("env_id") == env["id"]:
+            return {"job": j.id, "already": True}
+
+    def run(h, job):
+        r = M.move_site(h, vk, env["id"], url, redirect_old=body.get("redirect", True) is not False, log=job.log, **a)
+        cust = M.customer_of(h.registry, env)
+        try:
+            extra = M.bridge_files(h, vk, cust["id"], r["url"], cust["name"]) if r.get("has_sede") else {}
+            job.kit = AC.build_kit(h, vk, cust["id"], r.pop("configs", {}), log=job.log, extra=extra)
+            r["kit"] = {"job": job.id, "name": job.kit[0]}
+        except Exception as exc:  # noqa: BLE001 — the site is moved; the kit can be made again
+            r["kit_error"] = str(exc)
+        r.pop("configs", None)
+        return r
+    job = app.jobs.start(f"Sposta il sito: {M.customer_of(app.hub.registry, env)['name']}", "site-move", {"env_id": env["id"]}, run)
+    return {"job": job.id}
+
+
+def env_move_cancel(app, env_id: str, body: dict) -> dict:
+    from . import move as M
+    return M.cancel(app.hub, app.need_vault(), env_id)
+
+
 def licence_push(app, iid: str, body: dict) -> dict:
     from . import sitesetup as SS
     vk = app.need_vault()

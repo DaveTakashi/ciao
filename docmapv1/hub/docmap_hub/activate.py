@@ -262,7 +262,7 @@ def fetch_configs(hub, vk: VaultKey, cid: str, *, skip=(), remote_for=None, log=
 
 
 def build_kit(hub, vk: VaultKey, cid: str, configs: dict | None = None, *, fetch: bool = True, remote_for=None,
-              log=lambda m: None) -> tuple[str, bytes]:
+              log=lambda m: None, extra: dict | None = None) -> tuple[str, bytes]:
     from .onboarding import Onboarding, scheda_html
     from .templates import web_slug
     reg = hub.registry
@@ -298,6 +298,8 @@ def build_kit(hub, vk: VaultKey, cid: str, configs: dict | None = None, *, fetch
         for env_name, b64 in configs.items():
             z.writestr(f"config/{'sito-vero' if env_name == 'production' else 'demo'}-config.php",
                        base64.b64decode(b64))
+        for name, data in (extra or {}).items():
+            z.writestr(name, data)
         sede = Onboarding(hub, log=lambda *_: None).find_instance(cust["id"], "sede")
         if sede:
             z.writestr("4-sede-LEGGIMI.txt",

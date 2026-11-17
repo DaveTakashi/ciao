@@ -411,11 +411,11 @@ def make_handler(app: HubWebApp):
                             raise RegistryError("Kit non più disponibile: preparalo di nuovo dalla scheda del cliente.")
                         name, data = job.kit
                         app.hub.registry.log("customer.kit.download", details={"file": name})
-                    elif kind in ("sede", "web"):
-                        if kind == "sede":
-                            f = packages.sede_zip(app.hub, app.hub.registry.get_customer(ref)["id"])
-                        else:
-                            f = packages.web_zip_path(app.hub, app.hub.registry.get_environment(ref))
+                    elif kind == "sede":   # v0.11: with the bridge code inside when the vault is open
+                        name, data, _tok = packages.sede_ready_zip(app.hub, app.vault_key,
+                                                                   app.hub.registry.get_customer(ref)["id"])
+                    elif kind == "web":
+                        f = packages.web_zip_path(app.hub, app.hub.registry.get_environment(ref))
                         if not f or not f.is_file():
                             raise RegistryError("Pacchetto non ancora preparato.")
                         name, data = f.name, f.read_bytes()
@@ -685,6 +685,9 @@ def _api_routes():
         ("POST", r(r"/api/export"), A.hub_export),
         # v0.9
         ("POST", r(r"/api/envs/([\w-]+)/setup"), A.env_setup),
+        ("POST", r(r"/api/envs/([\w-]+)/move/preview"), A.env_move_preview),
+        ("POST", r(r"/api/envs/([\w-]+)/move/cancel"), A.env_move_cancel),
+        ("POST", r(r"/api/envs/([\w-]+)/move"), A.env_move),
         ("POST", r(r"/api/instances/([\w-]+)/licence/push"), A.licence_push),
         ("GET", r(r"/api/updates"), A.updates),
         ("POST", r(r"/api/updates/run"), A.updates_run),

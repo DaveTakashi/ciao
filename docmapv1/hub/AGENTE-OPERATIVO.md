@@ -32,6 +32,11 @@ In breve:
     `--attiva` pubblica e configura solo su cartelle vuote; usalo solo se Dave ha chiesto di mettere online il cliente.
     Il kit (`--kit-out`, `cliente kit`) contiene codici e chiavi in chiaro: scrivilo solo dove dice Dave (chiavetta) e
     non lasciarne copie. Non cambiare l'hosting predefinito né i modelli senza che Dave lo chieda.
+15. (0.11) `cliente elimina` e `cliente sposta-sito` solo su richiesta esplicita di Dave, con il nome del cliente e il
+    nuovo indirizzo scritti da lui. Lo spostamento non ha una prova: prima di lanciarlo spiega a Dave cosa succederà
+    (cartella nuova, codici nuovi per tutti, vecchio indirizzo reindirizzato). Il kit (`--kit-out`) va su chiavetta.
+    Se lo spostamento si ferma, rilancia lo stesso comando con lo stesso `--url` (riprende); `--annulla` solo prima della
+    copia dei dati.
 13. (0.9) Per sapere cosa manca a un cliente: `cliente percorso --cliente "Nome"` (o la scheda nella pagina): fai o
     proponi **solo il prossimo passo**. `configura-sito --instance … --env staging|production --config-out <file>`
     subito dopo il primo deploy di un sito (una volta sola; i codici vanno in cassaforte; `config.php` va al cliente,
