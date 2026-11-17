@@ -7,6 +7,21 @@ cd /d "%~dp0"
 chcp 65001 >nul
 set PYTHONIOENCODING=utf-8
 
+rem launched from inside the zip (Windows copies only this file to a temporary folder): nothing else is here
+if not exist "%~dp0docmap_hub\__init__.py" (
+  echo.
+  echo  Prima estrai TUTTO lo zip: tasto destro sullo zip, "Estrai tutto...", cartella C:\DocMapHub\
+  echo  poi avvia run_windows.bat dalla cartella hub estratta.
+  echo.
+  pause
+  exit /b 1
+)
+if not exist "%~dp0..\tools\build_deploy.py" (
+  echo  ATTENZIONE: accanto alla cartella hub non c'e la cartella tools.
+  echo  L'hub funziona, ma per pubblicare i siti serve lo zip estratto tutto intero ^(hub, tools, server-php, ...^).
+  echo.
+)
+
 if not exist ".venv\Scripts\python.exe" (
   echo Prima installazione: creo l'ambiente Python in "%~dp0.venv" ...
   where py >nul 2>nul

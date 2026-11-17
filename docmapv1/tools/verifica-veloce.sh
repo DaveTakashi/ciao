@@ -16,6 +16,7 @@ step "hub (Python)";              (cd hub && run python3 -m unittest discover -s
 step "server-python";             (cd server-python && run python3 -m unittest discover -s tests) || fail=1
 step "PHP <-> Python parity";     run python3 server-python/tests/diff_test.py
 step "PHP <-> Python licence";    run python3 server-python/tests/diff_licence_test.py
+step "zip completo (tools/crea-zip.py)"; ZD=$(mktemp -d); run python3 tools/crea-zip.py --out "$ZD" >/dev/null
 step "installer-windows";         (cd installer-windows && run python3 -m unittest discover -s tests) || fail=1
 step "smoke test app (Playwright)"; (cd tests && NODE_PATH="${NODE_PATH:-$(npm root -g)}" run node smoke.js) || fail=1
 step "v12.6 licenza e stato sync (Playwright + php)"; (cd tests && NODE_PATH="${NODE_PATH:-$(npm root -g)}" run node v126.js) || fail=1

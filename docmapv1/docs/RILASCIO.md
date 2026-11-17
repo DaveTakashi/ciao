@@ -38,10 +38,18 @@ Vale per app (26.12.x), server PHP/Python, installatore e hub. Nessun passo si s
 ## 5. Pacchetti per Dave
 
 - App: zip `docmap_vX.Y.zip` in `/mnt/project-files/docmapv1/` (cartella `docmapv1/` + `deploy/` costruito con
-  `tools/build_deploy.py`). Pacchetto completo `DocMap-COMPLETO-<versione>.zip` se cambia anche hub o installatore.
+  `tools/build_deploy.py`). Il pacchetto completo per Dave è lo zip dell'hub (sotto); i vecchi `DocMap-COMPLETO-*.zip` sono in `vecchie-versioni/`.
 - Installatore: `python3 installer-windows/docmap_tools.py pacchetto --out DIR --zip` →
   `/mnt/project-files/docmapv1/python/DocMap-installer-<versione>.zip`.
-- Hub: zip `DocMap-hub-<versione>.zip` in `/mnt/project-files/docmapv1/python/`.
+- Hub (**zip completo per Dave**: hub + app + sito + server + installatore + guide): sempre con
+  `python3 docmapv1/tools/crea-zip.py --out DIR` (mai a mano). Lo script mette `INIZIA-QUI.html`, `guide/*.html` e
+  `MANIFEST-SHA256.txt`, poi controlla lo zip (integrità, file obbligatori, niente dati/chiavi/`__pycache__`, CRLF nei
+  `.bat`, hub estratto e avviato davvero) e scrive `…NON-VALIDO.zip` se qualcosa non va. Il file va in
+  `/mnt/project-files/docmapv1/python/` come `DocMap-hub-<versione>.zip`; una guida nuova per l'utente va aggiunta
+  all'elenco `GUIDES` dello script.
+- **Link nei messaggi a Dave**: allega sempre lo zip appena copiato; se un altro thread pubblica una versione più nuova
+  quella vecchia va in `vecchie-versioni/` e il vecchio allegato non si scarica più («impossibile scaricare»): nel
+  messaggio indica il nome del file, non solo l'allegato.
 - La versione precedente va in `python/vecchie-versioni/` (mai cancellata). Mai dati veri dentro gli zip.
 
 ## 6. Chiusura

@@ -67,7 +67,7 @@ pre{background:var(--box);padding:10px 12px;border-radius:6px;overflow-x:auto} p
 </ul>
 </div>
 </nav><main><h1 id="wiki-di-docmap-hub">Wiki di DocMap Hub</h1>
-<p>Vale per <strong>hub 0.11.0</strong>, <strong>DocMap 26.12.7 (app v12.7)</strong> e <strong>strumenti di installazione 1.2.0</strong>. Data: 17 novembre 2026.</p>
+<p>Vale per <strong>hub 0.11.2</strong>, <strong>DocMap 26.12.7 (app v12.7)</strong> e <strong>strumenti di installazione 1.2.0</strong>. Data: 17 novembre 2026.</p>
 <blockquote>
 <p><strong>Novità 0.11.</strong> <strong>Elimina cliente</strong> (backup prima, per ripartire da zero; capitolo 6.15), <strong>pacchetto della sede
 pronto</strong> con <code>INSTALLA-SENZA-DOMANDE.bat</code> e il codice del ponte già dentro (6.16), <strong>più PC con il sito online come
@@ -758,7 +758,9 @@ dove caricarlo:</p>
 <strong>vuota</strong>); <strong>configura</strong> il sito nuovo (database nuovo, chiave nuova, <strong>codici nuovi</strong> per tutte le persone); <strong>copia
 tutti i dati</strong> dal sito vecchio al nuovo con il ponte; mette sul vecchio indirizzo un <strong>reindirizzamento</strong> (il
 <code>.htaccess</code> di prima resta come <code>.htaccess.prima-dello-spostamento</code>), così link salvati e collegamenti dei PC portano al
-nuovo. <strong>Il sito vecchio non si cancella</strong> (lo togli tu via FTP quando vuoi). Le <strong>etichette stampate</strong> puntano a
+nuovo. Dalla 0.11.1 il reindirizzamento vale <strong>solo per le pagine di DocMap</strong> (pagine, <code>/q/&lt;codice&gt;</code>, programma, API):
+il sito nuovo può stare anche <strong>dentro</strong> la cartella del vecchio (<code>…/studio-de/2026/</code>) e le altre sottocartelle non si
+toccano. <strong>Il sito vecchio non si cancella</strong> (lo togli tu via FTP quando vuoi). Le <strong>etichette stampate</strong> puntano a
 <code>qr7.it</code> e non cambiano: aggiorna solo la destinazione su QR7 se la usi.</p>
 <p>Alla fine scarichi il <strong>kit di consegna</strong> con i codici nuovi (e le copie di <code>config.php</code> se non c'è la custodia). Se il
 cliente ha la <strong>sede</strong>, nel kit c'è la cartella <code>aggiorna-ponte</code>: copiala sul PC della sede e lancia
@@ -1163,6 +1165,9 @@ run_windows.bat backup
 <p>Poi consegna a Dave: percorso di <code>sede\…-sede.zip</code>, <code>scheda-cliente.html</code>, e i passi in sede.</p>
 <hr />
 <h2 id="10-problemi-comuni">10. Problemi comuni</h2>
+<p>Prima di tutto: <code>hub\RACCOGLI-INFO.bat</code> (file sul Desktop per l'assistenza, senza password né codici) e
+<code>DOMANDE-FREQUENTI.md</code> (download, SmartScreen, zip non estratto, Python, <code>build_deploy.py</code>, passphrase, «Attiva tutto»
+fermo, sincronizzazione). Nello zip le stesse guide sono in HTML nella cartella <code>guide\</code>, con <code>INIZIA-QUI.html</code> in cima.</p>
 <h3 id="101-il-deploy-dice-26125-e-sul-server-0-file-ma-il-sito-esiste">10.1 Il deploy dice "? → 26.12.5" e "Sul server: 0 file" ma il sito esiste</h3>
 <p>La cartella FTP è scritta come la vede il pannello, non come la vede l'account FTP. In SiteGround guarda
 "Gestisci account FTP" › "Percorso Home": se è <code>/docmap.pr-it.it/public_html/</code>, la cartella del sito per quell'account

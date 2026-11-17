@@ -1,6 +1,6 @@
 # Wiki di DocMap Hub
 
-Vale per **hub 0.11.1**, **DocMap 26.12.7 (app v12.7)** e **strumenti di installazione 1.2.0**. Data: 17 novembre 2026.
+Vale per **hub 0.11.2**, **DocMap 26.12.7 (app v12.7)** e **strumenti di installazione 1.2.0**. Data: 17 novembre 2026.
 
 > **Novità 0.11.** **Elimina cliente** (backup prima, per ripartire da zero; capitolo 6.15), **pacchetto della sede
 > pronto** con `INSTALLA-SENZA-DOMANDE.bat` e il codice del ponte già dentro (6.16), **più PC con il sito online come
@@ -784,6 +784,10 @@ Poi consegna a Dave: percorso di `sede\…-sede.zip`, `scheda-cliente.html`, e i
 ---
 
 ## 10. Problemi comuni
+
+Prima di tutto: `hub\RACCOGLI-INFO.bat` (file sul Desktop per l'assistenza, senza password né codici) e
+`DOMANDE-FREQUENTI.md` (download, SmartScreen, zip non estratto, Python, `build_deploy.py`, passphrase, «Attiva tutto»
+fermo, sincronizzazione). Nello zip le stesse guide sono in HTML nella cartella `guide\`, con `INIZIA-QUI.html` in cima.
 
 ### 10.1 Il deploy dice "? → 26.12.5" e "Sul server: 0 file" ma il sito esiste
 

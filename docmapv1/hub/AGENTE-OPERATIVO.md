@@ -37,6 +37,8 @@ In breve:
     (cartella nuova, codici nuovi per tutti, vecchio indirizzo reindirizzato). Il kit (`--kit-out`) va su chiavetta.
     Se lo spostamento si ferma, rilancia lo stesso comando con lo stesso `--url` (riprende); `--annulla` solo prima della
     copia dei dati.
+16. (0.11.2) Se qualcosa non va sul PC di Dave: chiedigli `RACCOGLI-INFO.bat` (nella cartella `hub`) e una foto
+    dell'errore; le soluzioni note sono in `docs/DOMANDE-FREQUENTI.md`. Non chiedere mai passphrase, kit o `config.php`.
 13. (0.9) Per sapere cosa manca a un cliente: `cliente percorso --cliente "Nome"` (o la scheda nella pagina): fai o
     proponi **solo il prossimo passo**. `configura-sito --instance … --env staging|production --config-out <file>`
     subito dopo il primo deploy di un sito (una volta sola; i codici vanno in cassaforte; `config.php` va al cliente,

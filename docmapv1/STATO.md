@@ -12,7 +12,7 @@
 | Server web PHP (`server-php/api.php`) | 26.12.7, schema **3**, licenza con `licence_required`; `setup.php` con cartella per sito e modalità JSON | `DM_APP_VERSION`, `DM_SCHEMA` | dentro lo zip dell'app (`deploy/`) |
 | Server Python (sede) | pacchetto 1.0.0, parità con PHP 26.12.7 (anche sulla licenza) | `server-python/docmap_server/__init__.py` | dentro l'installer |
 | Strumenti di installazione Windows | 1.2.0 | `TOOLS_VERSION` in `installer-windows/docmap_tools.py` | `docmapv1/python/DocMap-installer-26.12.7.zip` |
-| Hub (PC di Dave) | **0.11.1**, registro schema **4** (modelli cliente) (`registry.py`) | `hub/docmap_hub/__init__.py` | `docmapv1/python/DocMap-hub-0.11.1.zip` (tutto in uno: hub + installer + server + sito) |
+| Hub (PC di Dave) | **0.11.2**, registro schema **4** (modelli cliente) (`registry.py`) | `hub/docmap_hub/__init__.py` | `docmapv1/python/DocMap-hub-0.11.2.zip` (**zip completo**: hub + app + sito + server + installatore + guide; fatto e controllato da `tools/crea-zip.py`) |
 | Aggiornatore del PC | con l'app | `AGGIORNA-DOCMAP.bat` + `tools/aggiorna-app.ps1` | dentro lo zip dell'app |
 
 Regola: lo **stesso numero 26.12.x** deve comparire in app, `api.php` e server Python. Il server PHP e quello Python
@@ -37,6 +37,12 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
 
 - Terzo giro (`AUTOCRITICA-HUB-0.10.md` §4bis): kit rifatto con le copie di config.php riprese dai siti, stop su
   cartelle non vuote, controllo del solo sito attivato, un «Attiva tutto» per cliente. Hub 145 test, verifica veloce OK.
+
+### Esito 2026-11-17, hub 0.11.2 (zip completo)
+
+- Solo zip e documentazione (`INIZIA-QUI`, `DOMANDE-FREQUENTI`, `RACCOGLI-INFO.bat`, `tools/crea-zip.py`); codice
+  dell'hub invariato rispetto alla 0.11.1 salvo l'avviso in `run_windows.bat`. Verifica veloce (con il controllo dello
+  zip): vedi il commit.
 
 ### Esito 2026-11-17, hub 0.11.1 (double check finale)
 
