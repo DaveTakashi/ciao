@@ -700,6 +700,8 @@ def _api_routes():
         ("GET", r(r"/api/customers/([\w-]+)/activate"), A.activate_plan),
         ("POST", r(r"/api/customers/([\w-]+)/activate"), A.customer_activate),
         ("POST", r(r"/api/customers/([\w-]+)/kit"), A.customer_kit),
+        ("GET", r(r"/api/customers/([\w-]+)/delete"), A.customer_delete_preview),
+        ("POST", r(r"/api/customers/([\w-]+)/delete"), A.customer_delete),
     ]
 
 

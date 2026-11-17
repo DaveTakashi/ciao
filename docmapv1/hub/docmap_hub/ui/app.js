@@ -33,6 +33,7 @@ const ICONS = {
   lock: '<rect x="5" y="11" width="14" height="9" rx="1.8"/><path d="M8 11V8a4 4 0 018 0v3"/>',
   unlock: '<rect x="5" y="11" width="14" height="9" rx="1.8"/><path d="M8 11V8a4 4 0 017.5-2"/>',
   ext: '<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5"/>',
+  trash: '<path d="M4 7h16M10 11v6M14 11v6"/><path d="M6 7l1 13h10l1-13M9 7V4h6v3"/>',
   edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
   sparkle: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>',
   play: '<path d="M7 4l13 8-13 8z"/>',
@@ -492,13 +493,35 @@ async function pCustomer(page, id, tab) {
     <div class="ph">${av(c.name, x.color, 'avatar')}<div><h1>${esc(c.name)}</h1>
       <div class="sub">${[c.vat_id && 'P.IVA ' + esc(c.vat_id), x.city && esc(x.city), c.reseller_name && 'rivenditore ' + esc(c.reseller_name), c.email && `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>`].filter(Boolean).join(' · ') || 'Nessun dato anagrafico'}</div>
       <div class="btns" style="margin-top:6px">${dot(d.health)} <span style="color:var(--mut)">${esc(HEALTH[d.health][1])}</span>${c.status !== 'active' ? ` <span class="pill mut">${esc(CUST_STATUS[c.status])}</span>` : ''}${(x.tags || []).map((t) => ` <span class="tag">${esc(t)}</span>`).join('')}</div></div>
-      <div class="btns"><button class="btn" id="edit-c">${ic('edit')} Modifica</button><button class="btn pri" id="new-p">${ic('plus')} Nuovo progetto</button></div></div>
+      <div class="btns"><button class="btn danger" id="del-c" title="Elimina il cliente dal hub">${ic('trash')} Elimina</button><button class="btn" id="edit-c">${ic('edit')} Modifica</button><button class="btn pri" id="new-p">${ic('plus')} Nuovo progetto</button></div></div>
     <nav class="tabs">${CTABS.map(([t, l]) => `<a href="#/clienti/${esc(c.id)}/${t}" class="${t === tab ? 'on' : ''}">${l}${counts[t] ? `<span class="cnt">${counts[t]}</span>` : ''}</a>`).join('')}</nav>
     <div id="tab"></div>`;
   $('#edit-c').onclick = () => editCustomer(c);
+  $('#del-c').onclick = () => deleteCustomer(c);
   $('#new-p').onclick = () => newProject(c);
   const el = $('#tab');
   ({ riepilogo: tSummary, postazioni: tWorkstations, pubblica: tPublish, licenze: tLicences, accessi: tSecrets, storico: tHistory, dati: tData }[tab] || tSummary)(el, d);
+}
+// v0.10.3: «Elimina cliente» — backup first; online sites, office servers and delivered licences are not touched
+async function deleteCustomer(c) {
+  let p; try { p = await api(`/api/customers/${encodeURIComponent(c.id)}/delete`); } catch (e) { return toast(e.message, true); }
+  const n = (k, one, many) => (p[k] ? `<li>${p[k]} ${p[k] === 1 ? one : many}</li>` : '');
+  const list = [n('projects', 'progetto', 'progetti'), n('installations', 'installazione', 'installazioni'), n('environments', 'sito o server', 'siti o server'), n('workstations', 'postazione', 'postazioni'), n('licences', 'licenza', 'licenze'), n('secrets', 'codice o accesso in cassaforte', 'codici e accessi in cassaforte')].join('');
+  const online = p.online.filter((o) => o.url).map((o) => `<li><span class="mono">${esc(o.url)}</span>${o.published ? ' (pubblicato: resta in rete finché non togli la cartella via FTP)' : ''}</li>`).join('');
+  const live = p.live_licences.map((l) => `<li>${esc(l.plan)} · ${esc(l.instance || '')}: valida fino al ${fmtDate(l.expires_at)}</li>`).join('');
+  modal({
+    title: `Elimina ${c.name}`, submit: 'Elimina il cliente', danger: true, wide: true,
+    body: `<p style="margin-top:0">Tolgo dal hub il cliente e tutto quello che l'hub tiene per lui:</p><ul>${list || '<li>solo l\'anagrafica</li>'}</ul>
+      <div class="note">Prima faccio un <b>backup del hub</b>: per tornare indietro basta ripristinarlo (Impostazioni → Backup). La cartella dei pacchetti va nel cestino del hub (<span class="mono">_trash</span>).</div>
+      ${online || p.has_sede ? `<div class="note warn mt"><b>Non tocco</b> quello che è già fuori dal hub:<ul style="margin:6px 0 0">${online}${p.has_sede ? '<li>il server in sede, se è già installato</li>' : ''}</ul></div>` : ''}
+      ${live ? `<div class="note warn mt"><b>Licenze ancora valide</b> (continuano a funzionare fino alla scadenza): se il cliente non deve più usarle, annulla e revocale prima dalla scheda Licenze.<ul style="margin:6px 0 0">${live}</ul></div>` : ''}
+      ${fld('confirm', 'Per confermare scrivi il nome del cliente', { req: true, ph: c.name, attrs: 'required autocomplete="off"' })}`,
+    onSubmit: async (d) => {
+      const r = await api(`/api/customers/${encodeURIComponent(c.id)}/delete`, { confirm: d.confirm });
+      closeOverlay(); toast(`Cliente eliminato. Backup: ${r.backup}`); location.hash = '#/clienti'; route();
+      api('/api/overview').then((o) => setCounts(o.kpi)).catch(() => {});
+    },
+  });
 }
 function editCustomer(c) {
   modal({

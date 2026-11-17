@@ -1150,6 +1150,27 @@ def cmd_attiva(hub: Hub, args) -> int:
     return _activate_and_kit(hub, get_vault_key(hub, args), c["id"], args.kit_out)
 
 
+def cmd_cliente_elimina(hub: Hub, args) -> int:
+    from . import removal
+    c = hub.registry.get_customer(args.cliente)
+    pv = removal.preview(hub, c["id"])
+    out(f"Elimino dal hub «{c['name']}»: {pv['projects']} progetti, {pv['installations']} installazioni, "
+        f"{pv['environments']} siti/server, {pv['workstations']} postazioni, {pv['licences']} licenze, "
+        f"{pv['secrets']} segreti. Prima faccio un backup del hub.")
+    for o in pv["online"]:
+        out(f"  NON tocco il sito online {o['url']}" + (" (pubblicato: resta in rete finché non lo togli da FTP)"
+                                                      if o["published"] else ""))
+    for l in pv["live_licences"]:
+        out(f"  Licenza ancora valida fino al {l['expires_at'][:10]} ({l['plan']}, {l['instance']}): se serve, "
+            "revocala PRIMA (licence revoke).")
+    conferma = args.conferma
+    if conferma is None:
+        conferma = input(f"Per confermare scrivi il nome del cliente ({c['name']}): ")
+    r = removal.delete_customer(hub, c["id"], confirm_name=conferma, log=out)
+    out(f"Fatto. Per tornare indietro: ripristina il backup {r['backup']}.")
+    return 0
+
+
 def cmd_kit(hub: Hub, args) -> int:
     from . import activate as AC
     c = hub.registry.get_customer(args.cliente)
@@ -1561,6 +1582,9 @@ def build_parser() -> argparse.ArgumentParser:
     q = add("attiva", cmd_attiva, "«Attiva tutto»: pubblica, configura e controlla i siti online che mancano", cl)
     q.add_argument("--cliente", required=True)
     q.add_argument("--kit-out", help="file o cartella del kit di consegna (obbligatorio se escono copie di config.php)")
+    q = add("elimina", cmd_cliente_elimina, "elimina un cliente dal hub (backup prima; siti online e sede non si toccano)", cl)
+    q.add_argument("--cliente", required=True)
+    q.add_argument("--conferma", help="il nome esatto del cliente (altrimenti lo chiede)")
     q = add("kit", cmd_kit, "kit di consegna: lettere di benvenuto con i codici, scheda tecnica, scheda cliente", cl)
     q.add_argument("--cliente", required=True)
     q.add_argument("--out", required=True, help="file .zip o cartella")

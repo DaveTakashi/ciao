@@ -537,6 +537,23 @@ def update_customer(app, cid: str, body: dict) -> dict:
     return {"id": c["id"]}
 
 
+def customer_delete_preview(app, cid: str, q: dict | None = None) -> dict:
+    from . import removal
+    return removal.preview(app.hub, cid)
+
+
+def customer_delete(app, cid: str, body: dict) -> dict:
+    """v0.10.3: remove the customer from the hub (backup first; online sites and offices are not touched)."""
+    from . import removal
+    from .activate import running_activation
+    cust = app.hub.registry.get_customer(cid)
+    if running_activation(list(app.jobs.items.values()), cust["id"]):
+        raise removal.RemovalError("«Attiva tutto» è in corso per questo cliente: aspetta che finisca.")
+    r = removal.delete_customer(app.hub, cust["id"], confirm_name=_str(body, "confirm"))
+    return {"deleted": r["customer"], "backup": r["backup"], "trash": r["trash"],
+            "online_untouched": [o["url"] for o in r["summary"]["online"] if o["url"]]}
+
+
 def create_project(app, body: dict) -> dict:
     p = app.hub.registry.add_project(_str(body, "customer_id"), _str(body, "name"), _str(body, "notes") or None)
     return {"id": p["id"]}
