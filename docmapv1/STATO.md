@@ -30,7 +30,7 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
 | Cosa | Comando | Durata | Ultimo esito |
 |---|---|---|---|
 | Verifica veloce (tutto tranne la suite completa) | `bash tools/verifica-veloce.sh` | ~4 min | vedi §3bis |
-| Suite completa app (Playwright) | `cd tests && NODE_PATH=$(npm root -g) node suite.js` | ~35 min | v12.6: 1374/1374 (2026-11-06) |
+| Suite completa app (Playwright) | `cd tests && NODE_PATH=$(npm root -g) node suite.js` | ~35 min | 1374/1374 (2026-11-17, hub 0.11.1) |
 | CI su GitHub | `ci/docmap-ci.yml` (attivo solo se copiato in `.github/workflows/`) | — | in attesa del sì di Dave |
 
 ### 3bis. Ultimo esito (2026-11-07, app 26.12.7, hub 0.10.1)
@@ -47,7 +47,7 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
   dopo un primo tentativo fermato al controllo, `/api/events` (pagina Attività) in errore 500, Impostazioni troppo larga sul
   telefono, voci del registro senza nome italiano, avviso «estrai lo zip» nei `.bat`, messaggio chiaro con Python < 3.11,
   `README-DEPLOY.md` / `DEPLOY-MANIFEST.txt` non più leggibili dal web.
-- Test: hub 160, server Python 33, installer 76 verdi con **Python 3.11, 3.13 e 3.14**; verifica veloce tutto OK; suite completa: vedi §3.
+- Test: hub 160, server Python 33, installer 76 verdi con **Python 3.11, 3.13 e 3.14**; verifica veloce tutto OK; suite completa 1374/1374.
 - Interfaccia: hub su 1366 px, 820 px e 390 px senza scorrimento orizzontale né errori in console; app (accesso, `/q/<codice>`,
   `scan.html`) su PC, iPhone 13/SE e Pixel 7 emulati in Chromium. **Safari vero non provato** (solo emulazione).
 
