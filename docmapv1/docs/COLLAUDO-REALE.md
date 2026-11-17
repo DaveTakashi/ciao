@@ -53,6 +53,12 @@ il numero e l'immagine. Se un passo si blocca, salta al blocco successivo.
 - [ ] H4. Sito → **Sposta il sito** verso `https://docmap.pr-it.it/prova/trasloco/`: faldoni presenti sul nuovo, il vecchio indirizzo (anche `…/q/<codice>`) rimanda al nuovo, kit con codici nuovi. Esito: ____
 - [ ] H5. Dopo H4, sul PC della sede: `aggiorna-ponte\AGGIORNA-PONTE.bat` dal kit; un faldone nuovo in sede arriva sul nuovo indirizzo.
 
+**Hub 0.11.1 (double check finale)**
+
+- [ ] H6. Sposta un sito di prova **dentro la sua stessa cartella** (es. `…/prova/` → `…/prova/2026/`): il sito nuovo si apre (niente «troppi reindirizzamenti»), un QR stampato col vecchio indirizzo arriva al nuovo.
+- [ ] H7. Su **iPhone con Safari** e su **Android con Chrome**: scansiona un'etichetta, primo accesso, scheda del faldone, «Preso» e ritorno. Su Windows prova anche con **Edge**.
+- [ ] H8. Apri `https://<sito>/README-DEPLOY.md` nel browser: deve dire «Forbidden» (403).
+
 ## C. Installazione in sede sul PC di prova (30 min) — guida: `installer-windows/GUIDA-INSTALLAZIONE.md` §4
 
 - [ ] C1. Copia il pacchetto di "Studio Prova" sul PC di prova, doppio clic su `installa.bat`, accetta la richiesta di amministratore.

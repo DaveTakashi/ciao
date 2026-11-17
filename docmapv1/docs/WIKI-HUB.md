@@ -1,6 +1,6 @@
 # Wiki di DocMap Hub
 
-Vale per **hub 0.11.0**, **DocMap 26.12.7 (app v12.7)** e **strumenti di installazione 1.2.0**. Data: 17 novembre 2026.
+Vale per **hub 0.11.1**, **DocMap 26.12.7 (app v12.7)** e **strumenti di installazione 1.2.0**. Data: 17 novembre 2026.
 
 > **Novità 0.11.** **Elimina cliente** (backup prima, per ripartire da zero; capitolo 6.15), **pacchetto della sede
 > pronto** con `INSTALLA-SENZA-DOMANDE.bat` e il codice del ponte già dentro (6.16), **più PC con il sito online come
@@ -595,7 +595,9 @@ Cosa fa, in fila e con stop al primo errore: **backup** del hub; pubblica il pro
 **vuota**); **configura** il sito nuovo (database nuovo, chiave nuova, **codici nuovi** per tutte le persone); **copia
 tutti i dati** dal sito vecchio al nuovo con il ponte; mette sul vecchio indirizzo un **reindirizzamento** (il
 `.htaccess` di prima resta come `.htaccess.prima-dello-spostamento`), così link salvati e collegamenti dei PC portano al
-nuovo. **Il sito vecchio non si cancella** (lo togli tu via FTP quando vuoi). Le **etichette stampate** puntano a
+nuovo. Dalla 0.11.1 il reindirizzamento vale **solo per le pagine di DocMap** (pagine, `/q/<codice>`, programma, API):
+il sito nuovo può stare anche **dentro** la cartella del vecchio (`…/studio-de/2026/`) e le altre sottocartelle non si
+toccano. **Il sito vecchio non si cancella** (lo togli tu via FTP quando vuoi). Le **etichette stampate** puntano a
 `qr7.it` e non cambiano: aggiorna solo la destinazione su QR7 se la usi.
 
 Alla fine scarichi il **kit di consegna** con i codici nuovi (e le copie di `config.php` se non c'è la custodia). Se il

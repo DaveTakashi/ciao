@@ -112,11 +112,19 @@ def activate_customer(hub, vk: VaultKey, cid: str, *, log=lambda m: None, deploy
                 build = D.build_for(hub, env)
                 try:
                     dry = D.deploy(hub, vk, env["instance_id"], env["name"], dry_run=True, build=build, log=log)
-                    if dry.get("remote_version"):
+                    pl = dry.get("plan")
+                    same = pl is not None and not (pl.get("upload") or []) and not any(x.get("path") == "server-php/setup.php"
+                                                                    for x in pl.get("protected") or [])
+                    if dry.get("remote_version") and same:
+                        # a previous «Attiva tutto» uploaded exactly these files and stopped at the check (typical:
+                        # SSL of a new domain not active yet): resume instead of refusing a folder we filled ourselves
+                        log("  DocMap è già nella cartella, identico a questa versione (tentativo precedente): "
+                            "riprendo da qui")
+                    elif dry.get("remote_version"):
                         raise ActivateError(
                             f"Nella cartella del sito {env['name']} c'è già DocMap (versione {dry['remote_version']}): "
                             "«Attiva tutto» pubblica solo su cartelle vuote. Usa «Pubblica» (con il piano da leggere).")
-                    if dry.get("remote_file_count"):
+                    elif dry.get("remote_file_count"):
                         raise ActivateError(
                             f"La cartella del sito {env['name']} non è vuota ({dry['remote_file_count']} file di un "
                             "altro sito?): «Attiva tutto» pubblica solo su cartelle vuote. Controlla l'indirizzo e la "

@@ -157,10 +157,15 @@ def _counts(rep: dict) -> str:
 def redirect_htaccess(old_url: str, new_url: str, current: bytes | None) -> bytes:
     path = urlsplit(old_url).path or "/"
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    # Only DocMap's own addresses are redirected (pages, QR paths, program files, the API), never "everything below
+    # the old folder": the new site may live INSIDE the old folder (…/studio-de/ → …/studio-de/2026/) and other sites
+    # may live in sub-folders of an old site at the root of a domain. A catch-all rule would send the new site to
+    # itself in a loop (…/2026/2026/…) or hijack the other sites.
+    own = r"(?:(?:index|scan|404)\.html|docmap\.config\.js|(?:q|assets|vendor|server-php)/.*)?"
     rules = (f"# DocMap: sito spostato il {stamp} su {new_url}\n"
-             f"# Il file di prima è in {HTACCESS_KEEP}. Ogni indirizzo va allo stesso percorso del sito nuovo\n"
-             "# (anche i QR: .../q/<codice>).\n"
-             f"RedirectMatch 301 ^{re.escape(path)}(.*)$ {new_url}$1\n")
+             f"# Il file di prima è in {HTACCESS_KEEP}. Ogni indirizzo di DocMap va allo stesso percorso del sito\n"
+             "# nuovo (anche i QR: .../q/<codice>); le sottocartelle che non sono di DocMap restano come sono.\n"
+             f"RedirectMatch 301 ^{re.escape(path)}({own})$ {new_url}$1\n")
     return rules.encode("utf-8")
 
 

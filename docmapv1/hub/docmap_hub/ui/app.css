@@ -102,7 +102,7 @@ kbd{font:11px "MonoHub",monospace;border:1px solid var(--line2);border-bottom-wi
 .avatar{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;font-weight:700;font-size:17px;color:#fff;flex:none}
 
 /* cards + grid -------------------------------------------------------------- */
-.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+.card{min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
 .card>.hd{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line)}
 .card>.hd h3{font-size:14.5px}.card>.hd .btns{margin-left:auto}
 .card>.bd{padding:14px 16px}
@@ -233,9 +233,10 @@ pre.log{background:var(--panel2);border:1px solid var(--line);border-radius:8px;
   .menu-btn{display:block}
   .searchbtn{min-width:0}.searchbtn span,.searchbtn kbd{display:none}
   .top{padding:10px 16px}.page{padding:16px 16px 50px}
-  .g3,.g2,.frow{grid-template-columns:1fr}
+  .g3,.g2,.frow{grid-template-columns:minmax(0,1fr)}
   dl.kv{grid-template-columns:110px 1fr}
   .top .hide-sm,table.t .hide-sm{display:none}
+  .btns .btn{white-space:normal;max-width:100%}
 }
 @media (max-width:520px){.g4{grid-template-columns:1fr 1fr}}
 

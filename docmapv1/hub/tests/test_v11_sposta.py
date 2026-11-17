@@ -85,7 +85,8 @@ class TestMove(V10.TestActivateAndKit):
         self.assertTrue({f"b-{i}" for i in range(1, 6)} <= ids, got)
         # the old folder redirects every path (QR included) to the new address; the old .htaccess is kept
         ht = (old_folder / ".htaccess").read_text("utf-8")
-        self.assertIn("RedirectMatch 301 ^/studio\\-trasloco/(.*)$ https://docmap.pr-it.it/archivio/trasloco-2026/$1", ht)
+        self.assertIn("RedirectMatch 301 ^/studio\\-trasloco/(", ht)
+        self.assertIn(")$ https://docmap.pr-it.it/archivio/trasloco-2026/$1", ht)
         self.assertEqual((old_folder / M.HTACCESS_KEEP).exists(), had_htaccess)
         self.assertIsNone(M.state(self.reg, self.eid))
         self.assertEqual(self.reg.get_environment(self.eid)["settings"]["base_path"], "/archivio/trasloco-2026/")
@@ -94,6 +95,24 @@ class TestMove(V10.TestActivateAndKit):
         z = zipfile.ZipFile(io.BytesIO(data))
         self.assertIn("config/sito-vero-config.php", z.namelist())
         self.assertIn(tok2, z.read("2-scheda-tecnica.html").decode())
+
+    def test_redirect_only_docmap_paths_so_nested_new_site_does_not_loop(self):
+        import re as _re
+        ht = M.redirect_htaccess("https://d.it/studio-de/", "https://d.it/studio-de/2026/", None).decode()
+        m = _re.search(r"RedirectMatch 301 (\S+) (\S+)", ht)
+        rx, target = _re.compile(m.group(1)), m.group(2)
+        self.assertEqual(target, "https://d.it/studio-de/2026/$1")
+        for p in ("/studio-de/", "/studio-de/q/dm26abcd1234", "/studio-de/q/dm26abcd1234/", "/studio-de/index.html",
+                  "/studio-de/scan.html", "/studio-de/server-php/api.php", "/studio-de/assets/js/02-core.js",
+                  "/studio-de/docmap.config.js"):
+            self.assertTrue(rx.match(p), p)
+        # the new site inside the old folder, and other sites below an old root site, are left alone
+        for p in ("/studio-de/2026/", "/studio-de/2026/q/dm26abcd1234", "/studio-de/2026/server-php/api.php"):
+            self.assertFalse(rx.match(p), p)
+        root = _re.search(r"RedirectMatch 301 (\S+)", M.redirect_htaccess("https://d.it/", "https://d.it/n/", None)
+                          .decode()).group(1)
+        self.assertTrue(_re.match(root, "/q/dm26abcd1234"))
+        self.assertFalse(_re.match(root, "/altro-cliente/q/dm26abcd1234"))
 
     def test_refuses_bad_or_taken_addresses(self):
         _cid, eid = self._online("Studio Fermo")

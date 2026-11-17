@@ -353,6 +353,40 @@ class TestActivateAndKit(Case):
         self.assertEqual(fake.calls, [])
         self.assertEqual(r["done"], [])
 
+    def test_resumes_when_the_folder_holds_exactly_this_version(self):
+        # 0.11.1: a first «Attiva tutto» uploaded the files and stopped at the check (SSL not active yet): the
+        # second run must go on (nothing to upload, setup not done), not refuse the folder it filled itself
+        d, rep = self.create("Studio Lilla", "tpl-commercialista-online")
+        self._point_to_php(rep)
+        fake = FakeDeploy(self.hub, self.vk, existing={"production"})
+        orig = fake.deploy
+
+        def deploy(hub, vk, instance, env_name, *, dry_run=False, **kw):
+            r = orig(hub, vk, instance, env_name, dry_run=dry_run, **kw)
+            if dry_run:
+                r["plan"] = {"upload": [], "protected": []}
+            return r
+        fake.deploy = deploy
+        r = AC.activate_customer(self.hub, self.vk, rep["customer_id"], deploy_mod=fake, check_fn=lambda env_id: {})
+        self.assertIsNone(r["failed"], r)
+        self.assertEqual(fake.calls, [("deploy", "production")])
+        # …but a configured site (setup.php protected because config.php exists) is still refused
+        d2, rep2 = self.create("Studio Malva", "tpl-commercialista-online")
+        self._point_to_php(rep2)
+        fake2 = FakeDeploy(self.hub, self.vk, existing={"production"})
+        orig2 = fake2.deploy
+
+        def deploy2(hub, vk, instance, env_name, *, dry_run=False, **kw):
+            r = orig2(hub, vk, instance, env_name, dry_run=dry_run, **kw)
+            if dry_run:
+                r["plan"] = {"upload": [], "protected": [{"path": "server-php/setup.php"}]}
+            return r
+        fake2.deploy = deploy2
+        r2 = AC.activate_customer(self.hub, self.vk, rep2["customer_id"], deploy_mod=fake2,
+                                  check_fn=lambda env_id: {})
+        self.assertIn("già DocMap", r2["failed"]["error"])
+        self.assertEqual(fake2.calls, [])
+
     def test_never_writes_into_a_folder_with_other_files(self):
         d, rep = self.create("Studio Ambra", "tpl-commercialista-online")
         self._point_to_php(rep)

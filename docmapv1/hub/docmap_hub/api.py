@@ -286,7 +286,7 @@ ACTION_IT = {
     "template.add": "Modello cliente creato", "template.update": "Modello cliente aggiornato",
     "template.delete": "Modello cliente eliminato", "template.restore": "Modelli predefiniti ripristinati",
     "hosting.set": "Hosting predefinito impostato", "hosting.clear": "Hosting predefinito tolto",
-    "customer.activate": "Attiva tutto", "customer.kit": "Kit di consegna preparato",
+    "customer.activate": "Attiva tutto", "customer.delete": "Cliente eliminato", "customer.kit.download": "Kit di consegna scaricato", "site.move.start": "Spostamento del sito iniziato", "site.move.done": "Sito spostato", "env.move": "Indirizzo del sito cambiato", "env.move.cancel": "Spostamento del sito annullato", "env.setup": "Sito configurato", "env.clone_data": "Dati copiati tra ambienti", "env.start_failed": "Avvio non riuscito", "package.download": "Pacchetto scaricato", "package.web": "Pacchetto del sito preparato", "auto_access.on": "Accesso automatico attivato", "auto_access.off": "Accesso automatico spento", "vault.init": "Cassaforte creata", "vault.change_passphrase": "Passphrase della cassaforte cambiata", "vault.export": "Cassaforte esportata", "vault.import": "Cassaforte importata", "key.rotate": "Chiave di firma sostituita", "hub.init": "Hub creato", "hub.setup": "Hub configurato", "port.reserve": "Porta riservata", "port.release": "Porta liberata", "port.move": "Porta cambiata", "onboarding.scheda_segreti": "Scheda con i segreti creata", "web.error": "Errore interno della pagina", "customer.kit": "Kit di consegna preparato",
     "draft.add": "Bozza AI creata", "draft.delete": "Bozza AI eliminata", "draft.confirm": "Bozza AI confermata",
     "web.start": "Pagina dell'hub aperta", "web.login": "Accesso alla pagina", "web.remember": "Accesso ricordato su questo PC",
     "web.forget": "Accesso ricordato rimosso", "setting.set": "Impostazione cambiata",
@@ -471,7 +471,13 @@ def deploys(app) -> list[dict]:
     return out
 
 
-def events(app, limit: int = 200) -> list[dict]:
+def events(app, q: dict | None = None) -> list[dict]:
+    # the web router passes the query string as a dict (GET handlers with a 2nd argument); before 0.11.1 it landed in
+    # ``limit`` and the «Attività» page answered 500
+    try:
+        limit = max(1, min(int((q or {}).get("limit") or 200), 2000))
+    except (TypeError, ValueError):
+        limit = 200
     names = _names(app.hub.registry)
     return [_event_view(ev, names) for ev in app.hub.registry.events(limit)]
 

@@ -245,6 +245,11 @@ QUICK_BAT = ("@echo off\r\n"
              "rem DocMap - installazione in sede SENZA DOMANDE (pacchetto pronto del hub).\r\n"
              "rem Nome dello studio, licenza e collegamento al sito sono gia dentro il pacchetto.\r\n"
              "setlocal\r\ncd /d \"%~dp0\"\r\n"
+             # double-click from inside the zip (Explorer's zip view): only this file is in a temp folder
+             "if not exist \"%~dp0installa.ps1\" (\r\n"
+             "  echo.\r\n  echo  Prima estrai TUTTO lo zip: tasto destro sullo zip, \"Estrai tutto...\",\r\n"
+             "  echo  poi fai doppio clic su INSTALLA-SENZA-DOMANDE.bat nella cartella estratta.\r\n"
+             "  echo.\r\n  pause\r\n  exit /b 1\r\n)\r\n"
              "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"%~dp0installa.ps1\" -NonChiedere -Admin admin %*\r\n"
              "pause\r\nendlocal\r\n")
 

@@ -55,6 +55,16 @@ def htaccess(a):
 Options -Indexes
 DirectoryIndex index.html
 ErrorDocument 404 {b}404.html
+# deploy notes and file list are for the FTP side only (the hub reads them by FTP), not for the web
+<FilesMatch "^(README-DEPLOY\\.md|DEPLOY-MANIFEST\\.txt|nginx-docmap\\.conf\\.example)$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>
 
 <IfModule mod_rewrite.c>
   RewriteEngine On
@@ -102,6 +112,9 @@ location {b} {{
     add_header X-Robots-Tag "noindex, nofollow" always;
     add_header Strict-Transport-Security "max-age=31536000" always;
     add_header Content-Security-Policy "{CSP}" always;
+}}
+location ~ ^{re.escape(b)}(README-DEPLOY\\.md|DEPLOY-MANIFEST\\.txt|nginx-docmap\\.conf\\.example)$ {{
+    deny all;                         # FTP-side notes, not for the web
 }}
 # QR path routing: {b}q/<short_code> → scan.html (internal, the URL stays the same)
 location ~ ^{re.escape(b)}q/[A-Za-z0-9_-]{{1,40}}/?$ {{

@@ -12,7 +12,7 @@
 | Server web PHP (`server-php/api.php`) | 26.12.7, schema **3**, licenza con `licence_required`; `setup.php` con cartella per sito e modalità JSON | `DM_APP_VERSION`, `DM_SCHEMA` | dentro lo zip dell'app (`deploy/`) |
 | Server Python (sede) | pacchetto 1.0.0, parità con PHP 26.12.7 (anche sulla licenza) | `server-python/docmap_server/__init__.py` | dentro l'installer |
 | Strumenti di installazione Windows | 1.2.0 | `TOOLS_VERSION` in `installer-windows/docmap_tools.py` | `docmapv1/python/DocMap-installer-26.12.7.zip` |
-| Hub (PC di Dave) | **0.11.0**, registro schema **4** (modelli cliente) (`registry.py`) | `hub/docmap_hub/__init__.py` | `docmapv1/python/DocMap-hub-0.11.0.zip` (tutto in uno: hub + installer + server + sito) |
+| Hub (PC di Dave) | **0.11.1**, registro schema **4** (modelli cliente) (`registry.py`) | `hub/docmap_hub/__init__.py` | `docmapv1/python/DocMap-hub-0.11.1.zip` (tutto in uno: hub + installer + server + sito) |
 | Aggiornatore del PC | con l'app | `AGGIORNA-DOCMAP.bat` + `tools/aggiorna-app.ps1` | dentro lo zip dell'app |
 
 Regola: lo **stesso numero 26.12.x** deve comparire in app, `api.php` e server Python. Il server PHP e quello Python
@@ -37,6 +37,19 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
 
 - Terzo giro (`AUTOCRITICA-HUB-0.10.md` §4bis): kit rifatto con le copie di config.php riprese dai siti, stop su
   cartelle non vuote, controllo del solo sito attivato, un «Attiva tutto» per cliente. Hub 145 test, verifica veloce OK.
+
+### Esito 2026-11-17, hub 0.11.1 (double check finale)
+
+- Banco di prova nuovo: **Apache 2.4 + PHP 8.3 veri** (mod_rewrite, mod_headers, `.htaccess` attivi come su SiteGround) con HTTPS
+  e CA di prova; hub con FTP `local` sulla cartella del sito. Provati davvero: «Attiva tutto», `setup.php`, ponte, «Sposta il sito»
+  annidato (`…/studio-prova/` → `…/studio-prova/2026/`), redirect del QR vecchio, accesso dal telefono, «Elimina cliente».
+- Corretti: redirect di «Sposta il sito» (prendeva anche la sottocartella del sito nuovo → giro infinito), «Attiva tutto» bloccato
+  dopo un primo tentativo fermato al controllo, `/api/events` (pagina Attività) in errore 500, Impostazioni troppo larga sul
+  telefono, voci del registro senza nome italiano, avviso «estrai lo zip» nei `.bat`, messaggio chiaro con Python < 3.11,
+  `README-DEPLOY.md` / `DEPLOY-MANIFEST.txt` non più leggibili dal web.
+- Test: hub 160, server Python 33, installer 76 verdi con **Python 3.11, 3.13 e 3.14**; verifica veloce tutto OK; suite completa: vedi §3.
+- Interfaccia: hub su 1366 px, 820 px e 390 px senza scorrimento orizzontale né errori in console; app (accesso, `/q/<codice>`,
+  `scan.html`) su PC, iPhone 13/SE e Pixel 7 emulati in Chromium. **Safari vero non provato** (solo emulazione).
 
 ### Esito 2026-11-17, hub 0.11.0
 
@@ -71,7 +84,7 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
 
 Scheda unica da seguire: [`docs/COLLAUDO-REALE.md`](docs/COLLAUDO-REALE.md).
 
-- Hub 0.11: elimina cliente, `INSTALLA-SENZA-DOMANDE.bat`, postazioni online, **Sposta il sito** con il reindirizzamento `.htaccess` su SiteGround (righe H1–H5).
+- Hub 0.11/0.11.1: Safari vero su iPhone e Edge su Windows (provati solo in Chromium emulato); elimina cliente, `INSTALLA-SENZA-DOMANDE.bat`, postazioni online, **Sposta il sito** con il reindirizzamento `.htaccess` su SiteGround (righe H1–H5).
 - Hub 0.10 su **SiteGround vero**: hosting predefinito in FTPS, cartella del cliente creata dal deploy, «Attiva tutto», kit stampato (righe C1–C6).
 
 - Installatore e server Python su **Windows** (servizio, HTTPS in LAN con la CA dello studio, backup cifrati).
