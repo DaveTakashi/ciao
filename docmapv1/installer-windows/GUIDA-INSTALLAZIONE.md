@@ -12,6 +12,11 @@ stessa rete (Wi-Fi o cavo) usano DocMap da quel PC. **I dati restano in ufficio*
  altro PC ─┘     dello studio      backup CIFRATI ogni giorno in C:\DocMap\backup (+ chiavetta/NAS)
 ```
 
+> **Con il sito online (consigliato con più PC)** il riferimento è il sito online: PC e telefoni aprono l'indirizzo
+> online e lavorano anche quando il PC server è spento. Il PC server in sede tiene una **copia locale** aggiornata
+> dal ponte (ogni pochi minuti, e alla riaccensione recupera tutto). «Sempre acceso» serve solo nel modello **solo
+> sede** (senza sito online), dove tutti lavorano su quel PC.
+
 > **La regola più importante**: alla fine dell'installazione **stampa il Kit di emergenza** (§7bis) e mettilo in
 > cassaforte. Senza la chiave del database e la passphrase dei backup, i dati non si leggono più: né da te, né da noi.
 
@@ -19,7 +24,7 @@ stessa rete (Wi-Fi o cavo) usano DocMap da quel PC. **I dati restano in ufficio*
 
 | Cosa | Dettagli |
 |---|---|
-| PC server | Windows 10 o 11, sempre acceso durante l'orario di lavoro, collegato alla rete dello studio (meglio via cavo) |
+| PC server | Windows 10 o 11, collegato alla rete dello studio (meglio via cavo). **Solo sede**: acceso in orario di lavoro (tutti lavorano lì). **Con sito online**: può spegnersi quando vuole, PC e telefoni lavorano online e la copia in sede si riallinea alla riaccensione |
 | Permessi | un utente **amministratore** del PC (serve solo per installare e aggiornare) |
 | Python | **3.11 o più recente**, installato "per tutti gli utenti" (l'installazione lo controlla e spiega come metterlo) |
 | Internet | solo la prima volta, per scaricare i pacchetti Python (fastapi, uvicorn, cryptography), salvo pacchetto con `wheels` (§3) |

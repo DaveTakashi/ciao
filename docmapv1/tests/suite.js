@@ -575,12 +575,13 @@ const sec = (n) => console.log('\n== ' + n);
   ok(v.rows === v.n && v.svg === v.n && v.dis, 'QR tab lists every binder with its QR; reprint disabled with nothing selected', v);
   await p.click('#qr-all'); await p.waitForTimeout(100);
   ok(await p.evaluate(() => UI.qrSel.size === S.binders.length), 'QR tab: select all');
+  // the search also looks in the random short codes (dm26 + 8 random chars): one may contain «bl» → 3 or more
   await p.click('#qr-all'); await p.fill('[data-bind="qrq"]', 'BL'); await p.waitForTimeout(100);
   await p.click('#qr-all'); await p.waitForTimeout(100);
   const picked = await p.evaluate(() => Array.from(UI.qrSel).sort().join());
   await p.click('#qr-reprint'); await p.waitForTimeout(400);
   v = await p.evaluate(() => ({view:S.view, mode:S.print.contentMode, preset:S.print.presetId, q:printQueueBinders().map(b => b.id).sort().join(), bar:!!document.querySelector('.qr-bar'), opt:!!document.querySelector('.opt.on[data-a="cmode"][data-v="qr"]'), prev:!!S.printPrev, kinds:queueItems().map(i => i.kind).join('')}));
-  ok(v.view === 'print' && v.mode === 'qr' && v.preset === 'l7159' && v.q === picked && v.bar && v.opt && v.prev && /^Q+$/.test(v.kinds) && picked.split(',').length === 3, 'reprint opens the print studio with QR-only labels of the selected binders on a small sheet', v);
+  ok(v.view === 'print' && v.mode === 'qr' && v.preset === 'l7159' && v.q === picked && v.bar && v.opt && v.prev && /^Q+$/.test(v.kinds) && picked.split(',').length >= 3, 'reprint opens the print studio with QR-only labels of the selected binders on a small sheet', v);
   await p.screenshot({path:'shots/a_qr_print.png'});
   const info = await p.evaluate(() => {
     document.getElementById('page-style').textContent = '@page{size:210mm 297mm;margin:0mm}';

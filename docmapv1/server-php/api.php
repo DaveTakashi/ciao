@@ -47,7 +47,7 @@ declare(strict_types=1);
 
 const DM_API = 'docmap-php';
 const DM_API_VERSION = 1;
-const DM_APP_VERSION = '26.12.6';   // v12.4: DocMap release these server files belong to (ping 'app_version'; the app compares it with its own)
+const DM_APP_VERSION = '26.12.7';   // v12.4: DocMap release these server files belong to (ping 'app_version'; the app compares it with its own)
 const DM_TYPES = ['binder', 'client', 'location', 'archive', 'status_event'];   // v11: + location (tree of boxes) · v12: + archive (clusters) + status_event (append-only status log); generic records, no schema change
 const DM_ROLES = ['viewer' => 1, 'editor' => 2, 'admin' => 3];
 const DM_MOBILE_FIELDS = ['archive_state', 'contents_items', 'room_code', 'cabinet_code', 'shelf_code', 'sector_code', 'notes', 'tags', 'location_id', 'location_code'];   // v11: + location (association mode)

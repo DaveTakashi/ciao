@@ -138,6 +138,18 @@ class PersonalPackageTest(unittest.TestCase):
         self.assertIn("server/docmap_server/trusted_keys.json", man)
         self.assertIn("cliente/licence.docmap-licence", man)
 
+    def test_bridge_token_file_from_hub(self):
+        # v0.11: the hub adds cliente/token-ponte.txt to the downloaded package (in memory); installa.ps1 uses it
+        self.assertIsNone(T.package_info(self.pkg)["file_token_ponte"])
+        tok = os.path.join(self.pkg, "cliente", T.BRIDGE_TOKEN_FILE)
+        with open(tok, "w", encoding="utf-8") as f:
+            f.write("tok-di-prova\n")
+        try:
+            self.assertEqual(T.package_info(self.pkg)["file_token_ponte"], tok)
+            self.assertEqual(T.check_package(self.pkg), [])
+        finally:
+            os.remove(tok)
+
     def test_no_secrets_in_package(self):
         import zipfile
         with zipfile.ZipFile(self.res["zip"]) as z:

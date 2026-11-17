@@ -194,6 +194,31 @@ def overview(app) -> dict:
     elif blast and (now - blast).total_seconds() > bcfg["every_hours"] * 3600 * 3:
         alerts.append({"level": "warn", "kind": "backup", "id": None, "customer_id": None,
                        "title": "Backup dell'hub vecchio", "text": "ultimo backup automatico " + blast.strftime("%d/%m/%Y")})
+    if not bcfg["copy_dir"]:
+        alerts.append({"level": "warn", "kind": "backup", "id": None, "customer_id": None,
+                       "title": "I backup dell'hub sono solo su questo PC",
+                       "text": "Impostazioni → Backup: scegli una seconda cartella (chiavetta, disco esterno, cloud)"})
+    # v0.9: one line per customer still on the way, with the next thing to do
+    from . import journey as J
+    for c in customers:
+        if c.get("status") not in (None, "", "active"):
+            continue
+        try:
+            jr = J.for_customer(app.hub, c["id"], packages=packages_of(app, c["id"]))
+        except Exception:  # noqa: BLE001 - never break the overview
+            continue
+        if jr["next"]:
+            alerts.append({"level": "info", "kind": "journey", "id": c["id"], "customer_id": c["id"],
+                           "title": f"{c['name']}: {jr['next']['title'].lower()}",
+                           "text": f"passo {jr['done'] + 1} di {jr['total']} del percorso"})
+    from . import sitesetup as SS
+    target = SS.available_version(reg)
+    if target:
+        old = SS.outdated_sites(app.hub, target)
+        if old:
+            alerts.append({"level": "info", "kind": "updates", "id": None, "customer_id": None,
+                           "title": f"Siti da aggiornare alla {target}: {len(old)}",
+                           "text": "Deploy → «Aggiorna tutti i siti»"})
     order = {"bad": 0, "warn": 1, "info": 2}
     alerts.sort(key=lambda a: order[a["level"]])
     deploys = reg.list_deploys(limit=200)
@@ -258,6 +283,10 @@ ACTION_IT = {
     "vault.put": "Segreto salvato in cassaforte", "vault.reveal": "Segreto mostrato",
     "workstation.add": "Postazione aggiunta", "workstation.update": "Postazione modificata",
     "workstation.build": "Client della postazione generato", "workstation.revoke": "Postazione revocata",
+    "template.add": "Modello cliente creato", "template.update": "Modello cliente aggiornato",
+    "template.delete": "Modello cliente eliminato", "template.restore": "Modelli predefiniti ripristinati",
+    "hosting.set": "Hosting predefinito impostato", "hosting.clear": "Hosting predefinito tolto",
+    "customer.activate": "Attiva tutto", "customer.delete": "Cliente eliminato", "customer.kit.download": "Kit di consegna scaricato", "site.move.start": "Spostamento del sito iniziato", "site.move.done": "Sito spostato", "env.move": "Indirizzo del sito cambiato", "env.move.cancel": "Spostamento del sito annullato", "env.setup": "Sito configurato", "env.clone_data": "Dati copiati tra ambienti", "env.start_failed": "Avvio non riuscito", "package.download": "Pacchetto scaricato", "package.web": "Pacchetto del sito preparato", "auto_access.on": "Accesso automatico attivato", "auto_access.off": "Accesso automatico spento", "vault.init": "Cassaforte creata", "vault.change_passphrase": "Passphrase della cassaforte cambiata", "vault.export": "Cassaforte esportata", "vault.import": "Cassaforte importata", "key.rotate": "Chiave di firma sostituita", "hub.init": "Hub creato", "hub.setup": "Hub configurato", "port.reserve": "Porta riservata", "port.release": "Porta liberata", "port.move": "Porta cambiata", "onboarding.scheda_segreti": "Scheda con i segreti creata", "web.error": "Errore interno della pagina", "customer.kit": "Kit di consegna preparato",
     "draft.add": "Bozza AI creata", "draft.delete": "Bozza AI eliminata", "draft.confirm": "Bozza AI confermata",
     "web.start": "Pagina dell'hub aperta", "web.login": "Accesso alla pagina", "web.remember": "Accesso ricordato su questo PC",
     "web.forget": "Accesso ricordato rimosso", "setting.set": "Impostazione cambiata",
@@ -270,6 +299,9 @@ ACTION_IT = {
     "licence.autorenew.issue": "Licenza rinnovata in automatico", "licence.publish": "Licenze pubblicate nel canale",
     "licence.publish.error": "Pubblicazione licenze non riuscita", "licence.channel": "Canale delle licenze impostato",
     "hub.export": "Hub esportato (cifrato)", "hub.backup.download": "Backup scaricato", "web.error": "Errore interno della pagina",
+    "vault.store": "Segreto salvato in cassaforte", "vault.update": "Segreto aggiornato in cassaforte",
+    "site.setup": "Sito configurato dall'hub (codici in cassaforte)", "licence.push": "Licenza inviata ai siti",
+    "sites.update": "Aggiornamento di più siti",
 }
 
 
@@ -331,6 +363,8 @@ def customer_detail(app, cid: str) -> dict:
             "health": _health(pe, _current(pl)),
         })
     env_ids = {e["id"] for e in envs}
+    from . import journey as J
+    pk = packages_of(app, c["id"])
     ids = [c["id"]] + [p["id"] for p in projects] + [i["id"] for i in insts] + list(env_ids) \
         + [x["id"] for x in all_lics] + [w["id"] for p in projects for w in p["workstations"]]
     deploys = [d for d in reg.list_deploys(limit=500) if d["env_id"] in env_ids][:30]
@@ -349,7 +383,8 @@ def customer_detail(app, cid: str) -> dict:
         "events": [_event_view(ev, _names(reg)) for ev in reg.events_for(ids, 60)],
         "health": _health(envs, _current(all_lics)),
         "plans": {k: v.get("label", k) for k, v in app.hub.plans.items()},
-        "packages": packages_of(app, c["id"]),
+        "packages": pk,
+        "journey": J.for_customer(app.hub, c["id"], packages=pk),
     }
 
 
@@ -436,7 +471,13 @@ def deploys(app) -> list[dict]:
     return out
 
 
-def events(app, limit: int = 200) -> list[dict]:
+def events(app, q: dict | None = None) -> list[dict]:
+    # the web router passes the query string as a dict (GET handlers with a 2nd argument); before 0.11.1 it landed in
+    # ``limit`` and the «Attività» page answered 500
+    try:
+        limit = max(1, min(int((q or {}).get("limit") or 200), 2000))
+    except (TypeError, ValueError):
+        limit = 200
     names = _names(app.hub.registry)
     return [_event_view(ev, names) for ev in app.hub.registry.events(limit)]
 
@@ -500,6 +541,23 @@ def update_customer(app, cid: str, body: dict) -> dict:
         fields["extra"] = body["extra"]
     c = app.hub.registry.update_customer(cid, **fields)
     return {"id": c["id"]}
+
+
+def customer_delete_preview(app, cid: str, q: dict | None = None) -> dict:
+    from . import removal
+    return removal.preview(app.hub, cid)
+
+
+def customer_delete(app, cid: str, body: dict) -> dict:
+    """v0.10.3: remove the customer from the hub (backup first; online sites and offices are not touched)."""
+    from . import removal
+    from .activate import running_activation
+    cust = app.hub.registry.get_customer(cid)
+    if running_activation(list(app.jobs.items.values()), cust["id"]):
+        raise removal.RemovalError("«Attiva tutto» è in corso per questo cliente: aspetta che finisca.")
+    r = removal.delete_customer(app.hub, cust["id"], confirm_name=_str(body, "confirm"))
+    return {"deleted": r["customer"], "backup": r["backup"], "trash": r["trash"],
+            "online_untouched": [o["url"] for o in r["summary"]["online"] if o["url"]]}
 
 
 def create_project(app, body: dict) -> dict:
@@ -569,7 +627,7 @@ def renew_licence(app, lid: str, body: dict) -> dict:
     res = app.hub.renew_with_key(app.key_id, app.private_key, lid,
                                  months=int(body["months"]) if body.get("months") else None,
                                  plan=_str(body, "plan") or None)
-    return {"id": res["licence"]["licence_id"]}
+    return _after_licence(app, res)   # v0.9: the renewal reaches the online sites at once
 
 
 def remember(app, body: dict) -> dict:
@@ -665,9 +723,18 @@ def draft_confirm(app, did: str, body: dict) -> dict:
     if chk["errors"]:
         raise RegistryError("Correggi prima: " + "; ".join(f"{x['path']}: {x['msg']}" for x in chk["errors"][:4]))
     pw = body.get("ftp_password") or ""
-    req = P.to_request(d, pw)
-    if req.ftp and not pw:
-        raise RegistryError("Scrivi la password FTP (passo Online) oppure togli l'host FTP per usare l'autoinstall web.")
+    pw_stg = body.get("ftp_staging_password") or ""
+    need = P.needs_ftp_password(d)
+    hosting_access = None
+    on = d["online"]
+    if "online" in d["progetto"]["installazioni"] and on["ftp"]["modo"] == "dominio":
+        from . import hosting as H
+        hosting_access = H.ftp_access(reg, app.need_vault(), on["ftp"]["cartella"])
+    if need["ftp"] and not pw:
+        raise RegistryError("Scrivi la password FTP del cliente (Riepilogo) oppure scegli l'FTP del dominio.")
+    if need["ftp_staging"] and not pw_stg:
+        raise RegistryError("Scrivi la password dell'FTP della demo (Riepilogo).")
+    req = P.to_request(d, pw, hosting_access=hosting_access, ftp_staging_password=pw_stg)
     req.validate(app.hub)
     vk = app.need_vault() if req.ftp else None
     key = (app.key_id, app.private_key)
@@ -961,10 +1028,18 @@ def backup_now(app, body: dict) -> dict:
 def _after_licence(app, res: dict) -> dict:
     """Publish at once when the channel is set and the vault is open (else the scheduler / Panoramica say it)."""
     from . import licensing as LG
-    out = {"id": res["licence"]["licence_id"], "publish_job": None}
+    from . import sitesetup as SS
+    out = {"id": res["licence"]["licence_id"], "publish_job": None, "push_job": None}
     reg = app.hub.registry
-    if LG.channel(reg) and app.vault_key is not None and res["licence"].get("update_url"):
-        vk, iid = app.vault_key, res["licence"]["instance_id"]
+    vk, iid = app.vault_key, res["licence"]["instance_id"]
+    if vk is None:
+        return out
+    # v0.9: straight to the online sites of this installation (FTP), so a suspension or a renewal is in force at once
+    if any(e["kind"] == "web-php" for e in reg.list_environments(iid)):
+        job = app.jobs.start("Licenza inviata ai siti", "licence-push", {},
+                             lambda h, j: {"sites": SS.push_licence(h, vk, iid, log=j.log)})
+        out["push_job"] = job.id
+    if LG.channel(reg) and res["licence"].get("update_url"):
         job = app.jobs.start("Pubblicazione della licenza", "licence-publish", {},
                              lambda h, j: LG.publish(h, vk, [iid], log=j.log))
         out["publish_job"] = job.id
@@ -1063,3 +1138,226 @@ def hub_export(app, body: dict) -> dict:
     name, data = B.export_encrypted(app.hub, body.get("passphrase") or "")
     (app.hub.dir / "backups" / name).write_bytes(data)
     return {"name": name, "size": len(data)}
+
+
+# ---------------------------------------------------------------------------
+# v0.9: site set-up by the hub, licence to the sites, update every site, new customer without AI
+# ---------------------------------------------------------------------------
+
+def env_setup(app, env_id: str, body: dict) -> dict:
+    from . import sitesetup as SS
+    vk = app.need_vault()
+    env = app.hub.registry.get_environment(env_id)
+    if env["kind"] != "web-php":
+        raise RegistryError("La configurazione automatica vale solo per i siti online.")
+    extra = []
+    for line in str(body.get("people") or "").splitlines():
+        p = [x.strip() for x in line.split(",")]
+        if p and p[0]:
+            extra.append((p[0], (p[1] if len(p) > 1 else "editor").lower()))
+
+    def run(h, job):
+        r = SS.setup_site(h, vk, env_id, extra_people=extra, log=job.log)
+        if r.get("config_php"):
+            r["config_name"] = f"config-{env['name']}.php"
+        return r
+    job = app.jobs.start(f"Configura il sito ({env['name']})", "site-setup", {}, run)
+    return {"job": job.id}
+
+
+def _move_args(body: dict) -> dict:
+    ftp = None
+    if body.get("ftp_mode") == "cliente":
+        f = body.get("ftp") or {}
+        ftp = {k: f.get(k) for k in ("protocol", "host", "port", "user", "password") if f.get(k) not in (None, "")}
+    return {"ftp_mode": body.get("ftp_mode") or "dominio", "folder": (body.get("folder") or "").strip() or None,
+            "ftp": ftp}
+
+
+def env_move_preview(app, env_id: str, body: dict) -> dict:
+    from . import move as M
+    a = _move_args(body)
+    if not (body.get("url") or "").strip():     # the dialog opens: only "is a move half done?"
+        env = app.hub.registry.get_environment(env_id)
+        return {"resume": M.state(app.hub.registry, env["id"]), "url": None}
+    return M.preview(app.hub, env_id, _str(body, "url"), a["ftp_mode"], a["folder"])
+
+
+def env_move(app, env_id: str, body: dict) -> dict:
+    """v0.11: «Sposta il sito» as a job; at the end the delivery kit (new codes, config.php, aggiorna-ponte)."""
+    from . import activate as AC
+    from . import move as M
+    vk = app.need_vault()
+    env = app.hub.registry.get_environment(env_id)
+    a = _move_args(body)
+    url = _str(body, "url")
+    M.preview(app.hub, env["id"], url, a["ftp_mode"], a["folder"])     # errors before the job starts
+    for j in app.jobs.items.values():
+        if j.kind == "site-move" and j.status == "running" and (j.params or {}).get("env_id") == env["id"]:
+            return {"job": j.id, "already": True}
+
+    def run(h, job):
+        r = M.move_site(h, vk, env["id"], url, redirect_old=body.get("redirect", True) is not False, log=job.log, **a)
+        cust = M.customer_of(h.registry, env)
+        try:
+            extra = M.bridge_files(h, vk, cust["id"], r["url"], cust["name"]) if r.get("has_sede") else {}
+            job.kit = AC.build_kit(h, vk, cust["id"], r.pop("configs", {}), log=job.log, extra=extra)
+            r["kit"] = {"job": job.id, "name": job.kit[0]}
+        except Exception as exc:  # noqa: BLE001 — the site is moved; the kit can be made again
+            r["kit_error"] = str(exc)
+        r.pop("configs", None)
+        return r
+    job = app.jobs.start(f"Sposta il sito: {M.customer_of(app.hub.registry, env)['name']}", "site-move", {"env_id": env["id"]}, run)
+    return {"job": job.id}
+
+
+def env_move_cancel(app, env_id: str, body: dict) -> dict:
+    from . import move as M
+    return M.cancel(app.hub, app.need_vault(), env_id)
+
+
+def licence_push(app, iid: str, body: dict) -> dict:
+    from . import sitesetup as SS
+    vk = app.need_vault()
+    iid = app.hub.registry.get_instance(iid)["id"]
+    job = app.jobs.start("Licenza inviata ai siti", "licence-push", {},
+                         lambda h, j: {"sites": SS.push_licence(h, vk, iid, log=j.log)})
+    return {"job": job.id}
+
+
+def updates(app) -> dict:
+    from . import sitesetup as SS
+    target = SS.available_version(app.hub.registry)
+    return {"target": target, "sites": SS.outdated_sites(app.hub, target) if target else [],
+            "vault": app.vault_key is not None}
+
+
+def updates_run(app, body: dict) -> dict:
+    from . import sitesetup as SS
+    vk = app.need_vault()
+    ids = [str(x) for x in (body.get("env_ids") or []) if str(x).strip()]
+    if not ids:
+        raise RegistryError("Nessun sito scelto.")
+    job = app.jobs.start(f"Aggiorna {len(ids)} siti", "sites-update", {},
+                         lambda h, j: SS.update_sites(h, vk, ids, log=j.log))
+    return {"job": job.id}
+
+
+def draft_blank(app, body: dict) -> dict:
+    """«Nuovo cliente»: the guided masks, filled from a customer template (v0.10) or empty (no AI needed)."""
+    import json as _json
+    from . import templates as T
+    d = T.apply(app.hub, _str(body, "template") or None, _str(body, "name"), _str(body, "vat_id"),
+                body.get("installazioni") if isinstance(body.get("installazioni"), list) else None)
+    return draft_create(app, {"text": _json.dumps(d, ensure_ascii=False)})
+
+
+# ---------------------------------------------------------------------------
+# v0.10: customer templates, default hosting, «Attiva tutto», delivery kit
+# ---------------------------------------------------------------------------
+
+def templates_view(app) -> dict:
+    from . import hosting as H
+    from . import templates as T
+    reg = app.hub.registry
+    return {"templates": T.list_templates(reg), "default": reg.get_setting(T.DEFAULT), "hosting": H.get(reg)}
+
+
+def template_create(app, body: dict) -> dict:
+    from . import templates as T
+    data = _template_source(app, body)
+    t = T.create(app.hub.registry, _str(body, "name"), data, _str(body, "description"))
+    return {"template": t, **templates_view(app)}
+
+
+def template_update(app, tid: str, body: dict) -> dict:
+    from . import templates as T
+    data = _template_source(app, body) if (body.get("draft_id") or isinstance(body.get("data"), dict)) else None
+    t = T.save(app.hub.registry, tid, data=data,
+               name=body.get("name") if isinstance(body.get("name"), str) else None,
+               description=body.get("description") if isinstance(body.get("description"), str) else None)
+    return {"template": t, **templates_view(app)}
+
+
+def _template_source(app, body: dict) -> dict:
+    if body.get("draft_id"):
+        return app.hub.registry.get_draft(_str(body, "draft_id"))["data"]
+    if isinstance(body.get("data"), dict):
+        return body["data"]
+    raise RegistryError("Da quale bozza salvo il modello?")
+
+
+def template_delete(app, tid: str, body: dict) -> dict:
+    from . import templates as T
+    T.delete(app.hub.registry, tid)
+    return templates_view(app)
+
+
+def template_default(app, body: dict) -> dict:
+    from . import templates as T
+    T.set_default(app.hub.registry, _str(body, "id") or None)
+    return templates_view(app)
+
+
+def templates_restore(app, body: dict) -> dict:
+    from . import templates as T
+    n = T.restore_builtins(app.hub.registry)
+    return {"added": n, **templates_view(app)}
+
+
+def hosting_view(app) -> dict:
+    from . import hosting as H
+    return {"hosting": H.get(app.hub.registry), "vault": app.vault_key is not None}
+
+
+def hosting_set(app, body: dict) -> dict:
+    from . import hosting as H
+    app.need_unlocked()
+    if body.get("clear"):
+        H.clear(app.hub.registry)
+        return hosting_view(app)
+    H.set_default(app.hub.registry, app.vault_key, body)
+    return hosting_view(app)
+
+
+def activate_plan(app, cid: str) -> dict:
+    from . import activate as AC
+    cust = app.hub.registry.get_customer(cid)
+    return {"steps": AC.plan(app.hub, cust["id"]), "escrow": bool(cust.get("key_escrow")),
+            "vault": app.vault_key is not None}
+
+
+def customer_activate(app, cid: str, body: dict) -> dict:
+    from . import activate as AC
+    vk = app.need_vault()
+    cust = app.hub.registry.get_customer(cid)
+    cur = AC.running_activation(list(app.jobs.items.values()), cust["id"])
+    if cur:  # a double click or a second tab: follow the job already running
+        return {"job": cur.id, "already": True}
+
+    def run(h, job):
+        r = AC.activate_customer(h, vk, cust["id"], log=job.log)
+        if not r.get("nothing") and (r.get("configs") or r.get("people") or not r.get("failed")):
+            try:
+                job.kit = AC.build_kit(h, vk, cust["id"], r.pop("configs", {}), log=job.log)
+                r["kit"] = {"job": job.id, "name": job.kit[0]}
+                job.log("Kit di consegna pronto: scaricalo adesso (contiene i codici e le copie di config.php).")
+            except Exception as exc:  # noqa: BLE001 — the sites are done; the kit can be made again later
+                r["kit_error"] = str(exc)
+                job.log(f"Kit non preparato: {exc}")
+        r.pop("configs", None)
+        return r
+    job = app.jobs.start(f"Attiva tutto: {cust['name']}", "customer-activate", {"customer_id": cust["id"]}, run)
+    return {"job": job.id}
+
+
+def customer_kit(app, cid: str, body: dict) -> dict:
+    from . import activate as AC
+    vk = app.need_vault()
+    cust = app.hub.registry.get_customer(cid)
+
+    def run(h, job):
+        job.kit = AC.build_kit(h, vk, cust["id"], log=job.log)
+        return {"kit": {"job": job.id, "name": job.kit[0]}}
+    job = app.jobs.start(f"Kit di consegna: {cust['name']}", "customer-kit", {}, run)
+    return {"job": job.id}

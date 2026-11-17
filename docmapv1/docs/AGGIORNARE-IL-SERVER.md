@@ -9,7 +9,7 @@
 |---|---|---|---|
 | `public_html/studio-de/` (file dell'app, `assets/`, `server-php/api.php`…) | il programma | sì | **sovrascrivi** con quelli nuovi |
 | `public_html/studio-de/server-php/config.php` | la **chiave** del database e i codici di accesso | **no** | **non toccarlo**; tienine una copia fuori dal sito |
-| `docmap-data/` (accanto a `public_html`, o `server-php/data/`) | il **database** `docmap.sqlite*` (cifrato) | **no** | **non toccarlo** |
+| `docmap-data/` o `docmap-data/<sito>/` (accanto a `public_html`, o `server-php/data/`; la cartella esatta è `data_dir` in `config.php`) | il **database** `docmap.sqlite*` (cifrato) | **no** | **non toccarlo** |
 | `server-php/setup.php` | la prima installazione | sì | non aprirlo: con `config.php` presente è disattivato |
 
 Il database è cifrato con la chiave di `config.php`: **senza quel file i dati ci sono ma non si leggono**. Per questo la

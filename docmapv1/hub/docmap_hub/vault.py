@@ -316,9 +316,13 @@ class Vault:
             pt = AESGCM(old_vk.key).decrypt(r["nonce"], r["ciphertext"], aad)
             n = _secrets.token_bytes(12)
             re_enc.append((n, AESGCM(new_key).encrypt(n, pt, aad), _now(), r["id"]))
+        from . import hosting  # v0.10: the default hosting's FTP password is encrypted with the same key
+        hosting_new = hosting.reencrypt(self.reg, old_vk, VaultKey(new_key, ""))
         with self.reg.conn:
             for t in re_enc:
                 self.reg.conn.execute("UPDATE secrets SET nonce=?, ciphertext=?, updated_at=? WHERE id=?", t)
+        if hosting_new:
+            self.reg.set_setting(hosting.KEY, hosting_new, log=False)
         self._write_header(salt, new_key)
         self.reg.log("vault.change_passphrase", details={"secrets": len(rows)})
         return len(rows)

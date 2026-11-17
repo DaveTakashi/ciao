@@ -1415,6 +1415,7 @@ CLIENT_DIR = "cliente"                           # <pacchetto>\cliente\: dati de
 CLIENT_INFO = "cliente.json"
 LICENCE_NAME = "licence.docmap-licence"
 SYNC_TEMPLATE = "sync-profile.template.json"
+BRIDGE_TOKEN_FILE = "token-ponte.txt"            # v0.11: added by the hub to the downloaded package, deleted after use
 SYNC_PROFILE = "sync-profile.json"
 SYNC_BAT = "sincronizza.bat"
 SYNC_TASK = "DocMap Sync Web-Locale"
@@ -1534,6 +1535,8 @@ def package_info(folder: str) -> dict:
     tpl = os.path.join(d, SYNC_TEMPLATE)
     info["file_licenza"] = lic if os.path.isfile(lic) else None
     info["file_modello_sync"] = tpl if os.path.isfile(tpl) else None
+    tok = os.path.join(d, BRIDGE_TOKEN_FILE)
+    info["file_token_ponte"] = tok if os.path.isfile(tok) else None
     return info
 
 
