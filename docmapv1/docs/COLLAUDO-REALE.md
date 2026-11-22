@@ -76,6 +76,9 @@ il numero e l'immagine. Se un passo si blocca, salta al blocco successivo.
 - [ ] D3. Dal telefono **Preso** su un faldone; sul PC, dopo la sincronizzazione, è in **Fuori archivio**; poi **Reinserito**.
 - [ ] D4. Spegni i dati del telefono, segna uno stato, riaccendi: lo stato arriva al server.
 - [ ] D5. (Facoltativo) **NFC** su Android: scrivi un tag e leggilo.
+- [ ] D7. **Inventario rapido** (app 26.12.8): sul PC Progetti › Nuovo progetto, genera 2 scatole e 20 faldoni, stampa. Attacca le etichette a 2 scatole e 10 faldoni veri. Dal telefono **Apri sul telefono** → scansiona la scatola, poi i faldoni uno dopo l'altro: beep e foto a ogni faldone, sotto i 5 secondi l'uno. Cronometra 10 faldoni: ______ s.
+- [ ] D8. Inventario senza rete: spegni i dati a metà, continua a scansionare, riaccendi: «Tutto inviato» e sul PC la griglia di revisione ha tutti i faldoni con le foto.
+- [ ] D9. (Solo con la chiave AI nel server) dorsi scritti a mano e a stampa: annota quante proposte sono giuste su 10: ______. Microfono: «fatture acquisti 2019» compila contenuto, tag e anno.
 - [ ] D6. Il telefono in sede (stessa rete Wi-Fi del PC di prova) apre DocMap con il certificato dello studio.
 
 ## E. Stampa (30 min) — guida: `CHECKLIST-COLLAUDO.md` §1, `MANUALE-UTENTE.md` §19

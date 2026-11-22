@@ -754,6 +754,13 @@ class DiffTest(unittest.TestCase):
         d.both("push 3 projects", "push", 200, token=E, body={"records": [pj, pj2, pj3], "tombstones": [], "deviceId": "dev-diff"})
         d.both("project list (open, valid prefix only)", "project", 200, token=V)
         d.both("project by id", "project", 200, token=V, query={"id": "pj-1"})
+        scb = {"type": "binder", "id": "inv-dm26Kq7PAAAE", "updated_at": "2025-11-02T08:00:00.000Z",
+               "data": {"id": "inv-dm26Kq7PAAAE", "short_code": "dm26Kq7PAAAE", "speaking_code": "ROSSI24-0004", "archive_id": "pj-1", "inv": {"p": "pj-1", "st": "captured", "n": 4}}}
+        scl = {"type": "location", "id": "inv-dm26LKq7PAAAC", "updated_at": "2025-11-02T08:00:00.000Z",
+               "data": {"id": "inv-dm26LKq7PAAAC", "short_code": "dm26LKq7PAAAC", "code": "S002", "name": "ROSSI24-S002", "archive_id": "pj-1"}}
+        other = {"type": "binder", "id": "inv-dm26Zz9aAAAH", "updated_at": "2025-11-02T08:00:00.000Z", "data": {"id": "inv-dm26Zz9aAAAH", "short_code": "dm26Zz9aAAAH"}}
+        d.both("push scanned labels", "push", 200, token=E, body={"records": [scb, scl, other], "tombstones": [], "deviceId": "dev-diff"})
+        d.both("project by id lists its scanned labels only", "project", 200, token=V, query={"id": "pj-1"})
         d.both("project of an archive without inv → 404", "project", 404, token=V, query={"id": "ar-1"})
         d.both("project bad id → 400", "project", 400, token=V, query={"id": "a b"})
         d.both("project unknown → 404", "project", 404, token=V, query={"id": "nope"})

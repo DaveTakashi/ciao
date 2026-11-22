@@ -47,6 +47,7 @@ tags:
   - name: token
   - name: registro
   - name: accessi
+  - name: inventario
 paths:
   /ping:
     get:
@@ -461,6 +462,65 @@ paths:
         "400": {$ref: "#/components/responses/BadRequest"}
         "401": {$ref: "#/components/responses/Unauthorized"}
         "413": {$ref: "#/components/responses/TooLarge"}
+  /project:
+    get:
+      tags: [inventario]
+      operationId: project
+      summary: "v12.8: progetti di inventario aperti; con id il progetto (archivio con inv) e le etichette già scansionate"
+      x-docmap-route: project
+      x-docmap-role: viewer
+      parameters:
+        - {name: id, in: query, schema: {type: string}, description: "id dell'archivio-progetto; senza: elenco dei progetti aperti."}
+      responses:
+        "200": {description: "OK: {items:[…]} oppure {project, etag, scanned:[{t:b|l, c:short_code, u}]}"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "404": {description: progetto non trovato}
+  /photo:
+    get:
+      tags: [inventario]
+      operationId: photo
+      summary: "v12.8: una foto della costa (decifrata), come JSON base64"
+      x-docmap-route: photo
+      x-docmap-role: viewer
+      parameters:
+        - {name: id, in: query, required: true, schema: {type: string, pattern: "^ph-"}}
+      responses:
+        "200": {description: "OK: {id, binder_id, mime, bytes, at, who, data (base64)}"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "404": {description: foto non trovata}
+  /photo_put:
+    post:
+      tags: [inventario]
+      operationId: photo_put
+      summary: "v12.8: salva, cifrata, la foto della costa di un faldone (stesso id = non riscrive)"
+      x-docmap-route: photo_put
+      x-docmap-role: editor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [id, mime, data], properties: {id: {type: string}, binder_id: {type: string}, mime: {enum: [image/jpeg, image/png, image/webp]}, data: {type: string, description: base64}}}
+      responses:
+        "200": {description: "OK: {id, bytes, existed, at}"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "413": {$ref: "#/components/responses/TooLarge"}
+  /ai_spine:
+    post:
+      tags: [inventario]
+      operationId: ai_spine
+      summary: "v12.8: lettura AI della costa (facoltativa: {enabled:false} senza ai_provider in config.php)"
+      x-docmap-route: ai_spine
+      x-docmap-role: editor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, properties: {photo_id: {type: string}, data: {type: string}, mime: {type: string}, voice: {type: string}, hints: {type: object}}}
+      responses:
+        "200": {description: "OK: {enabled:false} oppure {enabled:true, provider, model, result, ms}"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
 components:
   securitySchemes:
     DocMapToken:

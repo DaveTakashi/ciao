@@ -12,7 +12,9 @@ Leggi questo file per primo, poi [`STATO.md`](STATO.md) (dove siamo) e il manual
 4. **Niente `rm` né comandi che chiedono approvazione** a Dave senza motivo (Windows + Chrome/Edge; perde tempo).
 5. **Mai dati veri nel repository** (l'elenco clienti dello studio sta solo in `/mnt/project-files/docmapv1/dati-studio/`).
 6. **Mai inventare un Codice Multi**, mai riusare uno `short_code` (`dm26` + 8): è stampato sui QR fisici.
-7. **I QR puntano sempre a `https://qr7.it/{short_code}`** (garanzia 10 anni di QR7).
+7. **I QR puntano a `https://qr7.it/{short_code}` di default** (garanzia 10 anni di QR7), ma l'indirizzo è
+   **configurabile** (Impostazioni › Indirizzo dei QR, `S.settings.qrBase` / `DOCMAP_CONFIG.qrBase`). Dave 2026-11-22: Doc Location
+   è solo il marchio, mai forzare un dominio nei QR; il codice resta agnostico.
 8. **Mai force-push**; un ramo per thread, PR verso `main`.
 
 ## Dove sta cosa

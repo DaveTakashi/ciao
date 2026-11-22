@@ -109,7 +109,7 @@ function locLeafLevel(){ return locLevels().length - 1; }
 function allLocShortCodes(){ const s = new Set(); locArr().forEach(l => { if (l.short_code) s.add(l.short_code); }); return s; }
 function newLocShortCode(extra){
   const taken = allLocShortCodes(); (extra || []).forEach(x => taken.add(x));
-  let c; do { c = 'dm26L' + randChars(8); } while (taken.has(c));
+  let c; do { c = 'dm26L' + randChars(8); } while (taken.has(c) || (typeof invCodeTaken === 'function' && invCodeTaken(c)));   // v12.8: never inside a project label range
   return c;
 }
 /** Next free segment among the children of parentId for a level: prefix + number (deepest level: 2 digits). */

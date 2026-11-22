@@ -1,16 +1,16 @@
 # STATO di DocMap — fonte unica
 
-> Aggiornato al **2026-11-17**. Chi cambia una versione, un test o una decisione aggiorna questo file nello stesso
+> Aggiornato al **2026-11-22**. Chi cambia una versione, un test o una decisione aggiorna questo file nello stesso
 > commit. Per ripartire dopo una pausa (persona o agente) si legge questo, poi [`CHANGELOG.md`](CHANGELOG.md).
 
 ## 1. Versioni correnti e cosa va con cosa
 
 | Componente | Versione | Dove si legge | Zip per Dave (file del progetto) |
 |---|---|---|---|
-| App DocMap (PC, web, telefono) | **26.12.7** (v12.7) | `APP_VERSION` in `assets/js/02-core.js` | `docmapv1/docmap_v12.7.zip` |
+| App DocMap (PC, web, telefono) | **26.12.8** (v12.8, Progetti di inventario) | `APP_VERSION` in `assets/js/02-core.js` | dentro lo zip completo `docmapv1/python/DocMap-hub-0.11.2-app-26.12.8.zip` |
 | Database locale (SQLite nel browser) | schema **9** | `DB_SCHEMA_VERSION` in `assets/js/06-db.js` | — |
-| Server web PHP (`server-php/api.php`) | 26.12.7, schema **3**, licenza con `licence_required`; `setup.php` con cartella per sito e modalità JSON | `DM_APP_VERSION`, `DM_SCHEMA` | dentro lo zip dell'app (`deploy/`) |
-| Server Python (sede) | pacchetto 1.0.0, parità con PHP 26.12.7 (anche sulla licenza) | `server-python/docmap_server/__init__.py` | dentro l'installer |
+| Server web PHP (`server-php/api.php`) | 26.12.8, schema **3**, licenza con `licence_required`; `setup.php` con cartella per sito e modalità JSON; v12.8: rotte `project`, `photo_put`, `photo`, `ai_spine` | `DM_APP_VERSION`, `DM_SCHEMA` | dentro lo zip dell'app (`deploy/`) |
+| Server Python (sede) | pacchetto 1.0.0, parità con PHP 26.12.8 (anche sulla licenza e sull'inventario) | `server-python/docmap_server/__init__.py` | dentro l'installer |
 | Strumenti di installazione Windows | 1.2.0 | `TOOLS_VERSION` in `installer-windows/docmap_tools.py` | dentro lo zip completo (`installer-windows/`); i pacchetti per i clienti li fa l'hub (il vecchio `DocMap-installer-26.12.7.zip` è in `vecchie-versioni/`) |
 | Hub (PC di Dave) | **0.11.2**, registro schema **4** (modelli cliente) (`registry.py`) | `hub/docmap_hub/__init__.py` | `docmapv1/python/DocMap-hub-0.11.2.zip` (**zip completo**: hub + app + sito + server + installatore + guide; fatto e controllato da `tools/crea-zip.py`) |
 | Aggiornatore del PC | con l'app | `AGGIORNA-DOCMAP.bat` + `tools/aggiorna-app.ps1` | dentro lo zip dell'app |
@@ -23,6 +23,7 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
 - Ramo di consolidamento: `claude/project-thread-5qvqr5` (contiene tutto: app v12.6 + server Python + installer + hub 0.8),
   PR #4 verso `main`. Sostituisce le PR a catena #1 (app), #2 (Python), #3 (hub).
 - Hub 0.9 + app 26.12.7 (autocritica del hub), hub 0.10/0.10.1 (modelli, Attiva tutto, kit), 0.10.2 (cartelle) e 0.11 (elimina cliente, pacchetto sede pronto, più PC, sposta il sito): ramo `claude/project-thread-acqq2g`, PR #5 sopra la #4.
+- App 26.12.8 (Progetti di inventario, indirizzo dei QR configurabile): ramo `claude/project-thread-epf33l` (parte dalla PR #5).
 - Dopo l'unione: `main` è la versione vera; ogni thread parte da `main`.
 
 ## 3. Test
@@ -30,10 +31,19 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
 | Cosa | Comando | Durata | Ultimo esito |
 |---|---|---|---|
 | Verifica veloce (tutto tranne la suite completa) | `bash tools/verifica-veloce.sh` | ~4 min | vedi §3bis |
-| Suite completa app (Playwright) | `cd tests && NODE_PATH=$(npm root -g) node suite.js` | ~35 min | 1374/1374 (2026-11-17, hub 0.11.1) |
+| Suite completa app (Playwright) | `cd tests && NODE_PATH=$(npm root -g) node suite.js` | ~35 min | 1374/1374 (2026-11-22, app 26.12.8) |
 | CI su GitHub | `ci/docmap-ci.yml` (attivo solo se copiato in `.github/workflows/`) | — | in attesa del sì di Dave |
 
-### 3bis. Ultimo esito (2026-11-07, app 26.12.7, hub 0.10.1)
+### Esito 2026-11-22, app 26.12.8 (Progetti di inventario)
+
+- Verifica veloce: tutto OK (con il nuovo `tests/v128.js`: modello, PC, telefono in locale e contro `api.php` vero con
+  l'AI finta `mock`, pull del PC dal server). Parità PHP ⇄ Python con i nuovi confronti (progetti, etichette, foto, AI).
+- `tests/v128.js`: 37/37. Suite completa: **1374/1374** (errors: none). Corretti durante la prova: la barra in alto a
+  1366 px ora usa prima le etichette corte (non va più su due righe con la voce «Progetti»), le guide richiudono il menu
+  ⚙ quando il passo indica altro, `openapi.yaml` con le 4 rotte nuove.
+- Provato solo in Chromium (PC 1366 px, telefono 390 px emulato) con una fotocamera finta: **mai su un telefono vero**.
+
+### 3bis. Esito 2026-11-07, app 26.12.7, hub 0.10.1
 
 - Terzo giro (`AUTOCRITICA-HUB-0.10.md` §4bis): kit rifatto con le copie di config.php riprese dai siti, stop su
   cartelle non vuote, controllo del solo sito attivato, un «Attiva tutto» per cliente. Hub 145 test, verifica veloce OK.
@@ -90,6 +100,10 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
 
 Scheda unica da seguire: [`docs/COLLAUDO-REALE.md`](docs/COLLAUDO-REALE.md).
 
+- App 26.12.8, **inventario rapido** su telefoni veri (righe D7–D9): velocità reale per faldone, fotocamera e beep su
+  iPhone/Android, microfono (Web Speech: Chrome Android sì; Safari iPhone da verificare), lettura AI con una chiave vera
+  (mai chiamata davvero: solo il fornitore finto `mock` e un test con la rete simulata).
+
 - Hub 0.11/0.11.1: Safari vero su iPhone e Edge su Windows (provati solo in Chromium emulato); elimina cliente, `INSTALLA-SENZA-DOMANDE.bat`, postazioni online, **Sposta il sito** con il reindirizzamento `.htaccess` su SiteGround (righe H1–H5).
 - Hub 0.10 su **SiteGround vero**: hosting predefinito in FTPS, cartella del cliente creata dal deploy, «Attiva tutto», kit stampato (righe C1–C6).
 
@@ -106,7 +120,11 @@ Scheda unica da seguire: [`docs/COLLAUDO-REALE.md`](docs/COLLAUDO-REALE.md).
 - La licenza è applicata (PHP e Python) **solo con `licence_required`**: i siti del hub 0.8 la attivano da soli con
   `setup.php`; `studio-de` e i siti fatti a mano no. Il PHP legge il canale delle licenze solo durante le richieste
   (al massimo ogni 6 ore), non in background.
-- Le foto degli armadi restano solo sul PC.
+- Le foto degli armadi restano solo sul PC. Le foto delle coste (inventario) stanno sul server; senza server restano
+  nel browser che le ha scattate (stesso PC in modalità locale).
+- Inventario: la lettura AI richiede il server online con `ai_provider` e la chiave; spedisce la foto al fornitore
+  dell'AI (serve la nomina GDPR art. 28 e l'informativa al cliente). Senza, si cataloga dalla griglia di revisione.
+- Inventario: una seconda scansione della stessa etichetta non sposta il faldone in un'altra scatola (si fa dalla scheda).
 - Aggiornamento del PC con `AGGIORNA-DOCMAP.bat` (mai provato su Windows reale); server e telefoni come prima.
 - I documenti commerciali (`docs/commerciale/`) sono bozze: prezzi non validati, testi legali da rivedere.
 
@@ -125,6 +143,8 @@ Vedi `docs/ROADMAP.md` §5 (D1–D7) e la memoria del progetto. Aggiunte:
 | D14 | 2026-11-06 | Una cartella dati per sito (`docmap-data/<sito>`); il sito nella radice resta su `docmap-data` | più studi sotto lo stesso dominio non devono mai condividere un database |
 | D16 | 2026-11-06 | Clienti nuovi da **modelli** (dati del progetto senza identità del cliente) e **hosting predefinito** (un dominio, un FTP, una cartella per cliente); eccezioni nelle maschere | Dave: «nel template e nei default super rapido, poi le personalizzazioni devo poterle fare» |
 | D17 | 2026-11-06 | «Attiva tutto» pubblica solo su cartelle vuote; il kit di consegna resta in memoria e non va mai sul disco del hub | velocità senza rischiare un sito in uso né lasciare chiavi del database sul PC |
+| D18 | 2026-11-22 | L'indirizzo dei QR è configurabile (`qr7.it` di default); Doc Location è solo il marchio, nessun dominio forzato | Dave: «voglio essere libero, agnostico» |
+| D19 | 2026-11-22 | Un progetto di inventario è un archivio con `inv`; etichette = codici brevi normali con il prefisso del progetto; record del telefono con id `inv-<codice>` | niente tipi nuovi da sincronizzare, nessun doppione, QR7 e manifest invariati |
 | D15 | 2026-11-06 | Dopo ogni cambio di licenza il hub la carica subito sui siti online (FTP); il canale resta per la sede | la sospensione deve valere subito, non al prossimo deploy |
 
 ## 7. Prossimi passi (ordine concordato con Dave il 2026-11-06)

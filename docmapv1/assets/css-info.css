@@ -204,6 +204,7 @@
 
 /* v12.1: when the top bar does not fit on one line (long status pills, English, server status), the navigation moves to
    its own row instead of sliding under the pills on the right (class set by dmTopbarFit, 06m-v12-glue.js) */
+.topbar-in.tb-compact{gap:14px} .topbar-in.tb-compact .nav .nav-main button{padding:8px 12px} .topbar-in.tb-compact .nav-more .nm-l{display:none} .topbar-in.tb-compact .nav-more .nm-s{display:inline} .topbar-in.tb-compact .savebox .status:not(.ok) .sb-t{display:none} .topbar-in.tb-compact .savebox .status{padding:0 10px}
 .topbar-in.tb-wrap{flex-wrap:wrap;row-gap:8px}
 .topbar-in.tb-wrap .top-right{margin-left:auto}
 .topbar-in.tb-wrap .nav{order:3;flex:1 1 100%}

@@ -663,8 +663,13 @@ function r_project(PDO $db, array $c): array {
   if (!valid_id($id)) fail(400, 'invalid', 'id');
   $row = rec_load($db, 'archive', $id);
   if (!$row || (int)$row['deleted'] || inv_prefix(rec_data($c, $row)) === '') fail(404, 'not_found', 'project not found');
-  $p = rec_public($c, $row);
-  return ['project' => $p['data'], 'etag' => $row['updated_at']];
+  $p = rec_public($c, $row); $px = inv_prefix($p['data']);
+  // labels already scanned: their records have deterministic ids inv-<short code> (no decryption needed)
+  $q = $db->prepare("SELECT type, id, updated_at FROM records WHERE deleted = 0 AND ((type = 'binder' AND length(id) = 16 AND substr(id, 1, 12) = ?) OR (type = 'location' AND length(id) = 17 AND substr(id, 1, 13) = ?)) ORDER BY id");
+  $q->execute(['inv-dm26' . $px, 'inv-dm26L' . $px]);
+  $sc = [];
+  foreach ($q->fetchAll() as $r) $sc[] = ['t' => $r['type'] === 'location' ? 'l' : 'b', 'c' => substr($r['id'], 4), 'u' => $r['updated_at']];
+  return ['project' => $p['data'], 'etag' => $row['updated_at'], 'scanned' => $sc];
 }
 function photo_dir(array $c): string {
   $d = rtrim($c['data_dir'], '/\\') . DIRECTORY_SEPARATOR . 'photos';

@@ -1136,7 +1136,12 @@ def r_project(ctx):
     if not row or php_int(row["deleted"]) or inv_prefix(rec_data(ctx, row)) == "":
         fail(404, "not_found", "project not found")
     p = rec_public(ctx, row)
-    return {"project": p["data"], "etag": row["updated_at"]}
+    px = inv_prefix(p["data"])
+    # labels already scanned: their records have deterministic ids inv-<short code> (no decryption needed)
+    rows = ctx.db.execute("SELECT type, id, updated_at FROM records WHERE deleted = 0 AND ((type = 'binder' AND length(id) = 16 AND substr(id, 1, 12) = ?) "
+                          "OR (type = 'location' AND length(id) = 17 AND substr(id, 1, 13) = ?)) ORDER BY id", ("inv-dm26" + px, "inv-dm26L" + px)).fetchall()
+    sc = [{"t": "l" if r["type"] == "location" else "b", "c": r["id"][4:], "u": r["updated_at"]} for r in rows]
+    return {"project": p["data"], "etag": row["updated_at"], "scanned": sc}
 
 
 def photo_dir(ctx):

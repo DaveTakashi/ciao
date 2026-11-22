@@ -1,0 +1,518 @@
+/* =====================================================================
+   DocMap 2026 — v12.8 "Inventario rapido" on the phone (scan.html). Model: 02f-inventory.js. CSS: css-inventory.css.
+
+   scan.html?inv=<project id>   Scatola → Faldoni screen of a project (scan.html?inv=1: pick the project)
+   Flow (target < 5 s per binder, the operator never waits for the network or the AI):
+     1. continuous camera (DMCamScanner); the QR of a BOX label makes it the active box (first scan creates the
+        location record), the QR of a BINDER label grabs a photo of the frame, beeps and creates the binder record
+        at once (in the active box; in mode 'capture' the box is optional);
+     2. quick tags, the year bar and push-to-talk voice change the LAST binder (or, with "Mantieni", every next one);
+     3. everything goes through an outbox (localStorage docmap_v26_inv_outbox + photos in IndexedDB docmap_v26_inv):
+        lane 'rec' = photo upload + record push, lane 'ai' = AI reading of the spine (server route ai_spine) whose
+        result fills only the fields the operator left empty and sets inv.st = proposed (confidence ≥ the project's
+        auto_confirm) or review; offline → it waits and leaves by itself when the network is back;
+     4. "Annulla" within 10 s removes the binder (tombstone if it was already sent).
+   Records have deterministic ids 'inv-' + short code, so two phones (or a re-scan) never create two binders for
+   one label; the project route returns the labels already scanned (scanned[]) and they are not created again.
+   Local mode (same browser as the PC, file://): the records are written in the stored state and travel in the
+   activity-log line (details.records) that the open desktop merges live (06q-inventory.js logMerge wrapper);
+   the photos stay in IndexedDB docmap_v26_inv on this browser; no AI (it needs the server).
+   ===================================================================== */
+'use strict';
+
+const IV_OUTBOX_LS = 'docmap_v26_inv_outbox', IV_RECENT_LS = 'docmap_v26_inv_recent', IV_PREFS_LS = 'docmap_v26_inv_prefs';
+const IV_UNDO_MS = 10000, IV_RECENT_MAX = 300, IV_AMEND_MS = 1200;
+
+if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
+  (function(){
+    Object.assign(I18N.it, {
+      iv_title:'Doc Location — Inventario', iv_pick_h:'Inventario rapido', iv_pick_p:'Scegli il progetto su cui lavori.', iv_pick_none:'Nessun progetto aperto. Crealo sul PC: Progetti › Nuovo progetto.',
+      iv_open:'Apri l\'inventario {p}', iv_label_of:'Questa etichetta è del progetto {p} e non è ancora stata scansionata.',
+      iv_cam_on:'Avvia la fotocamera', iv_cam_off:'Ferma la fotocamera', iv_cam_err:'Fotocamera non disponibile: {m}', iv_cam_hint:'Inquadra il QR: prima la scatola, poi un faldone dopo l\'altro, con la costa ben visibile.',
+      iv_box:'Scatola', iv_nobox:'Nessuna scatola attiva: scansiona il QR della scatola.', iv_box_n:'{n} faldoni in questa scatola', iv_box_1:'1 faldone in questa scatola', iv_box_set:'Scatola attiva: {c}', iv_box_new:'Nuova scatola: {c}',
+      iv_ok:'{c} acquisito', iv_ok_box:'{c} in {b}', iv_dup:'{c} è già stato acquisito', iv_other:'Etichetta di un altro progetto ({c})', iv_unknown:'QR sconosciuto: {c}', iv_range:'{c}: numero oltre le etichette generate (controlla i lotti sul PC)',
+      iv_need_box:'Prima la scatola: scansiona il QR della scatola.', iv_ro:'Con il tuo ruolo puoi solo consultare: chiedi a un amministratore il ruolo "editor".', iv_closed:'Il progetto è chiuso: riaprilo dal PC per acquisire.',
+      iv_last:'Ultimo faldone', iv_none:'Ancora nessun faldone in questa sessione.', iv_undo:'Annulla', iv_undone:'Annullato: {c}', iv_session:'In questa sessione: {n}', iv_total:'Acquisiti nel progetto: {n}',
+      iv_tags:'Tag rapidi', iv_years:'Anni', iv_keep:'Mantieni per i prossimi', iv_voice:'Tieni premuto e parla', iv_voice_on:'Ti ascolto…', iv_voice_no:'Il riconoscimento vocale non è disponibile in questo browser: scrivi nel campo sotto.', iv_voice_err:'Voce non riconosciuta: {m}',
+      iv_note_ph:'Descrizione (es. fatture acquisti 2019)', iv_typed:'Oppure scrivi o leggi il codice (lettore Bluetooth)', iv_typed_ph:'dm26… o ROSSI24-0042',
+      iv_st_captured:'acquisito', iv_st_proposed:'proposta AI', iv_st_review:'da rivedere', iv_st_confirmed:'confermato', iv_st_sending:'in invio', iv_st_ai:'lettura AI…',
+      iv_q_wait:'{n} in attesa di rete', iv_q_send:'{n} in invio', iv_q_err:'{n} non inviati: {m}', iv_q_ok:'Tutto inviato', iv_ai_off:'Lettura AI spenta: si cataloga dal PC',
+      iv_done:'Fine', iv_change:'Cambia progetto', iv_log_cap:'Acquisito con l\'inventario rapido il faldone {c}', iv_log_box:'Nuova scatola dell\'inventario {c}', iv_log_undo:'Annullata l\'acquisizione di {c}', iv_log_upd:'Aggiornato dall\'inventario rapido il faldone {c}',
+      iv_err:'Non salvato: {m}', iv_mode_capture:'Modalità: cattura ora, cataloga dopo', iv_mode_box:'Modalità: scatola → faldoni'
+    });
+    Object.assign(I18N.en, {
+      iv_title:'Doc Location — Inventory', iv_pick_h:'Rapid inventory', iv_pick_p:'Pick the project you are working on.', iv_pick_none:'No open project. Create it on the PC: Projects › New project.',
+      iv_open:'Open the inventory {p}', iv_label_of:'This label belongs to project {p} and has not been scanned yet.',
+      iv_cam_on:'Start the camera', iv_cam_off:'Stop the camera', iv_cam_err:'Camera not available: {m}', iv_cam_hint:'Frame the QR: first the box, then one binder after the other, with the spine in view.',
+      iv_box:'Box', iv_nobox:'No active box: scan the box QR.', iv_box_n:'{n} binders in this box', iv_box_1:'1 binder in this box', iv_box_set:'Active box: {c}', iv_box_new:'New box: {c}',
+      iv_ok:'{c} captured', iv_ok_box:'{c} in {b}', iv_dup:'{c} was already captured', iv_other:'Label of another project ({c})', iv_unknown:'Unknown QR: {c}', iv_range:'{c}: number beyond the labels generated (check the batches on the PC)',
+      iv_need_box:'Box first: scan the box QR.', iv_ro:'Your role can only view: ask an administrator for the "editor" role.', iv_closed:'The project is closed: reopen it on the PC to capture.',
+      iv_last:'Last binder', iv_none:'No binder in this session yet.', iv_undo:'Undo', iv_undone:'Undone: {c}', iv_session:'This session: {n}', iv_total:'Captured in the project: {n}',
+      iv_tags:'Quick tags', iv_years:'Years', iv_keep:'Keep for the next ones', iv_voice:'Hold and speak', iv_voice_on:'Listening…', iv_voice_no:'Speech recognition is not available in this browser: type in the field below.', iv_voice_err:'Voice not recognised: {m}',
+      iv_note_ph:'Description (e.g. purchase invoices 2019)', iv_typed:'Or type or read the code (Bluetooth scanner)', iv_typed_ph:'dm26… or ROSSI24-0042',
+      iv_st_captured:'captured', iv_st_proposed:'AI proposal', iv_st_review:'to review', iv_st_confirmed:'confirmed', iv_st_sending:'sending', iv_st_ai:'AI reading…',
+      iv_q_wait:'{n} waiting for the network', iv_q_send:'{n} sending', iv_q_err:'{n} not sent: {m}', iv_q_ok:'All sent', iv_ai_off:'AI reading off: catalogue on the PC',
+      iv_done:'Done', iv_change:'Change project', iv_log_cap:'Binder {c} captured with the rapid inventory', iv_log_box:'New inventory box {c}', iv_log_undo:'Capture of {c} undone', iv_log_upd:'Binder {c} updated by the rapid inventory',
+      iv_err:'Not saved: {m}', iv_mode_capture:'Mode: capture now, catalogue later', iv_mode_box:'Mode: box → binders'
+    });
+    Object.assign(SC_ICONS, {
+      mic:'<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v4"/>',
+      tag:'<path d="M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4z"/><circle cx="7.5" cy="7.5" r="1.5"/>',
+      inv:'<path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/>', cloud:'<path d="M17.5 19H9a7 7 0 1 1 6.7-9h1.8a4.5 4.5 0 1 1 0 9Z"/>'
+    });
+    ['box', 'cam', 'undo', 'stop', 'scan'].forEach(k => { if (!SC_ICONS[k]) SC_ICONS[k] = SC_ICONS.qr; });
+
+    const IV = { pid:'', proj:null, scanned:new Map(), box:null, list:[], last:null, msg:null, cam:null, busy:Promise.resolve(), projects:null,
+      tags:new Set(), years:[], keep:false, rec:null, listening:false, undoTimer:0, amendTimer:0, flushing:{rec:false, ai:false}, q:{wait:0, send:0, err:0, errMsg:''}, wake:null, label:null };
+    window.IV = IV;   // tests and debugging
+
+    /* ---------------- small helpers ---------------- */
+    const lsGet = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k) || 'null'); return v == null ? d : v; } catch(e){ return d; } };
+    const lsSet = (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch(e){} };
+    const ivWho = () => { const u = SC.P && SC.P.auth.currentUser() || {}; return u.display_name || u.username || 'Mobile'; };
+    const ivCan = () => !!(SC.user && SC.P && SC.P.auth.can('edit'));
+    function ivDevice(){ let d = ''; try { d = localStorage.getItem('docmap_v26_scan_device') || ''; if (!d){ d = 'phone-' + uuid().slice(0, 8); localStorage.setItem('docmap_v26_scan_device', d); } } catch(e){ d = 'phone'; } return d; }
+    /** A timestamp strictly after prev (records are newest-wins everywhere). */
+    function ivTs(prev){ let at = nowISO(); if (prev && at <= prev) at = new Date(Date.parse(prev) + 1).toISOString(); return at; }
+    function ivParam(){ const v = String(new URLSearchParams(location.search || '').get('inv') || '').trim(); return /^[A-Za-z0-9._:@-]{1,100}$/.test(v) ? v : ''; }
+    const ivOutbox = () => { const q = lsGet(IV_OUTBOX_LS, []); return Array.isArray(q) ? q : []; };
+    const ivOutboxSet = (q) => lsSet(IV_OUTBOX_LS, q.length ? q : null);
+    function ivRecent(){ const r = lsGet(IV_RECENT_LS, {}); return r && typeof r === 'object' ? r : {}; }
+    function ivRecentPut(rec){
+      const r = ivRecent(); r[rec.short_code] = rec;
+      const keys = Object.keys(r); if (keys.length > IV_RECENT_MAX) keys.sort((a, b) => String(r[a].updated_at).localeCompare(String(r[b].updated_at))).slice(0, keys.length - IV_RECENT_MAX).forEach(k => delete r[k]);
+      lsSet(IV_RECENT_LS, r);
+    }
+    function ivPrefs(){ const p = lsGet(IV_PREFS_LS, {}); return p && typeof p === 'object' ? p : {}; }
+    function ivPrefsSave(){ const p = ivPrefs(); p[IV.pid] = {box:IV.box, keep:IV.keep, tags:IV.keep ? Array.from(IV.tags) : [], years:IV.keep ? IV.years : [], at:nowISO()}; lsSet(IV_PREFS_LS, p); }
+
+    /* ---------------- providers ---------------- */
+    LocalDataProvider.prototype.invList = async function(){
+      const {st} = await this.readState(); if (!st) return [];
+      return (st.archives || []).filter(a => invIsProject(a) && a.inv.status !== 'closed').map(a => ({id:a.id, name:a.name || '', code:a.code || '', prefix:a.inv.prefix, client:a.inv.client || '', status:a.inv.status || 'open'}));
+    };
+    LocalDataProvider.prototype.invGet = async function(id){
+      const {st} = await this.readState(); const a = st && (st.archives || []).find(x => x.id === id && invIsProject(x)); if (!a) return null;
+      const sc = []; const p = a.inv.prefix;
+      (st.binders || []).forEach(b => { const x = invParseCode(b.short_code); if (x && x.prefix === p && x.kind === 'binder') sc.push({t:'b', c:b.short_code, u:b.updated_at}); });
+      (st.locations || []).forEach(l => { const x = invParseCode(l.short_code); if (x && x.prefix === p && x.kind === 'box') sc.push({t:'l', c:l.short_code, u:l.updated_at, id:l.id}); });
+      return {project:a, scanned:sc};
+    };
+    /** Same browser as the desktop: write the records in the stored state + one pending log line carrying them. */
+    LocalDataProvider.prototype.invPush = async function(records, tombs, entry){
+      const {raw, st} = await this.readState(); if (!st) throw new DMError('not_found');
+      invApplyRecords(st, records, tombs);
+      st.hasUnexportedChanges = true;
+      try { if (DocMapVault.isActive()) await DocMapVault.saveState(st); else { if (raw) localStorage.setItem(LS_PREV, raw); localStorage.setItem(LS_KEY, JSON.stringify(st)); } }
+      catch(e){ throw new DMError('storage', 'quota'); }
+      if (!entry){ const r0 = records[0] || {}; entry = ivEntry('inventory.update', {type:r0._type === 'location' ? 'location' : 'binder', id:r0.id || '', code:r0.speaking_code || r0.code || ''}, t('iv_log_upd', {c:r0.speaking_code || r0.code || ''}), {project:IV.pid}); }   // local mode: the log line carries the records to the desktop
+      entry.details = Object.assign({}, entry.details, {records, tombstones:tombs});
+      try { if (DocMapVault.isActive()) await DocMapVault.appendLog(entry); else { const p = lsGetJSON('docmap_v26_log_pending', []); (Array.isArray(p) ? p : []).push(entry); lsSetJSON('docmap_v26_log_pending', p); } } catch(e){}
+      return {ok:true};
+    };
+    LocalDataProvider.prototype.invGetBinder = async function(code){ const {st} = await this.readState(); const b = st && (st.binders || []).find(x => x.short_code === code); return b ? Object.assign({}, b) : null; };
+    LocalDataProvider.prototype.invPhotoPut = async function(){ return {local:true}; };   // already in IndexedDB on this browser
+    LocalDataProvider.prototype.invAi = async function(){ return {enabled:false}; };
+    RemoteDataProvider.prototype.invList = async function(){ const r = await this.srv.call('project'); return Array.isArray(r.items) ? r.items : []; };
+    RemoteDataProvider.prototype.invGet = async function(id){
+      try { const r = await this.srv.call('project', {q:{id}}); return {project:r.project, scanned:Array.isArray(r.scanned) ? r.scanned : []}; }
+      catch(e){ if (e.code === 'not_found') return null; throw e; }
+    };
+    RemoteDataProvider.prototype.invPush = async function(records, tombs, entry){
+      const r = await this.srv.call('push', {method:'POST', body:{records:records.map(d => ({type:d._type, id:d.id, updated_at:d.updated_at, data:ivData(d)})), tombstones:tombs, activity_log:entry ? [entry] : [], deviceId:ivDevice(), operator:ivWho()}});
+      const bad = (r.rejected || []).filter(x => x.reason !== 'older' && x.reason !== 'tie');
+      if (bad.length) throw new DMError('invalid', bad[0].reason || 'rejected');
+      return {ok:true};
+    };
+    RemoteDataProvider.prototype.invGetBinder = async function(code){ try { const r = await this.srv.call('binder', {q:{qr:code, via:'qr'}}); return r && r.binder ? r.binder : null; } catch(e){ if (e.code === 'not_found') return null; throw e; } };
+    RemoteDataProvider.prototype.invPhotoPut = function(o){ return this.srv.call('photo_put', {method:'POST', body:o, timeout:60000}); };
+    RemoteDataProvider.prototype.invAi = function(o){ return this.srv.call('ai_spine', {method:'POST', body:o, timeout:90000}); };
+
+    const ivData = invRecData;
+
+    /* ---------------- loading ---------------- */
+    async function ivOpen(pid){
+      IV.pid = pid; IV.msg = null;
+      const r = await SC.P.data.invGet(pid);
+      if (!r){ IV.proj = null; return false; }
+      IV.proj = r.project; IV.proj.inv = normalizeInv(IV.proj.inv);
+      IV.scanned = new Map(r.scanned.map(x => [x.c, x]));
+      ivOutbox().forEach(j => { if (j.p === pid && j.kind === 'rec') (j.recs || []).forEach(d => IV.scanned.set(d.short_code, {t:d._type === 'location' ? 'l' : 'b', c:d.short_code, u:d.updated_at, id:d.id})); });
+      const pr = ivPrefs()[pid] || {};
+      IV.box = pr.box && pr.box.short_code && invParseCode(pr.box.short_code) ? pr.box : null;
+      IV.keep = !!pr.keep; IV.tags = new Set(IV.keep ? pr.tags || [] : []); IV.years = IV.keep && Array.isArray(pr.years) ? pr.years : [];
+      return true;
+    }
+    function ivBoxCount(){ return IV.box ? IV.list.filter(x => !x.undone && x.box === IV.box.code).length : 0; }
+    function ivTotal(){ let n = 0; IV.scanned.forEach(x => { if (x.t === 'b') n++; }); return n; }
+
+    /* ---------------- records ---------------- */
+    function ivNewBox(code, n){
+      const inv = IV.proj.inv, num = invNumber(inv, 'box', n), at = ivTs('');
+      const l = normalizeLocation({id:'inv-' + code, parent_id:'', level:0, kind:'box', name:num, seg:locSegClean(num), code:locSegClean(num), short_code:code, archive_id:IV.pid, created_at:at, updated_at:at});
+      l._type = 'location'; return l;
+    }
+    function ivNewBinder(code, n, photoId){
+      const inv = IV.proj.inv, at = ivTs(''), yr = ivYearStr(IV.years);
+      const b = normalizeBinder({id:'inv-' + code, short_code:code, speaking_code:invNumber(inv, 'binder', n), archive_id:IV.pid, company_name:inv.client || '',
+        location_id:IV.box ? IV.box.id : '', tags:Array.from(IV.tags).join(', '), ref_year:yr, created_at:at, updated_at:at});
+      b.id = 'inv-' + code; b.updated_at = at; b.created_at = at;
+      b.inv = {p:IV.pid, st:'captured', ph:photoId || '', ai:null, voice:'', by:ivWho(), dev:ivDevice(), at, n, box:IV.box ? IV.box.code : ''};
+      b._type = 'binder'; return b;
+    }
+    function ivYearStr(ys){ const a = (ys || []).filter(Boolean).map(Number).sort((x, y) => x - y); return !a.length ? '' : a[0] === a[a.length - 1] ? String(a[0]) : a[0] + '-' + a[a.length - 1]; }
+
+    /* ---------------- outbox ---------------- */
+    function ivEnqueue(job){
+      const q = ivOutbox();
+      if (job.kind === 'rec' && job.amend){   // a later version of a record still waiting: replace it in place
+        const i = q.findIndex(j => j.kind === 'rec' && !j.inflight && j.recs.length === 1 && j.recs[0].id === job.recs[0].id);
+        if (i >= 0){ q[i].recs = job.recs; ivOutboxSet(q); return ivFlushSoon(); }
+      }
+      q.push(Object.assign({id:uuid(), at:nowISO(), tries:0, p:IV.pid}, job)); ivOutboxSet(q); ivFlushSoon();
+    }
+    function ivFlushSoon(){ setTimeout(() => { ivFlush('rec'); ivFlush('ai'); }, 0); ivQueueStats(); }
+    function ivQueueStats(){
+      const q = ivOutbox(); IV.q = {wait:q.filter(j => j.wait).length, send:q.filter(j => !j.wait && !j.err).length, err:q.filter(j => j.err).length, errMsg:(q.find(j => j.err) || {}).err || ''};
+      const el = document.getElementById('iv-q'); if (el) el.outerHTML = ivQueueHTML();
+    }
+    /** One lane at a time ('rec' in order: photo then record; 'ai' in parallel to it). Offline → wait, retried later. */
+    async function ivFlush(lane){
+      if (IV.flushing[lane] || !SC.P || !SC.user) return;
+      IV.flushing[lane] = true;
+      try {
+        for (let guard = 0; guard < 500; guard++){
+          const q = ivOutbox(), job = q.find(j => (lane === 'ai' ? j.kind === 'ai' : j.kind !== 'ai') && !j.err && !j.inflight && (lane !== 'ai' || !q.some(r => r.kind === 'rec' && r.recs && r.recs.some(d => d.short_code === j.code))));
+          if (!job) break;
+          ivJobMark(job.id, {inflight:true}); ivQueueStats();
+          try {
+            await ivRunJob(job);
+            ivJobDone(job.id);
+            if (lane === 'rec') setTimeout(() => ivFlush('ai'), 0);   // an AI reading may have been waiting for this record
+          } catch(e){
+            const off = e && e.code === 'offline';
+            ivJobMark(job.id, off ? {inflight:false, wait:true, tries:(job.tries || 0) + 1} : {inflight:false, err:String(e && (e.message || e.code) || e).slice(0, 120), tries:(job.tries || 0) + 1});
+            if (off){ ivQueueStats(); break; }
+          }
+          ivQueueStats(); ivRenderLive();
+        }
+      } finally { IV.flushing[lane] = false; ivQueueStats(); }
+    }
+    function ivJobMark(id, patch){ const q = ivOutbox(), j = q.find(x => x.id === id); if (j){ Object.assign(j, patch); if (patch.inflight) delete j.wait; ivOutboxSet(q); } }
+    function ivJobDone(id){ ivOutboxSet(ivOutbox().filter(x => x.id !== id)); }
+    async function ivRunJob(job){
+      if (job.kind === 'rec'){
+        for (const d of job.recs){
+          if (d._type === 'binder' && d.inv && d.inv.ph && !job.photoSent){
+            const ph = await IVDB.get(d.inv.ph).catch(() => null);
+            if (ph && ph.data && !ph.sent){
+              const m = String(ph.data).match(/^data:([^;]+);base64,(.*)$/);
+              if (m){ const r = await SC.P.data.invPhotoPut({id:d.inv.ph, binder_id:d.id, mime:m[1], data:m[2]}); if (!r.local){ ph.sent = true; IVDB.put(d.inv.ph, ph).catch(() => {}); } }
+            }
+            ivJobMark(job.id, {photoSent:true});
+          }
+        }
+        await SC.P.data.invPush(job.recs, job.tombs || [], job.entry || null);
+        job.recs.forEach(d => { if (IV.list.some(x => x.code === d.short_code)) ivListSet(d.short_code, {sent:true}); });
+        return;
+      }
+      if (job.kind === 'tomb'){ await SC.P.data.invPush([], job.tombs, job.entry || null); return; }
+      if (job.kind === 'ai'){
+        ivListSet(job.code, {ai:'run'}); ivRenderLive();
+        const r = await SC.P.data.invAi({photo_id:job.ph || undefined, voice:job.voice || '', hints:job.hints || {}});
+        if (!r || !r.enabled){ ivListSet(job.code, {ai:'off'}); return; }
+        const mine = ivRecent()[job.code]; if (!mine || mine._gone) return;
+        // the binder may have been edited elsewhere meanwhile (PC review, another phone): fill the newest version
+        let cur = mine;
+        try { const srv = await SC.P.data.invGetBinder(job.code); if (srv && String(srv.updated_at || '') > String(mine.updated_at || '')) cur = Object.assign({}, srv, {_type:'binder', inv:Object.assign({}, mine.inv, srv.inv || {})}); }
+        catch(e){ if (e && e.code === 'offline') throw e; }
+        const res = r.result || {}, rec = Object.assign({}, cur), proj = IV.proj && IV.proj.id === job.p ? IV.proj : null;
+        Object.assign(rec, invFieldsFromAi(res, rec));
+        if (res.tags && res.tags.length) rec.tags = invTagsJoin(rec.tags, res.tags);
+        const th = proj ? proj.inv.auto_confirm : INV_AUTO_CONFIRM;
+        rec.inv = Object.assign({}, rec.inv, {ai:Object.assign({}, res, {model:r.model || '', ms:r.ms || 0, at:nowISO()}), st:rec.inv.st === 'confirmed' ? 'confirmed' : (res.confidence >= th && !res.empty_spine) || rec.inv.voice ? 'proposed' : 'review'});
+        rec.updated_at = ivTs(cur.updated_at);
+        ivRecentPut(rec);
+        if (IV.last && IV.last.short_code === rec.short_code) IV.last = rec;
+        ivListSet(job.code, {ai:'done', st:rec.inv.st, title:rec.binder_title || rec.company_name || ''});
+        await SC.P.data.invPush([rec], [], null);
+      }
+    }
+    function ivListSet(code, patch){ const x = IV.list.find(y => y.code === code); if (x) Object.assign(x, patch); }
+
+    /* ---------------- scanning ---------------- */
+    function ivHandle(text, via){ IV.busy = IV.busy.then(() => ivHandleOne(text, via)).catch(e => console.warn('inv', e)); return IV.busy; }
+    function ivSay(kind, text){ IV.msg = {kind, text, at:Date.now()}; dmScanFeedback(kind === 'ok' ? 'ok' : kind === 'switch' ? 'switch' : 'warn'); }
+    async function ivHandleOne(text, via){
+      if (!IV.proj) return;
+      if (!ivCan()){ ivSay('err', t('iv_ro')); return ivRenderLive(); }
+      if (IV.proj.inv.status === 'closed'){ ivSay('err', t('iv_closed')); return ivRenderLive(); }
+      let p = invParseScan(text), x = p && invParseCode(p.code);
+      if (!x && p && p.type === 'text'){   // typed speaking code ROSSI24-0042 / ROSSI24-S003
+        const m = String(p.code).match(/^([A-Z0-9]{1,12})-(S?)(\d{1,7})$/);
+        if (m && m[1] === invCodeClean(IV.proj.inv.code)){ const kind = m[2] ? 'box' : 'binder', n = +m[3]; p = {type:kind === 'box' ? 'location' : 'binder', code:invLabelCode(IV.proj.inv.prefix, kind, n)}; x = {kind, prefix:IV.proj.inv.prefix, n}; }
+      }
+      if (!x){ ivSay('err', t('iv_unknown', {c:String(p && p.code || text || '').slice(0, 40)})); return ivRenderLive(); }
+      if (x.prefix !== IV.proj.inv.prefix){ ivSay('err', t('iv_other', {c:p.code})); return ivRenderLive(); }
+      const inv = IV.proj.inv, to = x.kind === 'box' ? inv.box_to : inv.binder_to;
+      if (!(x.n >= 1 && x.n <= to)){ ivSay('err', t('iv_range', {c:invNumber(inv, x.kind, x.n)})); return ivRenderLive(); }
+      if (x.kind === 'box') return ivSetBox(p.code, x.n);
+      return ivCapture(p.code, x.n, via);
+    }
+    function ivSetBox(code, n){
+      const num = invNumber(IV.proj.inv, 'box', n), seen = IV.scanned.get(code);
+      IV.box = {id:seen && seen.id ? seen.id : 'inv-' + code, code:num, short_code:code, n};
+      if (!seen){
+        const l = ivNewBox(code, n); IV.box.id = l.id;
+        IV.scanned.set(code, {t:'l', c:code, u:l.updated_at, id:l.id});
+        ivEnqueue({kind:'rec', recs:[l], entry:ivEntry('inventory.box', {type:'location', id:l.id, code:num}, t('iv_log_box', {c:num}), {project:IV.pid, short_code:code})});
+        ivSay('switch', t('iv_box_new', {c:num}));
+      } else ivSay('switch', t('iv_box_set', {c:num}));
+      ivPrefsSave(); ivRenderLive();
+    }
+    function ivEntry(action, target, summary, details){ return {id:uuid(), at:nowISO(), who:ivWho(), action, target, summary, details:Object.assign({user_id:(SC.user || {}).id || ''}, details || {}), source:MOBILE_LOG_SOURCE}; }
+    async function ivCapture(code, n, via){
+      const num = invNumber(IV.proj.inv, 'binder', n);
+      if (IV.scanned.has(code)){ ivSay('warn', t('iv_dup', {c:num})); return ivRenderLive(); }
+      if (IV.proj.inv.mode !== 'capture' && !IV.box){ ivSay('warn', t('iv_need_box')); return ivRenderLive(); }
+      // 1. photo of this very frame (the QR and the spine are in it), before anything else
+      let photo = '', phId = '';
+      if (IV.cam && IV.cam.video){ photo = invGrabFrame(IV.cam.video, 1280, 0.72); if (photo){ phId = 'ph-' + code + '-' + Date.now().toString(36); try { await IVDB.put(phId, {id:phId, mime:'image/jpeg', data:photo, at:nowISO(), binder_id:'inv-' + code, project:IV.pid}); } catch(e){ phId = ''; } } }
+      // 2. the record, at once (tags / years chosen for the previous binder carry over only with "Mantieni")
+      if (!IV.keep){ IV.tags = new Set(); IV.years = []; }
+      const b = ivNewBinder(code, n, phId);
+      IV.scanned.set(code, {t:'b', c:code, u:b.updated_at});
+      ivRecentPut(b); IV.last = b;
+      IV.list.forEach(y => { y.thumb = ''; });   // only the last photo stays in memory
+      IV.list.push({code, num, box:IV.box ? IV.box.code : '', at:Date.now(), thumb:photo, st:'captured', sent:false, ai:IV.proj.inv.ai && phId ? 'wait' : '', via});
+      ivSay('ok', IV.box ? t('iv_ok_box', {c:num, b:IV.box.code}) : t('iv_ok', {c:num}));
+      ivEnqueue({kind:'rec', recs:[b], entry:ivEntry('inventory.capture', {type:'binder', id:b.id, code:num}, t('iv_log_cap', {c:num}), {project:IV.pid, short_code:code, box:IV.box ? IV.box.code : '', photo:!!phId, via})});
+      if (IV.proj.inv.ai && phId) ivEnqueue({kind:'ai', code, ph:phId, voice:'', hints:{tags:IV.proj.inv.tags, year_from:IV.proj.inv.year_from, year_to:IV.proj.inv.year_to, client:IV.proj.inv.client}});
+      ivArmUndo(); ivPrefsSave(); ivRender();
+    }
+    function ivArmUndo(){ clearTimeout(IV.undoTimer); IV.undoTimer = setTimeout(() => { IV.undoTimer = 0; const u = document.getElementById('iv-undo'); if (u) u.remove(); }, IV_UNDO_MS); }
+    async function ivUndo(){
+      const b = IV.last; if (!b || !IV.undoTimer) return;
+      clearTimeout(IV.undoTimer); IV.undoTimer = 0;
+      const code = b.short_code, num = b.speaking_code;
+      const q = ivOutbox(), pending = q.filter(j => !j.inflight && ((j.kind === 'rec' && j.recs.length === 1 && j.recs[0].short_code === code) || (j.kind === 'ai' && j.code === code)));
+      const sentAlready = !(pending.some(j => j.kind === 'rec')) || q.some(j => j.inflight && j.kind === 'rec' && j.recs.some(d => d.short_code === code));
+      ivOutboxSet(q.filter(j => !pending.includes(j)));
+      if (sentAlready) ivEnqueue({kind:'tomb', tombs:[{type:'binder', id:b.id, code:num, deletedAt:ivTs(b.updated_at), who:ivWho()}], entry:ivEntry('inventory.undo', {type:'binder', id:b.id, code:num}, t('iv_log_undo', {c:num}), {project:IV.pid, short_code:code})});
+      if (b.inv && b.inv.ph) IVDB.del(b.inv.ph).catch(() => {});
+      const r = ivRecent(); if (r[code]){ r[code]._gone = true; lsSet(IV_RECENT_LS, r); }
+      IV.scanned.delete(code); ivListSet(code, {undone:true}); IV.last = null;
+      IV.msg = {kind:'warn', text:t('iv_undone', {c:num}), at:Date.now()}; dmScanFeedback('warn'); ivQueueStats(); ivRender();
+    }
+    /** Quick tags / years / voice change the last binder (debounced: one record version per burst of taps). */
+    function ivAmend(fn){
+      const b = IV.last; if (!b) return;
+      const cur = Object.assign({}, ivRecent()[b.short_code] || b); if (cur._gone) return;
+      fn(cur); cur.updated_at = ivTs(cur.updated_at); ivRecentPut(cur); IV.last = cur;
+      clearTimeout(IV.amendTimer);
+      IV.amendTimer = setTimeout(() => { const c = ivRecent()[cur.short_code]; if (c && !c._gone) ivEnqueue({kind:'rec', recs:[c], amend:true}); }, IV_AMEND_MS);
+    }
+    function ivToggleTag(tag){
+      const on = !IV.tags.has(tag); if (on) IV.tags.add(tag); else IV.tags.delete(tag);
+      ivAmend(c => { const list = invNormTags(String(c.tags || '').split(',')); const i = list.findIndex(x => x.toLowerCase() === tag.toLowerCase()); if (on && i < 0) list.push(tag); if (!on && i >= 0) list.splice(i, 1); c.tags = list.join(', '); });
+      ivPrefsSave(); ivRender();
+    }
+    function ivToggleYear(y){
+      y = +y; const i = IV.years.indexOf(y); if (i >= 0) IV.years.splice(i, 1); else IV.years.push(y);
+      if (IV.years.length > 2){ const a = IV.years.slice().sort((p, q) => p - q); IV.years = [a[0], a[a.length - 1]]; }
+      ivAmend(c => { c.ref_year = ivYearStr(IV.years); });
+      ivPrefsSave(); ivRender();
+    }
+    function ivApplyVoice(text){
+      const v = invParseVoice(text, IV.proj.inv); if (!v.text) return;
+      v.tags.forEach(tg => IV.tags.add(tg)); if (v.years) IV.years = v.years[0] === v.years[1] ? [v.years[0]] : v.years;
+      ivAmend(c => {
+        c.inv = Object.assign({}, c.inv, {voice:v.text, st:c.inv && c.inv.st === 'captured' ? 'proposed' : c.inv && c.inv.st || 'proposed'});
+        if (!c.binder_title) c.binder_title = v.text.slice(0, 160); else c.notes = (c.notes ? c.notes + '\n' : '') + v.text;
+        c.tags = invTagsJoin(c.tags, v.tags); if (v.years) c.ref_year = ivYearStr(v.years);
+      });
+      ivListSet(IV.last && IV.last.short_code, {title:v.text, st:'proposed'});
+      ivRender();
+    }
+
+    /* ---------------- voice (Web Speech API) ---------------- */
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let rec = null;
+    function ivVoiceStart(){
+      if (!SR){ IV.msg = {kind:'warn', text:t('iv_voice_no'), at:Date.now()}; return ivRenderLive(); }
+      if (IV.listening) return;
+      try {
+        rec = new SR(); rec.lang = S.lang === 'en' ? 'en-GB' : 'it-IT'; rec.interimResults = false; rec.maxAlternatives = 1; rec.continuous = false;
+        let got = '';
+        rec.onresult = (e) => { for (let i = e.resultIndex; i < e.results.length; i++) if (e.results[i].isFinal) got += (got ? ' ' : '') + e.results[i][0].transcript; };
+        rec.onerror = (e) => { if (e.error !== 'no-speech' && e.error !== 'aborted'){ IV.msg = {kind:'warn', text:t('iv_voice_err', {m:e.error}), at:Date.now()}; } };
+        rec.onend = () => { IV.listening = false; rec = null; if (got) ivApplyVoice(got); else ivRender(); };
+        rec.start(); IV.listening = true; ivRender();
+      } catch(e){ IV.listening = false; IV.msg = {kind:'warn', text:t('iv_voice_err', {m:e.message || e}), at:Date.now()}; ivRender(); }
+    }
+    function ivVoiceStop(){ if (rec) try { rec.stop(); } catch(e){} }
+
+    /* ---------------- camera + wake lock ---------------- */
+    async function ivCamToggle(){
+      if (IV.cam){ ivCamStop(); return ivRender(); }
+      const cam = new DMCamScanner({dedupeMs:4000, onCode:(txt) => (typeof onTagScanned === 'function' && onTagScanned(txt, 'qr')) || ivHandle(txt, 'phone-camera')});
+      IV.cam = cam;
+      try { await cam.start(); try { if (navigator.wakeLock) IV.wake = await navigator.wakeLock.request('screen'); } catch(e){} ivRender(); }
+      catch(e){ IV.cam = null; try { cam.stop(); } catch(x){} IV.msg = {kind:'err', text:t('iv_cam_err', {m:e && e.message || e}), at:Date.now()}; ivRender(); }
+    }
+    function ivCamStop(){ if (IV.cam){ try { IV.cam.stop(); } catch(e){} IV.cam = null; } if (IV.wake){ try { IV.wake.release(); } catch(e){} IV.wake = null; } }
+    try { if (typeof TAG_SCAN_HANDLERS !== 'undefined' && Array.isArray(TAG_SCAN_HANDLERS) && !TAG_SCAN_HANDLERS.some(h => h && h.id === 'inventory'))
+      TAG_SCAN_HANDLERS.unshift({id:'inventory', active:() => SC.view === 'inv' && !!IV.proj, handle:(code, via) => { ivHandle(code, via === 'nfc' ? 'phone-nfc' : via === 'keyboard' ? 'phone-typed' : 'phone-camera'); return true; }}); } catch(e){}
+
+    /* ---------------- rendering ---------------- */
+    function ivQueueHTML(){
+      const q = IV.q, cls = q.err ? 'err' : q.wait ? 'warn' : q.send ? 'busy' : 'ok';
+      const txt = q.err ? t('iv_q_err', {n:q.err, m:q.errMsg}) : q.wait ? t('iv_q_wait', {n:q.wait + q.send}) : q.send ? t('iv_q_send', {n:q.send}) : t('iv_q_ok');
+      return '<div class="iv-q ' + cls + '" id="iv-q" role="status">' + sic(q.err ? 'alert' : q.wait ? 'cloud' : 'check') + '<span>' + esc(txt) + '</span>' + (q.err || q.wait ? '<button type="button" class="iv-q-retry" data-s="iv-retry">↻</button>' : '') + '</div>';
+    }
+    function ivMsgHTML(){ const m = IV.msg; return m && Date.now() - m.at < 15000 ? '<div class="iv-flash ' + esc(m.kind) + '" id="iv-flash" role="status">' + sic(m.kind === 'ok' ? 'check' : m.kind === 'switch' ? 'box' : 'alert') + '<span>' + esc(m.text) + '</span></div>' : '<div class="iv-flash idle" id="iv-flash">' + esc(t('iv_cam_hint')) + '</div>'; }
+    function ivBoxHTML(){
+      return IV.box ? '<div class="iv-box" id="iv-box">' + sic('box') + '<div><b>' + esc(IV.box.code) + '</b><small>' + esc(ivBoxCount() === 1 ? t('iv_box_1') : t('iv_box_n', {n:ivBoxCount()})) + '</small></div></div>'
+        : '<div class="iv-box none" id="iv-box">' + sic('box') + '<div><b>' + esc(t('iv_box')) + '</b><small>' + esc(t('iv_nobox')) + '</small></div></div>';
+    }
+    function ivLastHTML(){
+      const x = IV.list.slice().reverse().find(y => !y.undone);
+      if (!x || !IV.last) return '<section class="iv-last empty" id="iv-last"><small>' + esc(t('iv_none')) + '</small></section>';
+      const b = ivRecent()[x.code] || IV.last, st = x.ai === 'run' ? 'ai' : !x.sent ? 'sending' : (b.inv && b.inv.st) || x.st;
+      return '<section class="iv-last" id="iv-last">' + (x.thumb ? '<img class="iv-thumb" src="' + esc(x.thumb) + '" alt="">' : '<div class="iv-thumb none">' + sic('qr') + '</div>') +
+        '<div class="iv-last-t"><b class="iv-code" id="iv-last-code">' + esc(x.num) + '</b><span class="iv-st st-' + esc(st) + '" id="iv-last-st">' + esc(t('iv_st_' + st)) + '</span>' +
+        '<div class="iv-last-f">' + esc([b.company_name, b.binder_title, b.ref_year, b.tags].filter(Boolean).join(' · ') || '—') + '</div></div>' +
+        (IV.undoTimer ? '<button type="button" class="iv-undo" data-s="iv-undo" id="iv-undo">' + sic('undo') + esc(t('iv_undo')) + '</button>' : '') + '</section>';
+    }
+    function ivYearsList(){
+      const inv = IV.proj.inv, now = new Date().getFullYear();
+      let lo = inv.year_from || inv.year_to || now - 11, hi = inv.year_to || inv.year_from || now;
+      if (hi - lo > 40) lo = hi - 40;
+      const a = []; for (let y = hi; y >= lo; y--) a.push(y); return a;
+    }
+    function ivControlsHTML(){
+      const inv = IV.proj.inv;
+      return '<section class="iv-ctl"><h2>' + sic('tag') + esc(t('iv_tags')) + '</h2><div class="iv-tags" id="iv-tags">' + inv.tags.map(tg => '<button type="button" class="iv-tag' + (IV.tags.has(tg) ? ' on' : '') + '" data-s="iv-tag" data-v="' + esc(tg) + '" aria-pressed="' + IV.tags.has(tg) + '">' + esc(tg) + '</button>').join('') + '</div>' +
+        '<h2>' + esc(t('iv_years')) + '</h2><div class="iv-years" id="iv-years">' + ivYearsList().map(y => '<button type="button" class="iv-year' + (IV.years.includes(y) ? ' on' : '') + '" data-s="iv-year" data-v="' + y + '" aria-pressed="' + IV.years.includes(y) + '">' + y + '</button>').join('') + '</div>' +
+        '<label class="iv-keep"><input type="checkbox" data-s="iv-keep" id="iv-keep"' + (IV.keep ? ' checked' : '') + '> ' + esc(t('iv_keep')) + '</label>' +
+        '<button type="button" class="iv-mic' + (IV.listening ? ' on' : '') + '" data-s="iv-mic" id="iv-mic">' + sic('mic') + '<span>' + esc(IV.listening ? t('iv_voice_on') : t('iv_voice')) + '</span></button>' +
+        '<form class="iv-note" data-s="iv-note-form"><input id="iv-note" autocomplete="off" placeholder="' + esc(t('iv_note_ph')) + '"><button type="submit" class="sc-btn">OK</button></form></section>';
+    }
+    function ivListHTML(){
+      const L = IV.list.filter(x => !x.undone).slice(-25).reverse();
+      if (!L.length) return '';
+      return '<section class="sc-card iv-list"><h2>' + esc(t('iv_session', {n:IV.list.filter(x => !x.undone).length})) + ' · ' + esc(t('iv_total', {n:ivTotal()})) + '</h2><ul id="iv-list">' +
+        L.map(x => { const b = ivRecent()[x.code] || {}, st = x.ai === 'run' ? 'ai' : !x.sent ? 'sending' : (b.inv && b.inv.st) || x.st;
+          return '<li><span class="iv-l-code">' + esc(x.num) + '</span><span class="iv-l-t">' + esc(x.title || b.binder_title || x.box || '') + '</span><span class="iv-st st-' + esc(st) + '">' + esc(t('iv_st_' + st)) + '</span></li>'; }).join('') + '</ul></section>';
+    }
+    function ivHTML(){
+      const P = IV.proj, inv = P.inv;
+      return '<main class="sc-main iv-main" id="iv-main"><div class="iv-head"><div><h1 id="iv-name">' + esc(P.name || inv.code) + '</h1><small>' + esc(inv.code) + (inv.client ? ' · ' + esc(inv.client) : '') + ' · ' + esc(t(inv.mode === 'capture' ? 'iv_mode_capture' : 'iv_mode_box')) + '</small></div>' +
+          '<button type="button" class="sc-btn" data-s="iv-done" id="iv-done">' + esc(t('iv_done')) + '</button></div>' +
+        ivQueueHTML() + (inv.ai ? '' : '<div class="iv-ai-off sc-muted">' + esc(t('iv_ai_off')) + '</div>') +
+        ivBoxHTML() + '<div class="iv-cam' + (IV.cam ? ' on' : '') + '" id="iv-video">' + (IV.cam ? '' : '<button type="button" class="sc-btn sc-primary sc-block" data-s="iv-cam" id="iv-cam">' + sic('cam') + esc(t('iv_cam_on')) + '</button>') + '</div>' +
+        ivMsgHTML() + ivLastHTML() + ivControlsHTML() +
+        (IV.cam ? '<button type="button" class="sc-btn sc-block" data-s="iv-cam" id="iv-cam-off">' + sic('stop') + esc(t('iv_cam_off')) + '</button>' : '') +
+        '<form class="sa-typed" data-s="iv-typed-form"><label class="sc-field"><span>' + esc(t('iv_typed')) + '</span><input id="iv-typed" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="' + esc(t('iv_typed_ph')) + '"></label></form>' +
+        ivListHTML() + '</main>';
+    }
+    function ivPickHTML(){
+      const L = IV.projects || [];
+      return '<main class="sc-main"><section class="sc-card iv-pick"><div class="sc-lock">' + sic('inv') + '</div><h1>' + esc(t('iv_pick_h')) + '</h1><p class="sc-muted">' + esc(L.length ? t('iv_pick_p') : t('iv_pick_none')) + '</p>' + scMsgHTML() +
+        '<div class="sc-stack" id="iv-pick">' + L.map(p => '<button type="button" class="sc-btn sc-block iv-pick-b" data-s="iv-pick" data-id="' + esc(p.id) + '"><b>' + esc(p.name || p.code) + '</b><small>' + esc([p.code, p.client].filter(Boolean).join(' · ')) + '</small></button>').join('') + '</div></section></main>';
+    }
+    /** Fast partial refresh (keeps the video playing). */
+    function ivRenderLive(){
+      if (SC.view !== 'inv'){ return; }
+      const swap = (id, html) => { const el = document.getElementById(id); if (el) el.outerHTML = html; };
+      swap('iv-flash', ivMsgHTML()); swap('iv-box', ivBoxHTML()); swap('iv-last', ivLastHTML());
+      const l = document.querySelector('.iv-list'); if (l) l.outerHTML = ivListHTML(); else { const m = document.getElementById('iv-main'); if (m && IV.list.length) m.insertAdjacentHTML('beforeend', ivListHTML()); }
+      ivQueueStats();
+    }
+    function ivRender(){ if (SC.view === 'inv') scRender(); }
+
+    /* ---------------- routing ---------------- */
+    const scRouteBase = scRoute;
+    scRoute = async function(){
+      const pid = ivParam();
+      SC.user = SC.P.auth.currentUser();
+      if (!pid || !SC.user || (SC.P.server && !DocMapVault.srvToken())){
+        if (SC.view === 'inv' || SC.view === 'invpick') ivCamStop();
+        await scRouteBase();
+        if (SC.view === 'notfound' || SC.view === 'locnf') ivLabelHint();
+        return;
+      }
+      try {
+        if (pid === '1' || pid === 'pick'){ IV.projects = await SC.P.data.invList(); SC.view = 'invpick'; return scRender(); }
+        if (!(await ivOpen(pid))){ IV.projects = await SC.P.data.invList(); SC.msg = {kind:'warn', text:t('sc_nf_h')}; SC.view = 'invpick'; return scRender(); }
+      } catch(e){
+        if (SC.P.server && e.code === 'unauthorized'){ SC.view = 'token'; SC.loginErr = t('sc_e_token'); return scRender(); }
+        SC.view = 'error'; SC.msg = {kind:'err', text:e.code === 'offline' ? t('sc_srv_off') : t('sc_err', {m:e.message || e.code})}; return scRender();
+      }
+      SC.view = 'inv'; scRender(); ivFlushSoon();
+    };
+    /** "Not found" page of a project label not scanned yet: offer to open its inventory. */
+    async function ivLabelHint(){
+      const x = invParseCode(SC.params.qr || ''); if (!x) return;
+      let p = null; try { p = (await SC.P.data.invList()).find(y => y.prefix === x.prefix) || null; } catch(e){ p = null; }
+      if (!p) return;
+      IV.label = p;
+      const box = document.querySelector('#sc-notfound, .sc-main .sc-card'); if (!box || document.getElementById('iv-open')) return;
+      box.insertAdjacentHTML('afterbegin', '<div class="sc-msg ok iv-hint">' + sic('inv') + '<span>' + esc(t('iv_label_of', {p:p.name || p.code})) + '</span></div><button type="button" class="sc-btn sc-primary sc-block" data-s="iv-go" data-id="' + esc(p.id) + '" id="iv-open">' + sic('scan') + esc(t('iv_open', {p:p.name || p.code})) + '</button>');
+    }
+    function ivGo(pid){ const qs = new URLSearchParams(location.search); ['q', 'qr', 'code'].forEach(k => qs.delete(k)); qs.set('inv', pid); history.pushState(null, '', 'scan.html?' + qs.toString()); SC.params = scParams(); IV.list = []; IV.last = null; scRoute(); }
+
+    const scRenderBase = scRender;
+    scRender = function(){
+      if (SC.view === 'inv' || SC.view === 'invpick'){
+        document.documentElement.lang = S.lang; document.title = t('iv_title');
+        const y = window.scrollY;
+        document.getElementById('app').innerHTML = scHeader() + (SC.view === 'inv' && IV.proj ? ivHTML() : ivPickHTML());
+        if (SC.view === 'inv' && IV.cam) IV.cam.attach(document.getElementById('iv-video'));
+        window.scrollTo(0, y);
+        return;
+      }
+      ivCamStop();
+      scRenderBase();
+    };
+
+    /* ---------------- events ---------------- */
+    document.addEventListener('click', (e) => {
+      const el = e.target.closest('[data-s]'); if (!el) return;
+      const a = el.dataset.s; if (!/^iv-/.test(a) || a === 'iv-keep') return;
+      e.preventDefault(); e.stopPropagation();
+      if (a === 'iv-pick' || a === 'iv-go') return ivGo(el.dataset.id);
+      if (a === 'iv-cam') return ivCamToggle();
+      if (a === 'iv-undo') return ivUndo();
+      if (a === 'iv-tag') return ivToggleTag(el.dataset.v);
+      if (a === 'iv-year') return ivToggleYear(el.dataset.v);
+      if (a === 'iv-mic'){ if (Date.now() - pttAt < 1500) return; if (IV.listening) ivVoiceStop(); else ivVoiceStart(); return; }   // pointer presses are handled below
+      if (a === 'iv-retry'){ ivOutboxSet(ivOutbox().map(j => { delete j.err; delete j.wait; delete j.inflight; return j; })); return ivFlushSoon(); }
+      if (a === 'iv-done'){ ivCamStop(); const qs = new URLSearchParams(location.search); qs.set('inv', '1'); history.pushState(null, '', 'scan.html?' + qs.toString()); SC.params = scParams(); return scRoute(); }
+    }, true);
+    // push-to-talk: hold the button (pointer) — a tap toggles (handled by the click above)
+    // push-to-talk: press = listen; released after 0.6 s = stop (hold mode); a short tap keeps listening until the
+    // phrase ends by itself; pressing again while listening stops. The click that follows a press is ignored.
+    let pttAt = 0, pttDown = 0;
+    document.addEventListener('pointerdown', (e) => {
+      const el = e.target.closest('[data-s="iv-mic"]'); if (!el) return;
+      pttAt = Date.now(); if (IV.listening){ pttDown = 0; ivVoiceStop(); } else { pttDown = pttAt; ivVoiceStart(); }
+    }, true);
+    document.addEventListener('pointerup', () => { if (!pttDown) return; const held = Date.now() - pttDown; pttDown = 0; pttAt = Date.now(); if (held > 600) ivVoiceStop(); }, true);
+    document.addEventListener('change', (e) => { const el = e.target; if (el && el.dataset && el.dataset.s === 'iv-keep'){ IV.keep = !!el.checked; ivPrefsSave(); } }, true);
+    document.addEventListener('submit', (e) => {
+      const f = e.target; if (f.dataset.s !== 'iv-typed-form' && f.dataset.s !== 'iv-note-form') return;
+      e.preventDefault(); e.stopImmediatePropagation();
+      if (f.dataset.s === 'iv-note-form'){ const i = document.getElementById('iv-note'), v = i ? i.value : ''; if (i) i.value = ''; if (String(v).trim()) ivApplyVoice(v); return; }
+      const i = document.getElementById('iv-typed'), v = i ? i.value : ''; if (i){ i.value = ''; setTimeout(() => { const j = document.getElementById('iv-typed'); if (j) j.focus(); }, 30); }
+      if (String(v).trim()) ivHandle(v, 'phone-typed');
+    }, true);
+    window.addEventListener('online', () => { ivOutboxSet(ivOutbox().map(j => { delete j.wait; return j; })); ivFlushSoon(); });
+    setInterval(() => { if (ivOutbox().some(j => j.wait)){ ivOutboxSet(ivOutbox().map(j => { delete j.wait; return j; })); ivFlushSoon(); } }, 20000);
+    window.addEventListener('pagehide', ivCamStop);
+    document.addEventListener('visibilitychange', async () => { if (!document.hidden && IV.cam && !IV.wake && navigator.wakeLock) try { IV.wake = await navigator.wakeLock.request('screen'); } catch(e){} });
+    // jobs left inflight by a closed page are retried
+    try { const q = ivOutbox(); if (q.some(j => j.inflight)) ivOutboxSet(q.map(j => { delete j.inflight; return j; })); } catch(e){}
+    window.IV_API = {ivHandle, ivOpen, ivFlush, ivUndo, ivApplyVoice, ivToggleTag, ivToggleYear, ivOutbox, ivRecent, IV_OUTBOX_LS, IV_RECENT_LS};
+  })();
+}

@@ -20,6 +20,7 @@ step "zip completo (tools/crea-zip.py)"; ZD=$(mktemp -d); run python3 tools/crea
 step "installer-windows";         (cd installer-windows && run python3 -m unittest discover -s tests) || fail=1
 step "smoke test app (Playwright)"; (cd tests && NODE_PATH="${NODE_PATH:-$(npm root -g)}" run node smoke.js) || fail=1
 step "v12.6 licenza e stato sync (Playwright + php)"; (cd tests && NODE_PATH="${NODE_PATH:-$(npm root -g)}" run node v126.js) || fail=1
+step "v12.8 progetti di inventario (Playwright + php)"; (cd tests && NODE_PATH="${NODE_PATH:-$(npm root -g)}" run node v128.js) || fail=1
 echo
 if [ $fail = 0 ]; then echo "VERIFICA VELOCE: tutto OK"; else echo "VERIFICA VELOCE: ci sono errori (vedi ✗ sopra)"; fi
 exit $fail
