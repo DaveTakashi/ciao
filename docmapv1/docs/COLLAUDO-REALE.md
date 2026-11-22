@@ -79,6 +79,10 @@ il numero e l'immagine. Se un passo si blocca, salta al blocco successivo.
 - [ ] D7. **Inventario rapido** (app 26.12.8): sul PC Progetti › Nuovo progetto, genera 2 scatole e 20 faldoni, stampa. Attacca le etichette a 2 scatole e 10 faldoni veri. Dal telefono **Apri sul telefono** → scansiona la scatola, poi i faldoni uno dopo l'altro: beep e foto a ogni faldone, sotto i 5 secondi l'uno. Cronometra 10 faldoni: ______ s.
 - [ ] D8. Inventario senza rete: spegni i dati a metà, continua a scansionare, riaccendi: «Tutto inviato» e sul PC la griglia di revisione ha tutti i faldoni con le foto.
 - [ ] D9. (Solo con la chiave AI nel server) dorsi scritti a mano e a stampa: annota quante proposte sono giuste su 10: ______. Microfono: «fatture acquisti 2019» compila contenuto, tag e anno.
+- [ ] D10. **App installabile** (app 26.12.9): Android/Chrome apri il sito → menu ⋮ › **Installa app**; iPhone/Safari → Condividi › **Aggiungi alla schermata Home**. Compare l'icona DocMap; aprendola, niente barra del browser. Sul PC (Chrome/Edge) l'icona ⊕ nella barra degli indirizzi installa il programma completo.
+- [ ] D11. **Senza rete**: modalità aereo, apri l'icona: la pagina si apre (i dati del server, ovviamente, no: compare l'avviso). Riattiva la rete, riapri: tutto normale.
+- [ ] D12. **Tempi misurati**: sul telefono cerca 10 faldoni (Cerca → apri) e cataloga 10 faldoni in un inventario; poi sotto la casella del codice **Tempi misurati › Copia i tempi** e incolla il testo nel messaggio a Claude. Obiettivo: trovare ≤ 15 s, catalogare ≤ 7 s (mediana).
+- [ ] D13. **Tema scuro e Ctrl+K**: metti il telefono e Windows in tema scuro: DocMap diventa scuro, ma l'anteprima delle etichette e la stampa restano bianche. Sul PC premi Ctrl+K, scrivi un codice e premi Invio: si apre il faldone.
 - [ ] D6. Il telefono in sede (stessa rete Wi-Fi del PC di prova) apre DocMap con il certificato dello studio.
 
 ## E. Stampa (30 min) — guida: `CHECKLIST-COLLAUDO.md` §1, `MANUALE-UTENTE.md` §19

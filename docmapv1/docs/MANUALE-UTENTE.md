@@ -671,3 +671,38 @@ predefinito è `https://qr7.it/`. Puoi usare un altro servizio o dominio, ma cam
 i QR, anche per le ristampe.
 
 **Chiudere un progetto.** *Modifica › Stato: chiuso*: il telefono non accetta più scansioni; i faldoni restano.
+
+## 23. Installare DocMap come app e misurare i tempi (v12.9)
+
+**Installare (telefono e PC).** Quando DocMap si apre da un indirizzo `https://` (il sito su SiteGround o la sede con il
+certificato dello studio) si può installare come un'app, senza store:
+
+- **Android (Chrome)**: menu ⋮ › **Installa app** (oppure il messaggio «Aggiungi alla schermata Home»).
+- **iPhone (Safari)**: tasto Condividi › **Aggiungi alla schermata Home**.
+- **PC (Chrome o Edge)**: l'icona ⊕ a destra nella barra degli indirizzi, oppure menu › **Installa DocMap**.
+
+Il telefono installa la pagina del telefono (cerca, scansiona, inventario); il PC il programma completo. L'app si apre anche
+**senza rete**: il browser tiene una copia dei soli file del programma. I dati del server senza rete non arrivano (lo dice
+l'avviso in alto) e le modifiche dell'inventario aspettano in coda come sempre. Con la rete si usa sempre la versione del
+server: dopo un aggiornamento basta riaprire. Da `index.html` aperto con doppio clic (senza sito) l'installazione non esiste.
+
+**Tempi misurati.** DocMap cronometra due cose:
+
+- **Trovare un faldone**: dalla prima lettera scritta nella ricerca (PC o telefono) a quando apri il faldone;
+- **Catalogare un faldone**: nell'inventario, il tempo tra un faldone e il successivo (accanto ai totali vedi «N s a faldone»).
+
+Le pause oltre 2 minuti non contano. Dove vederli: sul PC **Impostazioni › Informazioni su DocMap › Dettagli e assistenza**;
+sul telefono **Tempi misurati** sotto la casella del codice. **Copia i tempi** prepara un testo da mandare, **Azzera**
+ricomincia. Restano solo su quel dispositivo e sono solo durate: mai nomi, codici o clienti.
+
+## 24. Tema scuro e «Cerca ovunque» (v12.9)
+
+**Tema scuro.** DocMap segue il tema del sistema (chiaro di giorno, scuro se Windows o il telefono sono in scuro). Per
+sceglierlo a mano: sul PC **Impostazioni › Aspetto** (Automatico, Chiaro, Scuro); sul telefono la riga **Aspetto** sotto
+«Tempi misurati». La scelta vale solo per quel dispositivo. Etichette, anteprime dei fogli e stampe restano sempre
+chiare, così un'etichetta non esce mai con lo sfondo scuro.
+
+**Cerca ovunque (Ctrl+K).** Sul PC premi **Ctrl+K** (⌘K sul Mac) o la lente 🔍 in alto, accanto al «?». Scrivi un
+pezzo di codice, cliente, titolo, oppure il nome di una pagina («stampa», «progetti») o di un'azione («backup»,
+«nuovo faldone», «tema»). **↑ ↓** per scegliere, **Invio** per aprire, **Esc** per chiudere. Aprire un faldone da qui
+conta nei «Tempi misurati».

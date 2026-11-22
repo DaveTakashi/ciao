@@ -244,7 +244,9 @@ function scInfoHTML(icon, h, p, extra){
 }
 function scFindHTML(){
   return '<form class="sc-find" data-s="find-form"><label class="sc-field"><span>' + esc(t('sc_find')) + '</span><span class="sc-pw"><input id="sc-find" autocapitalize="characters" autocomplete="off" placeholder="' + esc(t('sc_find_ph')) + '"><button type="submit" class="sc-pw-t">' + sic('search') + esc(t('sc_find_btn')) + '</button></span></label>' +
-    (SC.findErr ? '<div class="sc-err">' + esc(SC.findErr) + '</div>' : '') + '</form>';
+    (SC.findErr ? '<div class="sc-err">' + esc(SC.findErr) + '</div>' : '') + '</form>' +
+    (typeof dmtHTML === 'function' ? '<details class="sc-dmt" id="sc-dmt"><summary>' + esc(t('dmt_h')) + '</summary>' + dmtHTML() + '</details>' : '') +
+    (typeof dmThemeHTML === 'function' ? '<div class="sc-theme" id="sc-theme"><span>' + esc(t('th_h')) + '</span>' + dmThemeHTML('sc-seg') + '</div>' : '');
 }
 function scUserBar(){
   const u = SC.user; if (!u) return '';

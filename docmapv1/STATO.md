@@ -7,10 +7,10 @@
 
 | Componente | Versione | Dove si legge | Zip per Dave (file del progetto) |
 |---|---|---|---|
-| App DocMap (PC, web, telefono) | **26.12.8** (v12.8, Progetti di inventario) | `APP_VERSION` in `assets/js/02-core.js` | dentro lo zip completo `docmapv1/python/DocMap-hub-0.11.2-app-26.12.8.zip` |
+| App DocMap (PC, web, telefono) | **26.12.9** (v12.9, app installabile + cronometro dei tempi + nuovo stile: tema scuro, Ctrl+K) | `APP_VERSION` in `assets/js/02-core.js` | dentro lo zip completo `docmapv1/python/DocMap-hub-0.11.2-app-26.12.8.zip` |
 | Database locale (SQLite nel browser) | schema **9** | `DB_SCHEMA_VERSION` in `assets/js/06-db.js` | — |
-| Server web PHP (`server-php/api.php`) | 26.12.8, schema **3**, licenza con `licence_required`; `setup.php` con cartella per sito e modalità JSON; v12.8: rotte `project`, `photo_put`, `photo`, `ai_spine` | `DM_APP_VERSION`, `DM_SCHEMA` | dentro lo zip dell'app (`deploy/`) |
-| Server Python (sede) | pacchetto 1.0.0, parità con PHP 26.12.8 (anche sulla licenza e sull'inventario) | `server-python/docmap_server/__init__.py` | dentro l'installer |
+| Server web PHP (`server-php/api.php`) | 26.12.9 (solo il numero; rotte come la 26.12.8), schema **3**, licenza con `licence_required`; `setup.php` con cartella per sito e modalità JSON; v12.8: rotte `project`, `photo_put`, `photo`, `ai_spine` | `DM_APP_VERSION`, `DM_SCHEMA` | dentro lo zip dell'app (`deploy/`) |
+| Server Python (sede) | pacchetto 1.0.0, parità con PHP 26.12.9 (anche sulla licenza e sull'inventario) | `server-python/docmap_server/__init__.py` | dentro l'installer |
 | Strumenti di installazione Windows | 1.2.0 | `TOOLS_VERSION` in `installer-windows/docmap_tools.py` | dentro lo zip completo (`installer-windows/`); i pacchetti per i clienti li fa l'hub (il vecchio `DocMap-installer-26.12.7.zip` è in `vecchie-versioni/`) |
 | Hub (PC di Dave) | **0.11.2**, registro schema **4** (modelli cliente) (`registry.py`) | `hub/docmap_hub/__init__.py` | `docmapv1/python/DocMap-hub-0.11.2.zip` (**zip completo**: hub + app + sito + server + installatore + guide; fatto e controllato da `tools/crea-zip.py`) |
 | Aggiornatore del PC | con l'app | `AGGIORNA-DOCMAP.bat` + `tools/aggiorna-app.ps1` | dentro lo zip dell'app |
@@ -24,6 +24,7 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
   PR #4 verso `main`. Sostituisce le PR a catena #1 (app), #2 (Python), #3 (hub).
 - Hub 0.9 + app 26.12.7 (autocritica del hub), hub 0.10/0.10.1 (modelli, Attiva tutto, kit), 0.10.2 (cartelle) e 0.11 (elimina cliente, pacchetto sede pronto, più PC, sposta il sito): ramo `claude/project-thread-acqq2g`, PR #5 sopra la #4.
 - App 26.12.8 (Progetti di inventario, indirizzo dei QR configurabile): ramo `claude/project-thread-epf33l` (parte dalla PR #5).
+- App 26.12.9 (app installabile PWA, cronometro dei tempi; ondata 0 e prima parte dell'ondata 1: colori unici, tema scuro, Ctrl+K della roadmap «verso lo stato dell'arte»): ramo `claude/project-thread-1dzp8h` (parte dalla PR #7).
 - Dopo l'unione: `main` è la versione vera; ogni thread parte da `main`.
 
 ## 3. Test
@@ -33,6 +34,20 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
 | Verifica veloce (tutto tranne la suite completa) | `bash tools/verifica-veloce.sh` | ~4 min | vedi §3bis |
 | Suite completa app (Playwright) | `cd tests && NODE_PATH=$(npm root -g) node suite.js` | ~35 min | 1374/1374 (2026-11-22, app 26.12.8) |
 | CI su GitHub | `ci/docmap-ci.yml` (attivo solo se copiato in `.github/workflows/`) | — | in attesa del sì di Dave |
+
+### Esito 2026-11-22, app 26.12.9 (app installabile, cronometro)
+
+- `tests/v129.js` (nuovo, in verifica veloce): manifest e icone, `sw.js` registrato su un deploy vero (`build_deploy.py` +
+  `php -S`), file del programma in copia, **niente dell'API in copia**, riapertura **senza rete** di `index.html` e di un
+  link `/q/<codice>`, aggiornamento visto subito con la rete; da `file://` nessun service worker e nessun errore in console;
+  cronometro (scarti, mediana, 9 su 10, limite 300, Azzera, PC ricerca → scheda, «Nuovo faldone» escluso, Informazioni su
+  DocMap). `tests/v128.js`: misura del tempo tra due faldoni. Esiti: vedi il commit.
+- `tests/v129b.js` (nuovo, in verifica veloce): `css-tokens.css` caricato per primo, tema salvato applicato prima del primo
+  disegno, scuro dal sistema o scelto, stampa e fogli di etichette sempre chiari, Impostazioni › Aspetto, Ctrl+K (apre, Esc,
+  faldone primo e aperto con Invio + tempo «trovare», pagina, nessun risultato), telefono.
+- Provato solo in Chromium: **installazione vera su Android, iPhone e Edge mai provata** (righe D10–D13 di `COLLAUDO-REALE.md`).
+- Esito finale 2026-11-22: verifica veloce tutto OK (v129 24/24, v129b 24/24), suite completa **1374 su 1374**.
+- Ondata 1 ancora da fare: home per ruolo, «Annulla» al posto delle conferme, stati vuoti che insegnano, offline completo.
 
 ### Esito 2026-11-22, app 26.12.8 (Progetti di inventario)
 
@@ -116,6 +131,10 @@ Scheda unica da seguire: [`docs/COLLAUDO-REALE.md`](docs/COLLAUDO-REALE.md).
 - **Telefoni** Android e iPhone (accesso ricordato, stati, associazione, offline) e **NFC** (solo Android/Chrome).
 
 ## 5. Limiti noti
+
+- App installabile (26.12.9): solo da `https://` (o `localhost`); la sede in HTTP semplice o `file://` non si installa.
+  La copia senza rete contiene solo il programma: i dati del server senza rete non ci sono. I tempi misurati restano sul
+  dispositivo (nessun invio, nessun riepilogo centrale).
 
 - La licenza è applicata (PHP e Python) **solo con `licence_required`**: i siti del hub 0.8 la attivano da soli con
   `setup.php`; `studio-de` e i siti fatti a mano no. Il PHP legge il canale delle licenze solo durante le richieste
