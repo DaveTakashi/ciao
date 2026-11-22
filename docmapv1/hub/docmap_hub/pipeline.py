@@ -22,7 +22,9 @@ from .registry import RegistryError
 
 FORMAT = "docmap-progetto/1"
 PLACEHOLDER_RE = re.compile(r"^\{\{[A-Z0-9_ ]+\}\}$")
-SECRET_PATHS = (("online", "ftp", "password"),)
+SECRET_PATHS = (("online", "ftp", "password"), ("online", "ftp_staging", "password"))
+PLACEHOLDERS = {"ftp": "{{PASSWORD_FTP}}", "ftp_staging": "{{PASSWORD_FTP_STAGING}}"}
+FTP_MODES = ("dominio", "cliente", "nessuno")   # v0.10: default hosting / own FTP / manual upload
 
 TEMPLATE: dict = {
     "formato": FORMAT,
@@ -49,6 +51,7 @@ TEMPLATE: dict = {
         "nome_studio": "",
         "installazioni": ["sede", "online"],
         "custodia_chiave": False,
+        "modello": "",
         "note": "",
     },
     "licenza": {
@@ -60,6 +63,7 @@ TEMPLATE: dict = {
         "indirizzo": "",
         "staging": "",
         "ftp": {
+            "modo": "",
             "protocollo": "ftps",
             "host": "",
             "porta": None,
@@ -67,6 +71,13 @@ TEMPLATE: dict = {
             "password": "{{PASSWORD_FTP}}",
             "cartella": "",
             "cartella_staging": "",
+        },
+        "ftp_staging": {
+            "protocollo": "ftps",
+            "host": "",
+            "porta": None,
+            "utente": "",
+            "password": "{{PASSWORD_FTP_STAGING}}",
         },
     },
     "sede": {
@@ -265,6 +276,10 @@ def normalize(data: dict) -> dict:
         d["cliente"]["stato"] = "active"
     for u in d["utenti_iniziali"]:
         u["ruolo"] = u["ruolo"].lower() if u["ruolo"].lower() in ROLES else "editor"
+    f = d["online"]["ftp"]
+    f["modo"] = f["modo"].lower()
+    if f["modo"] not in FTP_MODES:   # drafts before 0.10 and AI drafts: own FTP if a host is given
+        f["modo"] = "cliente" if f["host"] else "nessuno"
     return d
 
 
@@ -281,7 +296,7 @@ def strip_secrets(d: dict) -> tuple[dict, list[str]]:
             warn.append(f"{'.'.join(path)}: c'era una password vera nel JSON. Non l'ho salvata nella bozza: scrivila "
                         "nel passo Online. Se il JSON è passato da un'AI esterna, cambia quella password.")
         if isinstance(node, dict) and path[-1] in node:
-            node[path[-1]] = "{{PASSWORD_FTP}}"
+            node[path[-1]] = PLACEHOLDERS[path[1]]
     return d, warn
 
 
@@ -308,6 +323,7 @@ def validate(hub, d: dict) -> dict:
             hub.registry.get_reseller(c["rivenditore"])
         except RegistryError:
             e("cliente.rivenditore", f"Rivenditore '{c['rivenditore']}' non trovato nell'hub.")
+    same = None
     if c["ragione_sociale"]:
         from .onboarding import Onboarding
         try:
@@ -335,8 +351,34 @@ def validate(hub, d: dict) -> dict:
             e("online.staging", "Anche lo staging deve essere in https.")
         if on["staging"] and on["staging"].rstrip("/") == on["indirizzo"].rstrip("/"):
             e("online.staging", "Staging e produzione devono avere indirizzi diversi.")
+        for key in ("indirizzo", "staging"):   # v0.10: two customers on the same site = one database for both
+            u = on[key].rstrip("/")
+            if not u:
+                continue
+            for env in hub.registry.list_environments():
+                if (env.get("url") or "").rstrip("/") == u and (not same or env["customer_id"] != same["id"]):
+                    e(f"online.{key}", f"Questo indirizzo è già il sito di «{env['customer_name']}» "
+                                       f"({env['name']}): scegline un altro.")
+                    break
         f = on["ftp"]
-        if f["host"]:
+        fs = on["ftp_staging"]
+        if f["modo"] == "dominio":
+            from . import hosting as H
+            hd = H.get(hub.registry)
+            if not hd:
+                e("online.ftp.modo", "Accesso FTP «del dominio» scelto, ma l'hosting predefinito non è impostato: "
+                                     "Impostazioni → Hosting predefinito (una volta sola), oppure scegli «FTP del cliente».")
+            elif not hd["has_password"]:
+                e("online.ftp.modo", "L'hosting predefinito non ha la password FTP: completalo in Impostazioni.")
+            if not f["cartella"]:
+                e("online.ftp.cartella", "Manca la cartella del sito sull'hosting (es. /studio-rossi/).")
+            if on["staging"] and not f["cartella_staging"]:
+                e("online.ftp.cartella_staging", "Con la demo serve anche la sua cartella (es. /studio-rossi-demo/).")
+            if f["cartella_staging"] and f["cartella_staging"].rstrip("/") == f["cartella"].rstrip("/"):
+                e("online.ftp.cartella_staging", "La cartella della demo deve essere diversa da quella del sito.")
+        elif f["modo"] == "nessuno":
+            w("online.ftp", "Nessun FTP: potrai scaricare il pacchetto «autoinstall web» e caricarlo a mano.")
+        elif f["host"]:
             if f["protocollo"] not in ("ftps", "sftp", "ftp"):
                 e("online.ftp.protocollo", "Protocollo: ftps, sftp o ftp.")
             if f["protocollo"] == "ftp":
@@ -350,7 +392,16 @@ def validate(hub, d: dict) -> dict:
             if f["cartella_staging"] and f["cartella_staging"].rstrip("/") == f["cartella"].rstrip("/"):
                 e("online.ftp.cartella_staging", "La cartella di staging deve essere diversa da quella di produzione.")
         else:
-            w("online.ftp", "Nessun FTP: potrai scaricare il pacchetto «autoinstall web» e caricarlo a mano.")
+            e("online.ftp.host", "FTP del cliente scelto: scrivi l'host (oppure scegli «FTP del dominio» o «nessuno»).")
+        if fs["host"]:
+            if not on["staging"]:
+                w("online.ftp_staging", "C'è un FTP per la demo ma la demo non è prevista: verrà ignorato.")
+            elif f["modo"] == "nessuno":
+                e("online.ftp_staging", "FTP della demo senza FTP del sito: scegli prima come si pubblica il sito.")
+            if fs["protocollo"] not in ("ftps", "sftp", "ftp"):
+                e("online.ftp_staging.protocollo", "Protocollo: ftps, sftp o ftp.")
+            if not fs["utente"]:
+                e("online.ftp_staging.utente", "Manca l'utente FTP della demo.")
     elif on["indirizzo"] or on["ftp"]["host"]:
         w("online", "Ci sono dati online ma l'installazione online non è scelta: verranno ignorati.")
     if "sede" in inst and se["indirizzo"] and not se["indirizzo"].startswith("https://"):
@@ -376,7 +427,7 @@ def title_of(d: dict) -> str:
 def draft_view(hub, rec: dict) -> dict:
     d = normalize(rec["data"])
     return {"id": rec["id"], "title": rec.get("title"), "status": rec["status"], "data": d,
-            "check": validate(hub, d), "result": rec.get("result"), "updated_at": rec["updated_at"],
+            "check": validate(hub, d), "passwords": needs_ftp_password(d), "result": rec.get("result"), "updated_at": rec["updated_at"],
             "created_at": rec["created_at"]}
 
 
@@ -402,18 +453,37 @@ def update_draft(hub, did: str, data: dict) -> dict:
     return v
 
 
-def to_request(d: dict, ftp_password: str | None):
-    """Draft → ClienteNuovo for the onboarding."""
+def needs_ftp_password(d: dict) -> dict:
+    """Which passwords the confirmation must ask for: {"ftp": bool, "ftp_staging": bool}."""
+    on, inst = d["online"], d["progetto"]["installazioni"]
+    online = "online" in inst
+    return {"ftp": online and on["ftp"]["modo"] == "cliente" and bool(on["ftp"]["host"]),
+            "ftp_staging": online and bool(on["staging"]) and on["ftp"]["modo"] != "nessuno"
+                           and bool(on["ftp_staging"]["host"])}
+
+
+def to_request(d: dict, ftp_password: str | None, *, hosting_access: dict | None = None,
+               ftp_staging_password: str | None = None):
+    """Draft → ClienteNuovo for the onboarding. ``hosting_access`` = the default hosting's FTP (mode «dominio»)."""
     from .onboarding import ClienteNuovo
     c, p, lic, on, se = d["cliente"], d["progetto"], d["licenza"], d["online"], d["sede"]
     inst = tuple(p["installazioni"])
     ftp = None
-    if "online" in inst and on["ftp"]["host"]:
-        f = on["ftp"]
+    f = on["ftp"]
+    if "online" in inst and f["modo"] == "dominio" and hosting_access:
+        ftp = dict(hosting_access, remote_path=f["cartella"])
+    elif "online" in inst and f["modo"] == "cliente" and f["host"]:
         ftp = {"protocol": f["protocollo"], "host": f["host"], "user": f["utente"], "password": ftp_password or "",
                "remote_path": f["cartella"]}
         if f["porta"]:
             ftp["port"] = f["porta"]
+    ftp_staging = None
+    fs = on["ftp_staging"]
+    if ftp and on["staging"] and fs["host"]:
+        ftp_staging = {"protocol": fs["protocollo"], "host": fs["host"], "user": fs["utente"],
+                       "password": ftp_staging_password or "", "remote_path": f["cartella_staging"]}
+        if fs["porta"]:
+            ftp_staging["port"] = fs["porta"]
     kw: dict = {}
     if lic["mesi"]:
         kw["months"] = int(lic["mesi"])
@@ -428,6 +498,7 @@ def to_request(d: dict, ftp_password: str | None):
         url_staging=(on["staging"] or None) if "online" in inst else None,
         url_sede=(se["indirizzo"] or None) if "sede" in inst else None, ftp=ftp,
         ftp_cartella_staging=(on["ftp"]["cartella_staging"] or None) if ftp and on["staging"] else None,
+        ftp_staging=ftp_staging,
         note=c["note"] or None, licenza_kw=kw)
 
 

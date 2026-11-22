@@ -25,23 +25,44 @@ function page(string $title, string $body, int $code = 200): void {
     '<h1>' . h($title) . '</h1>' . $body . '</main></body></html>';
 }
 
-if (is_file($CFG)) { page('Configurazione già fatta', '<p>Il file <code>config.php</code> esiste già: questa pagina è disattivata. Per ricominciare da capo eliminare <code>config.php</code> dal server (solo se il database è vuoto o si conserva la chiave).</p>', 403); exit; }
+/* hub 0.9: the hub can run this set-up by itself (format=json): same checks and same result as the form, but the
+   answer is JSON, so the tokens go straight into the hub's encrypted vault instead of being copied by hand. */
+$JSON = (string)($_GET['format'] ?? $_POST['format'] ?? '') === 'json';
+function jout(int $code, array $data): void {
+  http_response_code($code); header('Content-Type: application/json; charset=utf-8');
+  echo json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+}
+if (is_file($CFG)) { if ($JSON) { jout(403, ['ok' => false, 'state' => 'configured', 'error' => 'config.php esiste già: il sito è già configurato.']); exit; }
+  page('Configurazione già fatta', '<p>Il file <code>config.php</code> esiste già: questa pagina è disattivata. Per ricominciare da capo eliminare <code>config.php</code> dal server (solo se il database è vuoto o si conserva la chiave).</p>', 403); exit; }
 
 $checks = [];
 if (PHP_VERSION_ID < 80000) $checks[] = 'Serve PHP 8.0 o più recente (attuale ' . PHP_VERSION . ').';
 if (!extension_loaded('pdo_sqlite')) $checks[] = 'Manca l\'estensione PHP pdo_sqlite.';
 if (!function_exists('openssl_encrypt') || !in_array('aes-256-gcm', openssl_get_cipher_methods(), true)) $checks[] = 'Manca OpenSSL con aes-256-gcm.';
 if (!is_writable(__DIR__)) $checks[] = 'La cartella server-php non è scrivibile (serve per creare config.php).';
+if ($checks && $JSON) { jout(500, ['ok' => false, 'state' => 'requirements', 'error' => implode(' ', $checks)]); exit; }
 if ($checks) { page('Requisiti mancanti', '<div class="err">' . implode('<br>', array_map('h', $checks)) . '</div>', 500); exit; }
 
 $docroot = rtrim((string)($_SERVER['DOCUMENT_ROOT'] ?? ''), '/');
-$defDir = $docroot !== '' ? dirname($docroot) . '/docmap-data' : __DIR__ . '/data';
+/* hub 0.9: every site gets ITS OWN data folder. Before, all sites under one domain (studio-rossi, studio-rossi-prova,
+   studio-verdi… in public_html) were offered the same docmap-data folder: the second set-up met the first one's
+   database (or, if not created yet, two sites would have shared one file). A site at the root of the domain keeps
+   the old proposal, so a re-upload there still finds its existing database. */
+$legacyDir = $docroot !== '' ? dirname($docroot) . '/docmap-data' : '';
+$siteRel = '';
+if ($docroot !== '') {
+  $appDir = str_replace('\\', '/', dirname(__DIR__)); $dr = str_replace('\\', '/', $docroot);
+  if (strpos($appDir . '/', $dr . '/') === 0) $siteRel = trim(substr($appDir, strlen($dr)), '/');
+}
+$siteSlug = $siteRel === '' ? '' : trim((string)preg_replace('/[^A-Za-z0-9._-]+/', '-', str_replace('/', '-', $siteRel)), '-.');
+$defDir = $docroot !== '' ? $legacyDir . ($siteSlug !== '' ? '/' . $siteSlug : '') : __DIR__ . '/data';
 $https = (($_SERVER['HTTPS'] ?? '') !== '' && $_SERVER['HTTPS'] !== 'off') || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
 
 /* v12.4: an existing database is NEVER paired with a new key. This happens when the app folder was deleted and uploaded
    again (config.php, which is not in the zip, went with it): a new aes_key could not read the old data. */
 function existing_db(string $dir): string { foreach (['docmap.sqlite', 'docmap.sqlite-wal'] as $f) if (is_file(rtrim($dir, '/\\') . '/' . $f)) return rtrim($dir, '/\\') . '/' . $f; return ''; }
 function existing_db_page(string $file): void {
+  if ($GLOBALS['JSON']) { jout(409, ['ok' => false, 'state' => 'existing_db', 'file' => $file, 'error' => 'Nella cartella c\'è già un database DocMap: non creo una chiave nuova (recupera config.php).']); return; }
   page('C\'è già un database: non creo una chiave nuova',
     '<div class="err">Nella cartella scelta c\'è già il database di DocMap (<code>' . h($file) . '</code>). Una chiave nuova non potrebbe leggerlo.</div>' .
     '<p><b>Di solito è successo questo:</b> la cartella dell\'app è stata cancellata e caricata di nuovo, e con lei è sparito <code>server-php/config.php</code> (non è nello zip).</p>' .
@@ -50,9 +71,12 @@ function existing_db_page(string $file): void {
     '<li>Solo se vuoi davvero ricominciare da zero (i dati vecchi diventano illeggibili): rinomina o sposta i file <code>docmap.sqlite*</code> di quella cartella e ricarica questa pagina.</li></ol>' .
     '<p>Per i prossimi aggiornamenti: carica i file <b>sopra</b> quelli vecchi, senza cancellare la cartella (guida <code>docs/AGGIORNARE-IL-SERVER.md</code>).</p>', 409);
 }
+$legacyDb = ($siteSlug !== '' && $legacyDir !== '') ? existing_db($legacyDir) : '';
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
   if (($ex = existing_db($defDir)) !== '' || ($ex = existing_db(__DIR__ . '/data')) !== '') { existing_db_page($ex); exit; }
+  if ($JSON) { jout(200, ['ok' => true, 'state' => 'ready', 'default_data_dir' => $defDir, 'https' => $https, 'legacy_db' => $legacyDb !== '']); exit; }
   page('Configura il database online di DocMap',
+    ($legacyDb !== '' ? '<div class="warn">Nella vecchia cartella comune <code>' . h($legacyDir) . '</code> c\'è già un database DocMap. Se è <b>di questo sito</b> (cartella ricaricata e <code>config.php</code> perso), non continuare: rimetti la copia di <code>config.php</code> e i dati tornano. Se è di un altro sito, continua pure: questo sito avrà la sua cartella.</div>' : '') .
     ($https ? '' : '<div class="warn">La pagina non è in HTTPS: attiva il certificato SSL prima di continuare (i token viaggerebbero in chiaro).</div>') .
     '<div class="warn">Questa pagina genera la chiave del database e i codici di accesso <b>una sola volta</b>, poi si disattiva. Alla fine scarica la copia di <code>config.php</code> e conservala: senza quella chiave i dati non si leggono.</div>' .
     '<form method="post" autocomplete="off">' .
@@ -68,6 +92,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
 }
 
 $dir = rtrim(trim((string)($_POST['data_dir'] ?? '')), '/\\');
+if ($dir === '' && $JSON) $dir = $defDir;   // the hub may leave the folder to this page's proposal
 $err = [];
 if ($dir === '' || !preg_match('#^(/|[A-Za-z]:[\\\\/])#', $dir) || strpos($dir, '..') !== false) $err[] = 'La cartella del database deve essere un percorso assoluto (senza "..").';
 $users = [];
@@ -82,6 +107,7 @@ if (!array_filter($users, fn($u) => $u[1] === 'admin')) $err[] = 'Serve almeno u
 if (!$err && ($ex = existing_db($dir)) !== '') { existing_db_page($ex); exit; }
 if (!$err && !is_dir($dir) && !@mkdir($dir, 0700, true)) $err[] = 'Impossibile creare la cartella ' . $dir . '.';
 if (!$err && !is_writable($dir)) $err[] = 'La cartella ' . $dir . ' non è scrivibile.';
+if ($err && $JSON) { jout(422, ['ok' => false, 'state' => 'invalid', 'error' => implode(' ', $err)]); exit; }
 if ($err) { page('Correggi e riprova', '<div class="err">' . implode('<br>', array_map('h', $err)) . '</div><p><a href="setup.php">Indietro</a></p>', 422); exit; }
 
 // defence in depth: even outside public_html the folder refuses web access
@@ -106,9 +132,16 @@ $php = "<?php\n/* DocMap 2026 — generated by setup.php on " . gmdate('Y-m-d H:
 $tmp = $CFG . '.tmp-' . bin2hex(random_bytes(4));
 $okw = @file_put_contents($tmp, $php, LOCK_EX) !== false;
 if ($okw) @chmod($tmp, 0600);
-if (!$okw || !@rename($tmp, $CFG)) { page('Errore', '<div class="err">Impossibile scrivere config.php nella cartella server-php.</div>', 500); exit; }
+$written = $okw && @rename($tmp, $CFG);
+if (!$written && $JSON) { jout(500, ['ok' => false, 'state' => 'write_failed', 'error' => 'Impossibile scrivere config.php nella cartella server-php.']); exit; }
+if (!$written) { page('Errore', '<div class="err">Impossibile scrivere config.php nella cartella server-php.</div>', 500); exit; }
 @chmod($CFG, 0600);
 $disabled = @rename(__FILE__, __FILE__ . '.disabled');
+if ($JSON) {
+  jout(200, ['ok' => true, 'state' => 'done', 'data_dir' => $dir, 'disabled' => $disabled, 'licence_required' => !empty($cfg['licence_required']),
+    'tokens' => array_map(fn($r) => ['user' => $r[0], 'role' => $r[1], 'token' => $r[2]], $shown), 'config_php' => base64_encode($php)]);
+  exit;
+}
 
 $base = preg_replace('#/server-php/setup\.php.*$#', '/', (string)($_SERVER['REQUEST_URI'] ?? '/'));
 page('Fatto: database online configurato',

@@ -28,6 +28,7 @@ if (-not (Test-Admin)) { Invoke-ComeAmministratore $PSCommandPath $PSBoundParame
 $p = Get-DocMapPaths
 $ts = Get-Timestamp
 $sostituito = $false
+$script:TokenDalPacchetto = $false
 $haPrecedente = $false
 Write-Host ''
 Write-Host '  DocMap - installazione nel PC dello studio' -ForegroundColor Cyan
@@ -84,6 +85,10 @@ try {
         if (-not $NomeStudio -and $info.PSObject.Properties['nome_studio']) { $NomeStudio = [string]$info.nome_studio }
         if ($info.file_licenza) { Write-Ok 'Contiene la licenza: verra installata da sola.' }
         if ($info.file_modello_sync) { Write-Ok 'Contiene il modello della sincronizzazione con il sito online.' }
+        if ($info.PSObject.Properties['file_token_ponte'] -and $info.file_token_ponte) {
+            Write-Ok 'Contiene il codice del ponte con il sito: la sincronizzazione si configura da sola.'
+            if (-not $TokenSyncFile) { $TokenSyncFile = [string]$info.file_token_ponte; $script:TokenDalPacchetto = $true }
+        }
     }
 
     # ------------------------------------------------------------ 3. installazione esistente → backup
@@ -285,6 +290,8 @@ try {
         Write-Info 'Questo studio ha anche DocMap sul web: il ponte tiene uguali i due archivi ogni 10 minuti.'
         if ($TokenSyncFile -or (-not $NonChiedere -and (Read-SiNo 'La configuro adesso? (serve il token del sito web)' $true))) {
             [void](Invoke-ConfiguraSync -tokenFile $TokenSyncFile -NonChiedere:$NonChiedere)
+            # il codice arrivato nel pacchetto non deve restare sul disco (ora è nel profilo protetto di C:\DocMap\sync)
+            if ($script:TokenDalPacchetto) { Remove-Item -LiteralPath $TokenSyncFile -Force -ErrorAction SilentlyContinue }
         } else {
             Write-Info "Puoi farlo dopo con: $($p.Strumenti)\configura-sync.ps1"
         }

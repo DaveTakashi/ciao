@@ -141,6 +141,16 @@ class WebHarness:
 
 
 class TestManagerWeb(WebHarness, unittest.TestCase):
+    def test_every_page_api_answers(self):
+        # 0.11.1: /api/events got the query dict as «limit» and answered 500 (page «Attività» empty)
+        self.start(passphrase=None)
+        self.assertEqual(self.login()[0], 200)
+        for path in ("/api/overview", "/api/customers", "/api/instances", "/api/licences", "/api/deploys",
+                     "/api/events", "/api/events?limit=5", "/api/events?limit=x"):
+            code, _, j = self.call(path)
+            self.assertEqual(code, 200, (path, j))
+        self.assertLessEqual(len(self.call("/api/events?limit=5")[2]), 5)
+
     def test_locked_start_then_browser_login(self):
         self.start(passphrase=None)
         self.assertFalse(self.httpd.app.unlocked)

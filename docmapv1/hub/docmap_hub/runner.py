@@ -59,13 +59,59 @@ def _now() -> str:
 # locating server-python and the tools
 # ---------------------------------------------------------------------------
 
+MARKER = Path("tools") / "build_deploy.py"
+
+
+def docmap_roots(reg: Registry | None = None) -> list[Path]:
+    """Folders that may hold the whole DocMap tree (tools/, installer-windows/, server-python/ …), best first.
+
+    The setting ``docmap_dir``, then the folder above ``hub`` (the zip layout), then — for a hub folder copied or
+    moved on its own — every folder above it and the ``DocMap-hub-*`` / ``docmapv1`` folders next to them."""
+    out: list[Path] = []
+
+    def add(p):
+        try:
+            p = Path(p)
+        except TypeError:
+            return
+        if p not in out:
+            out.append(p)
+    if reg is not None and reg.get_setting("docmap_dir"):
+        add(reg.get_setting("docmap_dir"))
+    add(DOCMAPV1)
+    for up in list(HUB_PKG.parents)[:4]:
+        add(up)
+        try:
+            kids = sorted((k for k in up.iterdir() if k.is_dir() and (k.name.lower().startswith("docmap-hub-")
+                                                                      or k.name.lower() == "docmapv1")),
+                          key=lambda k: k.name, reverse=True)   # newest version name first
+        except OSError:
+            kids = []
+        for k in kids:
+            add(k)
+            add(k / k.name)      # «Estrai tutto» of Windows can nest the folder once more
+    return out
+
+
+def find_in_roots(reg: Registry | None, rel: str | Path, what: str, setting: str = "docmap_dir") -> Path:
+    roots = docmap_roots(reg)
+    for r in roots:
+        c = r / rel
+        if c.exists():
+            return c.resolve()
+    tried = "\n".join(f"  {r / rel}" for r in roots[:8])
+    raise RunnerError(f"{what} non trovato. Estrai di nuovo TUTTO lo zip dell'hub e avvia hub\\run_windows.bat da lì, "
+                      f"oppure indica la cartella che contiene tools\\ con: settings set {setting} "
+                      f"C:\\DocMapHub\\DocMap-hub-<versione>\nCercato in:\n{tried}")
+
+
 def server_python_dir(reg: Registry | None = None) -> Path:
     cands = []
     if reg is not None and reg.get_setting("server_python_dir"):
         cands.append(Path(reg.get_setting("server_python_dir")))
     if os.environ.get(ENV_SERVER_DIR):
         cands.append(Path(os.environ[ENV_SERVER_DIR]))
-    cands.append(DOCMAPV1 / "server-python")
+    cands += [r / "server-python" for r in docmap_roots(reg)]
     for c in cands:
         if (c / "docmap_server" / "__main__.py").is_file():
             return c.resolve()
@@ -86,15 +132,7 @@ def server_python_exe(reg: Registry | None = None, server_dir: Path | None = Non
 
 
 def build_deploy_script(reg: Registry | None = None) -> Path:
-    cands = []
-    if reg is not None and reg.get_setting("docmap_dir"):
-        cands.append(Path(reg.get_setting("docmap_dir")) / "tools" / "build_deploy.py")
-    cands.append(DOCMAPV1 / "tools" / "build_deploy.py")
-    for c in cands:
-        if c.is_file():
-            return c.resolve()
-    raise RunnerError("tools/build_deploy.py non trovato. Indica la cartella docmapv1 con: "
-                      "settings set docmap_dir C:\\percorso\\docmapv1")
+    return find_in_roots(reg, MARKER, "tools\\build_deploy.py (serve a costruire il sito)")
 
 
 def check_server_python(reg: Registry | None = None) -> dict:

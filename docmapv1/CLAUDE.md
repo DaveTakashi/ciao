@@ -36,7 +36,7 @@ Se `api.php` cambia, il server Python va riallineato nello stesso rilascio (il P
 
 ## Rilascio (ogni versione)
 
-Segui [`docs/RILASCIO.md`](docs/RILASCIO.md): versione, test, guida di aggiornamento, `CHANGELOG.md`, `STATO.md`,
+Segui [`docs/RILASCIO.md`](docs/RILASCIO.md) (lo zip per Dave si fa solo con `tools/crea-zip.py`): versione, test, guida di aggiornamento, `CHANGELOG.md`, `STATO.md`,
 `docs/INDICE.md`, zip nei file del progetto, memoria del progetto.
 
 ## Documentazione sempre aggiornata
