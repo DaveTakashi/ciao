@@ -1,4 +1,4 @@
-# DocMap 2026 (DM26) — versione 26.12.7
+# DocMap 2026 (DM26) — versione 26.12.8
 
 Archivio fisico-digitale dello studio. Ogni faldone ha:
 

@@ -489,7 +489,7 @@ const sec = (n) => console.log('\n== ' + n);
   sec('v8 A: navigation, Informazioni, QR reprint');
   // top bar: 3 main tabs, everything else in the "Funzioni avanzate" menu
   v = await p.evaluate(() => ({main:[...document.querySelectorAll('.nav .nav-main [data-a="nav"]')].map(b => b.dataset.v), adv:[...document.querySelectorAll('#nav-more [data-a="nav"]')].map(b => b.dataset.v).sort(), vis:[...document.querySelectorAll('.nav [data-a="nav"]')].filter(b => b.checkVisibility()).length}));
-  ok(v.main.join() === 'archive,print,info' && v.vis === 3 && v.adv.join() === 'ai,database,export,import,log,settings,sync', 'top bar: exactly 3 main tabs, the rest in the "Funzioni avanzate" menu', v);
+  ok(v.main.join() === 'archive,inv,print,info' && v.vis === 4 && v.adv.join() === 'ai,database,export,import,log,settings,sync', 'top bar: exactly 4 main tabs (v12.8: Progetti), the rest in the "Funzioni avanzate" menu', v);
   for (const view of ['import', 'export', 'database', 'ai', 'settings']){
     await p.click('#nav-more summary'); await p.waitForTimeout(120);
     await p.click('#nav-more [data-v="' + view + '"]'); await p.waitForTimeout(200);
@@ -3646,7 +3646,7 @@ const sec = (n) => console.log('\n== ' + n);
     const Doa = {};
     Dyaml.split(/\n(?=  \/\w)/).slice(1).forEach(blk => { const r = blk.match(/^  \/(\w+):/); if (!r || !/^\s+x-docmap-route:/m.test(blk)) return; const role = blk.match(/x-docmap-role: (\w+)/); Doa[r[1]] = {role:role ? role[1] : 'none', post:/^    post:/m.test(blk), get:/^    get:/m.test(blk)}; });
     const Ddiff = Object.keys(Object.assign({}, Dphp, Doa)).filter(k => !Doa[k] || !Dphp[k] || Doa[k].role !== Dphp[k] || (k in Dwrites ? Doa[k].get || !Doa[k].post : !Doa[k].get));
-    ok(Object.keys(Dphp).length === 16 && !Ddiff.length, 'D: openapi.yaml has exactly the routes of api.php, with the same role (writes POST only, reads GET)', {php:Object.keys(Dphp), diff:Ddiff});
+    ok(Object.keys(Dphp).length === 20 && !Ddiff.length, 'D: openapi.yaml has exactly the routes of api.php, with the same role (writes POST only, reads GET)', {php:Object.keys(Dphp), diff:Ddiff});
     const Dping = (Dapi.match(/'features' => \[([^\]]*)\]/) || [, ''])[1].replace(/'/g, '"').replace(/\s/g, '');
     ok(Dping && Dread('docs/API-CONTRACT.md').includes('"features":[' + Dping + ']') && Dread('docs/HANDOFF_PROMPT.md').includes('"features":[' + Dping + ']'), 'D: API-CONTRACT and HANDOFF_PROMPT show the ping features of api.php', Dping);
   }
@@ -4184,7 +4184,7 @@ const sec = (n) => console.log('\n== ' + n);
         const Atables = Asql(ADATA, "SELECT name FROM sqlite_master WHERE type='table'").map(r => r[0]);
         Av2 = await Aq('ping');
         ok(Av.s === 200 && Av.j.records.length === 3 && Av.j.records.find(r => r.id === 'a-2').updated_at === '2026-10-10T09:00:00.000Z' && Asql(ADATA, "SELECT v FROM meta WHERE k='schema'")[0][0] === '3' && Atables.includes('access_log') && Atables.includes('sync_journal') &&
-          Av2.j.schema === 3 && JSON.stringify(Av2.j.features) === '["journal","device_info","locations","archives","access_log","status_events"]' && Asql(ADATA, 'SELECT COUNT(*) FROM access_log')[0][0] === 0, 'A server: the v12 api.php upgrades a v11 database in place (schema 2 → 3, table access_log), records and time stamps kept, ping features + access_log', {t:Atables, ping:Av2.j});
+          Av2.j.schema === 3 && JSON.stringify(Av2.j.features) === '["journal","device_info","locations","archives","access_log","status_events","inventory"]' && Asql(ADATA, 'SELECT COUNT(*) FROM access_log')[0][0] === 0, 'A server: the v12 api.php upgrades a v11 database in place (schema 2 → 3, table access_log), records and time stamps kept, ping features + access_log', {t:Atables, ping:Av2.j});
         // a v10.1 database (schema 1) straight to v12 (2 and 3 in one go)
         fs.writeFileSync(Apath.join(ASP, 'config.php'), Acfg(ADATA10)); fs.writeFileSync(Apath.join(ASP, 'api.php'), Agit('68ae170'));
         Av = await Aq('push', {token:AT.mario, body:{records:Abase.slice(0, 2).map(x => ({type:'binder', id:x.id, updated_at:x.updated_at, data:x})), tombstones:[{type:'binder', id:'a-gone', code:'ZZG', deletedAt:'2026-10-05T10:00:00.000Z'}], deviceId:'dev-v101'}});

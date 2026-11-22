@@ -1,6 +1,6 @@
 # Indice della documentazione DocMap
 
-> Mappa di tutti i documenti di `docmapv1/` (versione **26.12.7**, hub **0.11.2**): a cosa serve ognuno, chi lo deve leggere e in che
+> Mappa di tutti i documenti di `docmapv1/` (versione **26.12.8**, hub **0.11.2**): a cosa serve ognuno, chi lo deve leggere e in che
 > ordine. I percorsi sono relativi a `docmapv1/`.
 
 ## Per ripartire (tutti)
@@ -52,6 +52,7 @@
 | [`AGGIORNAMENTO-v12.5-v12.6.md`](AGGIORNAMENTO-v12.5-v12.6.md) | **Guida dalla v12.5 alla v12.6**: Primi passi, stato sync sempre visibile, aggiornatore `AGGIORNA-DOCMAP.bat`, licenza controllata dai siti del hub. |
 | [`AGGIORNAMENTO-HUB-0.8.md`](AGGIORNAMENTO-HUB-0.8.md) | DocMap Hub: alla 0.8 (i siti online portano chiave pubblica e licenza: il PHP controlla la licenza). |
 | [`AGGIORNAMENTO-v12.6-v12.7.md`](AGGIORNAMENTO-v12.6-v12.7.md) | **Guida dalla v12.6 alla v12.7**: solo `setup.php` (cartella dati per ogni sito, risposta JSON per il hub). Nessuna migrazione. |
+| [`AGGIORNAMENTO-v12.7-v12.8.md`](AGGIORNAMENTO-v12.7-v12.8.md) | **Guida dalla v12.7 alla v12.8**: Progetti di inventario (etichette, telefono Scatola → Faldoni, revisione, AI facoltativa), indirizzo dei QR configurabile. Migrazioni solo additive. |
 | [`AGGIORNAMENTO-HUB-0.11.2.md`](AGGIORNAMENTO-HUB-0.11.2.md) | DocMap Hub: alla 0.11.2 (zip completo con «Inizia qui», guide HTML, domande frequenti, RACCOGLI-INFO.bat, zip controllato). |
 | [`AGGIORNAMENTO-HUB-0.11.1.md`](AGGIORNAMENTO-HUB-0.11.1.md) | DocMap Hub: alla 0.11.1 (correzioni del double check finale: sposta il sito in sottocartella, Attiva tutto che riprende, pagina Attività). Registro invariato. |
 | [`AGGIORNAMENTO-HUB-0.11.md`](AGGIORNAMENTO-HUB-0.11.md) | DocMap Hub: alla 0.11 (elimina cliente, pacchetto della sede pronto, più PC con il sito online, sposta il sito). Registro invariato. |

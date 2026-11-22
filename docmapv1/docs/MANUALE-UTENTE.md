@@ -621,3 +621,53 @@ Un clic porta alla pagina Sincronizzazione. Sul PC aperto da `file://` lo stato 
   quando la licenza torna valida.
 
 Un **limite** della licenza raggiunto (numero di faldoni o di utenti) blocca solo le aggiunte e non toglie nulla.
+
+## 22. Progetti di inventario: inventariare un archivio sconosciuto (v12.8)
+
+Serve quando arriva un archivio di cui non sai cosa contiene (un cliente nuovo, una cantina, un deposito): prima metti
+le etichette, poi con il telefono scansioni scatola e faldoni e il contenuto lo leggi dopo, con calma, sul PC.
+
+**1. Crea il progetto (PC).** In alto **Progetti › Nuovo progetto**:
+
+- **Nome** (es. «Inventario Rossi S.r.l. 2024») e **codice sulle etichette**, proposto da solo (es. `ROSSI24`): le etichette
+  diventano `ROSSI24-S001` per le scatole e `ROSSI24-0001` per i faldoni;
+- **Cliente** se l'archivio è di un solo cliente (ogni faldone lo riceve già scritto);
+- **Tag rapidi** (uno per riga: Fatture, Bilanci, Paghe…) e **anni attesi** (diventano i pulsanti sul telefono);
+- **Modalità**: *Scatola → faldoni* (prima la scatola, poi i suoi faldoni) oppure *Cattura ora, cataloga dopo*
+  (si scansionano solo i faldoni, la scatola è facoltativa);
+- quante etichette generare subito (es. 50 scatole, 500 faldoni).
+
+**2. Etichette.** Nel progetto ogni **lotto** ha **Stampa** (usa il foglio scelto in *Stampa etichette*; fai prima il
+foglio di prova) e **Manifest QR7** (il CSV da caricare su QR7 o sul servizio che usi). Finite le etichette, **Genera
+etichette** ne crea altre: i numeri continuano, un numero non viene mai riusato.
+
+**3. Sul posto (telefono).** Nel progetto **Apri sul telefono** mostra un QR: inquadralo con il telefono e accedi con il
+tuo utente (ruolo editor). Poi **Avvia la fotocamera** e:
+
+1. inquadra il QR della **scatola**: diventa la scatola attiva (riquadro nero in alto);
+2. inquadra un **faldone** dopo l'altro con la costa ben visibile: a ogni faldone un *beep*, la foto della costa e il
+   faldone è già creato e messo nella scatola;
+3. se serve, tocca i **tag** e l'**anno** (valgono per l'ultimo faldone; con «Mantieni per i prossimi» restano per i
+   successivi), oppure **tieni premuto il microfono** e detta: «fatture acquisti 2019» compila contenuto, tag e anno;
+4. sbagliato? **Annulla** entro 10 secondi.
+
+Un faldone già scansionato non viene creato due volte (anche da due telefoni insieme). Senza rete il telefono tiene tutto
+in coda («5 in attesa di rete») e lo invia da solo quando la connessione torna. C'è anche il campo per scrivere il codice
+o per un lettore Bluetooth.
+
+**4. Lettura automatica della costa (facoltativa).** Se nel server è configurata la chiave AI (vedi
+`AGGIORNAMENTO-v12.7-v12.8.md`), qualche secondo dopo la foto arrivano ditta, contenuto, anni e tag letti dalla costa.
+Con fiducia alta la proposta è **sicura**; altrimenti il faldone va in **Da rivedere**. L'AI non scrive mai un Codice Multi
+e non cancella quello che hai scritto tu.
+
+**5. Revisione (PC).** Nel progetto, **Revisione dei faldoni acquisiti**: foto della costa (clic per ingrandirla), campi da
+correggere direttamente, filtri *Da rivedere / Proposte / Solo acquisiti / Confermati*. **Conferma** uno per uno,
+**Conferma le proposte sicure** tutte insieme, oppure spunta e **Conferma i selezionati**. **Apri scheda** apre il faldone
+completo. I faldoni del progetto sono faldoni normali: compaiono nell'Archivio (selettore archivi in alto) e si stampano,
+cercano ed esportano come gli altri.
+
+**Indirizzo dei QR.** In **Impostazioni › Indirizzo dei QR** scegli l'indirizzo davanti al codice in ogni QR. Di
+predefinito è `https://qr7.it/`. Puoi usare un altro servizio o dominio, ma cambialo **prima** di stampare: vale per tutti
+i QR, anche per le ristampe.
+
+**Chiudere un progetto.** *Modifica › Stato: chiuso*: il telefono non accetta più scansioni; i faldoni restano.

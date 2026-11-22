@@ -838,3 +838,20 @@ ritorno della connessione `[{id, events, entry, at}]`; `localStorage 'docmap_v26
 corso `{v:1, user, box:{id, code, short_code}, startedAt, at, expected:[{id, code, company, short_code}], found:[id],
 extra:[{id, code}]}` (scade dopo 4 ore senza scansioni).
 
+
+## 18. Progetti di inventario (v12.8 — `assets/js/02f-inventory.js`, `06q-inventory.js`, `11f-inventory.js`)
+
+- **Progetto** = archivio (§ archivi) con `inv`:
+  `{prefix, code, client, status: open|closed, mode: box|capture, box_to, binder_to, batches:[{id, kind: box|binder, from, to, at, printed_at, format}], tags[], year_from, year_to, ai, auto_confirm, notes}`.
+  `prefix` (4 caratteri dell'alfabeto dei codici brevi) è dentro ogni QR stampato: unico, mai riusato, mai cambiato.
+  `box_to` / `binder_to` crescono soltanto (un numero non torna mai).
+- **Etichette**: scatola `dm26L<prefix><n>`, faldone `dm26<prefix><n>` (`n` = 4 caratteri base 56). Numero stampato:
+  `CODE-S001` (scatola), `CODE-0001` (faldone, è anche il codice parlante). I codici brevi casuali non cadono mai in un
+  prefisso di progetto (`invCodeTaken`).
+- **Scatola acquisita** = ubicazione radice con id `inv-<short_code>`, `archive_id` = progetto, `name` = numero stampato.
+- **Faldone acquisito** = faldone con id `inv-<short_code>`, `archive_id`, `location_id` (scatola), `speaking_code`, `company_name`
+  (= cliente del progetto se c'è) e `inv = {p, st: captured|proposed|review|confirmed, ph (id foto), ai: {company, title, year_from, year_to, doc_type, tags, notes, text, confidence, empty_spine, model, ms, at}, voice, by, dev, at, n, box, ok_by, ok_at}`.
+- **SQLite**: colonne `archives.inv_json`, `binders.inv_json` (JSON), aggiunte solo se mancano; nessun cambio di `DB_SCHEMA_VERSION`.
+- **Telefono**: `docmap_v26_inv_outbox` (coda: lavori `rec`, `tomb`, `ai`), `docmap_v26_inv_recent` (ultime 300 versioni dei
+  faldoni acquisiti), `docmap_v26_inv_prefs` (scatola attiva e «Mantieni» per progetto), IndexedDB `docmap_v26_inv` store `photos`.
+- **Server**: foto in `data_dir/photos/` cifrate (`API-CONTRACT.md` §14).

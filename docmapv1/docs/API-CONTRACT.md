@@ -34,7 +34,7 @@
 
 | Rotta | Metodo | Ruolo | Richiesta | Risposta 200 |
 |---|---|---|---|---|
-| `ping` | GET | nessuno | – | `{"ok":true,"api":"docmap-php","version":1,"schema":3,"features":["journal","device_info","locations","archives","access_log","status_events"],"server_time":"…","php":"8.3","app_version":"26.12.5"}` (v12.4: `app_version` = versione di DocMap dei file del server, la confronta "Verifica dopo l'aggiornamento"; funziona anche senza `config.php`; serve all'avviso di orologio sfasato) |
+| `ping` | GET | nessuno | – | `{"ok":true,"api":"docmap-php","version":1,"schema":3,"features":["journal","device_info","locations","archives","access_log","status_events","inventory"],"server_time":"…","php":"8.3","app_version":"26.12.8"}` (v12.4: `app_version` = versione di DocMap dei file del server, la confronta "Verifica dopo l'aggiornamento"; funziona anche senza `config.php`; serve all'avviso di orologio sfasato) |
 | `me` | GET | viewer | – | `{"user":"mario","role":"editor","token_id":"cfg:1","studio_name":"…","server_time":"…","remember_minutes":null}` (v12: `remember_minutes` di `config.php`, §11) |
 | `pull` | GET | viewer | `since=<seq>` (0 = tutto) · `log_since=<seq>` | vedi §3 |
 | `push` | POST | editor | vedi §4 | `{"applied":n,"same":n,"rejected":[…],"settings_applied":bool,"logged":n,"seq":n,"server_time":"…"}` |
@@ -49,6 +49,10 @@
 | `journal_restore` (v11) | POST | admin | `{"jid":n,"n":n,"version":"prev"|"new"}` | `{"ok":true,"type","id","updated_at","deleted":bool,"journal_id":n,"seq":n}` |
 | `access` (v12) | GET | editor (solo le proprie righe) · admin (tutte, con IP) | filtri, vedi §11 | `{"items":[AccessItem],"more":bool,"next_before":aid|null,"server_time":"…"}` · viewer → 403 |
 | `last_seen` (v12) | GET | viewer | `type=binder|location` + `id=<id>` oppure `code=<codice>`, `limit` (5, max 20) | `{"items":[{"at","user","via","route","device_name"}],"total":n,"server_time":"…"}` · 400 senza id/code |
+| `project` (v12.8) | GET | viewer | nessun parametro → progetti aperti · `id=<id dell'archivio>` | `{"items":[{"id","name","code","prefix","client","status","updated_at"}]}` · `{"project":Archive,"etag","scanned":[{"t":"b"|"l","c":"<short_code>","u":"<updated_at>"}]}` · 404 · §14 |
+| `photo_put` (v12.8) | POST | editor | `{"id":"ph-…","binder_id","mime":"image/jpeg"|"image/png"|"image/webp","data":"<base64>"}` | `{"id","bytes","existed":bool,"at"}` (stesso id = non riscrive) · 413 oltre `photo_max_kb` · §14 |
+| `photo` (v12.8) | GET | viewer | `id=<id della foto>` | `{"id","binder_id","mime","bytes","at","who","data":"<base64>"}` · 404 |
+| `ai_spine` (v12.8) | POST | editor | `{"photo_id"}` oppure `{"data","mime"}` e/o `{"voice"}` · `hints:{tags[],year_from,year_to,client}` | `{"enabled":false}` senza `ai_provider` · `{"enabled":true,"provider","model","result":SpineResult,"ms"}` · §14 |
 | `seen` (v12) | POST | viewer | `{"items":[{"type":"binder","id","code","at","via"}]}` (max 500) | `{"recorded":n,"skipped":n,"server_time":"…"}` · 413 oltre 500 |
 
 Campi aggiunti in v11 (un client v10.1 li ignora): `ping` → `"schema":2,"features":[…]` (v11: `journal`, `device_info`, `locations`; v12: `archives`, `access_log` e schema 3);
@@ -345,3 +349,29 @@ con `undo_of`), quindi lo stesso id arriva sempre con lo stesso contenuto (`same
 - Il telefono applica "tutta la scatola" e la Verifica rientro a `binders` + `nested_binders`; il PC fa lo stesso con
   `sqBoxBinders` (06j-status.js). Nessun cambio di schema del server (resta 3) né delle feature del ping.
 
+
+## 14. v12.8 — progetti di inventario, foto delle coste, lettura AI
+
+Nessuna migrazione di schema (resta 3); `ping` aggiunge `"inventory"` alle `features`.
+
+- **Progetto** = record `archive` con `data.inv` = `{prefix, code, client, status: open|closed, mode: box|capture,
+  box_to, binder_to, batches[], tags[], year_from, year_to, ai, auto_confirm, notes}` (`MODELLO-DATI.md`, 02f-inventory.js).
+  `prefix` = 4 caratteri dell'alfabeto dei codici brevi, unico e mai riusato; per un progetto `rec_write` scrive
+  `k_short = HMAC('invp/<prefix>')`.
+- **Etichette**: scatola `dm26L` + prefix + numero, faldone `dm26` + prefix + numero (numero = 4 caratteri in base 56,
+  1…9 834 495): sono codici normali di ubicazione / faldone, quindi QR7, il manifest e ogni lettore esistente le gestiscono.
+  Un'etichetta non ancora scansionata non ha record: `resolve`, `binder` e `location` rispondono 404 con
+  `error.label = {project_id, name, code, kind: box|binder, n, in_range}` se il prefisso è di un progetto.
+- **Record scritti dal telefono**: id deterministici `inv-<short_code>` (due telefoni o una seconda scansione non creano
+  mai due faldoni per la stessa etichetta); faldone con `archive_id` = progetto, `location_id` = scatola, `speaking_code`
+  = numero stampato (`ROSSI24-0042`) e `inv = {p, st: captured|proposed|review|confirmed, ph, ai, voice, by, dev, at, n, box}`.
+  `project&id=` restituisce `scanned` leggendo solo gli id in chiaro (nessuna decifratura).
+- **Foto**: `data_dir/photos/<id>.bin` + `.meta`, AES-256-GCM con AAD `photo/<id>` e `photo-meta/<id>`; limite
+  `photo_max_kb` (predefinito 800, minimo 16). Un id già presente non viene riscritto.
+- **AI** (`ai_provider` = `''` spento · `anthropic` · `mock` per i test): `ai_model` (predefinito `claude-opus-5-5`),
+  `ai_effort` (`low`), `ai_timeout` (30 s). Chiamata Messages API con output strutturato (JSON schema) e, per i modelli
+  che lo supportano, fallback lato server; un rifiuto del modello torna come risultato vuoto con fiducia 0.
+  `SpineResult` = `{company, title, year_from, year_to, doc_type, tags[] (solo tra hints.tags), notes, text, confidence 0–1,
+  empty_spine}`. Il provider `mock` legge solo `voice` (anni e tag nominati, fiducia 0.9 o 0.2): PHP e Python rispondono uguale.
+- Il server **non** applica il risultato: lo fa il telefono (campi vuoti soltanto, stato `proposed` se la fiducia supera
+  `inv.auto_confirm` o se c'è una descrizione a voce, altrimenti `review`) con un nuovo `push`.

@@ -85,11 +85,15 @@
    row (class tb-wrap). Runs after every top-bar render, after a server status change and on resize. */
 function dmTopbarFit(){
   const tb = document.getElementById('topbar'); if (!tb) return;
-  tb.classList.remove('tb-wrap');
+  tb.classList.remove('tb-wrap', 'tb-compact');
   const nav = tb.querySelector('.nav'), tr = tb.querySelector('.top-right');
-  let over = tb.scrollWidth > tb.clientWidth + 1 || (nav && nav.scrollWidth > nav.clientWidth + 1);
-  if (!over && nav && tr){ const kids = nav.children, last = kids[kids.length - 1]; if (last && last.getBoundingClientRect().right > tr.getBoundingClientRect().left - 4) over = true; }
-  if (over) tb.classList.add('tb-wrap');
+  const isOver = () => {
+    if (tb.scrollWidth > tb.clientWidth + 1 || (nav && nav.scrollWidth > nav.clientWidth + 1)) return true;
+    if (nav && tr){ const kids = nav.children, last = kids[kids.length - 1]; if (last && last.getBoundingClientRect().right > tr.getBoundingClientRect().left - 4) return true; }
+    return false;
+  };
+  // v12.8: first try the compact labels (same as below 1300 px), only then a second row: a taller sticky bar covers content
+  if (isOver()){ tb.classList.add('tb-compact'); if (isOver()) tb.classList.add('tb-wrap'); }
 }
 (function(){
   if (typeof renderTopbar === 'function' && document.getElementById('topbar')){

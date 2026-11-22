@@ -48,4 +48,17 @@ return [
   // is asked again. null = each device uses its own setting · 0 = always ask · 480 = 8 hours · 43200 = 30 days · -1 = never
   // (until "Esci" or until the device's access code is revoked).
   'remember_minutes' => null,
+
+  // v12.8 inventory projects ("Progetti"). All optional.
+  // photo_max_kb: largest spine photo accepted from the phone (the phone sends ~150-300 KB JPEGs).
+  // ai_provider: '' = no AI reading of the spines (default) · 'anthropic' = Claude reads each spine photo (needs ai_api_key;
+  //   photos and dictated words are sent to Anthropic: a data processing agreement / GDPR art. 28 is needed) · 'mock' = tests only.
+  // ai_model: 'claude-opus-5-5' (default, best reading) or a cheaper model such as 'claude-haiku-5-5'.
+  // ai_effort: 'low' keeps each reading short and fast. ai_timeout: seconds before giving up (the phone never waits for it).
+  'photo_max_kb' => 800,
+  'ai_provider' => '',
+  'ai_api_key' => '',
+  'ai_model' => 'claude-opus-5-5',
+  'ai_effort' => 'low',
+  'ai_timeout' => 30,
 ];

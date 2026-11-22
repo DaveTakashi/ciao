@@ -34,6 +34,23 @@ def dec(key: bytes, blob, aad: str) -> str:
     return raw.decode("utf-8", "surrogateescape")
 
 
+def enc_bytes(key: bytes, plain: bytes, aad: str) -> bytes:
+    """enc() for binary payloads (v12.8 spine photos): PHP strings are bytes."""
+    iv = os.urandom(12)
+    ct_tag = AESGCM(key).encrypt(iv, bytes(plain), aad.encode("utf-8"))
+    return b"\x01" + iv + ct_tag[-16:] + ct_tag[:-16]
+
+
+def dec_bytes(key: bytes, blob, aad: str) -> bytes:
+    if not isinstance(blob, (bytes, bytearray, memoryview)) or len(blob) < 29 or bytes(blob[:1]) != b"\x01":
+        raise CryptoError("unreadable")
+    blob = bytes(blob)
+    try:
+        return AESGCM(key).decrypt(blob[1:13], blob[29:] + blob[13:29], aad.encode("utf-8"))
+    except InvalidTag:
+        raise CryptoError("key")
+
+
 def hidx(key: bytes, v: str):
     if v == "":
         return None

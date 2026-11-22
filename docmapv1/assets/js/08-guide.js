@@ -213,7 +213,9 @@ function guideResolve(target, noOpen){
   if (!el || !el.getBoundingClientRect) return null;
   // a target inside a closed <details> (e.g. print "Advanced options", the ⚙ menu) is opened first
   const d = el.closest && el.closest('details:not([open])');
-  if (d){ if (!noOpen) d.open = true; return null; }
+  if (d){ if (!noOpen){ d.open = true; if (d.id === 'nav-more') G.menuByGuide = true; } return null; }
+  // v12.8: the ⚙ menu the guide opened closes again once the step points elsewhere (its list could cover the target)
+  if (G.menuByGuide && !noOpen){ const m = document.getElementById('nav-more'); if (!m || !m.contains(el)){ G.menuByGuide = false; if (m && m.open) m.open = false; } }
   const r = el.getBoundingClientRect();
   return (r.width || r.height) ? el : null;
 }
@@ -257,7 +259,7 @@ function guideStart(id, at){
 }
 /* programmatic stop (no question asked): used by guideStart, the final "Termina" and the tests */
 function guideStop(silent){
-  cancelAnimationFrame(G.raf);
+  cancelAnimationFrame(G.raf); G.menuByGuide = false;
   $('#guide-root').innerHTML = '';
   document.body.classList.remove('guide-on');
   G.id = null; G.g = null; G.els = null; G.confirm = false;

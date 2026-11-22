@@ -2,7 +2,7 @@
    DocMap 2026 — core: i18n, state, persistence, data model helpers
    ===================================================================== */
 'use strict';
-const APP_VERSION = '26.12.7';
+const APP_VERSION = '26.12.8';
 const LS_KEY = 'docmap_v26_state';
 const LS_PREV = 'docmap_v26_state_prev';
 const SC_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
@@ -345,7 +345,7 @@ function suggestSpeakingCode(company, extraTaken){
 function allShortCodes(excludeId){ const s = new Set(); S.binders.forEach(b => { if (b.id !== excludeId && b.short_code) s.add(b.short_code); }); return s; }
 function newShortCode(extra){
   const taken = allShortCodes(); (extra || []).forEach(x => taken.add(x));
-  let c; do { c = 'dm26' + randChars(8); } while (taken.has(c));
+  let c; do { c = 'dm26' + randChars(8); } while (taken.has(c) || (typeof invCodeTaken === 'function' && invCodeTaken(c)));   // v12.8: never inside a project label range
   return c;
 }
 /* Integrity guard: every binder gets a unique id, a unique non-empty speaking code and a unique valid short code.
@@ -369,7 +369,17 @@ function normalizeClient(c){
   return o;
 }
 const clientPlace = (c) => c.city ? c.city + (c.province ? ' (' + c.province + ')' : '') : '';
-function shortUrl(code){ return 'https://qr7.it/' + code; }
+const QR_BASE_DEFAULT = 'https://qr7.it/';
+/** v12.8: QR address prefix, agnostic of the provider: Impostazioni › "Indirizzo dei QR" (S.settings.qrBase), else
+    docmap.config.js qrBase, else qr7.it (default, unchanged). Only the text put in NEW QR images changes: labels
+    already printed keep their address, so the resolver must keep answering for it. */
+function qrBase(){
+  const ok = (v) => { v = String(v || '').trim(); return /^https?:\/\/[^\s]+$/i.test(v) ? (v.endsWith('/') || v.endsWith('=') ? v : v + '/') : ''; };
+  let v = ''; try { v = ok(typeof S !== 'undefined' && S && S.settings && S.settings.qrBase); } catch(e){ v = ''; }
+  if (!v) try { v = ok(window.DOCMAP_CONFIG && window.DOCMAP_CONFIG.qrBase); } catch(e){ v = ''; }
+  return v || QR_BASE_DEFAULT;
+}
+function shortUrl(code){ return qrBase() + code; }
 function destFor(b){
   if (b.final_destination && String(b.final_destination).trim()) return String(b.final_destination).trim();
   return renderDest(S.settings.destTemplate, b);
