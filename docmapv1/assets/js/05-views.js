@@ -642,6 +642,7 @@ function viewSettings(){
         '<div class="small" style="margin-top:6px">' + esc(t('se_dest_prev')) + ' (' + esc(ex.speaking_code) + '): <span class="mono" id="se-dest-prev" style="word-break:break-all">' + esc(renderDest(S.settings.destTemplate, ex)) + '</span></div></div>' +
       '<button class="btn" data-a="se-apply-dest">' + ic('link') + esc(t('se_apply_dest')) + '</button>' +
       '<div class="field"><label>' + esc(t('se_lang')) + '</label><div class="seg"><button data-a="lang" data-l="it" class="' + (S.lang === 'it' ? 'on' : '') + '">🇮🇹 Italiano</button><button data-a="lang" data-l="en" class="' + (S.lang === 'en' ? 'on' : '') + '">🇬🇧 English</button></div></div>' +
+      (typeof dmThemeHTML === 'function' ? '<div class="field" id="se-theme"><label>' + esc(t('th_h')) + '</label>' + dmThemeHTML('seg') + '<div class="hint">' + esc(t('th_hint')) + '</div></div>' : '') +   // v12.9 (02i-theme.js)
     '</div><div class="card card-p stack"><h2>' + esc(t('se_data')) + '</h2><div class="small muted">' + esc(t('se_storage', {k:kb})) + '</div>' +
       '<button class="btn" data-a="quick-backup">' + ic('save') + esc(t('quick_backup')) + '</button>' +
       '<button class="btn" data-a="pick-restore">' + ic('upload') + esc(t('se_restore')) + '</button>' +

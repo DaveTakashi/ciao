@@ -19,6 +19,8 @@
   (function(){ var m = location.pathname.match(/^(.*\/)q\/[^\/]+\/?$/); if (m && location.protocol !== 'file:'){ var b = document.createElement('base'); b.href = m[1]; document.head.appendChild(b); } })();
 </script>
 <script src="docmap.config.js"></script>
+<script>/* v12.9 theme chosen on this device (Impostazioni › Aspetto): applied before the first paint */try{var dmT=localStorage.getItem("docmap_theme");if(dmT==="dark"||dmT==="light")document.documentElement.setAttribute("data-theme",dmT);}catch(e){}</script>
+<link rel="stylesheet" href="assets/css-tokens.css">
 <link rel="stylesheet" href="assets/css-scan.css">
 <link rel="stylesheet" href="assets/css-journal.css">
 <link rel="stylesheet" href="assets/css-locations.css">
@@ -38,6 +40,7 @@
 <script src="assets/js/02f-inventory.js"></script>   <!-- v12.8: inventory projects model -->
 <script src="assets/js/02g-pwa.js"></script>   <!-- v12.9: installable app -->
 <script src="assets/js/02h-timing.js"></script>   <!-- v12.9: stopwatch of real working times -->
+<script src="assets/js/02i-theme.js"></script>   <!-- v12.9: theme Automatico / Chiaro / Scuro -->
 <script src="assets/js/04c-search.js"></script>   <!-- v12: search engine -->
 <script src="assets/js/02d-status.js"></script>   <!-- v12: status model -->
 <script src="assets/js/10-auth.js"></script>

@@ -695,3 +695,14 @@ Le pause oltre 2 minuti non contano. Dove vederli: sul PC **Impostazioni › Inf
 sul telefono **Tempi misurati** sotto la casella del codice. **Copia i tempi** prepara un testo da mandare, **Azzera**
 ricomincia. Restano solo su quel dispositivo e sono solo durate: mai nomi, codici o clienti.
 
+## 24. Tema scuro e «Cerca ovunque» (v12.9)
+
+**Tema scuro.** DocMap segue il tema del sistema (chiaro di giorno, scuro se Windows o il telefono sono in scuro). Per
+sceglierlo a mano: sul PC **Impostazioni › Aspetto** (Automatico, Chiaro, Scuro); sul telefono la riga **Aspetto** sotto
+«Tempi misurati». La scelta vale solo per quel dispositivo. Etichette, anteprime dei fogli e stampe restano sempre
+chiare, così un'etichetta non esce mai con lo sfondo scuro.
+
+**Cerca ovunque (Ctrl+K).** Sul PC premi **Ctrl+K** (⌘K sul Mac) o la lente 🔍 in alto, accanto al «?». Scrivi un
+pezzo di codice, cliente, titolo, oppure il nome di una pagina («stampa», «progetti») o di un'azione («backup»,
+«nuovo faldone», «tema»). **↑ ↓** per scegliere, **Invio** per aprire, **Esc** per chiudere. Aprire un faldone da qui
+conta nei «Tempi misurati».

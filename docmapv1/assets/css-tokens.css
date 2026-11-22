@@ -1,0 +1,77 @@
+/* =====================================================================
+   DocMap 2026 — design tokens (v12.9, wave 1 "qualità percepita"). Loaded FIRST by index.html and scan.html.
+   One place for colour, type, spacing, radius, elevation and motion. Every other stylesheet uses var(--…) only.
+
+   Themes: light (default), dark from the system (prefers-color-scheme) or forced with <html data-theme="dark|light">
+   (Impostazioni › Aspetto, 02i-theme.js). Dark tokens apply to the SCREEN only: printing (labels, PDF) always uses
+   the light values, so a label never comes out with a dark background.
+
+   White label (later): a reseller changes --brand-* (and the logo) only; every accent derives from them.
+   ===================================================================== */
+:root{
+  /* brand */
+  --brand:#2563EB; --brand-strong:#1D4ED8; --brand-ink:#1E3A8A; --brand-weak:#EFF6FF; --brand-line:#BFDBFE;
+  /* neutrals (surfaces, text, lines) */
+  --bg:#F8FAFC; --surface:#FFFFFF; --surface-2:#F1F5F9; --surface-3:#E2E8F0; --surface-raised:#FFFFFF;
+  --text:#0F172A; --text-2:#334155; --muted:#64748B; --faint:#94A3B8; --on-accent:#FFFFFF;
+  --border:#E2E8F0; --border-2:#CBD5E1;
+  /* status */
+  --green:#047857; --green-weak:#ECFDF5; --green-line:#A7F3D0;
+  --amber:#B45309; --amber-ink:#92400E; --amber-weak:#FFFBEB; --amber-line:#FCD34D;
+  --red:#B91C1C; --red-ink:#7F1D1D; --red-weak:#FEF2F2; --red-line:#FECACA;
+  --violet:#6D28D9; --violet-weak:#F5F3FF;
+  /* accent aliases used by the existing stylesheets */
+  --accent:var(--brand); --accent-2:var(--brand-strong); --accent-weak:var(--brand-weak);
+  --accent-ring:rgba(37,99,235,.24); --ring:var(--accent-ring);
+  /* code boxes (always dark, both themes) */
+  --code-bg:#0F172A; --code-text:#E2E8F0;
+  /* type */
+  --font:"DM Inter","Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:"DM Mono","JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  --fs-xs:.75rem; --fs-sm:.8125rem; --fs-md:.9375rem; --fs-lg:1.0625rem; --fs-xl:1.25rem; --fs-2xl:1.5rem;
+  --lh:1.45; --fw-strong:650;
+  /* space (4 px grid) */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:24px; --s8:32px;
+  /* radius */
+  --radius-sm:8px; --radius:12px; --radius-lg:16px; --radius-pill:999px;
+  /* elevation */
+  --shadow:0 1px 2px rgba(15,23,42,.04),0 1px 1px rgba(15,23,42,.03);
+  --shadow-md:0 4px 16px -6px rgba(15,23,42,.14);
+  --shadow-lg:0 24px 64px -16px rgba(15,23,42,.28),0 4px 12px rgba(15,23,42,.06);
+  /* motion */
+  --ease:cubic-bezier(.2,.7,.2,1); --dur:.16s;
+  /* touch */
+  --tap:44px;
+  color-scheme:light;
+}
+@media screen and (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --brand:#60A5FA; --brand-strong:#3B82F6; --brand-ink:#BFDBFE; --brand-weak:#172554; --brand-line:#1E3A8A;
+    --bg:#0B1120; --surface:#111827; --surface-2:#1F2937; --surface-3:#273244; --surface-raised:#1A2333;
+    --text:#F1F5F9; --text-2:#CBD5E1; --muted:#94A3B8; --faint:#64748B; --on-accent:#0B1120;
+    --border:#1F2937; --border-2:#334155;
+    --green:#34D399; --green-weak:#052E1C; --green-line:#065F46;
+    --amber:#FBBF24; --amber-ink:#FDE68A; --amber-weak:#2A1B05; --amber-line:#78350F;
+    --red:#F87171; --red-ink:#FECACA; --red-weak:#2A0B0B; --red-line:#7F1D1D;
+    --violet:#A78BFA; --violet-weak:#1E1336; --code-bg:#020617; --code-text:#E2E8F0;
+    --accent-ring:rgba(96,165,250,.35);
+    --shadow:none; --shadow-md:0 4px 16px -6px rgba(0,0,0,.5); --shadow-lg:0 24px 64px -16px rgba(0,0,0,.6);
+    color-scheme:dark;
+  }
+}
+@media screen{
+  :root[data-theme="dark"]{
+    --brand:#60A5FA; --brand-strong:#3B82F6; --brand-ink:#BFDBFE; --brand-weak:#172554; --brand-line:#1E3A8A;
+    --bg:#0B1120; --surface:#111827; --surface-2:#1F2937; --surface-3:#273244; --surface-raised:#1A2333;
+    --text:#F1F5F9; --text-2:#CBD5E1; --muted:#94A3B8; --faint:#64748B; --on-accent:#0B1120;
+    --border:#1F2937; --border-2:#334155;
+    --green:#34D399; --green-weak:#052E1C; --green-line:#065F46;
+    --amber:#FBBF24; --amber-ink:#FDE68A; --amber-weak:#2A1B05; --amber-line:#78350F;
+    --red:#F87171; --red-ink:#FECACA; --red-weak:#2A0B0B; --red-line:#7F1D1D;
+    --violet:#A78BFA; --violet-weak:#1E1336; --code-bg:#020617; --code-text:#E2E8F0;
+    --accent-ring:rgba(96,165,250,.35);
+    --shadow:none; --shadow-md:0 4px 16px -6px rgba(0,0,0,.5); --shadow-lg:0 24px 64px -16px rgba(0,0,0,.6);
+    color-scheme:dark;
+  }
+}
+@media (prefers-reduced-motion:reduce){ :root{ --dur:0s; } }

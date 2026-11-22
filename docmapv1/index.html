@@ -6,6 +6,8 @@
 <title>DocMap 2026 — Phygital Archive &amp; Precision Label Studio</title>
 <meta name="description" content="DocMap 2026 (DM26): archivio fisico-digitale, mappatura scaffali, stampa millimetrica di etichette con QR qr7.it, database SQLite locale. Funziona offline con doppio clic.">
 <script src="docmap.config.js"></script>   <!-- v10: mode local | web (static upload); see docs/DEPLOY-WEB.md -->
+<script>/* v12.9 theme chosen on this device (Impostazioni › Aspetto): applied before the first paint */try{var dmT=localStorage.getItem("docmap_theme");if(dmT==="dark"||dmT==="light")document.documentElement.setAttribute("data-theme",dmT);}catch(e){}</script>
+<link rel="stylesheet" href="assets/css-tokens.css">   <!-- v12.9: design tokens, light + dark themes -->
 <link rel="stylesheet" href="assets/docmap.css">
 <link rel="stylesheet" href="assets/css-info.css">
 <link rel="stylesheet" href="assets/css-editor.css">
@@ -50,6 +52,7 @@
 <script src="assets/js/02f-inventory.js"></script>   <!-- v12.8: inventory projects model (shared with scan.html) -->
 <script src="assets/js/02g-pwa.js"></script>   <!-- v12.9: installable app (service worker sw.js, manifest) -->
 <script src="assets/js/02h-timing.js"></script>   <!-- v12.9: stopwatch of real working times (find / catalogue) -->
+<script src="assets/js/02i-theme.js"></script>   <!-- v12.9: theme Automatico / Chiaro / Scuro -->
 <script src="assets/js/02d-status.js"></script>   <!-- v12: status types + status_event model (shared with scan.html) -->
 <script src="assets/js/02b-colors.js"></script>
 <script src="assets/js/03-print.js"></script>
@@ -84,6 +87,7 @@
 <script src="assets/js/06o-licence.js"></script>   <!-- v12.6: licence banner + sync status also on the PC from file:// -->
 <script src="assets/js/06p-firststeps.js"></script>   <!-- v12.6: "Primi passi" checklist in the Archivio -->
 <script src="assets/js/06q-inventory.js"></script>   <!-- v12.8: Progetti di inventario (view, labels, review grid), QR address setting -->
+<script src="assets/js/04d-palette.js"></script>   <!-- v12.9: «Cerca ovunque» Ctrl+K -->
 <script src="assets/js/09-actions.js"></script>
 </body>
 </html>

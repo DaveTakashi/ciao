@@ -1,6 +1,6 @@
 # DocMap: da 26.12.8 (v12.8) a 26.12.9 (v12.9) — app installabile e cronometro
 
-Due novità piccole e sicure, primo passo della roadmap «verso lo stato dell'arte» (ondata 0). **Nessun dato cambia**:
+Novità piccole e sicure, primi passi della roadmap «verso lo stato dell'arte» (ondate 0 e 1). **Nessun dato cambia**:
 nessuna migrazione, nessuna chiave di memoria nuova per i dati, nessuna modifica del server oltre al numero di versione.
 
 ## Cosa cambia
@@ -22,11 +22,19 @@ nessuna migrazione, nessuna chiave di memoria nuova per i dati, nessuna modifica
   - Restano **solo su quel dispositivo** e sono solo durate: mai nomi, codici o clienti. **Copia i tempi** per
     mandarli, **Azzera** per ricominciare.
 - Da `file://` (doppio clic su `index.html`) non cambia niente: i browser non permettono l'installazione da un file.
+- **Nuovo stile grafico (ondata 1)**: tutti i colori, le misure e le ombre stanno in un solo file
+  (`assets/css-tokens.css`). In chiaro l'aspetto resta quello di prima.
+- **Tema scuro**: segue il sistema (Windows, Android, iPhone) oppure si sceglie in **Impostazioni › Aspetto**
+  (Automatico, Chiaro, Scuro); sul telefono sotto «Tempi misurati». La scelta vale per quel dispositivo. Etichette,
+  anteprime dei fogli e stampe restano **sempre chiare**.
+- **Cerca ovunque (Ctrl+K)**: sul PC premi **Ctrl+K** (⌘K sul Mac) o la lente 🔍 in alto: una sola casella per faldoni,
+  clienti, pagine e azioni (nuovo faldone, backup, tema…). Frecce per scegliere, Invio per aprire, Esc per chiudere.
 
 ## File nuovi
 
 `sw.js`, `manifest.webmanifest`, `scan.webmanifest` (accanto a `index.html`), `assets/icons/` (4 icone),
-`assets/js/02g-pwa.js`, `assets/js/02h-timing.js`. Il deploy (`tools/build_deploy.py`, hub «Invia ai siti») li copia
+`assets/js/02g-pwa.js`, `assets/js/02h-timing.js`, `assets/js/02i-theme.js`, `assets/js/04d-palette.js`,
+`assets/css-tokens.css`. Cambiano anche tutti gli altri `assets/*.css`: caricali tutti. Il deploy (`tools/build_deploy.py`, hub «Invia ai siti») li copia
 da solo e aggiunge al `.htaccess` il tipo dei file `.webmanifest`.
 
 ## Passi

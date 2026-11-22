@@ -104,7 +104,7 @@ document.addEventListener('click', async (e) => {
    opening a binder (editor, status sheet, QR on the PC; the card on the phone) stops it. An emptied box cancels it.
    catalog: recorded by the inventory page itself (11f-inventory.js, ivCapture). */
 document.addEventListener('input', (e) => {
-  const el = e.target; if (!el || !(el.id === 'sr-ph-q' || (el.dataset && el.dataset.bind === 'q'))) return;
+  const el = e.target; if (!el || !(el.id === 'sr-ph-q' || el.id === 'ck-q' || (el.dataset && el.dataset.bind === 'q'))) return;
   if (String(el.value || '').trim()) dmtStartIfIdle('find'); else dmtCancel('find');
 }, true);
 function dmtWrap(name, fn){
@@ -126,7 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (typeof HELP_TOPICS === 'undefined' || HELP_TOPICS.some(x => x.id === 'app-install')) return;
   HELP_TOPICS.push({ id:'app-install', guide:null, tags:['online', 'help'], related:['about', 'server', 'inventory'],
     kw:{it:'installa app icona schermata home telefono offline senza rete pwa tempi misurati cronometro velocità secondi', en:'install app icon home screen phone offline no network pwa measured times stopwatch speed seconds'},
-    title:{it:'Installare DocMap come app e tempi misurati', en:'Install DocMap as an app, measured times'},
+    title:{it:'DocMap come app sul telefono e sul PC, tempi misurati', en:'DocMap as an app on phone and PC, measured times'},
     body:{it:'<p>Dal sito <b>https://</b> DocMap si installa come un\'app, senza store: <b>Android</b> menu ⋮ › Installa app; <b>iPhone</b> Condividi › Aggiungi alla schermata Home; <b>PC</b> l\'icona ⊕ nella barra degli indirizzi di Chrome o Edge. Si apre anche senza rete (solo il programma: i dati del server arrivano quando torna la connessione). Da <b>index.html</b> aperto con doppio clic non si installa.</p>' +
       '<p><b>Tempi misurati</b>: quanto ci vuole a trovare un faldone (dalla prima lettera nella ricerca all\'apertura) e a catalogarlo nell\'inventario. Li vedi in <b>Impostazioni › Informazioni su DocMap › Dettagli e assistenza</b> e sul telefono sotto la casella del codice. Restano su questo dispositivo, solo durate.</p>' +
       '<p><button class="btn btn-sm" data-a="hx-about" type="button">Apri Informazioni su DocMap</button></p>',
