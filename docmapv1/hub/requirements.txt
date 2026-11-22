@@ -1,0 +1,3 @@
+cryptography>=41
+# Facoltativo, solo per il deploy via SFTP (FTPS non ne ha bisogno):
+#   .venv\Scripts\python.exe -m pip install paramiko

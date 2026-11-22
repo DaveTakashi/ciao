@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DocMap client (cliente dell'anagrafica)",
+  "description": "A client of the register as written by DocMap v11.1 (normalizeClient in assets/js/02-core.js, mapClient in 06c-clients.js): S.clients, workspace JSON, sync packages, server records of type 'client'. All values are trimmed strings with single spaces. The link to binders is BY VALUE (binder.multi_code = client.multi_code, or the same name case-insensitive): there is no client_id on the binder. Contract: docs/MODELLO-DATI.md §3.",
+  "type": "object",
+  "required": ["id", "multi_code", "name", "address", "cap", "city", "province", "type", "category", "notes"],
+  "properties": {
+    "id": {"type": "string", "minLength": 1, "description": "Stable id (UUID v4)."},
+    "multi_code": {"type": "string", "description": "Codice Multi ('Ditta' column of the studio list): de-duplication key when present (case-insensitive)."},
+    "name": {"type": "string", "description": "Ragione sociale (required by the import: rows without a name are skipped)."},
+    "address": {"type": "string"},
+    "cap": {"type": "string", "description": "Postal code, kept as text (leading zeros)."},
+    "city": {"type": "string"},
+    "province": {"type": "string"},
+    "type": {"type": "string", "description": "TIPO column (e.g. ENC)."},
+    "category": {"type": "string", "description": "ETS_ENC column (or TIPO when empty), e.g. APS."},
+    "notes": {"type": "string", "description": "Free notes; the 'Codice_com' column becomes 'Cod. comune E547'."},
+    "color_hex": {"type": "string", "pattern": "^(#[0-9A-F]{6})?$", "description": "v10, optional: spine colour for the binders created from this client (import column Colore)."},
+    "tags": {"type": "string", "description": "v10, optional: tags copied to the binders created from this client."},
+    "updated_at": {"type": "string", "format": "date-time", "description": "v10, set by the sync change tracking (06f-sync.js); not stored in the .sqlite."}
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,6 @@
+/* v12.6 licence banner (06o-licence.js) */
+.lic-banner{display:flex;gap:10px;align-items:flex-start;margin:8px auto 0;max-width:1400px;padding:10px 14px;border-radius:12px;background:var(--amber-weak,#FEF3C7);border:1px solid #FCD34D;color:#78350F;font-size:14px}
+.lic-banner.lic-bad{background:#FEE2E2;border-color:#FECACA;color:#7F1D1D}
+.lic-banner .lic-more{display:inline}
+.lic-banner .lic-more summary{display:inline;cursor:pointer;text-decoration:underline}
+@media print{.lic-banner{display:none!important}}

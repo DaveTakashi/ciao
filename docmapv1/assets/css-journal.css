@@ -1,0 +1,70 @@
+/* =====================================================================
+   DocMap 2026 — v11 (stream J): "Registro sincronizzazioni" (desktop card + detail modal) and
+   "Le mie sincronizzazioni" (scan.html). Uses the tokens of docmap.css / css-scan.css; loaded by both pages.
+   ===================================================================== */
+
+/* desktop card */
+.jr-card{margin-top:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.jr-head{align-items:flex-start;gap:12px;flex-wrap:wrap}
+.jr-head > div:first-child{min-width:0;flex:1 1 320px}
+.jr-head h2 .ic{vertical-align:-3px}
+.jr-filters{display:grid;grid-template-columns:repeat(5,minmax(0,1fr)) auto;gap:10px;align-items:end}
+.jr-filters .field{margin:0;min-width:0}
+.jr-filters .inp{width:100%;min-width:0}
+.jr-fbtn{display:flex;align-items:flex-end;padding-bottom:2px}
+.jr-tbl-wrap{max-height:460px;border:1px solid var(--border);border-radius:var(--radius-sm)}
+.jr-tbl td{padding:8px 10px}
+.jr-tbl .nowrap,.jr-items .nowrap{white-space:nowrap}
+.jr-peer{max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jr-cnts{display:flex;flex-wrap:wrap;gap:4px}
+.jr-cnt{display:inline-block;font-size:11.5px;font-weight:600;padding:1px 7px;border-radius:999px;background:var(--surface-2);color:var(--text-2);white-space:nowrap}
+.jr-cnt-received,.jr-cnt-accepted{background:var(--green-weak);color:#047857}
+.jr-cnt-sent{background:var(--accent-weak);color:#1E40AF}
+.jr-cnt-rejected{background:var(--red-weak);color:#B91C1C}
+.jr-cnt-conflicts{background:var(--amber-weak);color:#92400E}
+.jr-kind{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:6px;background:var(--surface-2);color:var(--text-2)}
+.jr-k-server{background:#EEF2FF;color:#3730A3}
+.jr-k-package{background:#F5F3FF;color:#6D28D9}
+.jr-k-phone{background:#ECFEFF;color:#0E7490}
+.jr-k-restore{background:var(--amber-weak);color:#92400E}
+.jr-foot{justify-content:space-between;align-items:center;gap:8px;margin-top:8px}
+.jr-exp{gap:8px;flex-wrap:wrap}
+
+/* detail modal */
+.jr-detail{gap:12px}
+.jr-info{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:4px 14px;margin:0;font-size:13px}
+.jr-info dt{color:var(--muted);font-weight:600}
+.jr-info dd{margin:0;word-break:break-word}
+.jr-cnt-row{display:flex;flex-wrap:wrap;gap:6px}
+.jr-items td{vertical-align:top}
+.jr-it-d td{background:var(--surface-2);padding:6px 12px 10px}
+.jr-it-d summary{cursor:pointer;color:var(--accent);font-weight:600}
+.jr-dbox{margin-top:6px}
+.jr-diff{background:#fff;border:1px solid var(--border);border-radius:var(--radius-sm)}
+.jr-diff td{padding:6px 10px}
+.jr-v{word-break:break-word;max-width:320px}
+.jr-v-a{color:#991B1B}
+.jr-v-b{color:#065F46}
+
+@media (max-width:1100px){ .jr-filters{grid-template-columns:repeat(3,minmax(0,1fr))} }
+@media (max-width:640px){
+  .jr-filters{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .jr-peer{max-width:140px}
+  .jr-info{grid-template-columns:minmax(0,1fr)}
+}
+
+/* scan.html: le mie sincronizzazioni */
+.jr-ph-open{margin-top:4px}
+.jr-ph-p{margin:0 2px}
+.jr-ph-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.jr-ph-it{padding:12px 14px}
+.jr-ph-row{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}
+.jr-ph-code{font-family:var(--mono);font-size:17px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jr-ph-st{flex:none;font-size:12.5px;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--surface-2);color:var(--text-2)}
+.jr-st-ok{background:var(--green-weak);color:var(--green)}
+.jr-st-forced{background:var(--amber-weak);color:var(--amber)}
+.jr-st-conflict,.jr-st-err{background:var(--red-weak);color:var(--red)}
+.jr-st-queued{background:var(--accent-weak);color:var(--accent)}
+.jr-ph-meta{font-size:13px;margin-top:2px}
+.jr-ph-f{font-size:13.5px;margin-top:4px;color:var(--text-2);word-break:break-word}
+.jr-ph-dev{font-family:var(--mono);font-size:11.5px;margin-top:8px;word-break:break-all}

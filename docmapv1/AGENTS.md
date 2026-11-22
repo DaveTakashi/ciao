@@ -1,0 +1,454 @@
+# AGENTS.md — DocMap 2026 (DM26)
+
+Operating manual for coding agents (and humans) working on `docmapv1/`.
+User-facing docs are Italian (`README.md`, `docs/*.md`); code, identifiers and this file are English.
+
+- **Map of every document, who reads what (IT): `docs/INDICE.md`** · user manual (IT): `docs/MANUALE-UTENTE.md` · glossary IT/EN/code: `docs/GLOSSARIO.md` · manual acceptance checks: `docs/CHECKLIST-COLLAUDO.md` · full feature reference (the old README): `docs/RIFERIMENTO-FUNZIONI.md`
+- Architecture (IT): `docs/ARCHITETTURA.md`
+- Data model / file formats — the contract with the Python system (IT): `docs/MODELLO-DATI.md`
+- Python team: `docs/HANDOFF_PROMPT.md` (the prompt), `docs/python/PORTING.md` (api.php → FastAPI 1:1), `docs/python/openapi.yaml`, `docs/python/SCHEMI.md` + `docs/python/schema/*.schema.json` (checked by `docs/python/tools/validate_schemas.py`), `docs/ALLINEAMENTO-PYTHON.md`
+- Future online hub & API blueprint, not implemented (IT): `docs/HUB-E-API.md`
+- REST contract of the shared online database `server-php/api.php` (IT): `docs/API-CONTRACT.md` · security model (IT): `docs/SICUREZZA.md` · web deploy + SiteGround (IT): `docs/DEPLOY-WEB.md`
+- Sync (packages, server peer, LWW, tombstones, sync journal) (IT): `docs/SYNC.md` · upgrades without data loss: `docs/AGGIORNAMENTI.md`
+
+Baseline described here: **v11.1** (`APP_VERSION = '26.11.1'`, state `schema: 26.9`, `DB_SCHEMA_VERSION = 8`, server `DM_SCHEMA = 2`). The sections below were written version by version: §10 onwards say which version added what. v9 adds the label template registry `LABEL_TEMPLATES` (03-print.js; default `info`), `S.print.info`, `S.print.edge`, the PDF exporter (05c-pdf.js) and the activity log (06e-log.js, `logAct()`). To add a label template: add an entry to `LABEL_TEMPLATES` (kinds per binder, paired or not, recommended presets, options HTML), a renderer for any new kind in `renderLabel`, i18n keys, and tests; the PDF exporter needs no change because it reads the rendered DOM.
+What changed from v7 is summarised in §10.
+
+---
+
+## 1. Hard constraints (never break these)
+
+1. **Runs from `file://` with a double-click on `index.html`.** No server, no build step, no bundler, no `fetch()` of local files.
+2. **Classic `<script>` tags only**, no ES modules (`type="module"` fails on `file://`). Every top-level `const`/`function` is a global shared across files; **load order matters**.
+3. **Fully offline. No CDN, no external fonts, no remote calls.** Everything third-party is vendored: `vendor/sql-wasm.js` (sql.js 1.10.3 with the WASM inlined as base64 in `window.DM_SQL_WASM_B64`), fonts in `assets/fonts/` (Inter as "DM Inter", JetBrains Mono as "DM Mono", OFL).
+4. **Vanilla JS + hand-written CSS.** No frameworks, no npm runtime deps. Target Chrome/Edge on Windows 10/11.
+5. **Bilingual UI IT + EN.** Every user-visible string goes through `t('key')` with entries in both `I18N.it` and `I18N.en`. Italian is the primary language and the fallback.
+6. **Never print the `demo` tag.** Sample binders carry tag `demo` (`DEMO_TAG`, `isDemo(b)`); label renderers filter it out of printed tags, and `S.settings.hideDemo` hides demo binders from the list, map and print queue.
+7. **Never invent a Codice Multi (`multi_code`).** It is the studio's real internal id. Fill it only from user input, the client register, or the same client's existing binders. The AI prompt says the same — keep it that way.
+8. **Identifiers are sacred:** `id` (uuid) never changes; `speaking_code` unique and uppercase without spaces; `short_code` unique, `dm26` + 8 chars, never reused for another binder (it is printed on physical QR labels). `ensureIntegrity()` enforces this; the SQLite mirror has `UNIQUE` constraints that would otherwise break every sync.
+9. **Print is millimetre-exact.** `@page{size:210mm 297mm;margin:0}`; all label geometry in mm. Do not introduce px units into label rendering.
+10. **Data safety:** every destructive action goes through `confirmAction()`, bulk changes call `undoPoint()` before and `undoToast()` after.
+
+## 2. File map and load order
+
+`index.html` loads, in this exact order:
+
+| # | File | Responsibility |
+|---|------|----------------|
+| 0 | `vendor/sql-wasm.js` | sql.js (`initSqlJs`) + `DM_SQL_WASM_B64` |
+| 1 | `assets/js/01-qr.js` | `DMQR` — pure-JS QR encoder → SVG (ISO/IEC 18004, byte mode, ECC L/M/Q/H) |
+| 2 | `assets/js/02-core.js` | constants, `I18N` + `t()`, utils (`$`, `esc`, `uuid`, `randChars`…), binder helpers (`normalizeBinder`, `computeLocation`, `pipeToContents`, `suggestSpeakingCode`, `newShortCode`, `ensureIntegrity`, `normalizeClient`, `destFor`/`renderDest`, `manifestTags`), `CSV_COLUMNS`, `BUILTIN_PRESETS`, demo data, `defaultState()`, `migrate()`, `loadState()`, `persist()`, `commit()`, `savePrefs()`, `markExported()` |
+| 2c | `assets/js/02c-locations.js` | **v11** location tree pure model (shared with scan.html): `LOC_SC_RE`, `locLevels`, `normalizeLocation`, cached index (`locIndex`, `locById`, `locChildren`, `locCodeFor`, `locPath`, `locPathText`), `newLocShortCode`, `locNextSeg`, `locIntegrity`, `assocParseCode`, `locDest`, `locManifestTags` |
+| 2e | `assets/js/02e-archives.js` | **v12** archives pure model (desktop; scan.html does not load it — the wizard stamps `kind` on every node): `ARCH_DEFAULT_ID` (virtual default archive), `normalizeArchive`, `archList`/`archById`/`archMulti`/`archSelected`/`archCurrentId`, `binderArchiveId` (effective archive), `locArchiveId`, `archResolveRef` (CSV id/code/name), `ARCH_TEMPLATES`; overrides `locLevels` / `locKind` / `locNextSeg` / `locIntegrity` for per-archive levels (`ARCH_CTX`, `archWithCtx`) |
+| 2d | `assets/js/02d-status.js` | **v12** statuses pure model (shared with scan.html): `SQ_DEFAULT_TYPES`, `sqTypes`/`sqNormType`, events `sqNormEvent`/`sqMergeEvents`/`sqNewEvent`/`sqUndoEvent`, cached index `sqIndex`/`sqCurrent`/`sqHistory`/`sqDocCurrents`, `sqQuickFor`, `sqNeeds`/`sqCheck`, texts `sqHeadline`/`sqSubline`, `sqLastSeen` (stream A hook), reports `sqOutRows`/`sqVerifyExpected`/`sqEventsCsv`/`sqVerifyCsv` — §18 |
+| 2b | `assets/js/02b-colors.js` | v10 smart spine colours: `COLOR_FAMILIES`, `COLOR_CAT_RULES`, colour math (`colorContrast`, `colorDeltaE` CIEDE2000, `colorHash` FNV-1a), `colorFamilyId`, `colorShades`, `colorCategoryHex`, `colorAssign`, `applyAutoColor`, `colorPlan`, `recolorAll`, `colorLockLegacy`, editor hooks `edAutoColor`/`edColorLock`/`colorSwatchesHTML`, Settings card `colorSettingsHTML`, `COLOR_ACTIONS`, help topic `colors` (see §12) |
+| 3 | `assets/js/03-print.js` | label engine: `renderLabel` (A/B/U), `renderFull` (S, complete label), `renderSlotLabel` (turned sheets), `slotSeq`, `layoutLabels`, `buildLabelSheets`, `buildCalibSheet`, `buildRegisterHTML`, `doPrint`, `printLabels` |
+| 4 | `assets/js/04-ui.js` | `ICONS`/`ic()`, `toast`, undo (`undoPoint`/`undoToast`), modal stack (`openModal`/`closeModal`/`confirmAction`), `download`, `copyText`, `readFileText`, CSV (`detectDelim`, `parseCSV`, `toCSV`, `safeCell`/`unsafeCell`), `HEADER_ALIASES`, `mapRecord`, export builders (`binderToCsvRow`, `exportManifest`, `mergeManifest`, `exportFullCSV`, `workspaceJSON`, `quickBackup`), AI prompt (`csvTemplateHeader`, `buildAIPrompt`) |
+| 4b | `assets/js/04b-typeahead.js` | typeahead component (`taAttach(input, {source, multi, joiner, top, max, minWidth, onPick})`, `taRank`, shared `#ta-pop` listbox) + binder editor helpers: `ED_SOURCES`, `companyKey` duplicate-spelling guard, `edNextFreeCode` (duplicate speaking code → one-click "+1" fix), "Posizione rapida" (`parseQuickLocation`, `S.settings.edLocOpen`), per-item contents status, "one line per item" mode, "Altro" section (contacts, notes), `EDITOR_ACTIONS` |
+| 5 | `assets/js/05-views.js` | `UI` view-state, `renderTopbar` (calls `infoApplyCatColors()` + `topbarHTML()`), `renderView` (view router), `renderAll`, archive + shelf map, binder editor (`openEditor`, `validateEditor`, `saveEditor`), print studio, import (`analyzeImport`, `analyzeImportRecords(records, {format, delim, workspace})`, `applyImport`), export, AI, settings views |
+| 5b | `assets/js/05b-import-map.js` | offline `.xlsx` reader (minimal ZIP + `DecompressionStream('deflate-raw')`, OOXML parser), column-mapping step (`UI.imap`, `imapRouteText`, `imapHandleFile`, `imapAutoMap`, `imapConfirm`), remembered mappings in `S.settings.importMappings`, `IMPORT_MAP_ACTIONS`, help topic `excel` |
+| 5c | `assets/js/05c-pdf.js` | "Scarica PDF": renders `buildLabelSheets(false)` in an off-screen stage, removes CSS transforms (kept as `cm` matrices), walks the DOM into a vector PDF (backgrounds/borders/outlines as paths, overflow → clip paths, QR `<svg>` as paths, text per character from `Range.getClientRects` on probe-measured baselines), embeds TrueType subsets (CIDFontType2/Identity-H + ToUnicode) from `vendor/pdf-fonts.js` (lazy-loaded; built by `tools/make_pdf_fonts.py`), hand-written PDF writer with FlateDecode via `CompressionStream`; `pdfBuildLabels`, `pdfDownloadLabels`, `PDF.last`, `PDF_ACTIONS` (`pdf-download`), help topic `pdf` |
+| 5d | `assets/js/05d-bulk.js` | **v10** "Modifica massiva": spreadsheet-like bulk-edit sub-view of Archivio (`BK` state, `bulkOn()`, `viewBulk`/`mountBulk`, `BULK_COLS`, staged `BK.draft`, `bkApply`/`bkUndoStep`/`bkValidate`/`bkSave`, windowed rendering, `BULK_ACTIONS`, help topic `bulk`); CSS in `assets/css-bulk.css` |
+| 6 | `assets/js/06-db.js` | SQLite: `DB_DDL`, `dbMigrate`, `dbInit`, `dbSyncFromState`, `dbPersist` (IndexedDB + linked file), `dbReadWorkspace`, `applyWorkspaceObject`, sessions, `.sqlite` open/download/link, read-only SQL console, `viewDatabase` |
+| 6b | `assets/js/06b-photos.js` | photos in SQLite `photos` table, shelf locator "Dov'è?", `PHOTO_ACTIONS` |
+| 6c | `assets/js/06c-clients.js` | client register (`CLIENT_ALIASES`, `isClientList`, `mapClient`, import, editor, CSV export, `clientsPanelHTML`/`renderClientResults` shown in Informazioni › Clienti), demo bar, `CLIENT_ACTIONS` |
+| 6d | `assets/js/06d-info.js` | top bar (`topbarHTML`, `NAV_MAIN`, `NAV_MORE`, `<details id="nav-more">` "Funzioni avanzate" menu), view `info` (`viewInfo`, `INFO_TABS`, `INFO_LISTS`, `infoRename`/`infoDelete`/merge), category colours (`infoApplyCatColors`), QR overview + "Ristampa solo QR" (`qrReprint`, `qrRestorePrint`, `S.printPrev`), label kind `Q` (`renderQrLabel`), `INFO_ACTIONS`, help topics `nav`, `info`, `qr-reprint` |
+| 6e | `assets/js/06e-log.js` | activity log (v9): `logAct(action, target, summary, details, source)`, `LOG` (memory mirror) + SQLite `activity_log`, wrappers around exports/print/sessions/Informazioni/undo, view `log` (`viewLog`, filters `LOGV`, CSV), `S.settings.operator`, help topic `log` |
+| 6f | `assets/js/06f-sync.js` | v10 manual sync local ⇄ web app (docs/SYNC.md): change tracking inside `persist()` (`syncTrack`: bumps `updated_at` when content changed without a bump, writes tombstones `S.tombstones` for vanished ids), stable `S.settings.deviceId` (+ localStorage `docmap_v26_device`), package `docmap-sync` v1 (`syncBuildPackage`, `syncExport`), optional AES-256-GCM/PBKDF2 wrapper `docmap-sync-enc` (`syncEncrypt`/`syncDecrypt`), `syncParse` → `syncAnalyze` (review plan: new/updated/unchanged/older/delete/conflict/propagate) → `syncApply` (one undo step, `logAct` source `'sync'`), peer bookkeeping `S.sync`, view `sync` (⚙ menu › Dati, pushed onto `NAV_MORE`), `SYNC_ACTIONS`, help topic `sync`. Wraps `persist`, `undoPoint`, `applyWorkspaceObject`, `analyzeImport`, `renderView`, `handleDroppedFile` |
+| 6g | `assets/js/06g-server.js` | **v10.1** sync with the shared online database (`server-php/api.php`): the server is the 06f peer `server:<url>`; `srvSync({interactive})` (pull → `syncAnalyze`/`syncApply` → push, seed confirmation on an empty server, review modal on conflicts), automatic mode in web+apiBase (`srvBoot`, debounced push from a `persist` wrapper, 60 s pull, backoff), top-bar status `#srv-status`, "Server online" card appended to `viewSync`, admin token management, `SRV_ACTIONS` — §14 |
+| 6h | `assets/js/06h-locations.js` | **v11** Informazioni › Ubicazioni (tree editor, bulk create, levels, move, delete+undo), assignment (`locAssign`) from archive/editor, archive filter `UI.fLoc`, "Dov'è?" path, label template `loc` (kind `L`), manifest rows, desktop association mode (`LUI.assoc`, keyboard scanner `#la-scan`, webcam), `LOC_ACTIONS`, help topic `locations` + guide |
+| 6i | `assets/js/06i-journal.js` | **v11** push / sync journal "Registro sincronizzazioni" (docs/SYNC.md §9): `S.syncJournal` (`jrAdd`, `jrPrune`, `jrMerge`), canonical hash `jrCanon`/`jrRecHash` (= server `canon()`), client identity `jrClientInfo()` (sent by `DMServer.call`), observation wrappers (`jrWrapSync`, `jrWrapProviders`), card appended to `viewSync` (filters, detail + diff, restore, CSV/JSON), phone list in `scan.html`, `JR_ACTIONS`, help topic `journal`; CSS `assets/css-journal.css` — §15. Also loaded by `scan.html` after `10-auth.js` |
+| 6l | `assets/js/06l-archives.js` | **v12** top-bar archive switcher (`S.archiveSel`), Informazioni › Archivi (create/edit/merge/delete, move binders), "Configura archivio" wizard (`WZ`), per-archive levels dialog, nested association (`LUI.assoc.nest`), archive-scoped tree/print/exports, SQLite hooks `archDbMigrate`/`archDbSync`/`archDbRead`, search facet `archFacetProvider`, `ARCH_ACTIONS`, help topic `archives` + guide |
+| 6j | `assets/js/06j-status.js` | **v12** statuses on the PC: `sqRecord`/`sqUndo`, status sheet (`sqOpenSheet`), binder-form panel `#sq-ed`, archive filter `UI.fSq` + badges + strip + "Stato…" bulk button, view `status` "Fuori archivio" (reached from the strip / help, not from the nav), "Modalità stato" (USB scanner), Impostazioni › Stati rapidi, sync / server / backup wrappers, `SQ_ACTIONS`, help topic + guide `status`; CSS `assets/css-status.css` — §18 |
+| 7 | `assets/js/07-help.js` | extra i18n keys, `HELP_TAGS`, `HELP_ACTS`, `HELP_TOPICS`, `HELP_META`, help drawer (popularity, favourites, filters, search `helpQueryTerms`/`helpMatch`), `helpStore()`, `helpDot(id)`, onboarding |
+| 8 | `assets/js/08-guide.js` | guided-action engine, `GUIDES` (18 tours: 14 here + `locations` added by 06h and `firstrun`, `server`, `journal` added by 07b at load time), exit question, keyboard, resume (`guideResume`) |
+| 7b | `assets/js/07b-helpx.js`, `assets/css-helpx.css` | **v11.1** knowledge base: extra help topics (`first-run`, `server`, `multi-device`, `upgrade`, `scanner`, `troubleshoot` FAQ, `about`), tags `start`/`online`, hidden keywords `kw`, tours `firstrun`/`server`/`journal`, "Informazioni su DocMap" panel in Impostazioni (`hxAboutHTML`), contextual "?" (`INFO_TAB_HELP`), screen-reader region `#hx-live` |
+| 8b | `assets/js/10-auth.js` | v10 provider seams (`dmProviders()`, `DataProvider`/`AuthProvider`/`CryptoProvider`/`BlobStore`, local + remote stubs), `DocMapVault` (web-mode encrypted storage, boot gate), Impostazioni › Utenti e accesso, "Anteprima mobile", live merge of mobile edits, help topic `mobile` — §12 |
+| 8c | `assets/js/11b-assoc.js` | **v11** `DMCamScanner` (BarcodeDetector or lazy `vendor/jsqr.js`), `dmDecodeQRCanvas`, `dmScanFeedback`; on scan.html (when `SC` exists) location page + phone association mode (`SA`, `docmap_v26_assoc`) |
+| 8e | `assets/js/11e-nfc.js` | **v12** `onTagScanned(text, via)` dispatcher (`TAG_SCAN_HANDLERS`: desktop association; on scan.html association sequence + open page); Web NFC on scan.html (`NFC`, write URL record / continuous read), help topic `nfc` |
+| 8d | `assets/js/11c-status.js` | **v12** (scan.html only, after 11b) phone status card, document sheet, 10 s undo, offline outbox, box "Applica a tutta la scatola" + "Verifica rientro"; provider methods `getStatus` / `addStatusEvents` — §18 |
+| 8f | `assets/js/06m-v12-glue.js` | **v12** integration (index.html after `11d-search.js`, scan.html last): defines `window.statusSearchHook` (statuses → `stato:` / facet / badge; no event recorded = the old `archive_state` decides), `window.archiveSearchHook` (`archivio:`) and `window.dmAccessLast(kind, id)` (last access for the status card, from `AC.seen` or the local view log). Each hook only if its module is loaded; tests `@@STREAM-V12@@` |
+| 9 | `assets/js/09-actions.js` | `ACTIONS` map, global event delegation (click/input/change/keydown/drag-drop), file inputs, **boot** (`loadState` → `ensureIntegrity` → `persist` → `renderAll` → `maybeOnboard` → `dbInit`), `window.DocMap` test hook |
+
+CSS: `assets/docmap.css` (main) + `css-info.css` (top bar, Informazioni), `css-editor.css` (typeahead, editor), `css-import.css` (column mapping), … `css-help.css` (v10 help panel and tour additions), loaded in that order.
+Tests: `tests/suite.js`, `tests/fixtures/clienti_esempio.csv` (fake data only).
+
+A file may only use globals from files loaded **before** it at parse time; at call time everything is loaded. Late files extend earlier ones with `Object.assign(I18N.it, {...})`, `Object.assign(ACTIONS, PHOTO_ACTIONS, CLIENT_ACTIONS, IMPORT_MAP_ACTIONS, EDITOR_ACTIONS, INFO_ACTIONS)` (09-actions). Help topics added by 06d/05b are pushed onto `HELP_TOPICS` on `DOMContentLoaded`, because `HELP_TOPICS` is defined later (07-help).
+
+## 3. State and data flow
+
+- **Single source of truth: the global `S`** (also `window.S`), shape from `defaultState()` in `02-core.js`. Some keys are created lazily by the module that owns them: `S.infoTab`, `S.printPrev`, `S.settings.catColors`, `S.settings.qrPreset`, `S.settings.importMappings`, `S.settings.edLocOpen`. Ephemeral view state lives in `UI` (05-views; v8 adds `UI.infoq`, `UI.qrq`, `UI.qrSel`, `UI.qrLimit`, `UI.fInfo`, `UI.imap`), `DB` (06-db), `PH`, `HELP`, `G`, `TA` (typeahead).
+- Flow of a data change:
+
+```
+mutate S  →  commit()                     (marks S.hasUnexportedChanges = true)
+          →  persist()                    (localStorage 'docmap_v26_state'; previous copy in 'docmap_v26_state_prev')
+          →  dbScheduleSync()  (700 ms)   →  dbSyncFromState(): ensureIntegrity + full rewrite of live tables
+                                           →  dbPersist(): IndexedDB 'docmap_v26_sqlite'/kv 'db' (+ linked .sqlite file)
+          →  renderTopbar()
+exports (CSV / JSON / manifest / .sqlite download) → markExported(file) clears the dirty flag
+```
+
+- `savePrefs()` = persist without marking dirty (UI/print preferences). `commit({dirty:false})` for settings.
+- SQLite is a **mirror**, rebuilt from `S` (DELETE + INSERT), except **photos** and **sessions**, which live only in SQLite.
+- Loading a `.sqlite` or a session: `dbReadWorkspace(db)` → `applyWorkspaceObject(W)` → `commit()` → `renderAll()`.
+- Rendering is string-based (`innerHTML`); always escape user data with `esc()`.
+- Events: elements declare `data-a="action-name"`; one delegated click handler calls `ACTIONS[name](el, e)`. Inputs use `data-bind` (UI state), `data-ed` (editor field → `UI.ed.d[key]`), `data-ci` (content item), `data-geo`/`data-pp`/`data-fld`/`data-sp` (print), `data-set` (settings).
+
+- **Sync (v10, 06f-sync.js)**: never set `updated_at` backwards and never remove a binder/client without going through `S.binders`/`S.clients` + `persist()`: `syncTrack()` (inside `persist`) bumps `updated_at` for records whose content changed and writes a tombstone for every vanished id. Set `SYNC.quiet = true` before a persist that must not bump or tombstone (bulk restore that carries its own timestamps). State: `S.tombstones`, `S.sync`, `S.settings.deviceId`, `S.settings.deviceLabel`. Contract: `docs/SYNC.md`.
+
+## 4. Recipe: add a binder field end-to-end
+
+Example: new field `foo`. Touch every item; the suite will catch most misses.
+
+1. **Model** — `normalizeBinder()` (02-core): default value, include in the trim list, normalise.
+2. **Full CSV** — add `'foo'` to `CSV_COLUMNS` and the value at the **same index** in `binderToCsvRow()` (04-ui). Never reorder existing columns (old files must still import by header). Note: v8 inserted `contacts, notes` after `shelf_color` (not at the very end), so code that reads the backup CSV by position must use the header; prefer appending after `updated_at` for future fields.
+3. **Import aliases** — `HEADER_ALIASES.foo = ['foo', 'italian_name', …]` (04-ui). Header matching uses `normHeader()` (lowercase, accents stripped, non-alnum → `_`). Special parsing goes in `mapRecord()`.
+4. **SQLite** — add the column to `DB_DDL` `CREATE TABLE binders`; in `dbMigrate()` add it to the `ALTER TABLE … ADD COLUMN` list for old DBs; add it to the `INSERT` column list **and** values in `dbSyncFromState()`; read it back in `dbReadWorkspace()`; bump `DB_SCHEMA_VERSION` with a comment. Update the schema codebox in `viewDatabase()` if relevant.
+5. **AI prompt** — append to `csvTemplateHeader()` (keep it in sync with the "exactly N fields" rule and the two example rows in `buildAIPrompt()`), add a FIELD RULES line. Then fix **headerless import** in `analyzeImport()` (05-views): it guesses the column order from the row length (today ≥ 22 = v8 order, 20–21 = v7 order without `contacts, notes`, 17 = v5, other < 20 = pre-Multi); add the new length, and the list of lengths in `imapRouteText()` (05b, `aiRows`).
+6. **Editor** — field in `openEditor()` (`data-ed="foo"`, `id="ed-foo"`), validation in `validateEditor()` if needed; the generic `input` handler stores `d[k] = el.value`.
+7. **Print** — if printable: add to `DEFAULT_FIELDS` (03-print), render in `renderFull()` (and A/B/U if relevant) via `pf('foo')`, toggle in the print view's "fields" panel (`data-fld`), respect `pf('empty')` (blank `Field: ____` only when the user asks). `contacts`/`notes` are the v8 example: `DEFAULT_FIELDS.contacts = false`, `notes = false`, rendered only in `renderFull()`.
+   Also consider: a typeahead source in `ED_SOURCES` (04b) and, if the value is a reusable list, an `INFO_LISTS` entry (06d).
+8. **Search** — add to the haystack in `filteredBinders()` (05-views).
+9. **Register / manifest / destination** — `buildRegisterHTML()`; `renderDest()` placeholder only if useful.
+10. **Help** — mention in the relevant `HELP_TOPICS` entry (07-help), in `docs/RIFERIMENTO-FUNZIONI.md` and, if it changes how a task is done, in `docs/MANUALE-UTENTE.md` (Italian); update a guide step in `GUIDES` if the editor flow changes.
+11. **Docs** — `docs/MODELLO-DATI.md` (field table, CSV order, DDL), `docs/python/schema/binder.schema.json` (+ run `docs/python/tools/validate_schemas.py`), `docs/GLOSSARIO.md` if it is a new concept.
+12. **Migration** — if old states need a value, add a guarded step in `migrate()` and bump `schema`.
+13. **Tests** — round trip CSV → import → equal, JSON, `.sqlite` download/open, AI headerless import, label render without `NaN`.
+
+## 5. Recipes: view, action, help topic, guide, i18n key
+
+- **View**: write `viewFoo()` returning HTML; add `foo:viewFoo` to the router map in `renderView()`; add it to the top bar in 06d-info: `NAV_MAIN` (`[view, icon, labelKey, shortLabelKey]`, only for everyday views — today Archivio, Stampa etichette, Informazioni) or a group of `NAV_MORE` (`[view, icon, labelKey, descKey]`, the ⚙ "Funzioni avanzate" menu; `ADV_VIEWS` and `navStepText()` follow automatically); add `foo:'nav_foo'` to `VIEW_LABEL` (08-guide); post-render hooks go in `renderView()`. Add `'foo'` to the "no h-scroll" view list in the suite.
+- **Informazioni sub-tab**: add `[id, icon]` to `INFO_TABS` and, for a value list derived from binders/clients, an `INFO_LISTS[id] = {icon, kind:'csv'|'single'|'year', field, client, lower?, joiner?, mono?}` entry plus `in_<id>` / `in_d_<id>` i18n keys; rename/merge/delete then work through `infoRewrite()`.
+- **Action**: `<button data-a="foo-do" data-id="…">`, then `ACTIONS['foo-do'] = (el, e) => {…}` (or a module-level `FOO_ACTIONS` merged in 09-actions with `Object.assign(ACTIONS, …)`). Mutations end with `commit()` + a re-render; destructive ones use `confirmAction()` + `undoPoint()`/`undoToast()`.
+- **Help topic** (v10): push `{ id, guide:'guideId'|null, tags:[keys of HELP_TAGS], acts:[keys of HELP_ACTS], pop:0-100, related:[ids], title:{it,en}, body:{it,en} }` to `HELP_TOPICS` — from a later file inside `document.addEventListener('DOMContentLoaded', …)` (07-help may load after you). Link it in the UI with `helpDot('id')`.
+  - `title`: a plain task in Italian/English — "Come …" / "How do I …?" for tasks, "Cos'è …" / "What is …?" for concepts. Keep `id` stable (tests and other topics reference it).
+  - `tags` = what it is about (grey chips: `label print export import qr ai db safety archive calib client help other`; add a new key with `HELP_TAGS.foo = {it,en}`). Missing → `['other']`.
+  - `acts` = what the user wants to do (colour chips): `how what create edit delete print io find fix`. Missing → guessed from the title (`helpGuessActs`).
+  - `pop` = seeded popularity (create 100, print 96, new client 92, import 88, find 86, PDF 84 … niche topics 20-40). Missing → 20. Real usage is added on top (each topic open / guide start = 6 points, halving every 60 days).
+  - To retitle or tag a topic owned by another file without touching it, add an entry to `HELP_META` (07-help): `{acts, pop, tags, guide, title}`.
+  - Search needs nothing: it indexes title, tags and body (accents, plurals, the synonym groups in `HELP_SYN`). Add a synonym group there if users call a thing by several names.
+- **Guide**: add to `GUIDES` `{ pop, title:{it,en}, steps:[…] }`; step fields: `target` (selector or fn), `title`, `text`, `done()` auto-advance, `require()` soft validation (returns `{it,en}` message), `guard(ctx)` (return a step index to go back to when the state is gone, e.g. the form was closed), `onEnter(ctx)`, `skipIf`, `advanceOn:'click'`, `noAutoClick` (Next must not click the target, e.g. a file picker), `extra:{label, fn}`, `dyn()`, `final:true`, `chain:'nextGuide'`. Use `navStep(view, title, text)` for navigation (targets in the ⚙ menu or in a closed `<details>` are opened automatically). Users perform the real action; closing the guide never closes a form. Every user way out (Esc, ✕, second click outside) goes through `guideAskExit()`; `guideStop()` is the silent programmatic stop. The suite runs every guide start → end with an autopilot (stream G block): a new guide must pass it.
+- **i18n key**: add to both `I18N.it` and `I18N.en` (02-core or an `Object.assign(I18N.xx, …)` block in the module). Use `{var}` placeholders: `t('key', {var})`.
+
+## 6. Running the tests
+
+Requirements: Node.js, `playwright` (Chromium), `jsqr`, `pngjs`; Python 3 with `pypdfium2` (used to rasterise printed PDFs at 300 dpi for QR decoding); PHP 8 CLI with `pdo_sqlite` + `openssl` for the server sections W, X, J (skipped with a message when missing); `git` history for the v10.1 `api.php` (commit `68ae170`) used by X and J.
+
+```bash
+cd docmapv1/tests
+npm i playwright jsqr pngjs && npx playwright install chromium
+pip install pypdfium2
+node suite.js            # exit code 0 = all passed; screenshots in tests/shots/
+```
+
+The suite opens `index.html` via `file://` in Chromium and checks every view (no horizontal scroll at 1366×768, IT/EN), every preset × content mode × QR mode, QR decode on every printed slot, import/export round trips, SQLite, guides, 2000-binder performance and past bug cases. It prints `RESULT: N passed, M failed` (26.11.1: 1056 checks, about 6 minutes) and then `errors:` (must be `none`). Page errors and console errors count as failures. Each stream adds its tests under its own anchor comment `// @@STREAM-<letter>@@`, placed in order right before `console.log('\nerrors:'`: A, B, C (v8), T, P, L (v9), E, K, R, S, G, M (v10), W (v10.1), X, J (v11), then the v11.1 streams. The server sections start `php -S` themselves (W port 18300 + pid % 500, X 18900 + pid % 500, J 18850 + pid % 300; see `docs/python/PORTING.md` §9 for running them against another server).
+Contract checks outside the suite: `NODE_PATH=tests/node_modules python3 docs/python/tools/validate_schemas.py` (JSON Schemas + OpenAPI against real app output and the real `api.php`).
+
+## 7. Coding conventions
+
+- 2-space indent, single quotes, semicolons, `'use strict'` (02-core). Compact one-line helpers are normal in this codebase; match the surrounding style.
+- Globals: `UPPER_SNAKE` constants, `camelCase` functions; module prefixes (`db*`, `ph*`, `guide*`, `help*`, `cl-*` action names).
+- HTML built by string concatenation; **every** dynamic value through `esc()`. Icons via `ic('name')`.
+- Data keys are English `snake_case` and match CSV/SQLite column names. UI strings never hard-coded (except tiny bilingual inline cases already present).
+- Imports are tolerant (aliases, delimiters `; , TAB`, UTF-8/UTF-16/Windows-1252, ```` ```csv ```` fences, Excel `sep=` line); exports are strict (fixed column order, `;`, UTF-8 BOM for Excel, formula guard `safeCell`).
+- Keep functions pure where possible (`normalizeBinder`, `computeLocation`, `renderLabel` return values, no DOM writes).
+- No new dependencies. If one is unavoidable, vendor it under `vendor/` with its licence and no network access.
+
+## 8. Versioning
+
+| What | Where | Bump when |
+|------|-------|-----------|
+| `APP_VERSION` (`'26.11.1'`) | 02-core | every release; written into workspace JSON `version` |
+| State schema (`26.9`) | `defaultState().schema` and the final `o.schema = …` in `migrate()` | state shape or defaults change; add a guarded step `if (!(st && st.schema >= 26.x)) {…}` (v10–v11.1 added keys lazily without a bump) |
+| `DB_SCHEMA_VERSION` (`7`) | 06-db | SQLite DDL changes; add an additive migration in `dbMigrate()` (never drop columns), note the change in the comment |
+| `DM_SCHEMA` (`2`), `DM_API_VERSION` (`1`) | server-php/api.php | server DB tables (additive step in `db_migrate()`) / incompatible API change (never without a client update) |
+| `LS_KEY` (`docmap_v26_state`) and the other storage keys (`docmap_v26_srv`, `docmap_v26_device`, `docmap_v26_vault*`, `docmap_v26_assoc`, IndexedDB `docmap_v26_sqlite`) | 02-core and owners | never (would orphan users' data) |
+
+Migrations must be **idempotent and additive**: old JSON, CSV (17/16-column) and `.sqlite` files must keep importing.
+
+## 9. Commits
+
+- The integrator commits; feature agents work in their own worktrees and do not push unless asked. Test anchors `// @@STREAM-<letter>@@` in `tests/suite.js` mark where each stream's tests live (§6).
+- Subject: `DocMap vN: short summary` (or `DocMap vN scaffolding: …`). Body: `- ` bullets of user-visible changes, then tests count (e.g. "suite at 459 checks").
+- End with the attribution trailers given in the session (e.g. `Co-Authored-By: …`, `Claude-Session: …`).
+- Update the user docs (Italian: `docs/MANUALE-UTENTE.md` for tasks, `docs/RIFERIMENTO-FUNZIONI.md` for features; `README.md` stays a short entry point) and the relevant technical `docs/` file in the same commit as the behaviour change. A new document goes into `docs/INDICE.md`.
+
+## 10. What v8 added (v7 → v8)
+
+- **Navigation**: three main tabs (Archivio, Stampa etichette, Informazioni) + ⚙ "Funzioni avanzate" menu (`<details id="nav-more">`) with Importa, Esporta e Salva, Database (group "Dati") and Genera con AI, Impostazioni (group "Strumenti"). Menu items are still `.nav [data-a="nav"][data-v=…]` buttons; guides open the menu when a step targets an item inside it.
+- **View `info`** replaces `clients`: `migrate()` and `renderView()` turn `view:'clients'` into `view:'info'` + `S.infoTab = 'clients'`. Sub-tabs `clients, tags, category, year, place, multi, extra, qr`. Value lists are computed live (nothing new stored); rename / merge / delete rewrite binders and clients with `undoPoint()` + `undoToast()`; the `demo` tag is protected. Clicking a usage count sets `UI.fInfo` and filters the Archive.
+- **Category colours**: `S.settings.catColors {name: '#RRGGBB'}`; `infoApplyCatColors()` mutates `CAT_COLOR` (defaults + user choices) on every `renderTopbar()`.
+- **QR reprint**: Informazioni › QR, preset `S.settings.qrPreset` (default `l7159`, choices `l7159, l7160, l7162, l7163, a4-21, a4-14` + custom presets), content mode `'qr'` → label kind `'Q'` (`renderQrLabel`). Previous print state saved once in `S.printPrev = {presetId, geometry, geometryModified, contentMode, sel, at}` and restorable.
+- **Binder fields** `contacts` (comma-separated people) and `notes` (free text), both strings, not printed by default. **Contents item `status`** `'archive' | 'in_use' | 'client'` (helpers `CI_STATUSES`, `CI_SUFFIX`, `normCiStatus`, `ciText` in 02-core); in pipe/CSV text a suffix `[in uso]` / `[cliente]`, none = archive.
+- **CSV**: `CSV_COLUMNS` 27 columns (`contacts, notes` after `shelf_color`); AI template 22 columns. **SQLite** v4: `binders.contacts`, `binders.notes`, `contents_items.status TEXT DEFAULT 'archive'`.
+- **Editor**: typeahead on client, Codice Multi, place, category, year, extra codes, tags, contacts, room, cabinet, quick position and content descriptions; duplicate company-spelling guard, duplicate speaking code "+1" fix, "Posizione rapida", per-item status, "Altro" section.
+- **Import**: `.xlsx` (offline) and column-mapping step for every non-standard table, with remembered mappings (`S.settings.importMappings`, 40 most recent layouts). Known limits: merged cells are not expanded, formulas without a cached value are empty, `.xls`/`.xlsb`/`.ods` and password-protected files are refused, `.xlsx` needs `DecompressionStream` (Chrome/Edge ≥ 103).
+
+Field-level details and file formats: `docs/MODELLO-DATI.md`.
+
+## 10b. Help centre and guided tours (v10, stream G)
+
+- **Help panel** (07-help): search → "Riprendi la guida" banner → sort (Popolari default / Preferiti / A-Z) → two filter rows (Argomento = `HELP_TAGS`, Cosa vuoi fare = `HELP_ACTS`, colour pairs with contrast ≥ 4.5) → Preferiti → Azioni guidate (top 5 by popularity, "Mostra tutte") → Argomenti. Typing in the search resets both filters; chips then only light up (`.lit`) for the results, the others are hidden (`.nomatch`).
+- **Per-installation memory**: `localStorage['docmap_v26_help']` = `{v:1, usage:{'t:<topic>'|'g:<guide>':{n,t}}, fav:{'pc'|'op:<operator lowercase>':[keys]}, resume:{who:{id,i,at}}, sort:{who:'pop'|'fav'|'az'}}` (`helpStore()`, `helpSave()`, all access in try/catch, in-memory fallback). Deliberately **not** in `S`: it is UI telemetry of this PC, it must not travel in backups, SQLite sessions, undo snapshots or a future sync. Favourites/sort/resume follow `S.settings.operator` (`helpWho()`).
+- **Tours** (08-guide): exit question `.g-confirm` (Esci `guide-quit` / Continua la guida `guide-stay`, default focus Continua; Esc inside it = continue); clicks on the dim mask → `guideOutside()` (jump to another step's element, else reminder, second click within 4 s → question); keyboard in a window-capture listener (Enter/→ next, ← back when focus is not in a field; Esc left to the typeahead list, the "una riga per voce" box and the ⚙ menu when they are open); Tab cannot wander behind the mask; `#g-live` announces every step; a target missing for ~1 s shows `g_missing` and Next skips it. Resume point saved on every step (`guideRemember`), cleared on the final step; `guideResume()` restarts at that step, switching to the step's view first.
+- **ACTIONS** added from 07/08 at DOMContentLoaded: `help-tag help-act help-sort help-fav help-more-g guide-close (asks) guide-quit guide-stay guide-finish guide-resume guide-forget`.
+
+## 11. Don'ts
+
+- Don't add `type="module"`, `import`/`export`, `fetch()` of local files, CDNs, web fonts, analytics or any network call.
+- Don't add frameworks, TypeScript, build steps or npm runtime deps.
+- Don't rename or reorder existing `CSV_COLUMNS`, manifest header (`short_code;short_url;final_destination;tags;` (every line ends with `;` since v11)), SQLite columns, `LS_KEY` or state keys.
+- Don't regenerate or reuse an existing `short_code` silently; don't change `id`s on import/merge.
+- Don't invent `multi_code`, clients, documents or locations (in code, demo data or AI prompts).
+- Don't print the `demo` tag or demo binders when `hideDemo` is on.
+- Don't use px in label/print geometry; don't change `@page` margins for labels.
+- Don't write user strings in only one language; don't bypass `esc()`.
+- Don't make destructive actions without `confirmAction` + undo.
+- Don't store photos in localStorage/JSON (they live in SQLite only).
+- Don't commit real client data; fixtures must be invented.
+
+## 12. Spine colour model (v10, `02b-colors.js`)
+
+- **Data**: `binder.color_hex` (as before) + `binder.color_locked` (boolean, v10; CSV: last column of `CSV_COLUMNS`, `1`/`0`; SQLite: `binders.color_locked INTEGER DEFAULT 0`, `DB_SCHEMA_VERSION 6`; JSON: plain key). Settings: `S.settings.colorMode` (`'company'` default | `'category'` | `'manual'`), `S.settings.catFamilies {category: familyId}` (new), `S.settings.catColors` (v8, now the family *anchor*).
+- **Families**: `COLOR_FAMILIES` (10 × 10 shades, white-text contrast ≥ 3:1, ΔE2000 ≥ 7 within a family; the first shade of blue/green/violet/orange/red equals the v9 `CAT_COLOR` default). Never edit a shade casually: the suite checks contrast and distance; generate new ones in OKLCH and re-check.
+- **Two levels (v10 follow-up)**: (1) category → *spettro* (`COLOR_SPECTRA`: red, green, blue, yellow, orange, violet, pink, slate; seeds `COLOR_SEEDS_DEFAULT` APS/ODV/ASD/ETS, overridable by `S.settings.colorSeeds`); (2) `S.settings.colorRules {category: [{id, kw, hex, at}]}`, max `COLOR_RULES_MAX` = 10, first match wins on `company_name + binder_title` (`colorTextMatches`: folded whole words, keyword spaces ignored). Precedence for unlocked binders: rule → company shade / category colour; rule shades are reserved. Every colour-settings change must call `colorTouch()` (`S.settings.colorUpdatedAt`, used by sync: `colorSyncSubset`/`colorSyncApply` in 06f-sync settingsSubset, newer block wins). UI: `colorCatDialog` (Informazioni › Categorie), `colorRulesOverviewHTML`, editor `colorEditorExtrasHTML`.
+- **Rules**: category → family = `catFamilies` → nearest family of `catColors[cat]` → seeds → `COLOR_CAT_RULES` by name → FNV-1a hash of the name. `colorAssign(b, binders)` in `'company'` mode: same company (`companyKey`) + same category → same shade; otherwise first free shade from `FNV-1a(companyKey) mod n`, least used when exhausted. `'category'` = `colorCategoryHex(cat)` (v9 behaviour). `'manual'` = keep.
+- **Locks**: anything the user picks by hand sets `color_locked = true`; auto code (`applyAutoColor`, `recolorAll`, editor company/category changes, bulk edit) must never overwrite a locked colour. Call `applyAutoColor(b)` after changing `company_name`/`category` programmatically (it does not commit); use `recolorAll(opts)` for user-visible recolours (undo + `logAct('binder.recolor')`).
+- **Hooks in other files** (one line each): `normalizeBinder` (02-core), `migrate()` legacy lock, `HEADER_ALIASES`/`mapRecord`/`binderToCsvRow` (04-ui), `openEditor`/`swatchesHTML`/`analyzeImportRecords`/`viewSettings` (05-views), `edCompanyInput`/`edFillFromCompany` (04b), `applyClientToEditor` (06c), `infoApplyCatColors`/`openCatColor`/rename-delete of `catFamilies` (06d), DDL/`dbMigrate`/sync/read/`applyWorkspaceObject` (06-db), `ed-color`/`color_hex`/`category` input handlers (09-actions), `IMAP_LABELS`/`IMAP_TECH` (05b).
+- **Upgrade**: never recolour existing binders automatically; data without `settings.colorMode` is pre-v10 and goes through `colorLockLegacy()` (locks non-automatic colours). Details and the exact algorithm (useful to reproduce in Python): `docs/MODELLO-DATI.md` §12.
+
+## v10 stream R — PDF compatibility and page selection
+
+- **Page selection / order** (print, PDF and preview): state `S.print.pages = {sel:'all'|'1-3,5', reverse:false, order:null|[3,1,2…], sig:''}` (created lazily, no migration; `pagesCfg()` normalises). Core in 03-print.js: `pageSelParse(sel, n)` (set semantics; `'none'` = nothing), `pageOrderValid`, `pageSig(L)` (hash of binder ids per page), `labelPageOrder(L)` → ORIGINAL 0-based page indices in output order (custom order → selection filter → reverse). `buildLabelSheets(screen)` returns sheets in that order, so every consumer (print, PDF, preview) follows it. The page index passed to the renderer stays the original one: the used-slot skip of the partial sheet always stays on original sheet 1. `printLabels()` / `pdfAskUsedSlots()` skip the "update partial map" question when the last sheet is not in the job.
+- **Stale selection**: `sig` records the layout the choice was made for; if the queue changes the pages, `labelPageOrder` ignores `sel`/`order` and `pagesCheck()` (05c) resets them with a notice (`reverse` is kept).
+- **UI** (05c-pdf.js): `pagesPanelHTML()` / `renderPagesPanel()` (called by `refreshPrint()`), section `#pr-pages-sec` in `viewPrint()`, `PAGE_ACTIONS` (`pg-all`, `pg-rev`, `pg-tick`, `pg-up`, `pg-down`, `pg-first`, `pg-reset`, `pdf-cmyk`), `#pg-sel` change handler, styles injected as `<style id="css-pages">`, help topics `pages` (new) and `pdf` (updated).
+- **PDF writer guarantees** (keep them when touching 05c): `%PDF-1.4` + binary line, classic xref, trailer `/ID`, `/Info` + XMP, fonts embedded (FontFile2, CIDToGIDMap /Identity, /W, /CIDSet, ToUnicode), no transparency (alpha and CSS opacity are flattened with `pdfColor(css, op)`), all page boxes = A4, `/Rotate 0`, no annotations, `/PrintScaling /None`, strokes >= 0.1 pt (`pdfLW`), QR as merged rectangles in one fill (`pdfQrRects`). Colour operators go through `pdfFillOp` / `pdfStrokeOp`; `S.print.pdfCmyk` switches them to DeviceCMYK with neutral colours as K only (`pdfCMYK`).
+
+## 13. v10: mobile page, provider seams, web mode (stream M)
+
+- **Config** `docmap.config.js` (classic script, loaded first by `index.html` and `scan.html`): `window.DOCMAP_CONFIG =
+  {mode:'local'|'web', basePath, apiBase, studioSlug, studioName}`. `dmConfig()` reads it with defaults.
+  `local` = unchanged MVP. `web` without `apiBase` = static upload: login on every page, data encrypted in the browser.
+  `web` with `apiBase` = shared online database (v10.1, §14); `mode:'remote'` = future central login (`docs/API-CONTRACT.md` §9).
+- **`scan.html`** + `assets/js/11-scan.js` + `assets/css-scan.css`: the page after scanning a QR. Loads only
+  `02-core.js`, `10-auth.js`, `11-scan.js` (no desktop modules); sets a light `S = {lang, settings}` for `t()`/`fmtDate()`.
+  Route: `?q=` · `?qr=` · `…/q/<code>` (path, `<base>` fixed by an inline head script) · `#/q/<code>` · `?code=`
+  (`scResolveRoute`). Views in `SC.view`: `nousers | login | noqr | notfound | card | edit` (+ `nocrypto`, `error`).
+  Logged out renders no binder data at all. Editors get the round "Modifica" button → `MOBILE_FIELDS`
+  (`archive_state, contents_items, room_code, cabinet_code, shelf_code, sector_code, notes, tags`).
+- **Providers** (`10-auth.js`, JSDoc interfaces at each class): `dmProviders()` → `{mode, cfg, auth, data, crypto, blobs}`.
+  `LocalDataProvider.saveBinderPatch(id, patch, {etag, user, force})` re-reads the stored state, checks
+  `updated_at === etag` (else `DMError('conflict', {current})`), applies only the patched fields (`mobileApplyPatch`,
+  normalised, `updated_at` strictly increasing), writes `LS_KEY` (+ `LS_PREV`) or the vault, and appends an activity-log
+  entry `{action:'binder.edit', source:'mobile', details:{changed, patch, base_updated_at, new_updated_at, user_id, forced}}`
+  to `docmap_v26_log_pending` (or the vault log). 06e-log accepts `source:'mobile'`. The open desktop applies the same
+  patch live (`mobileLiveMerge`, storage event) when its copy of the binder is unchanged; otherwise the reload banner stays.
+- **Auth**: users in `localStorage 'docmap_v26_auth'` (not in S, backups, CSV or SQLite), hash
+  `pbkdf2_sha256$600000$salt$hash`, backoff counters `docmap_v26_auth_fail`, session `sessionStorage 'docmap_v26_session'`.
+  Desktop UI: `authSettingsHTML()` appended to `viewSettings()`, actions `au-add`, `au-edit`, `au-del`, `mob-preview`, `vl-lock`
+  (`AUTH_ACTIONS`, merged on DOMContentLoaded). Log actions `settings.user_add|user_edit|user_delete`.
+- **Web-mode vault** `window.DocMapVault` (`isActive · isUnlocked · loadState · saveState · flush · lock · gateBoot`):
+  `02-core.js` `loadState()`/`persist()` route through it, `09-actions.js` boot is `dmBoot()` behind
+  `DocMapVault.gateBoot(dmBoot)`, `idbGet/idbSet('db')` and `logSavePending` are wrapped here. Storage keys:
+  `docmap_v26_vault`, `_vault_prev`, `_vault_log`, `sessionStorage 'docmap_v26_vault_session'`, IndexedDB `docmap_v26_keys`.
+  A sync import (06f-sync.js) just mutates `S` and calls `commit()`: it is stored encrypted automatically.
+- **BlobStore**: IndexedDB `docmap_v26_blobs`; photos (06b) are **not** migrated yet — see `docs/SICUREZZA.md` §4.
+- **Deploy**: `python3 tools/build_deploy.py [TARGET] [--base-path /studio-de/]` → static folder (default
+  `../deploy/studio-de/`) with web config, `.htaccess`, `404.html`, `robots.txt`, nginx example, `README-DEPLOY.md`, manifest.
+- **DB schema**: no DDL from this stream (`DB_SCHEMA_VERSION` 6 comes from `color_locked`, §12). Users and blobs are deliberately not in the SQLite file.
+- **Destination default**: `DEFAULT_DEST = 'https://docmap.pr-it.it/studio-de/q/{short_code}'`; the v9 default is in
+  `OLD_DEFAULT_DESTS` and is replaced by `migrate()` only when unchanged.
+
+## 14. v10.1: shared online database (stream W)
+
+- **Server**: `server-php/api.php` (single file, PHP 8.0+, PDO SQLite + OpenSSL), `setup.php` (one-shot: data dir, AES key,
+  tokens → `config.php`, then refuses / renames itself), `config.sample.php`, `.htaccess` (denies `config*.php`,
+  `*.sqlite*`, `*.disabled`, `.ht*`), `data/.htaccess` "Require all denied". Contract and schema: `docs/API-CONTRACT.md`
+  (a Python service may replace the PHP file 1:1). Never commit a `config.php` or a database.
+- **Config**: `docmap.config.js` `apiBase` (deploy default `'server-php/api.php'`, relative to the app;
+  `build_deploy.py --no-server` → `null`). `DocMapVault.isActive()` is now true for every `mode:'web'` (with apiBase the
+  vault is the encrypted offline cache and holds the server token `docmap_v26_vault_srv`: `srv() · srvToken() · srvSet()`).
+- **10-auth.js**: `DMServer` (fetch client: `X-DocMap-Token` same-origin; `simple` mode = POST text/plain + `_token` for
+  `file://`), `RemoteDataProvider` now speaks the PHP contract (`binder`, `patch` + 409 → `DMError('conflict', {current})`),
+  `srvSetupDevice` / `srvSetToken`; lock screen and `scan.html` get a token field on first use (`SC.view` `setup`,
+  `token`). `LocalAuthProvider.currentUser().role` comes from the server token in web+apiBase.
+- **06f-sync.js hooks**: `syncApply(plan, {quiet})`, `plan.onApplied` / `plan.onCancel` for the review modal,
+  peers with `mode:'server'` hidden from the file-export target list, `sy_mode_server`.
+- **02-core.js**: an empty vault in web+apiBase starts with no demo binders (data comes from the server).
+- **No state-schema or DB-schema change** (`schema 26.9`, `DB_SCHEMA_VERSION` unchanged, same `LS_KEY`): v10 data opens
+  as is; the server peer lives in the existing `S.sync.peers`. Upgrade guide: `docs/AGGIORNAMENTO-v10-v10.1.md`,
+  generic procedure `docs/AGGIORNAMENTI.md` (every release must ship a data-preserving upgrade path + a test).
+- **Log actions**: `sync.server` (desktop sync line), `sync.token` (token created / revoked).
+- **Tests**: `// @@STREAM-W@@` builds the deploy into `tests/shots/srv/`, runs `setup.php` through `php -S` with
+  `tests/php-router.php` (applies the `.htaccess` deny rules), then API, encryption at rest, web app, scan page,
+  desktop seed + review, v10 data preservation, rate limit. Skipped with a notice when `php` (pdo_sqlite + openssl) is missing.
+
+## 15. v11: push / sync journal (stream J)
+
+- **Client** `06i-journal.js` only *observes*: it wraps `syncParse`, `syncOpenReview`, `syncApply`, `syncExport` (06f),
+  `srvSync`, `srvApplyPlan`, `srvPush` (06g), `DMServer.prototype.call` and `RemoteDataProvider.prototype.saveBinderPatch`
+  (10-auth), `workspaceJSON` / `logImport` (backups: key `sync_journal`, merged by id) and `viewSync` (card `#jr-card`).
+  If you rename one of these functions, update the wrapper list (`jrWrapSync`). Entries are generic over record types:
+  a new type that flows through `syncApply` / `srvChanges` is journaled with no change (label key `jr_t_<type>`).
+- **State**: `S.syncJournal` (default `[]`, normalised by `migrate`), `S.sync.recvAt` (06f). No `.sqlite` change.
+- **Sync engine rules added in 06f/06g** (keep them): `syNext(prev, now)` for every new `updated_at` / tombstone /
+  keep-local bump; `syncMarkRecv` + `syncIsNew(type, id, ts, since, exclude)` so that received records are forwarded and
+  a future `since` sends everything; `syncSameAsPeer` against false "both" conflicts; push-rejection packages use the
+  server's `server_time`.
+- **Server** `api.php`: `DM_SCHEMA = 2`, `db_migrate()` (steps array: a new table set = a new step, never edit an old
+  one), tables `sync_journal` / `sync_journal_items`, `client_info()`, `jr_*` helpers, routes `journal` (editor: own
+  entries only) and `journal_restore` (admin), config `journal_keep_days`, `journal_pulls`. `push` / `pull` / `patch`
+  return `journal_id`.
+- **i18n** prefix `jr_*`, log actions `sync.restore`, `sync.journal_export`, log source label `lg_src_journal`.
+- **Tests** `// @@STREAM-J@@`: v10.1 server upgraded in place (API from commit `68ae170`), two desktops + phone against
+  `php -S`, clock skew, package forwarding, convergence, journal roles / filters / hashes / encryption at rest, UI,
+  restore (server and local), exports, local ⇄ local packages with a manual conflict choice.
+
+## v10 E — Bulk edit ("Modifica massiva", `05d-bulk.js`)
+
+- **Entry**: button `#btn-bulk` (`data-a="bulk-open"`) in the archive toolbar. Mode flag `BK.on` (ephemeral, never persisted; not an `S.archiveView` value). `renderView()` renders `viewBulk()` + `mountBulk()` instead of `viewArchive()` while `bulkOn()` is true; "Torna all'archivio" (`bulk-close`) leaves it (asks before discarding pending changes).
+- **Rows** = `filteredBinders()` (same search / state / room / category / Informazioni filter / hideDemo as the archive; the bulk toolbar writes the same `UI.q`, `UI.fState`, `UI.fRoom`, `UI.fCat`), then sort (`BK.sort {k, dir}`, header click) and group (`BK.group`: `'' | category | company_name | archive_state | room_code`). `BK.rows` mixes `{b}` and `{g, ids}` (group header) rows.
+- **Columns**: `BULK_COLS` (`k`, width, `ta` = `ED_SOURCES` key, `multi`, `sel`, `color`, `loc`, `req`, `hide`). Visible set in `S.settings.bulkCols` (lazy, array of keys; absent = every column without `hide`). The `location_code` column edits `room_code/cabinet_code/shelf_code/sector_code` through `parseQuickLocation()`.
+- **Staged changes**: `BK.draft: Map(id → {field: value})`; `bkApply([{id, patch}])` is one undoable step (`BK.hist`, Ctrl+Z); values equal to the saved ones drop out. `bkValidate()` → `BK.errs` (empty / duplicate speaking code across the whole archive, empty client; same messages as the editor) blocks `bkSave()`. Company names typed in a cell are replaced by the existing spelling (`edFindCompany`).
+- **Save** (`bkSave`): `undoPoint()` → `normalizeBinder(old + draft)` per binder → `logAct('binder.bulk_edit', target|null, summary, {count, fields, binders:[{id, code, changed:logDiff}]})` → `commit()` → `undoToast()`. Ctrl+Z in the grid after a save restores the `UNDO` snapshot (same as the toast).
+- **Rendering**: fixed row height `BK.rowH` (34 px), only the rows in view + overscan are in the DOM (`bkRenderBody`), spacer rows keep the scroll height; 2000 binders open in well under a second. The grid (`#bk-grid`) is the only element that scrolls horizontally.
+- **Keyboard** (grid has focus): arrows, Tab/Shift+Tab, Home/End, PgUp/PgDn, Enter/F2 or typing edits, Esc cancels (in an editor) or clears the selection, Space selects, Shift+↑/↓ extends the selection, Ctrl+A all, Ctrl+D fill down into the selected rows, Ctrl+C / Ctrl+V (internal clipboard), Delete clears, Ctrl+Z undo, Ctrl+S save (captured before the global quick-backup shortcut while changes are pending).
+- **Apply to selected** ops: `category`, `tag_add`, `tag_rm`, `state`, `color`, `color_auto` (only if the colour module exposes one), `loc` (position prefix: only the parts typed are set), `year`, `city`.
+- **Colour hooks (interface expected from 02b-colors.js)**: `colorAssign(binder, binders) → '#RRGGBB'` or `applyAutoColor(binder, binders)` (may mutate the copy and/or return a hex) for "Colore automatico"; optional `colorMarkManual(binder)` after a manual colour. Any field they change on the copy is staged too. Without them only the plain colour input is shown.
+- To add a column: append to `BULK_COLS`, add `bk_c_<key>` in IT + EN, extend `bkPatchFor()` if the value needs normalising.
+
+## 16. v11: locations, location QR codes, association mode (stream X)
+
+- **Files**: `02c-locations.js` (pure model, also loaded by scan.html), `06h-locations.js` (desktop), `11b-assoc.js`
+  (camera scanner + scan.html association), `css-locations.css`, `vendor/jsqr.js` (+ `LICENSE-jsQR.txt`).
+  scan.html loads `02-core → 02c → 10-auth → 11-scan → 11b`.
+- **Data**: `S.locations[]` (fields in `docs/MODELLO-DATI.md` §14), `binder.location_id` (CSV column appended at the
+  end, aliases `id_ubicazione`/`ubicazione_id`/`id_luogo`), `settings.locLevels` / `locLevelsAt`. `location.code` and
+  `binder.location_code` are **derived** (`locIntegrity`, `binderLocCode`): never treat them as sync content.
+  Location short codes are `dm26L` + 8 (13 chars), binder codes `dm26` + 8: tell them apart with `assocParseCode` /
+  `LOC_SC_RE`, never by lookup. **No demo locations**: the tree starts empty.
+- **After editing a location in place** call `locTouch()` (or `locAfterChange()` = integrity + binder codes) so the
+  cached index rebuilds; replacing `S.locations` is detected automatically.
+- **SQLite**: `DB_SCHEMA_VERSION 7` (table `locations`, column `binders.location_id`, additive migration).
+- **Sync/server**: record type `location` everywhere binders/clients go (06f, 06g, `api.php` `DM_TYPES`). Server: no
+  schema change (reuses `k_short`/`k_code`), new read routes `location` and `resolve`, `patch` accepts
+  `location_id` (+ server-computed `location_code`). v10.1 phones keep working.
+- **Logging**: every assignment is `binder.locate` `{from, to, via, device, user}` (or `binder.locate_bulk`); tree edits
+  `location.*` (log group `location`).
+- **UI naming**: the Informazioni tab is **"Ubicazioni"** (`INFO_TABS` id `loc`) because "Luoghi" already lists the
+  company places (`company_city`).
+- **Tests**: `// @@STREAM-X@@` (desktop tree, labels + PDF decode, manifest, keyboard association, v10.1 local data,
+  then a php -S server started with the v10.1 `api.php` from git `68ae170` and switched to the current one; phone
+  association on scan.html; two desktop pages syncing locations).
+
+## 16b. v12: several archives, "Configura archivio", nested association, NFC (stream C)
+
+- **Files**: `02e-archives.js` (model), `06l-archives.js` (desktop), `11e-nfc.js` (both pages), `css-archives.css`
+  (both pages). scan.html loads `02-core → 02c → 10-auth → 06i → 11-scan → 11b → 11e` (no archive model needed there:
+  the phone shows `kind`, which "Configura archivio" writes on every node).
+- **Data**: `S.archives[]` (`docs/MODELLO-DATI.md` §15), `S.archiveSel` (preference), `binder.archive_id`,
+  `location.archive_id` (root only; derived for children by `locIntegrity`). `''` = the default archive, which is
+  **virtual** (not in `S.archives`) until edited, then stored with the fixed id `ARCH_DEFAULT_ID`. Never stamp old data.
+  The effective archive of a binder is `binderArchiveId(b)` (its box wins). CSV column `archive_id` appended at the end.
+- **Levels**: `locLevels()` without arguments = levels of the context archive (`archWithCtx(id, fn)` or the switcher);
+  `locLevels(S.settings)` = the v11 office levels, which stay the levels of the default archive.
+- **Hooks into shared files** are all feature-detected (`typeof archX === 'function'`): 02-core (normalizeBinder,
+  migrate), 02c (normalizeLocation), 04-ui (undo, CSV, workspace), 05-views (`filteredBinders`), 06-db (migration,
+  sync, read), 06f/06g (record type `archive`). The rest is done by wrapping globals at load time in 06l (`archWrap`).
+- **Scanning**: every tag goes through `onTagScanned(text, via)` (`via` = `qr` · `nfc` · `keyboard`). Another mode
+  (e.g. a status mode) registers `TAG_SCAN_HANDLERS.unshift({id, active:() => bool, handle:(text, via) => …})`.
+- **SQLite**: `DB_SCHEMA_VERSION 9` (table `archives`, columns `binders.archive_id`, `locations.archive_id`; keyed on
+  existence). **Server**: record type `archive` in `DM_TYPES`, ping feature `archives`, no server migration.
+- **Tests**: last `// @@STREAM-C@@` (wizard, switcher/filters, merge/move/undo, CSV, levels, nested association,
+  onTagScanned, SQLite 9, package + server sync, NFC with a mock `NDEFReader`, real v10.0 → v12 upgrade from git `34ff0d1`).
+
+## 17. v11.1: documentation layout (stream D, docs only)
+
+- `README.md` is a short entry point (version, start, links). The full feature description moved to
+  `docs/RIFERIMENTO-FUNZIONI.md` (history sections "Storia: novità vX" at the end); task-oriented steps are in
+  `docs/MANUALE-UTENTE.md` (button names exactly as the IT i18n strings); `docs/GLOSSARIO.md` maps IT term ↔ EN term ↔
+  code name; `docs/CHECKLIST-COLLAUDO.md` lists the manual acceptance checks the suite cannot do; `docs/INDICE.md`
+  maps every document to its readers.
+- `docs/python/`: `PORTING.md`, `openapi.yaml` (OpenAPI 3.1 of `api.php`, routes as `/<route>` + `x-docmap-route`,
+  minimum role in `x-docmap-role`), `SCHEMI.md` + `schema/*.schema.json` (JSON Schema 2020-12, relative `$ref`s, no
+  `$id`), `tools/export_samples.js` (Playwright: real backup / package from the app) and `tools/validate_schemas.py`
+  (validates them, cross-checks the `api.php` routes and runs every route of a temporary `php -S` against the
+  OpenAPI, then recomputes blobs / HMAC / hashes in Python). When a field, a route or a response changes, update the
+  schema or `openapi.yaml` in the same commit and run the validator.
+- `// @@STREAM-D@@` tests (no browser work beyond one `evaluate`) check that the docs stay consistent with the code:
+  every relative Markdown link resolves; README, INDICE and HANDOFF_PROMPT name `APP_VERSION`; MODELLO-DATI §6.1
+  lists `CSV_COLUMNS`; the keys of `normalizeBinder/Client/Location({})` and of `workspaceJSON(true)` are all in the
+  schema `properties` (and every `required` key is always written); the OpenAPI routes, roles and methods = `$reads`
+  / `$writes` of `api.php`; the ping `features` in API-CONTRACT/HANDOFF = `api.php`. Bumping `APP_VERSION`, adding a
+  CSV column, a field, a route or a ping feature therefore needs the matching doc/schema update.
+- No code, data-model, storage-key, DB-schema or API change in this stream.
+
+## 18. v12: one search box, remembered phone sign-in, access log (stream A)
+
+- **Files**: `04c-search.js` (pure engine, no DOM: `srchRun(binders, q, {facets, notes, counts})` → `{list, total,
+  hits, marks, parsed, fuzzy, facets, ms}`, `srchParse`, `srchMark`, `SRCH_OPS`, document cache `SRCH.cache` keyed by
+  binder id + signature), `11d-search.js` (desktop archive zone + phone search screen), `06k-access.js` (remember me,
+  views, "Chi l'ha visto", "Accessi"), `css-search.css`. index.html: 04c after 04b, 06k after 10-auth (before
+  09-actions boots), 11d after 11b; scan.html: 04c after 02c, 06k + 11d after 11b.
+- **Desktop search** goes through the existing `filteredBinders()`: the wrapper runs the original filters with
+  `UI.q = ''` and then `srchRun` on the result (so state / room / category / location / Informazioni / hideDemo filters
+  keep working). `sortedBinders()` is memoised on the identity + codes of `S.binders` elements. Never call
+  `srchRun` with a query in a loop of 5 000 binders: one call is ~10–30 ms.
+- **Hooks for other streams** (feature-detected at every search, all optional, exceptions swallowed):
+  `window.statusSearchHook = {match(b, v) → true|false|null, statusOf(b) → {id, label}|null, words(b) → string}` (stream
+  Q: `stato:<v>`, facet group `status`, card badge via `srchStateOf(b)`), `window.archiveSearchHook = {match(b, v),
+  archiveOf(b) → {id, label}|null, words(b)}` (stream C: `archivio:<v>`, facet group `archive`). Their answers are part
+  of the document signature, so a changed status re-indexes the binder. `SC.via` (scan.html) is the `via` sent with
+  the next `binder` / `location` read: `''` (= qr), `'search'` (set by 11d), `'nfc'` (stream C, set it right before its `scRoute()` and clear it afterwards); 11d clears it on
+  back / forward navigation and on logout.
+- **Remember me** (`rm*`): only when `DocMapVault.isActive()` (web mode). Wraps `LocalAuthProvider.prototype.login /
+  logout`, `DocMapVault.resume`, `vaultLockRender`, `vaultLockNow`, `authSettingsHTML`, `scLoginHTML`, `scSetupHTML`.
+  The checkbox is `#dm-remember` (`data-rm-want`); its state is read in the login wrapper. Policy:
+  `rmPolicy() → {minutes, source:'server'|'device'|'default'}`.
+- **Views**: `acNoteView(b, via)` (called by the `openEditor` wrapper) logs `view.binder` (throttled 10 min, key
+  `docmap_v26_view_seen`) and queues `{type, id, code, at, via}` for `POST seen` (`docmap_v26_seen_queue`) when a server
+  is configured; `srvSync` / `scRoute` wrappers flush it. A 401 with this device's token (`DMServer.prototype.call`
+  wrapper) forgets the remembered sign-in.
+- **Server** `api.php`: `DM_SCHEMA = 3`, step 3 = table `access_log` (+ 4 indexes); `acc_*` helpers; routes `access`
+  (editor own rows / admin all + IP), `last_seen` (viewer), `seen` (POST, viewer); `via` on `binder` / `location` /
+  `resolve`; `me.remember_minutes`; ping feature `access_log`; config `access_keep_days` (365),
+  `access_dedupe_seconds` (120), `remember_minutes` (null). `HX_SERVER_SCHEMA = 3` in 07b-helpx.js.
+- **State**: `S.settings.savedSearches` / `savedSearchesAt` (in the shared settings subset: `locSyncSubset` /
+  `locSyncApply` wrappers, newer `savedSearchesAt` wins) and `S.settings.srchNotes`. No local DB / CSV change.
+- **i18n** prefixes `sr_*`, `rm_*`, `ac_*`, plus `lg_g_view`, `lga_view.binder`; log group `view`; help topics
+  `search`, `remember`, `access`; tour `GUIDES.search`.
+- **Tests** `// @@STREAM-A@@`: engine, desktop UI, 5 000-binder timing, server upgrade v11 → v12 (API of `58a53e0`) and
+  v10.1 → v12 (API of `68ae170`) under `php -S` (port 19100 + pid % 300, folders `tests/shots/asrv*`), access / seen /
+  last_seen / retention, phone remember / timeout / policy / logout / revoke / search / offline flows.
+
+## 19. v12: statuses / check-out of binders, documents and boxes (stream Q)
+
+- **Files**: `02d-status.js` (pure model, also on scan.html), `06j-status.js` (desktop), `11c-status.js` (phone),
+  `css-status.css`. scan.html loads `02-core → 02c → 02d → 10-auth → 06i → 11-scan → 11b → 11c`.
+- **Data** (`docs/MODELLO-DATI.md` §17): `S.settings.statusTypes` / `statusTypesAt` (shared settings subset, newer list
+  wins), `S.statusEvents[]` append-only (`{id, at, user, device, target_type, target_id, doc_id, status_id, holder,
+  due_date, date, note, via, box_id, batch_id, code, doc_text, undo_of}`); current status = latest event that is not an
+  undo nor undone. **Never edit or delete an event**: undo = `sqUndoEvent` (compensating event). Statuses do not touch
+  `archive_state` or `contents_items[].status`.
+- **Document ids**: every `contents_items[]` entry has a stable `id` (`ciEnsureIds` in `normalizeBinder`, deterministic
+  for data without ids). When you rebuild a contents list from text (CSV/AI import, lines mode, phone patch, journal
+  restore) call `ciCarryIds(previousItems, newItems)` before `normalizeBinder`, or document statuses lose their target.
+- **SQLite**: `DB_SCHEMA_VERSION 9` (`contents_items.item_id`, table `status_events`), migration keyed on column / table
+  existence. `.sqlite` open/import merges events by id.
+- **Sync / server**: package `records.status_events` (union by id, forwarded with `_rx` like `recvAt`); server record
+  type `status_event` (`DM_TYPES`, HMAC `k_short = st/b|l/<id>`, `k_code = stbox/<box>`), `binder` / `location`
+  responses carry `status_events` + `status_types`, ping feature `status_events`. Status events are never pushed to a
+  server without that feature: they still travel inside the activity-log lines (`details.events`), merged by the
+  `logMerge` wrapper — the same path as phone events in local mode.
+- **Stream A hook**: `sqLastSeen(kind, id, rec)` reads `window.dmAccessLast(kind, id)` → `{user, at, via}` or the
+  response fields `last_scan` / `last_view` / `access.last`; nothing else depends on stream A.
+- **Stream C hooks**: `locDetailHTML` is wrapped (badge + "Stato della scatola…"); when `TAG_SCAN_HANDLERS` exists
+  (11e-nfc.js, `onTagScanned`), handlers `status` (desktop "Modalità stato", 06j) and `status-verify` (phone
+  "Verifica rientro", 11c) are `unshift`ed so QR / NFC / scanner reads reach them while they are open.
+- **UI**: the `status` view is not in the nav (the nav tests count 3 tabs): it opens from the archive strip, the
+  help topic and the guide `status`. Box actions cover only binders whose `location_id` is the box itself.
+- **Tests**: `// @@STREAM-Q@@` (types, events, document ids through CSV/JSON/SQLite/sync, desktop UI, phone flow in
+  local mode and against a php -S server, box apply + return check, offline outbox, two-desktop sync via package and
+  server, v10.0 / v11.1-shaped upgrade, help/guide, no horizontal scroll).
+

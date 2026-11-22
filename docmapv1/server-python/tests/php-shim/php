@@ -1,0 +1,178 @@
+#!/usr/bin/env python3
+"""`php` stand-in for running docmapv1/tests/suite.js against the Python server WITHOUT editing the suite.
+
+Put this folder first on PATH (tests/run_suite_python.sh does it). Then:
+  * `php -S host:port -t ROOT ROUTER`  → the Python server on host:port serving ROOT with php-router.php semantics:
+      - <dir>/api.php (existing, not denied) whose content is the CURRENT docmapv1/server-php/api.php → the Python API
+        (docmap_server), config = <dir>/config.php, re-read on every request (server --php-layout mode);
+      - <dir>/api.php with other content (the suite's X and J start with the v10.1 api.php from git 68ae170 and then
+        copy the current one over it: an upgrade test) → the real php, so the test becomes "v10.1 PHP data dir, then
+        the Python server on the same docmap.sqlite". DOCMAP_SHIM_LEGACY_PHP=0 sends every api.php to Python instead;
+      - any other *.php that exists and is not denied (in practice setup.php, the one-shot installer, which has no
+        Python twin served over HTTP) → proxied to a REAL `php -S` on an internal port (same ROOT and ROUTER);
+      - everything else → the Python static handler (same deny rules as php-router.php).
+  * anything else (`php -r …`, `php -v`, …) → exec of the real php (the first `php` on PATH outside this folder).
+Set DOCMAP_SHIM_LOG=<file> to log what the shim does.
+"""
+import os
+import socket
+import subprocess
+import sys
+import time
+
+HERE = os.path.dirname(os.path.realpath(__file__))
+PYROOT = os.path.dirname(os.path.dirname(HERE))          # docmapv1/server-python
+CURRENT_API = os.path.join(os.path.dirname(PYROOT), "server-php", "api.php")
+LEGACY_PHP = os.environ.get("DOCMAP_SHIM_LEGACY_PHP", "1") != "0"
+
+
+def log(msg):
+    f = os.environ.get("DOCMAP_SHIM_LOG")
+    if f:
+        with open(f, "a", encoding="utf-8") as fh:
+            fh.write("%s [%d] %s\n" % (time.strftime("%H:%M:%S"), os.getpid(), msg))
+
+
+def real_php():
+    for d in os.environ.get("PATH", "").split(os.pathsep):
+        if not d or os.path.realpath(d) == HERE:
+            continue
+        c = os.path.join(d, "php")
+        if os.path.isfile(c) and os.access(c, os.X_OK) and os.path.realpath(c) != os.path.realpath(__file__):
+            return c
+    sys.stderr.write("php shim: no real php found on PATH\n")
+    sys.exit(127)
+
+
+def parse_serve(argv):
+    """['-S', 'h:p', '-t', root, router] (any order of -t) → (host, port, root, router) or None."""
+    if not argv or argv[0] != "-S" or len(argv) < 2:
+        return None
+    host, _, port = argv[1].rpartition(":")
+    root, rest, i = os.getcwd(), [], 2
+    while i < len(argv):
+        if argv[i] == "-t" and i + 1 < len(argv):
+            root = argv[i + 1]
+            i += 2
+            continue
+        rest.append(argv[i])
+        i += 1
+    if len(rest) > 1 or not port.isdigit():
+        return None
+    return host or "127.0.0.1", int(port), os.path.abspath(root), rest[0] if rest else None
+
+
+def free_port():
+    s = socket.socket()
+    s.bind(("127.0.0.1", 0))
+    p = s.getsockname()[1]
+    s.close()
+    return p
+
+
+def serve(php, host, port, root, router):
+    sys.path.insert(0, PYROOT)
+    import urllib.error
+    import urllib.request
+
+    import uvicorn
+    from starlette.concurrency import run_in_threadpool
+    from starlette.responses import Response
+
+    from docmap_server.web import create_app, static_response
+
+    iport = free_port()
+    cmd = [php, "-S", "127.0.0.1:%d" % iport, "-t", root] + ([router] if router else [])
+    inner = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    log("serve %s:%d root=%s (python API, php fallback on :%d)" % (host, port, root, iport))
+    api = create_app(None, root, (), php_layout=True)
+
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, *a, **k):
+            return None
+
+    opener = urllib.request.build_opener(NoRedirect)
+
+    def forward(method, path_qs, headers, body):
+        req = urllib.request.Request("http://127.0.0.1:%d%s" % (iport, path_qs), data=body if method not in ("GET", "HEAD") else None,
+                                     method=method, headers={k: v for k, v in headers if k.lower() not in ("host", "content-length", "connection")})
+        for _ in range(50):
+            try:
+                with opener.open(req, timeout=60) as r:
+                    return r.status, list(r.headers.items()), r.read()
+            except urllib.error.HTTPError as e:
+                return e.code, list(e.headers.items()), e.read()
+            except urllib.error.URLError:
+                time.sleep(0.1)        # inner php -S still starting
+        return 502, [("Content-Type", "text/plain")], b"php fallback not reachable"
+
+    import hashlib
+    sums = {}
+
+    def digest(f):
+        st = os.stat(f)
+        k = (f, st.st_mtime_ns, st.st_size)
+        if k not in sums:
+            with open(f, "rb") as fh:
+                sums[k] = hashlib.sha256(fh.read()).hexdigest()
+        return sums[k]
+
+    def to_php(path):
+        """True when the request must go to the real php: a .php other than api.php, or a legacy api.php."""
+        f = os.path.normpath(os.path.join(root, path.lstrip("/")))
+        if not os.path.isfile(f) or static_response(root, path).status_code in (400, 403):
+            return False
+        if not path.endswith("/api.php"):
+            return True
+        if not LEGACY_PHP:
+            return False
+        try:
+            return digest(f) != digest(CURRENT_API)
+        except OSError:
+            return False
+
+    async def app(scope, receive, send):
+        if scope["type"] == "http":
+            from urllib.parse import unquote_to_bytes
+            raw = scope.get("raw_path") or scope["path"].encode("utf-8")
+            path = unquote_to_bytes(raw.split(b"?", 1)[0]).decode("utf-8", "surrogateescape")
+            if path.endswith(".php"):
+                if await run_in_threadpool(to_php, path):
+                    body, more = b"", True
+                    while more:
+                        m = await receive()
+                        body += m.get("body", b"")
+                        more = m.get("more_body", False)
+                    qs = scope.get("query_string", b"").decode("latin-1")
+                    hdrs = [(k.decode("latin-1"), v.decode("latin-1")) for k, v in scope["headers"]]
+                    st, rh, rb = await run_in_threadpool(forward, scope["method"], raw.decode("latin-1").split("?", 1)[0] + ("?" + qs if qs else ""), hdrs, body)
+                    log("php fallback %s %s → %d" % (scope["method"], path, st))
+                    skip = ("transfer-encoding", "connection", "content-length", "date", "host")
+                    resp = Response(rb, status_code=st, headers={k: v for k, v in rh if k.lower() not in skip})
+                    await resp(scope, receive, send)
+                    return
+        await api(scope, receive, send)
+
+    try:
+        uvicorn.run(app, host=host, port=port, log_level="warning", server_header=False, access_log=False)
+    finally:
+        inner.terminate()
+        try:
+            inner.wait(5)
+        except subprocess.TimeoutExpired:
+            inner.kill()
+        log("stopped %s:%d" % (host, port))
+
+
+def main():
+    argv = sys.argv[1:]
+    php = real_php()
+    s = parse_serve(argv)
+    if s is None:
+        log("exec real php %s" % " ".join(argv)[:200])
+        os.execv(php, [php] + argv)
+    serve(php, *s)
+
+
+if __name__ == "__main__":
+    main()

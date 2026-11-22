@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DocMap status event (v12)",
+  "description": "One status movement of a binder, a single document (contents item) or a box (location): 'Preso', 'Reinserito', 'Dato al Comune fino al…'. Append-only: never edited or deleted; an undo is a new event with undo_of. The current status of a target is its latest event (by at, then id) that is neither an undo nor undone. Stored in S.statusEvents, the SQLite table status_events (schema 9), workspace backups (key status_events), sync packages (records.status_events) and the server as records of type 'status_event'. Model: assets/js/02d-status.js (sqNormEvent). Contract: docs/MODELLO-DATI.md §17.",
+  "type": "object",
+  "required": ["id", "at", "user", "device", "target_type", "target_id", "doc_id", "status_id", "holder", "due_date", "date", "note", "via", "box_id", "batch_id", "code", "doc_text", "undo_of"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9._:@-]{1,100}$", "description": "'se-' + UUID v4, never reused."},
+    "at": {"type": "string", "format": "date-time", "description": "When it was recorded (ISO UTC, ms). Also the record updated_at on the server."},
+    "user": {"type": "string", "maxLength": 80, "description": "Display name of who recorded it (operator on the PC, signed-in user on the phone)."},
+    "device": {"type": "string", "maxLength": 100, "description": "deviceId of the PC ('dev-…') or of the phone ('phone-…')."},
+    "target_type": {"enum": ["binder", "document", "location"]},
+    "target_id": {"type": "string", "pattern": "^[A-Za-z0-9._:@-]{1,100}$", "description": "Binder id (also for a document) or location id (box)."},
+    "doc_id": {"type": "string", "maxLength": 64, "description": "contents_items[].id of the document; '' unless target_type = document."},
+    "status_id": {"type": "string", "maxLength": 40, "description": "Id of the status type (settings.statusTypes, built-in: taken, returned, to_client, from_client, case, to_entity, from_entity, missing, found, check); '' for an undo."},
+    "holder": {"type": "string", "maxLength": 120, "description": "Who has it (person, client, council / agency), '' when the type asks nothing."},
+    "due_date": {"type": "string", "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$", "description": "Expected return date YYYY-MM-DD or ''. Overdue = presence 'out' and due_date before today."},
+    "date": {"type": "string", "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$", "description": "Effective date when it differs from at ('restituito il 3/11'), or ''."},
+    "note": {"type": "string", "maxLength": 1000},
+    "via": {"enum": ["scan", "desktop", "box", "bulk", "verify", "scanner", "editor", "undo"], "description": "scan = phone after a QR · box = 'Applica a tutta la scatola' · bulk = ticked binders · verify = 'Verifica rientro' · scanner = USB scanner 'Modalità stato' · editor = binder form."},
+    "box_id": {"type": "string", "description": "Location id of the box the action went through ('' otherwise)."},
+    "batch_id": {"type": "string", "description": "Same value for every event of one user action on several targets ('' for a single target)."},
+    "code": {"type": "string", "maxLength": 100, "description": "Speaking code (binder) or location code (box) at that time, for reports."},
+    "doc_text": {"type": "string", "maxLength": 200, "description": "'year: description' of the document at that time ('' for binders and boxes)."},
+    "undo_of": {"type": "string", "description": "Id of the event this one cancels, '' otherwise."}
+  },
+  "additionalProperties": true
+}

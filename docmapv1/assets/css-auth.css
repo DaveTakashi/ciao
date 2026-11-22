@@ -1,0 +1,22 @@
+/* DocMap 2026 — v10 (stream M): web-mode lock screen and sign-out button (10-auth.js). Uses docmap.css tokens. */
+html.vl-locked body{overflow:hidden}
+html.vl-locked .topbar{display:none}
+#vault-lock{position:fixed;inset:0;z-index:200;background:var(--bg);display:grid;place-items:center;padding:16px;overflow:auto}
+.vl-card{width:100%;max-width:420px;background:var(--surface);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow-lg);padding:24px;display:flex;flex-direction:column;gap:12px}
+.vl-card h1{font-size:22px;margin:4px 0 0}
+.vl-card p{margin:0;color:var(--text-2);font-size:14px}
+.vl-card .btn-lg{width:100%;justify-content:center;min-height:48px}
+.vl-brand{display:flex;align-items:center;gap:10px}
+.vl-brand>div:nth-child(2){display:flex;flex-direction:column;line-height:1.15;min-width:0;flex:1}
+.vl-brand span:not(.vl-mark){font-size:12px;color:var(--muted)}
+.vl-mark{width:38px;height:38px;border-radius:10px;background:var(--text);color:#fff;display:grid;place-items:center;font-family:var(--mono);font-weight:800;font-size:13px;flex:none}
+.vl-lang{display:flex;border:1px solid var(--border-2);border-radius:999px;overflow:hidden}
+.vl-lang button{border:0;background:transparent;padding:4px 10px;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer}
+.vl-lang button.on{background:var(--text);color:#fff}
+.vl-lockbtn{position:fixed;left:12px;bottom:12px;z-index:45;display:flex;align-items:center;gap:6px;border:1px solid var(--border-2);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;color:var(--text-2);box-shadow:var(--shadow);cursor:pointer}
+@media print{.vl-lockbtn,#vault-lock{display:none!important}}
+/* v10.1 shared online database: status pill in the top bar (06g-server.js) */
+.status.err{color:#7F1D1D;background:#FEE2E2;border-color:#FECACA}
+.status.err .dot{background:#DC2626}
+button.srv-st{cursor:pointer;font-family:inherit;white-space:nowrap;margin-right:6px}
+@media (max-width:900px){button.srv-st .sb-t{display:none}}

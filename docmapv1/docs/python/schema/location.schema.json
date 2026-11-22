@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DocMap location (ubicazione)",
+  "description": "A node of the location tree (Magazzino › Armadio › Scansia › Scaffale › Scatola) as written by DocMap v12 (normalizeLocation + locIntegrity in assets/js/02c-locations.js): S.locations, workspace JSON, sync packages, server records of type 'location'. code, level and short_url are DERIVED from the tree. Contract: docs/MODELLO-DATI.md §14.1.",
+  "type": "object",
+  "required": ["id", "parent_id", "level", "kind", "name", "seg", "code", "short_code", "short_url", "notes", "sort", "archive_id", "created_at", "updated_at"],
+  "properties": {
+    "id": {"type": "string", "minLength": 1, "description": "Stable id (UUID v4), never changed."},
+    "parent_id": {"type": "string", "description": "Parent node id; '' = top level (NULL in SQLite). A missing or cyclic parent is repaired to ''."},
+    "level": {"type": "integer", "minimum": 0, "maximum": 7, "description": "DERIVED: 0-based depth (max 8 levels)."},
+    "kind": {"type": "string", "description": "Level label of this node; '' = the configured level name: archive.levels[level] of its archive (v12), else settings.locLevels[level]."},
+    "name": {"type": "string", "description": "Free name; '' = shown as '<kind> <seg>'."},
+    "seg": {"type": "string", "pattern": "^[^\\s-]{0,16}$", "description": "Code segment (MAG1, A2, B04): uppercase, no spaces and no '-', max 16 characters, unique among siblings (a duplicate becomes B04.2)."},
+    "code": {"type": "string", "description": "DERIVED path code: segments from the root joined by '-' (MAG1-A2-S3-R1-B04). Not sync content."},
+    "short_code": {"type": "string", "pattern": "^dm26L[A-Za-z0-9]{8}$", "description": "Location QR code: 'dm26L' + 8 characters (13 in all), unique, never reused. Binder codes have 12 characters: the type is told by the format alone."},
+    "short_url": {"type": "string", "pattern": "^(https://qr7\\.it/dm26L[A-Za-z0-9]{8})?$", "description": "DERIVED: https://qr7.it/<short_code>."},
+    "notes": {"type": "string"},
+    "sort": {"type": "integer", "description": "Order among siblings; 0 = natural order by seg."},
+    "archive_id": {"type": "string", "default": "", "description": "v12: archive (archive.schema.json) of the tree, '' = the default archive. Set on the top-level node; DERIVED for the others (always the root's archive, repaired by locIntegrity)."},
+    "created_at": {"type": "string", "format": "date-time"},
+    "updated_at": {"type": "string", "format": "date-time", "description": "Drives last-write-wins like binders. Moving a node bumps its whole subtree."}
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DocMap LOCAL sync journal entry (voce del Registro sincronizzazioni sul dispositivo)",
+  "description": "One exchange of data seen from this device (jrNewEntry / jrAdd in assets/js/06i-journal.js): S.syncJournal (newest last, max 2000 entries / 12000 items), the workspace JSON key sync_journal, the phone vault list. The SERVER journal has its own shape (route journal, docs/python/openapi.yaml JournalEntry). Contract: docs/SYNC.md §9.",
+  "type": "object",
+  "required": ["id", "at", "kind", "dir", "auto", "ok", "error", "peer", "device", "user", "role", "counts", "server_journal", "items", "items_total"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^jr-", "description": "'jr-' + uuid."},
+    "at": {"type": "string", "format": "date-time", "description": "Clock of THIS device."},
+    "kind": {"enum": ["server", "package", "phone", "restore"]},
+    "dir": {"enum": ["sync", "import", "export", "patch", "restore"]},
+    "auto": {"type": "boolean", "description": "true = automatic web-app sync (not asked by the user)."},
+    "ok": {"type": "boolean"},
+    "error": {"type": "string", "description": "'' when ok; 'cancelled' when the user cancelled the review."},
+    "peer": {
+      "type": "object",
+      "description": "The other side: a device of a package, 'server:<url>' or the phone's server.",
+      "properties": {
+        "id": {"type": "string"}, "label": {"type": "string"}, "mode": {"type": "string", "description": "local · web · server · ''"},
+        "url": {"type": "string"}, "file": {"type": "string"}, "sha256": {"type": "string", "pattern": "^([0-9a-f]{64})?$"},
+        "bytes": {"type": "integer", "minimum": 0}, "enc": {"type": "boolean"}, "full": {"type": "boolean"},
+        "since": {"type": ["string", "null"]}, "exportedAt": {"type": ["string", "null"]}
+      },
+      "additionalProperties": true
+    },
+    "device": {
+      "type": "object", "required": ["id", "name", "app"],
+      "description": "jrClientInfo(): the identity also sent to the server (X-DocMap-Device / -Name / -App).",
+      "properties": {"id": {"type": "string"}, "name": {"type": "string"}, "app": {"type": "string"}},
+      "additionalProperties": true
+    },
+    "user": {"type": "string", "description": "Operator name or the server user of the token."},
+    "role": {"type": "string", "description": "Server role when known (viewer · editor · admin), else ''."},
+    "counts": {
+      "type": "object",
+      "required": ["sent", "received", "accepted", "rejected", "conflicts", "created", "updated", "deleted", "ignored"],
+      "additionalProperties": {"type": "integer", "minimum": 0}
+    },
+    "server_journal": {"type": "array", "items": {"type": "integer"}, "description": "jid of the matching server journal entries, when known."},
+    "items": {"type": "array", "items": {"$ref": "#/$defs/item"}, "description": "At most 300 per entry; the oldest entries lose their items first (items_pruned)."},
+    "items_total": {"type": "integer", "minimum": 0},
+    "items_pruned": {"type": "boolean"},
+    "seeded": {"type": "boolean", "description": "Server sync that uploaded the whole archive to an empty server."}
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "item": {
+      "type": "object",
+      "required": ["type", "id", "code", "dir", "action"],
+      "properties": {
+        "type": {"type": "string", "description": "binder · client · location · settings · any future record type (open list)."},
+        "id": {"type": "string"},
+        "code": {"type": "string"},
+        "dir": {"enum": ["in", "out"]},
+        "action": {"enum": ["create", "update", "delete", "tombstone", "conflict", "rejected-older", "sent", "sent-delete", "restore"], "description": "Received (dir in): create · update · delete · tombstone (deletion of a record already absent here) · conflict · rejected-older (older than the local copy, ignored) · restore. Sent (dir out): sent · sent-delete; phone saves use update."},
+        "resolution": {"type": ["string", "null"], "description": "took_remote · kept_local · accepted · rejected-older · conflict · rejected-invalid · queued · forced · error (phone) · ''"},
+        "how": {"type": ["string", "null"], "description": "Conflicts only: auto · confirmed · manual."},
+        "reason": {"type": ["string", "null"]},
+        "local_updated_at": {"type": ["string", "null"]},
+        "remote_updated_at": {"type": ["string", "null"]},
+        "hash": {"type": "string", "pattern": "^([0-9a-f]{64})?$", "description": "SHA-256 of the canonical JSON of the version kept / sent (= server new_hash)."},
+        "fields": {"type": "array", "items": {"type": "array", "prefixItems": [{"type": "string"}, {"type": "string"}, {"type": "string"}], "minItems": 3, "maxItems": 3}, "description": "[[field, value here, other value]]"},
+        "snapshot": {"type": ["object", "null"], "description": "The record before a deletion, so that it can be restored."}
+      },
+      "additionalProperties": true
+    }
+  }
+}

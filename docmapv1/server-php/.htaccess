@@ -1,0 +1,23 @@
+# DocMap 2026 — server-php: only api.php (and setup.php until it has run) may be called from the web.
+Options -Indexes
+<IfModule mod_authz_core.c>
+  <FilesMatch "(^config.*\.php$|\.sqlite|\.disabled$|\.bak$|\.log$|^\.ht)">
+    Require all denied
+  </FilesMatch>
+</IfModule>
+<IfModule !mod_authz_core.c>
+  <FilesMatch "(^config.*\.php$|\.sqlite|\.disabled$|\.bak$|\.log$|^\.ht)">
+    Order allow,deny
+    Deny from all
+  </FilesMatch>
+</IfModule>
+<IfModule mod_headers.c>
+  Header always set Cache-Control "no-store"
+  Header always set X-Robots-Tag "noindex, nofollow"
+</IfModule>
+# Desktop sync from file:// with the SiteGround password protection active: browsers send the CORS preflight
+# (OPTIONS) WITHOUT credentials. If "Sincronizza con il server" on the PC fails with the protection on, remove the
+# "#" from the three lines below (Apache 2.4): OPTIONS then answers 204 and carries no data.
+# <If "%{REQUEST_METHOD} == 'OPTIONS'">
+#   Require all granted
+# </If>

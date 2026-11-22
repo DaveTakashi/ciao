@@ -1,0 +1,930 @@
+openapi: 3.1.0
+info:
+  title: DocMap 2026 — API del database online condiviso
+  version: "api 1 · schema server 3 · DocMap 26.12.5"
+  summary: Contratto di server-php/api.php (v10.1 + v11 + v12), da riprodurre 1:1 in Python.
+  description: |
+    Descrizione OpenAPI 3.1 di `docmapv1/server-php/api.php` (implementazione di riferimento, `DM_API = 'docmap-php'`,
+    `DM_API_VERSION = 1`, `DM_SCHEMA = 3`). Testo umano del contratto: `docs/API-CONTRACT.md`; guida al porting:
+    `docs/python/PORTING.md`. I record (`data`) sono gli oggetti di `docs/python/schema/*.schema.json`.
+
+    **Instradamento per query.** Il front-end chiama sempre `<apiBase>?r=<rotta>` (es. `server-php/api.php?r=pull&since=42`).
+    In questo documento ogni rotta è scritta come path `/<rotta>` solo per leggibilità (OpenAPI non ammette la query nel
+    path): un server compatibile **deve** accettare la forma `?r=<rotta>`; può offrire anche i path.
+
+    **Letture e scritture.** Le rotte di lettura accettano `GET` e `POST` (con `POST` i parametri possono stare nel corpo
+    JSON: `param()` legge prima il corpo, poi la query); le scritture solo `POST` (altrimenti 405 `method`). Il programma sul
+    PC aperto da `file://` usa richieste "semplici" senza preflight CORS: sempre `POST`, `Content-Type: text/plain;charset=UTF-8`,
+    corpo JSON con i parametri della query, `"_token"` e `"_device"` (vedi `DMServer.call` in `assets/js/10-auth.js`).
+
+    **Token.** Cercato in quest'ordine: header `X-DocMap-Token`, `Authorization: Bearer <token>`, campo `"_token"` del corpo
+    JSON. `Authorization` è spesso occupato dalla protezione HTTP Basic di SiteGround: per questo l'header principale è
+    `X-DocMap-Token`. Ruoli: `viewer` < `editor` < `admin`.
+
+    **Errori.** Sempre `{"error":{"code","message", …campi extra}}` con `Content-Type: application/json`,
+    `Cache-Control: no-store`. Codici HTTP e `error.code`: 400 `bad_json` / `invalid` · 401 `token_missing` / `token_invalid`
+    (extra `left`) · 403 `forbidden` / `origin` · 404 `not_found` / `no_route` · 405 `method` · 409 `conflict`
+    (extra `current`, `current_etag`, ripetuti anche al primo livello) · 413 `too_large` · 422 `invalid` /
+    `field_not_allowed` (extra `field`) / `invalid_location` (extra `location_id`) · 429 `locked` (extra `retry_in`,
+    header `Retry-After`) · 500 `config` / `crypto` / `server_error`. Nessun percorso del server né messaggio PHP nei testi.
+
+    **Date.** ISO 8601 UTC con millisecondi (`2026-11-01T10:12:44.120Z`), confrontate come istanti.
+  license:
+    name: Proprietario — Studio Dall'Asta (uso interno)
+servers:
+  - url: https://docmap.pr-it.it/studio-de/server-php/api.php
+    description: "Produzione SiteGround (PHP). Le rotte si chiamano come ?r=<rotta> su questo URL."
+  - url: http://127.0.0.1:8080/studio-de/server-php/api.php
+    description: "Test locale (php -S con tests/php-router.php, docs/DEPLOY-WEB.md §4)."
+security:
+  - DocMapToken: []
+  - Bearer: []
+tags:
+  - name: stato
+  - name: sincronizzazione
+  - name: telefono
+  - name: ubicazioni
+  - name: token
+  - name: registro
+  - name: accessi
+paths:
+  /ping:
+    get:
+      tags: [stato]
+      operationId: ping
+      summary: Stato del server e ora del server (nessun token, funziona anche senza config.php)
+      description: |
+        Serve al controllo dell'installazione e all'avviso di orologio sfasato (> 2 minuti) nel client.
+        Con `OPTIONS` risponde 204 (preflight CORS). `cors()` aggiunge gli header CORS solo per le origini ammesse.
+      security: []
+      x-docmap-route: ping
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/PingResponse"}
+  /me:
+    get:
+      tags: [stato]
+      operationId: me
+      summary: Chi sono (utente e ruolo del token)
+      x-docmap-route: me
+      x-docmap-role: viewer
+      parameters: [{$ref: "#/components/parameters/Device"}, {$ref: "#/components/parameters/DeviceName"}, {$ref: "#/components/parameters/App"}]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MeResponse"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "429": {$ref: "#/components/responses/Locked"}
+        "500": {$ref: "#/components/responses/ServerError"}
+  /pull:
+    get:
+      tags: [sincronizzazione]
+      operationId: pull
+      summary: Cambiamenti dopo una sequenza (pull incrementale, pagine da 2000 record)
+      description: |
+        Tutto in una sola transazione di lettura. Un record eliminato arriva **solo** come tombstone. `settings` c'è solo se
+        cambiato dopo `since`. Con `log_since=0` arrivano le ultime 1000 righe del registro attività, poi solo le nuove.
+        `counts` solo con `since=0` (riconoscere un server vuoto). v11: scrive una voce `pull` nel registro sincronizzazioni
+        se ha restituito qualcosa o se `since=0` (`journal_pulls` di config.php: `changes` predefinito, `all`, `none`).
+      x-docmap-route: pull
+      x-docmap-role: viewer
+      parameters:
+        - {name: since, in: query, schema: {type: integer, minimum: 0, default: 0}, description: "Ultimo seq ricevuto (0 = tutto)."}
+        - {name: log_since, in: query, schema: {type: integer, minimum: 0, default: 0}, description: "Ultimo log_seq ricevuto."}
+        - {$ref: "#/components/parameters/Device"}
+        - {$ref: "#/components/parameters/DeviceName"}
+        - {$ref: "#/components/parameters/App"}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/PullResponse"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "429": {$ref: "#/components/responses/Locked"}
+        "500": {$ref: "#/components/responses/ServerError"}
+  /push:
+    post:
+      tags: [sincronizzazione]
+      operationId: push
+      summary: Invio di record, tombstone, impostazioni e registro — last-write-wins per record, una transazione
+      description: |
+        Per ogni record (in quest'ordine di controllo): tipo/id/data/updated_at non validi → `rejected` `invalid`;
+        JSON > 256 KB → `too_large`; assente sul server → applicato; stessa ora e stesso contenuto canonico → `same`;
+        ora in arrivo ≤ ora del server → `rejected` (`tie` se uguale, `older` se minore) con `current` = copia del server;
+        altrimenti applicato (anche se era eliminato: torna). Tombstone: già eliminato con ora ≥ → `same`; record vivo con
+        ora ≥ deletedAt → `rejected`; altrimenti eliminazione applicata. `settings`: vince l'`updated_at` più recente.
+        `activity_log`: unione per `id` (massimo 5000 per chiamata). Il server **non** riscrive gli `updated_at` del push.
+        La voce del registro sincronizzazioni (`push`) è scritta nella stessa transazione.
+      x-docmap-route: push
+      x-docmap-role: editor
+      parameters: [{$ref: "#/components/parameters/Device"}, {$ref: "#/components/parameters/DeviceName"}, {$ref: "#/components/parameters/App"}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/PushRequest"}
+          text/plain:
+            schema: {$ref: "#/components/schemas/PushRequest"}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/PushResponse"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "405": {$ref: "#/components/responses/MethodNotAllowed"}
+        "413": {$ref: "#/components/responses/TooLarge"}
+        "429": {$ref: "#/components/responses/Locked"}
+        "500": {$ref: "#/components/responses/ServerError"}
+  /binder:
+    get:
+      tags: [telefono]
+      operationId: binder
+      summary: Un faldone per QR (short_code) o codice parlante, con i vicini dello stesso armadio
+      description: Ricerca tramite indice HMAC (`k_short` o `k_code`), mai sul testo in chiaro. Header `ETag` = `"<updated_at>"`.
+      x-docmap-route: binder
+      x-docmap-role: viewer
+      parameters:
+        - {name: qr, in: query, schema: {type: string, pattern: "^[A-Za-z0-9_-]{1,40}$"}, description: "short_code (esatto)."}
+        - {name: code, in: query, schema: {type: string}, description: "Codice parlante, maiuscole/minuscole indifferenti (usato se manca qr)."}
+        - {name: via, in: query, schema: {enum: [qr, search, nav, nfc]}, description: "v12: come il client è arrivato al record, per access_log (predefinito: qr; binder senza qr = search). Un valore sconosciuto vale il predefinito."}
+      responses:
+        "200":
+          description: OK
+          headers:
+            ETag: {schema: {type: string}, description: "updated_at tra virgolette"}
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/BinderResponse"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/Locked"}
+  /location:
+    get:
+      tags: [ubicazioni]
+      operationId: location
+      summary: "v11: un'ubicazione con percorso, figli e faldoni contenuti"
+      x-docmap-route: location
+      x-docmap-role: viewer
+      parameters:
+        - {name: qr, in: query, schema: {type: string, pattern: "^[A-Za-z0-9_-]{1,40}$"}, description: "short_code dm26L…"}
+        - {name: id, in: query, schema: {type: string}, description: "id dell'ubicazione (prioritario su qr)"}
+        - {name: via, in: query, schema: {enum: [qr, search, nav, nfc]}, description: "v12: come il client è arrivato al record, per access_log (predefinito: qr; binder senza qr = search). Un valore sconosciuto vale il predefinito."}
+        - {name: code, in: query, schema: {type: string}, description: "codice percorso, maiuscole indifferenti"}
+      responses:
+        "200":
+          description: OK
+          headers:
+            ETag: {schema: {type: string}}
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/LocationResponse"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+  /resolve:
+    get:
+      tags: [ubicazioni]
+      operationId: resolve
+      summary: "v11: un QR qualsiasi → faldone o ubicazione (dal solo formato del codice)"
+      description: "`dm26L` + 8 caratteri = ubicazione (`DM_LOC_SC`), qualsiasi altro codice = faldone (indice `k_short`)."
+      x-docmap-route: resolve
+      x-docmap-role: viewer
+      parameters:
+        - {name: qr, in: query, required: true, schema: {type: string, pattern: "^[A-Za-z0-9_-]{1,40}$"}}
+        - {name: via, in: query, schema: {enum: [qr, search, nav, nfc]}, description: "v12: come il client è arrivato al record, per access_log (predefinito: qr; binder senza qr = search). Un valore sconosciuto vale il predefinito."}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ResolveResponse"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "404": {$ref: "#/components/responses/NotFound"}
+  /patch:
+    post:
+      tags: [telefono]
+      operationId: patch
+      summary: Modifica di alcuni campi di un faldone dal telefono, con controllo di versione (ETag)
+      description: |
+        Campi ammessi `DM_MOBILE_FIELDS`: `archive_state, contents_items, room_code, cabinet_code, shelf_code, sector_code,
+        notes, tags, location_id, location_code`; un altro campo → 422 `field_not_allowed` (controllo **prima** di ogni altro).
+        Versione: `base_updated_at` (o header `If-Match`) diverso dall'`updated_at` del server e `force` falso → 409 (la voce
+        del registro con `reason: stale_base` è salvata prima della risposta). v11: `location_id` deve essere `''` o l'id di
+        un'ubicazione viva (422 `invalid_location`); il server ricalcola `location_code`; `location_code` senza `location_id`
+        → 422 `field_not_allowed`. Il server unisce i campi, mette `updated_at = max(adesso, attuale + 1 ms)`, salva la riga
+        di registro attività (`log`, completata con `at`, `details.base_updated_at`, `new_updated_at`, `forced`, `token_user`).
+      x-docmap-route: patch
+      x-docmap-role: editor
+      parameters:
+        - {name: If-Match, in: header, schema: {type: string}, description: "Alternativa a base_updated_at (virgolette tolte)."}
+        - {$ref: "#/components/parameters/Device"}
+        - {$ref: "#/components/parameters/DeviceName"}
+        - {$ref: "#/components/parameters/App"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/PatchRequest"}
+      responses:
+        "200":
+          description: OK
+          headers:
+            ETag: {schema: {type: string}}
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/PatchResponse"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "405": {$ref: "#/components/responses/MethodNotAllowed"}
+        "409":
+          description: Il faldone è cambiato dopo base_updated_at
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ConflictError"}
+        "422": {$ref: "#/components/responses/Unprocessable"}
+  /tokens:
+    get:
+      tags: [token]
+      operationId: tokens
+      summary: Elenco dei token (config.php + database), senza i segreti
+      x-docmap-route: tokens
+      x-docmap-role: admin
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/TokensResponse"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+  /token_create:
+    post:
+      tags: [token]
+      operationId: token_create
+      summary: Crea un token nel database (mostrato in chiaro una sola volta)
+      description: "Token = 24 byte casuali in base64url senza `=` (32 caratteri). Si salva solo lo SHA-256 esadecimale."
+      x-docmap-route: token_create
+      x-docmap-role: admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/TokenCreateRequest"}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/TokenCreateResponse"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "422": {$ref: "#/components/responses/Unprocessable"}
+  /token_revoke:
+    post:
+      tags: [token]
+      operationId: token_revoke
+      summary: Revoca un token del database (db:…); quelli di config.php si disattivano con 'disabled' => true
+      x-docmap-route: token_revoke
+      x-docmap-role: admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id: {type: string, pattern: "^db:[0-9a-f]{16}$"}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/OkResponse"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "422": {$ref: "#/components/responses/Unprocessable"}
+  /journal:
+    get:
+      tags: [registro]
+      operationId: journal
+      summary: "v11: registro sincronizzazioni del server (editor: solo le proprie voci; admin: tutte, con IP)"
+      description: |
+        Dalla voce più recente. Con `entry=<jid>` una sola voce con le versioni complete `prev` / `new` / `extra` di ogni
+        record (fino a 20 000 elementi); senza, al massimo 500 elementi per voce e niente versioni. Un `viewer` riceve 403.
+        Per un editor il filtro `user` è sempre il proprio (imposto dal server).
+      x-docmap-route: journal
+      x-docmap-role: editor
+      parameters:
+        - {name: from, in: query, schema: {type: string}, description: "ISO, confronto testuale con at (>=)."}
+        - {name: to, in: query, schema: {type: string}, description: "ISO; una data AAAA-MM-GG vale fino a T23:59:59.999Z."}
+        - {name: user, in: query, schema: {type: string}, description: "Solo admin; utente del token, maiuscole indifferenti (indice HMAC)."}
+        - {name: device, in: query, schema: {type: string}, description: "id dispositivo esatto."}
+        - {name: route, in: query, schema: {enum: [push, pull, patch, journal_restore]}}
+        - {name: record, in: query, schema: {type: string}, description: "id di un record."}
+        - {name: code, in: query, schema: {type: string}, description: "codice umano esatto (maiuscole indifferenti, indice HMAC)."}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
+        - {name: before, in: query, schema: {type: integer}, description: "Paginazione: next_before della pagina precedente."}
+        - {name: entry, in: query, schema: {type: integer}, description: "Una sola voce (404 se assente o non visibile)."}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/JournalListResponse"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+  /journal_restore:
+    post:
+      tags: [registro]
+      operationId: journal_restore
+      summary: "v11: riscrive una versione registrata come NUOVA scrittura (vince al prossimo pull di ogni client)"
+      description: |
+        `updated_at = max(ora del server, updated_at attuale + 1 ms)`. Una versione vuota (record inesistente / eliminato)
+        diventa una tombstone. Scrive una voce `journal_restore` (`extra.source = {jid, n, version}`) e una riga `sync.restore`
+        nel registro attività. 422 se l'elemento non ha versione (`pull`, `pull-delete`, `rejected-invalid`) o il tipo non è
+        di `DM_TYPES`.
+      x-docmap-route: journal_restore
+      x-docmap-role: admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/JournalRestoreRequest"}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/JournalRestoreResponse"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "422": {$ref: "#/components/responses/Unprocessable"}
+  /access:
+    get:
+      tags: [accessi]
+      operationId: access
+      summary: "v12: registro accessi (chi ha aperto quale faldone / ubicazione, quando, come). Editor: solo le proprie righe; admin: tutte, con IP"
+      description: |
+        Dalla riga ricevuta più di recente (`aid` decrescente). Una riga per ogni lettura `binder` / `location` / `resolve`
+        (stesso token + dispositivo + record + `via` entro `access_dedupe_seconds` = una riga sola) e per ogni elemento di
+        `seen`. Utente, dispositivo, codice e IP sono cifrati (`meta`, AAD `access/<aid>`); i filtri `user`, `device` e
+        `code` passano dagli indici HMAC. Per un editor il filtro `user` è sempre il proprio; un viewer riceve 403.
+        Conservazione: `access_keep_days` (predefinito 365).
+      x-docmap-route: access
+      x-docmap-role: editor
+      parameters:
+        - {name: from, in: query, schema: {type: string}, description: "ISO, confronto testuale con at (>=)."}
+        - {name: to, in: query, schema: {type: string}, description: "ISO; una data AAAA-MM-GG vale fino a T23:59:59.999Z."}
+        - {name: user, in: query, schema: {type: string}, description: "Solo admin; utente del token, maiuscole indifferenti (indice HMAC)."}
+        - {name: device, in: query, schema: {type: string}, description: "id dispositivo esatto."}
+        - {name: type, in: query, schema: {enum: [binder, location]}}
+        - {name: target, in: query, schema: {type: string}, description: "id del record (alias: id)."}
+        - {name: code, in: query, schema: {type: string}, description: "codice umano esatto (maiuscole indifferenti, indice HMAC)."}
+        - {name: via, in: query, schema: {enum: [qr, search, nav, nfc]}}
+        - {name: route, in: query, schema: {enum: [binder, location, resolve, seen]}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
+        - {name: before, in: query, schema: {type: integer}, description: "Paginazione: next_before della pagina precedente."}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AccessListResponse"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "422": {$ref: "#/components/responses/Unprocessable"}
+  /last_seen:
+    get:
+      tags: [accessi]
+      operationId: last_seen
+      summary: "v12: gli ultimi accessi a UN faldone / ubicazione (per la scheda: «Visto di recente», «Chi l'ha visto»)"
+      x-docmap-route: last_seen
+      x-docmap-role: viewer
+      parameters:
+        - {name: type, in: query, schema: {enum: [binder, location]}}
+        - {name: id, in: query, schema: {type: string}, description: "id del record (alias: target). Serve id oppure code (400 senza)."}
+        - {name: code, in: query, schema: {type: string}, description: "codice umano (indice HMAC)."}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 20, default: 5}}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/LastSeenResponse"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "422": {$ref: "#/components/responses/Unprocessable"}
+  /seen:
+    post:
+      tags: [accessi]
+      operationId: seen
+      summary: "v12: visite servite dalla copia del client (PC, telefono senza rete), registrate più tardi"
+      description: |
+        Al massimo 500 elementi (413 `too_large` oltre). Ogni elemento con `type` non valido, `id` non valido, `at` nel futuro
+        (oltre 5 minuti) o più vecchio di `access_keep_days` viene saltato (`skipped`); lo stesso elemento rimandato (stesso
+        token, dispositivo e record, `at` entro `access_dedupe_seconds`) è registrato una volta sola.
+      x-docmap-route: seen
+      x-docmap-role: viewer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/SeenRequest"}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/SeenResponse"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "413": {$ref: "#/components/responses/TooLarge"}
+components:
+  securitySchemes:
+    DocMapToken:
+      type: apiKey
+      in: header
+      name: X-DocMap-Token
+      description: Header principale. In alternativa `"_token"` nel corpo JSON (richieste text/plain dal PC).
+    Bearer:
+      type: http
+      scheme: bearer
+  parameters:
+    Device:
+      name: X-DocMap-Device
+      in: header
+      required: false
+      schema: {type: string, maxLength: 100}
+      description: "v11: id del dispositivo (S.settings.deviceId). Solo per il registro, mai per autorizzare. Assente → 'unknown' (il push usa deviceId del corpo)."
+    DeviceName:
+      name: X-DocMap-Device-Name
+      in: header
+      required: false
+      schema: {type: string}
+      description: "v11: nome del dispositivo, URI-encoded (max 80 caratteri dopo la decodifica)."
+    App:
+      name: X-DocMap-App
+      in: header
+      required: false
+      schema: {type: string, maxLength: 40}
+      description: "v11: APP_VERSION del client."
+  responses:
+    BadRequest:
+      description: "400 bad_json (corpo non JSON) o invalid (parametri mancanti / malformati)"
+      content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}
+    Unauthorized:
+      description: "401 token_missing (senza conteggio) o token_invalid (conta per il blocco per IP; extra left)"
+      content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}
+    Forbidden:
+      description: "403 forbidden (ruolo insufficiente) o origin (CORS: origine non in allowed_origins)"
+      content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}
+    NotFound:
+      description: "404 not_found o no_route (rotta sconosciuta)"
+      content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}
+    MethodNotAllowed:
+      description: "405 method (scrittura con GET, o metodo diverso da GET/POST)"
+      content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}
+    TooLarge:
+      description: "413 too_large (corpo oltre max_body_mb, predefinito 20 MB)"
+      content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}
+    Unprocessable:
+      description: "422 invalid / field_not_allowed (extra field) / invalid_location (extra location_id)"
+      content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}
+    Locked:
+      description: "429 locked: troppi token errati da questo IP (anche con un token giusto finché dura il blocco)"
+      headers:
+        Retry-After: {schema: {type: integer}, description: secondi}
+      content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}
+    ServerError:
+      description: "500 config (config.php mancante o chiave non valida / diversa dal database), crypto, server_error"
+      content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}
+  schemas:
+    Iso:
+      type: string
+      pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,3})?Z$"
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              enum: [bad_json, invalid, token_missing, token_invalid, forbidden, origin, not_found, no_route, method, conflict, too_large, field_not_allowed, invalid_location, locked, config, crypto, server_error]
+            message: {type: string}
+            left: {type: integer, description: "401 token_invalid: tentativi rimasti prima del blocco"}
+            retry_in: {type: integer, description: "429: secondi di attesa"}
+            field: {type: string, description: "422 field_not_allowed"}
+            location_id: {type: string, description: "422 invalid_location"}
+          additionalProperties: true
+      additionalProperties: true
+    ConflictError:
+      allOf:
+        - {$ref: "#/components/schemas/Error"}
+        - type: object
+          required: [current, current_etag]
+          properties:
+            current: {type: object, description: "Il faldone attuale del server (anche dentro error.current)"}
+            current_etag: {$ref: "#/components/schemas/Iso"}
+    PingResponse:
+      type: object
+      required: [ok, api, version, schema, features, server_time, php]
+      properties:
+        ok: {const: true}
+        api: {const: docmap-php, description: "Un server Python può rispondere con un altro nome: il client non lo controlla."}
+        version: {const: 1}
+        schema: {type: integer, minimum: 1, description: "Schema del database del server: 1 = v10.1, 2 = v11, 3 = v12 (access_log)"}
+        features: {type: array, items: {type: string}, description: "Oggi [journal, device_info, locations, archives, access_log, status_events] (archives = v12: record di tipo archive; access_log = v12: registro accessi; status_events = v12: record di tipo status_event e campi status_events/status_types in binder e location)"}
+        server_time: {$ref: "#/components/schemas/Iso"}
+        php: {type: string, description: "Versione di PHP (un server Python può mettere la sua)."}
+        app_version: {type: string, description: "v12.4, facoltativo: versione di DocMap dei file del server (es. 26.12.4). Il client la confronta con la sua in Verifica dopo l'aggiornamento; se manca dice che i file sono precedenti alla 26.12.4."}
+    MeResponse:
+      type: object
+      required: [user, role, token_id, studio_name, server_time]
+      properties:
+        user: {type: string}
+        role: {$ref: "#/components/schemas/Role"}
+        token_id: {type: string, pattern: "^(cfg:\\d+|db:[0-9a-f]{16})$", description: "cfg:<indice in config.php> o db:<id>"}
+        studio_name: {type: string}
+        server_time: {$ref: "#/components/schemas/Iso"}
+        remember_minutes: {type: [integer, "null"], minimum: -1, description: "v12: config.php remember_minutes — minuti di inattività dopo cui il telefono richiede il PIN (0 = sempre, -1 = mai, null = decide il dispositivo)"}
+    Role:
+      enum: [viewer, editor, admin]
+    RecordType:
+      enum: [binder, client, location, archive, status_event]
+      description: "DM_TYPES. archive = v12 (archivi separati dello studio, schema/archive.schema.json); status_event = v12, movimento di stato append-only (schema/status_event.schema.json). settings non è un record: viaggia nel blocco settings."
+    Record:
+      type: object
+      required: [type, id, updated_at, who, data]
+      properties:
+        type: {$ref: "#/components/schemas/RecordType"}
+        id: {type: string, pattern: "^[A-Za-z0-9._:@-]{1,100}$"}
+        updated_at: {$ref: "#/components/schemas/Iso"}
+        who: {type: string, description: "Operatore del push (o utente del token)"}
+        data:
+          type: object
+          description: "Il record come l'ha inviato il client, più id e updated_at: schema/binder.schema.json, client.schema.json, location.schema.json, archive.schema.json, status_event.schema.json secondo type."
+    PushRecord:
+      type: object
+      required: [type, id, data]
+      properties:
+        type: {$ref: "#/components/schemas/RecordType"}
+        id: {type: string}
+        updated_at: {type: string, description: "Se manca si usa data.updated_at"}
+        data: {type: object}
+    Tombstone:
+      type: object
+      required: [type, id, code, deletedAt, who]
+      properties:
+        type: {$ref: "#/components/schemas/RecordType"}
+        id: {type: string}
+        code: {type: string}
+        deletedAt: {$ref: "#/components/schemas/Iso"}
+        who: {type: string}
+    SettingsBlock:
+      type: object
+      required: [updated_at, data]
+      properties:
+        updated_at: {type: string}
+        data:
+          type: object
+          description: "Impostazioni condivise (settingsSubset del pacchetto: studioName, destTemplate, catColors, colorMode, catFamilies, colorRules, colorUpdatedAt, locLevels, locLevelsAt)"
+    PullResponse:
+      type: object
+      required: [seq, more, records, tombstones, settings, activity_log, log_seq, counts, server_time, journal_id]
+      properties:
+        seq: {type: integer, minimum: 0, description: "Ultimo cambiamento incluso: da rimandare come since"}
+        more: {type: boolean, description: "true = altre pagine: richiamare subito con since=seq"}
+        records: {type: array, items: {$ref: "#/components/schemas/Record"}}
+        tombstones: {type: array, items: {$ref: "#/components/schemas/Tombstone"}}
+        settings: {oneOf: [{type: "null"}, {$ref: "#/components/schemas/SettingsBlock"}]}
+        activity_log: {type: array, items: {$ref: "schema/activity_log_entry.schema.json"}}
+        log_seq: {type: integer, minimum: 0}
+        counts:
+          oneOf:
+            - {type: "null"}
+            - type: object
+              required: [records, tombstones]
+              properties: {records: {type: integer}, tombstones: {type: integer}}
+        server_time: {$ref: "#/components/schemas/Iso"}
+        journal_id: {type: [integer, "null"], description: "v11: voce del registro scritta (null se non registrato)"}
+    PushRequest:
+      type: object
+      properties:
+        records: {type: array, items: {$ref: "#/components/schemas/PushRecord"}}
+        tombstones:
+          type: array
+          items:
+            type: object
+            required: [type, id, deletedAt]
+            properties: {type: {type: string}, id: {type: string}, code: {type: string}, deletedAt: {type: string}, who: {type: string}}
+        settings: {oneOf: [{type: "null"}, {$ref: "#/components/schemas/SettingsBlock"}]}
+        activity_log: {type: array, items: {type: object}, maxItems: 5000}
+        deviceId: {type: string, description: "Id del dispositivo (anche per i client v10.1)"}
+        operator: {type: string, description: "Nome dell'operatore: diventa who dei record (altrimenti l'utente del token)"}
+        _token: {type: string}
+        _device: {$ref: "#/components/schemas/DeviceInfo"}
+    DeviceInfo:
+      type: object
+      properties: {id: {type: string}, name: {type: string}, app: {type: string}}
+    Rejected:
+      type: object
+      required: [type, id, reason]
+      properties:
+        type: {type: string}
+        id: {type: string}
+        reason: {enum: [invalid, too_large, tie, older]}
+        server_updated_at: {$ref: "#/components/schemas/Iso"}
+        current:
+          type: object
+          description: "Copia del server: un Record oppure una tombstone {type, id, code, deletedAt, who, deleted: true}. Assente per invalid / too_large."
+    PushResponse:
+      type: object
+      required: [applied, same, rejected, settings_applied, logged, seq, server_time, journal_id]
+      properties:
+        applied: {type: integer}
+        same: {type: integer}
+        rejected: {type: array, items: {$ref: "#/components/schemas/Rejected"}}
+        settings_applied: {type: boolean}
+        logged: {type: integer}
+        seq: {type: integer}
+        server_time: {$ref: "#/components/schemas/Iso"}
+        journal_id: {type: integer}
+    Sibling:
+      type: object
+      required: [speaking_code, shelf_code, sector_code, location_code]
+      properties:
+        speaking_code: {type: string}
+        shelf_code: {type: string}
+        sector_code: {type: string}
+        location_code: {type: string}
+    BinderResponse:
+      type: object
+      required: [binder, etag, siblings]
+      properties:
+        binder: {$ref: "schema/binder.schema.json"}
+        etag: {$ref: "#/components/schemas/Iso"}
+        siblings: {type: array, maxItems: 400, items: {$ref: "#/components/schemas/Sibling"}, description: "Altri faldoni dello stesso armadio (stanza + armadio)"}
+        status_events: {type: array, maxItems: 200, items: {$ref: "schema/status_event.schema.json"}, description: "v12: movimenti di stato del faldone e dei suoi documenti, in ordine cronologico (gli ultimi 200). Assente su un server precedente."}
+        status_types: {type: [array, "null"], items: {type: object}, description: "v12: stati personalizzati dello studio (settings condivise, chiave statusTypes); null = quelli predefiniti."}
+    Brief:
+      type: object
+      required: [id, code, name, kind, seg, level]
+      properties:
+        id: {type: string}
+        code: {type: string}
+        name: {type: string}
+        kind: {type: string}
+        seg: {type: string}
+        level: {type: integer}
+    BinderBrief:
+      type: object
+      required: [id, speaking_code, company_name, binder_title, color_hex, short_code]
+      properties:
+        id: {type: string}
+        speaking_code: {type: string}
+        company_name: {type: string}
+        binder_title: {type: string}
+        color_hex: {type: string}
+        short_code: {type: string}
+    LocationResponse:
+      type: object
+      required: [location, etag, path, children, binders, count]
+      properties:
+        location: {$ref: "schema/location.schema.json"}
+        etag: {$ref: "#/components/schemas/Iso"}
+        path: {type: array, items: {$ref: "#/components/schemas/Brief"}, description: "Antenati dalla radice, senza il nodo stesso"}
+        children: {type: array, items: {$ref: "#/components/schemas/Brief"}, description: "Figli diretti, ordine naturale per seg"}
+        binders: {type: array, maxItems: 500, items: {$ref: "#/components/schemas/BinderBrief"}, description: "Faldoni con location_id = questa ubicazione, per codice parlante"}
+        count: {type: integer, description: "Totale dei faldoni (anche oltre i 500 elencati)"}
+        nested_binders: {type: array, maxItems: 1000, items: {allOf: [{$ref: "#/components/schemas/BinderBrief"}, {type: object, properties: {location_id: {type: string}, location_code: {type: string}}}]}, description: "v12.1: faldoni delle ubicazioni annidate sotto questa (tutto il sottoalbero, esclusa questa), per codice ubicazione e codice parlante. Le azioni sulla scatola e la Verifica rientro del telefono usano binders + nested_binders."}
+        nested_count: {type: integer, description: "v12.1: totale dei faldoni annidati (anche oltre i 1000 elencati)"}
+        status_events: {type: array, maxItems: 2000, items: {$ref: "schema/status_event.schema.json"}, description: "v12: movimenti della scatola, dei faldoni che contiene e di quelli usciti con lei (box_id), in ordine cronologico: servono alla Verifica rientro del telefono."}
+        status_types: {type: [array, "null"], items: {type: object}, description: "v12: come in BinderResponse."}
+    ResolveResponse:
+      oneOf:
+        - allOf:
+            - {$ref: "#/components/schemas/LocationResponse"}
+            - {type: object, required: [type], properties: {type: {const: location}}}
+        - allOf:
+            - {$ref: "#/components/schemas/BinderResponse"}
+            - {type: object, required: [type], properties: {type: {const: binder}}}
+    PatchRequest:
+      type: object
+      required: [id, patch]
+      properties:
+        id: {type: string}
+        patch:
+          type: object
+          propertyNames:
+            enum: [archive_state, contents_items, room_code, cabinet_code, shelf_code, sector_code, notes, tags, location_id, location_code]
+        base_updated_at: {type: string, description: "ETag letto (updated_at)"}
+        force: {type: boolean, default: false, description: "true = scrivi comunque i soli campi del telefono (unione per campo)"}
+        log: {type: object, description: "Riga di registro attività proposta (id, who, action binder.edit | binder.locate, source mobile, summary, details)"}
+        operator: {type: string}
+        deviceId: {type: string}
+    PatchResponse:
+      type: object
+      required: [binder, etag, journal_id, hash]
+      properties:
+        binder: {$ref: "schema/binder.schema.json"}
+        etag: {$ref: "#/components/schemas/Iso"}
+        journal_id: {type: integer}
+        hash: {type: string, pattern: "^[0-9a-f]{64}$", description: "SHA-256 del JSON canonico della versione salvata"}
+    TokensResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [id, user, role, source, revoked_at]
+            properties:
+              id: {type: string, pattern: "^(cfg:\\d+|db:[0-9a-f]{16})$"}
+              user: {type: string}
+              role: {type: string}
+              source: {enum: [config, database]}
+              created_at: {type: string}
+              created_by: {type: [string, "null"]}
+              revoked_at: {type: [string, "null"], description: "null = attivo; 'config' = disattivato in config.php"}
+    TokenCreateRequest:
+      type: object
+      required: [user]
+      properties:
+        user: {type: string, minLength: 1, maxLength: 60, description: "Dopo trim, PHP preg_match('/^[\\p{L}\\p{N} ._@-]{1,60}$/u'): lettere e cifre Unicode, spazio, punto, _ @ -. Altrimenti 422 invalid."}
+        role: {$ref: "#/components/schemas/Role", default: editor}
+    TokenCreateResponse:
+      type: object
+      required: [id, user, role, token]
+      properties:
+        id: {type: string, pattern: "^db:[0-9a-f]{16}$"}
+        user: {type: string}
+        role: {$ref: "#/components/schemas/Role"}
+        token: {type: string, pattern: "^[A-Za-z0-9_-]{32}$", description: "In chiaro, mostrato una volta"}
+    OkResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok: {const: true}
+    JournalRecord:
+      type: object
+      required: [n, type, id, code, action, reason, client_updated_at, prev_updated_at, new_updated_at, prev_hash, new_hash]
+      properties:
+        n: {type: integer, minimum: 1}
+        type: {type: string, description: "binder · client · location · archive · settings (id subset)"}
+        id: {type: string}
+        code: {type: string}
+        action: {enum: [create, update, delete, conflict, rejected-older, rejected-invalid, pull, pull-delete, restore]}
+        reason: {type: string, description: "resurrect · forced · tie · tie_delete · older · older_delete · invalid · too_large · stale_base · journal <jid>/<n> <version> · ''"}
+        client_updated_at: {type: [string, "null"]}
+        prev_updated_at: {type: [string, "null"]}
+        new_updated_at: {type: [string, "null"]}
+        prev_hash: {type: [string, "null"]}
+        new_hash: {type: [string, "null"]}
+        prev: {type: [object, "null"], description: "Solo con entry=: versione completa prima"}
+        new: {type: [object, "null"], description: "Solo con entry=: versione completa dopo (o tentata)"}
+        extra: {description: "Solo con entry=: es. {patch}, {server_deleted: true}"}
+    JournalEntry:
+      type: object
+      required: [jid, at, route, token_id, role, user, device, operator, extra, counts, items_total, seq_from, seq_to, records]
+      properties:
+        jid: {type: integer}
+        at: {$ref: "#/components/schemas/Iso"}
+        route: {enum: [push, pull, patch, journal_restore]}
+        token_id: {type: string}
+        role: {type: string}
+        user: {type: string}
+        device:
+          type: object
+          required: [id, name, app]
+          properties: {id: {type: string}, name: {type: string}, app: {type: string}}
+        operator: {type: string}
+        extra: {description: "push: {operator, logged, settings_applied, device_body} · pull: {since, more} · patch: {operator, base_updated_at, forced, fields} · restore: {source}"}
+        counts:
+          type: object
+          required: [sent, accepted, rejected, conflicts, same]
+          additionalProperties: {type: integer}
+        items_total: {type: integer}
+        seq_from: {type: [integer, "null"]}
+        seq_to: {type: [integer, "null"]}
+        ip: {type: string, description: "Solo per admin"}
+        records: {type: array, items: {$ref: "#/components/schemas/JournalRecord"}}
+    JournalListResponse:
+      type: object
+      required: [items, more, next_before, server_time]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/JournalEntry"}}
+        more: {type: boolean}
+        next_before: {type: [integer, "null"]}
+        server_time: {$ref: "#/components/schemas/Iso"}
+    JournalRestoreRequest:
+      type: object
+      required: [jid, n]
+      properties:
+        jid: {type: integer, minimum: 1}
+        n: {type: integer, minimum: 1}
+        version: {enum: [prev, new], default: prev}
+    JournalRestoreResponse:
+      type: object
+      required: [ok, type, id, updated_at, deleted, journal_id, seq]
+      properties:
+        ok: {const: true}
+        type: {$ref: "#/components/schemas/RecordType"}
+        id: {type: string}
+        updated_at: {$ref: "#/components/schemas/Iso"}
+        deleted: {type: boolean}
+        journal_id: {type: integer}
+        seq: {type: integer}
+    AccessItem:
+      type: object
+      required: [aid, at, received_at, route, via, role, token_id, user, device, target]
+      properties:
+        aid: {type: integer}
+        at: {$ref: "#/components/schemas/Iso"}
+        received_at: {$ref: "#/components/schemas/Iso"}
+        route: {enum: [binder, location, resolve, seen]}
+        via: {enum: [qr, search, nav, nfc]}
+        role: {$ref: "#/components/schemas/Role"}
+        token_id: {type: string}
+        user: {type: string}
+        device:
+          type: object
+          required: [id, name, app]
+          properties: {id: {type: string}, name: {type: string}, app: {type: string}}
+        target:
+          type: object
+          required: [type, id, code]
+          properties: {type: {enum: [binder, location]}, id: {type: string}, code: {type: string}}
+        ip: {type: string, description: "Solo per admin"}
+    AccessListResponse:
+      type: object
+      required: [items, more, next_before, server_time]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/AccessItem"}}
+        more: {type: boolean}
+        next_before: {type: [integer, "null"]}
+        server_time: {$ref: "#/components/schemas/Iso"}
+    LastSeenResponse:
+      type: object
+      required: [items, total, server_time]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [at, user, via, route, device_name]
+            properties:
+              at: {$ref: "#/components/schemas/Iso"}
+              user: {type: string}
+              via: {enum: [qr, search, nav, nfc]}
+              route: {enum: [binder, location, resolve, seen]}
+              device_name: {type: string}
+        total: {type: integer, minimum: 0}
+        server_time: {$ref: "#/components/schemas/Iso"}
+    SeenRequest:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 500
+          items:
+            type: object
+            required: [id, at]
+            properties:
+              type: {enum: [binder, location], default: binder}
+              id: {type: string}
+              code: {type: string}
+              at: {$ref: "#/components/schemas/Iso"}
+              via: {enum: [qr, search, nav, nfc], default: nav}
+    SeenResponse:
+      type: object
+      required: [recorded, skipped, server_time]
+      properties:
+        recorded: {type: integer, minimum: 0}
+        skipped: {type: integer, minimum: 0}
+        server_time: {$ref: "#/components/schemas/Iso"}

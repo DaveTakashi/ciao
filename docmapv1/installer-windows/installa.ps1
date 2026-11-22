@@ -1,0 +1,318 @@
+﻿# DocMap - installazione in sede su Windows 10/11 (cartella fissa C:\DocMap).
+# Avvio: doppio clic su installa.bat (chiede i permessi di amministratore).
+# Rieseguirlo = aggiornamento: prima un backup, poi si sostituiscono solo programma e server;
+# dati (C:\DocMap\dati), configurazione (C:\DocMap\config), certificati e impostazioni non vengono mai sovrascritti.
+#
+# Pacchetto PERSONALE del cliente (preparato dal hub con 'cliente nuovo'): contiene la cartella cliente\ con la licenza
+# (installata da sola, poi "licence_required": true), il nome dello studio e, se il cliente ha anche il sito online, il
+# modello della sincronizzazione web <-> studio (alla fine chiede il token del sito e crea l'attivita ogni 10 minuti).
+#
+# Opzioni (per chi installa da riga di comando):
+#   -NomeStudio "Studio Rossi"   -Admin "davide"   -Porta 8443   -Sorgente <cartella del pacchetto>   -NonChiedere
+#   -TokenSyncFile E:\token-ponte.txt  (token del sito per il ponte, da file)   -SenzaSync  (non configurare il ponte ora)
+[CmdletBinding()]
+param(
+    [string]$NomeStudio = '',
+    [string]$Admin = '',
+    [int]$Porta = 0,
+    [string]$Sorgente = '',
+    [string]$TokenSyncFile = '',
+    [switch]$SenzaSync,
+    [switch]$NonChiedere
+)
+
+. "$PSScriptRoot\comune.ps1"
+
+if (-not (Test-Admin)) { Invoke-ComeAmministratore $PSCommandPath $PSBoundParameters; exit }
+
+$p = Get-DocMapPaths
+$ts = Get-Timestamp
+$sostituito = $false
+$haPrecedente = $false
+Write-Host ''
+Write-Host '  DocMap - installazione nel PC dello studio' -ForegroundColor Cyan
+Write-Host "  Cartella: $($p.Base)"
+
+try {
+    # ------------------------------------------------------------ 1. Python
+    Write-Titolo '1/9  Python'
+    $sysPy = Find-SystemPython
+    if (-not $sysPy) {
+        Show-ComeInstallarePython
+        $winget = Get-Command 'winget.exe' -ErrorAction SilentlyContinue
+        if ($winget -and -not $NonChiedere -and (Read-SiNo 'Vuoi che lo installi io adesso con winget (Python 3.12, per tutti gli utenti)?' $true)) {
+            [void](Invoke-Native $winget.Source @('install', '-e', '--id', 'Python.Python.3.12', '--scope', 'machine',
+                                                   '--accept-package-agreements', '--accept-source-agreements'))
+            $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
+            $sysPy = Find-SystemPython
+        }
+        if (-not $sysPy) { throw 'Python non disponibile: installalo come spiegato sopra e riavvia installa.bat.' }
+    }
+    Write-Ok "Python trovato: $sysPy"
+
+    # ------------------------------------------------------------ 2. pacchetto da installare
+    Write-Titolo '2/9  File da installare'
+    if (-not $Sorgente) { $Sorgente = $PSScriptRoot }
+    $Sorgente = (Resolve-Path -LiteralPath $Sorgente).Path
+    $tools = Join-Path $Sorgente 'docmap_tools.py'
+    $code = Invoke-Native $sysPy @($tools, 'controlla-pacchetto', $Sorgente) -Cattura
+    if ($code -ne 0) {
+        # dal repository (docmapv1\installer-windows): si prepara il pacchetto al volo
+        if (Test-Path -LiteralPath (Join-Path $Sorgente '..\tools\build_deploy.py')) {
+            $tmpPkg = Join-Path $env:TEMP "DocMap-pacchetto-$ts"
+            Write-Info "Preparo il pacchetto dal repository in $tmpPkg ..."
+            $code = Invoke-Native $sysPy @($tools, 'pacchetto', '--out', $tmpPkg) -Cattura
+            if ($code -ne 0) { throw ('Preparazione del pacchetto non riuscita: ' + ($script:UltimoOutput -join ' ')) }
+            $Sorgente = $tmpPkg
+            $tools = Join-Path $Sorgente 'docmap_tools.py'
+        } else {
+            throw "La cartella $Sorgente non contiene un pacchetto DocMap completo (app, server, script). Estrai di nuovo lo zip."
+        }
+    }
+    $verFile = Join-Path $Sorgente 'VERSIONE.txt'
+    if (Test-Path -LiteralPath $verFile) { Write-Ok ('Pacchetto: ' + (Get-Content -LiteralPath $verFile -Raw).Trim()) } else { Write-Ok "Pacchetto: $Sorgente" }
+    # pacchetto personale del cliente? (cliente\cliente.json, preparato dal hub)
+    $info = $null
+    if ((Invoke-Native $sysPy @($tools, 'info-pacchetto', $Sorgente) -Cattura) -eq 0) {
+        try { $info = ($script:UltimoOutput -join "`n") | ConvertFrom-Json } catch { $info = $null }
+    }
+    $personale = ($null -ne $info) -and ($null -ne $info.PSObject.Properties['formato'])
+    if ($personale) {
+        $cliNome = ''
+        if ($info.PSObject.Properties['cliente']) { $cliNome = [string]$info.cliente }
+        Write-Ok "Pacchetto personale del cliente: $cliNome"
+        if (-not $NomeStudio -and $info.PSObject.Properties['nome_studio']) { $NomeStudio = [string]$info.nome_studio }
+        if ($info.file_licenza) { Write-Ok 'Contiene la licenza: verra installata da sola.' }
+        if ($info.file_modello_sync) { Write-Ok 'Contiene il modello della sincronizzazione con il sito online.' }
+    }
+
+    # ------------------------------------------------------------ 3. installazione esistente → backup
+    $aggiornamento = Test-Path -LiteralPath $p.Config
+    Write-Titolo '3/9  Backup'
+    if ($aggiornamento) {
+        Write-Info 'DocMap e gia installato: questo e un AGGIORNAMENTO. Dati e configurazione restano come sono.'
+        # il backup è cifrato: serve 'cryptography', che c'è nel Python del server (venv) installato la volta prima
+        $pyBackup = $sysPy
+        if ((Test-Path -LiteralPath $p.VenvPython) -and ((Invoke-Native $p.VenvPython @('-c', 'import cryptography') -Cattura) -eq 0)) { $pyBackup = $p.VenvPython }
+        $code = Invoke-Tools @('backup') -python $pyBackup -tools $tools
+        if ($code -ne 0) { throw 'Backup non riuscito: aggiornamento annullato, nulla e stato cambiato.' }
+        Write-Ok "Backup fatto in $($p.Backup)"
+    } else {
+        Write-Info 'Prima installazione: niente da salvare.'
+    }
+
+    # ------------------------------------------------------------ 4. cartelle e file del programma
+    Write-Titolo '4/9  Programma e server'
+    foreach ($d in @($p.Base, $p.ConfigDir, $p.Dati, $p.Certificati, $p.Backup, $p.Log, $p.Versioni)) {
+        New-Item -ItemType Directory -Path $d -Force | Out-Null
+    }
+    $taskEsiste = [bool](Get-ScheduledTask -TaskName $script:TaskServer -ErrorAction SilentlyContinue)
+    if ($taskEsiste -or (Get-ServerProcesses).Count -gt 0) { Write-Info 'Fermo il server...'; Stop-DocMapServer }
+    $haPrecedente = (Test-Path -LiteralPath $p.App) -or (Test-Path -LiteralPath $p.Server)
+    # una cartella che si sposta non può essere la cartella corrente di questo processo
+    Set-Location -LiteralPath $p.Base; [Environment]::CurrentDirectory = $p.Base
+    $sostituito = $true
+    $salvata = Install-Versione $Sorgente $ts
+    if ($haPrecedente) { Write-Ok "Versione precedente conservata in $salvata" }
+    Write-Ok "Programma in $($p.App), server in $($p.Server)"
+
+    # ------------------------------------------------------------ 5. ambiente Python del server
+    Write-Titolo '5/9  Ambiente Python del server (qualche minuto la prima volta)'
+    $venvOk = $false
+    if (Test-Path -LiteralPath $p.VenvPython) { $venvOk = ((Invoke-Native $p.VenvPython @('-c', 'import sys') -Cattura) -eq 0) }
+    if (-not $venvOk) {
+        if (Test-Path -LiteralPath $p.Venv) { Move-Item -LiteralPath $p.Venv -Destination (Join-Path $p.Versioni "$ts-venv-vecchio") }
+        $code = Invoke-Native $sysPy @('-m', 'venv', $p.Venv)
+        if ($code -ne 0) { throw 'Creazione dell''ambiente Python non riuscita.' }
+    }
+    if (-not (Install-Pacchetti)) { throw 'Installazione dei pacchetti Python non riuscita (serve Internet la prima volta, oppure la cartella server\wheels).' }
+    Write-Ok 'Pacchetti fastapi, uvicorn, cryptography installati.'
+
+    # ------------------------------------------------------------ 6. impostazioni e configurazione
+    Write-Titolo '6/9  Studio e amministratore'
+    $s0 = $null
+    if (Test-Path -LiteralPath $p.Impostazioni) { $s0 = Get-Impostazioni }
+    if (-not $NomeStudio -and ($null -eq $s0 -or [string]::IsNullOrWhiteSpace([string]$s0.nome_studio)) -and -not $NonChiedere) {
+        $NomeStudio = (Read-Host '  Nome dello studio (es. Studio Rossi)').Trim()
+    }
+    $impArgs = @('impostazioni')
+    if ($NomeStudio) { $impArgs += @('--nome-studio', $NomeStudio) }
+    if ($Porta -gt 0) { $impArgs += @('--porta', "$Porta") }
+    if ((Invoke-Tools $impArgs -Cattura) -ne 0) { throw ('impostazioni.json: ' + ($script:UltimoOutput -join ' ')) }
+    $s = Get-Impostazioni
+    Write-Ok "Studio: $($s.nome_studio)  -  porta $($s.porta)"
+
+    if (-not (Test-Path -LiteralPath $p.Config)) {
+        if (Test-Path -LiteralPath (Join-Path $p.Dati 'docmap.sqlite')) {
+            # database senza configurazione: una chiave nuova non lo aprirebbe. Si recupera la chiave dal Kit di emergenza.
+            Write-Avviso "C'e gia un database in $($p.Dati) ma manca $($p.Config): una chiave nuova non lo aprirebbe."
+            $recuperata = $false
+            if (-not $NonChiedere -and (Read-SiNo 'Hai il Kit di emergenza (file .docmap-key + foglio con il codice di recupero)?' $true)) {
+                $recuperata = Invoke-RecuperoKit ''
+            }
+            if (-not $recuperata) {
+                throw ("Non creo una chiave nuova. Rimetti la chiave con il Kit di emergenza (rilancia installa.bat e rispondi si, " +
+                       "oppure kit-emergenza.ps1 -Recupera) o da un backup (ripristina.ps1), poi rilancia installa.bat.")
+            }
+        }
+    }
+    if (-not (Test-Path -LiteralPath $p.Config)) {
+        while ($true) {
+            if (-not $Admin) {
+                if ($NonChiedere) { $Admin = 'admin' } else {
+                    $Admin = (Read-Host '  Nome utente dell''amministratore (es. davide) [admin]').Trim()
+                    if (-not $Admin) { $Admin = 'admin' }
+                }
+            }
+            $old = Get-Location
+            Set-Location -LiteralPath $p.Server
+            try {
+                $setupArgs = @('-m', 'docmap_server', 'setup', '--config', $p.Config, '--data-dir', $p.Dati, '--user', "$Admin,admin")
+                # Windows PowerShell 5.1 non passa gli argomenti vuoti: il nome si aggiunge solo se c'è
+                if (-not [string]::IsNullOrWhiteSpace([string]$s.nome_studio)) { $setupArgs += @('--studio-name', [string]$s.nome_studio) }
+                $code = Invoke-Native $p.VenvPython $setupArgs -Cattura
+            } finally { Set-Location $old }
+            if ($code -eq 0) { break }
+            Write-Errore ($script:UltimoOutput -join ' ')
+            if ($NonChiedere) { throw 'Configurazione non riuscita.' }
+            $Admin = ''
+        }
+        $primo = Join-Path $p.ConfigDir 'PRIMO-CODICE-ADMIN.txt'
+        $testo = @('DocMap - codice di accesso dell''amministratore (mostrato una sola volta)', '') + $script:UltimoOutput +
+                 @('', 'Copialo in un posto sicuro (es. gestore di password) e poi ELIMINA questo file.')
+        Set-Content -LiteralPath $primo -Value $testo -Encoding UTF8
+        Write-Host ''
+        foreach ($l in $script:UltimoOutput) { Write-Host "    $l" -ForegroundColor White }
+        Write-Host ''
+        Write-Avviso "Copia ADESSO il codice di accesso qui sopra. Una copia e in $primo (solo amministratori): eliminala dopo."
+        Wait-Invio 'Premi Invio dopo aver copiato il codice di accesso.'
+    } else {
+        Write-Ok "Configurazione esistente mantenuta: $($p.Config)"
+    }
+    # licenza del pacchetto personale (solo se non ce n'e gia una: un rinnovo installato con licenza.ps1 non si tocca)
+    $statoLicenza = 'assente'
+    if ($personale -and $info.file_licenza) {
+        if (Test-Path -LiteralPath (Join-Path $p.Dati 'licence\licence.docmap-licence')) {
+            Write-Ok 'Licenza gia installata in questo PC: la lascio com''e (rinnovi: licenza.ps1).'
+            $statoLicenza = 'presente'
+        } else {
+            $statoLicenza = Install-LicenzaPacchetto $Sorgente
+            if ($statoLicenza -eq 'installata') { Write-Ok 'Licenza installata e controllo della licenza attivato.' }
+        }
+    }
+    # modello della sincronizzazione web <-> studio (senza codici): resta in C:\DocMap\sync per configura-sync.ps1
+    if ($personale -and $info.file_modello_sync) {
+        New-Item -ItemType Directory -Path $p.Sync -Force | Out-Null
+        Copy-Item -LiteralPath $info.file_modello_sync -Destination $p.SyncModello -Force
+    }
+    # passphrase dei backup cifrati (una volta; gli aggiornamenti la lasciano com'è)
+    if ((Invoke-Tools @('passphrase-backup', '--crea') -Cattura) -ne 0) { throw ('Passphrase dei backup: ' + ($script:UltimoOutput -join ' ')) }
+    try { $ppInfo = ($script:UltimoOutput -join "`n") | ConvertFrom-Json } catch { $ppInfo = $null }
+    if ($ppInfo -and $ppInfo.creata) { Write-Ok 'Passphrase dei backup creata (i backup sono cifrati): finira sul foglio del Kit di emergenza.' }
+    else { Write-Ok 'Passphrase dei backup gia presente.' }
+
+    # ------------------------------------------------------------ 7. programma web e certificato
+    Write-Titolo '7/9  Indirizzo e certificato della rete locale'
+    if ((Invoke-Tools @('config-js') -Cattura) -ne 0) { throw ('docmap.config.js: ' + ($script:UltimoOutput -join ' ')) }
+    if ((Invoke-Tools @('cert') -Cattura) -ne 0) { throw ('Certificato: ' + ($script:UltimoOutput -join ' ')) }
+    Import-CaCertificato
+    Write-Ok "Certificato dello studio in $($p.CaCert) (gia considerato attendibile su questo PC)."
+    Set-AclProgramma
+    Set-AclPrivata $p.ConfigDir
+    if (Test-Path -LiteralPath $p.Sync) { Set-AclPrivata $p.Sync }
+    Set-AclPrivata $p.Dati
+    Set-AclPrivata $p.Backup
+    Set-AclPrivata $p.Certificati
+    Write-Ok 'Programma modificabile solo dagli amministratori; config, dati, backup e certificati leggibili solo da loro.'
+
+    # ------------------------------------------------------------ 8. firewall e attività pianificate
+    Write-Titolo '8/9  Firewall e avvio automatico'
+    if (-not $NonChiedere) { Test-ReteProfilo }
+    Set-DocMapFirewall
+    Write-Ok "Firewall: porte $($s.porta) e $($s.porta_http) aperte solo per le reti PRIVATE."
+    Register-DocMapTasks
+    Write-Ok "Attivita pianificate '$($script:TaskServer)' (all'avvio del PC) e '$($script:TaskBackup)' (ogni giorno alle $($s.ora_backup))."
+
+    # ------------------------------------------------------------ 9. avvio e prova
+    Write-Titolo '9/9  Avvio e prova'
+    Start-DocMapServer
+    if (-not (Test-DocMapPing 60)) {
+        Write-Errore ('Il server non risponde: ' + ($script:UltimoOutput -join ' '))
+        if ($haPrecedente) {
+            Write-Info 'Rimetto la versione precedente...'
+            Stop-DocMapServer
+            Restore-Versione $ts
+            [void](Install-Pacchetti)
+            [void](Invoke-Tools @('config-js') -Cattura)
+            Start-DocMapServer
+            if (Test-DocMapPing 60) { Write-Ok 'Versione precedente di nuovo in funzione: niente e cambiato per lo studio.' }
+            else { Write-Errore 'Anche la versione precedente non risponde: vedi GUIDA-INSTALLAZIONE.md, "Problemi".' }
+        }
+        Write-Info "Registro del server: $($p.Log)\server.log"
+        $sostituito = $false          # già gestito qui sopra
+        throw 'Installazione non completata.'
+    }
+    Write-Ok 'Il server risponde (ping).'
+    Limit-Versioni 3
+    [void](Invoke-Tools @('pagina-indirizzo') -Cattura)
+
+    # ------------------------------------------------------------ Kit di emergenza (chiave del database)
+    $statoKit = 'mancante'
+    if ((Invoke-Tools @('stato-kit') -Cattura) -eq 0) { try { $statoKit = (($script:UltimoOutput -join "`n") | ConvertFrom-Json).stato } catch { } }
+    if ($statoKit -ne 'ok') {
+        Write-Titolo 'Ultimo passo, importante: il Kit di emergenza'
+        Write-Info 'La chiave del database e la passphrase dei backup esistono SOLO su questo PC. Se il PC si rompe e non le hai'
+        Write-Info 'da parte, database e backup non si possono piu leggere. Il kit e un foglio da stampare + un file cifrato.'
+        if ($statoKit -eq 'da-rifare') { Write-Avviso 'Il kit che hai e vecchio (passphrase o chiave cambiate dopo): va rifatto.' }
+        if ($NonChiedere -or (Read-SiNo 'Creo adesso il Kit di emergenza da stampare?' $true)) {
+            [void](New-KitEmergenza -NonAprire:$NonChiedere)
+            if (-not $NonChiedere) { Wait-Invio 'Stampa la pagina che si e aperta, poi premi Invio.' }
+        } else {
+            Write-Avviso 'Fallo appena puoi: C:\DocMap\strumenti\kit-emergenza.ps1 (il backup giornaliero lo ricorda nel registro).'
+        }
+    }
+
+    # ------------------------------------------------------------ licenza: stato
+    if ($statoLicenza -ne 'assente') {
+        Write-Titolo 'Licenza'
+        Show-StatoLicenza
+        Write-Info 'Rinnovi: licenza.ps1 -File <nuovo file .docmap-licence> (il server la vede subito, senza riavvio).'
+    }
+
+    # ------------------------------------------------------------ sincronizzazione con il sito online (facoltativa)
+    if ((Test-Path -LiteralPath $p.SyncModello) -and -not (Test-Path -LiteralPath $p.SyncProfilo) -and -not $SenzaSync) {
+        Write-Titolo 'Sincronizzazione con il sito online'
+        Write-Info 'Questo studio ha anche DocMap sul web: il ponte tiene uguali i due archivi ogni 10 minuti.'
+        if ($TokenSyncFile -or (-not $NonChiedere -and (Read-SiNo 'La configuro adesso? (serve il token del sito web)' $true))) {
+            [void](Invoke-ConfiguraSync -tokenFile $TokenSyncFile -NonChiedere:$NonChiedere)
+        } else {
+            Write-Info "Puoi farlo dopo con: $($p.Strumenti)\configura-sync.ps1"
+        }
+    }
+
+    Write-Host ''
+    Write-Host '  ===========================================================' -ForegroundColor Green
+    Write-Host '   DocMap e installato.' -ForegroundColor Green
+    Write-Host '  ===========================================================' -ForegroundColor Green
+    if (Test-Path -LiteralPath $p.Leggimi) { Get-Content -LiteralPath $p.Leggimi -Encoding UTF8 | ForEach-Object { Write-Host "   $_" } }
+    Write-Host ''
+    Write-Info "Questo testo e salvato in $($p.Leggimi); i QR da stampare in $($p.PaginaQr)."
+    if (-not $NonChiedere) { Start-Process -FilePath $p.PaginaQr -ErrorAction SilentlyContinue }
+    Wait-Invio
+    exit 0
+} catch {
+    Write-Host ''
+    Write-Errore $_.Exception.Message
+    if ($sostituito -and $haPrecedente) {
+        Write-Info 'Rimetto la versione precedente...'
+        try {
+            if (Get-ScheduledTask -TaskName $script:TaskServer -ErrorAction SilentlyContinue) { Stop-DocMapServer }
+            Restore-Versione $ts
+            if (Test-Path -LiteralPath $p.VenvPython) { [void](Invoke-Tools @('config-js') -Cattura) }
+            if (Get-ScheduledTask -TaskName $script:TaskServer -ErrorAction SilentlyContinue) { Start-DocMapServer }
+        } catch { Write-Errore $_.Exception.Message }
+    }
+    Write-Info 'I dati non sono stati toccati. Guida: GUIDA-INSTALLAZIONE.md, sezione "Problemi".'
+    Wait-Invio
+    exit 1
+}
