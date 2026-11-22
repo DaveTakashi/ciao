@@ -1,5 +1,19 @@
 # Roadmap DocMap: dall'MVP a Python, hub e vendita
 
+> **Aggiornamento 2026-11-06 — roadmap verso lo stato dell'arte.** Le fasi F0–F10 sotto sono la storia del primo
+> percorso (F0–F5 fatte). La roadmap in vigore è il Claude Doc «DocMap: roadmap verso lo stato dell'arte»
+> (https://claude.ai/artifact/QqBxz8KPmWWsQzjHzcMUCC), rivista ogni 2 settimane. Riassunto:
+>
+> | Fase | Contenuto | Cancello |
+> |---|---|---|
+> | 0 | Collaudo reale, unione in `main`, CI, 3 piloti | collaudo senza righe rosse, 3 clienti paganti |
+> | 1 | Fondamenta modulari: registro moduli, eventi, manifest, `features` della licenza applicate | modulo Conservazione e scarto scritto senza toccare il nucleo |
+> | 2 | API pubbliche con chiavi, webhook firmati, adattatori agnostici, API QR7 (codici, domini, sottodomini) | servizio esterno crea un faldone e riceve un webhook; sottodominio QR7 con una chiamata |
+> | 3 | White label applicato, pannello rivenditore, cataloghi lingue (DE/FR/ES), PWA telefono | istanza del rivenditore senza la parola «DocMap» |
+> | 4 | Gateway AI, foto → campi, coda di correzione, preset per tipo di cliente, agente di configurazione | campi da foto corretti in meno di 10 s, costi coperti dai crediti |
+> | 5 | (in parallelo) anti-copia, test di sicurezza esterno, pacchetto privacy e contratti rivisto da un legale | pacchetto firmato da un avvocato, pen test superato |
+> | 6 | Pagamenti e SDI, hub su server UE, aggiornamenti a ondate, vendita | 50 istanze, rinnovi senza intervento manuale |
+
 > Stato al 2026-11-03 (app v12.5, hub 0.3, strumenti installazione 1.2.0). Scritta dopo l'audit del layer Python «ArchivioSmartHub» e le risposte di Dave del 2026-11-01.
 > Documento di strategia completo (perché, prezzi, architettura): Claude Doc «DocMap: strategia Python, architettura e
 > business». Avanzamento passo per passo: [`PROGRESS-LOG.md`](PROGRESS-LOG.md) (**leggilo per ripartire**).

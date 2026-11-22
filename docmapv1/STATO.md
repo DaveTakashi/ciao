@@ -174,3 +174,5 @@ Vedi `docs/ROADMAP.md` §5 (D1–D7) e la memoria del progetto. Aggiunte:
    pacchetto). Fatto nella 0.10: lettere di benvenuto per persona (kit di consegna), modelli cliente, Attiva tutto.
 
 Analisi completa: Claude Doc «DocMap: cosa manca e dove migliorare» (2026-11-06).
+Roadmap in vigore (fasi 0–6, cancelli, prezzi, ciclo di revisione ogni 2 settimane): Claude Doc «DocMap: roadmap verso
+lo stato dell'arte» (2026-11-06), riassunta in `docs/ROADMAP.md`.
