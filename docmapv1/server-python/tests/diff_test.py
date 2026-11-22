@@ -21,6 +21,8 @@ Tests:
                       (same, tie, undo_of, tombstones), binder / location / resolve with status_events + status_types and
                       the `via` parameter, access (filters, paging, roles), last_seen, seen (dedupe, skips, 413/400/405),
                       access_dedupe_seconds = 0, access_keep_days = 0 then pruning
+  test_1c_v128        v12.8: project records (archive + inv), project list / get, resolve of unused labels (error.label),
+                      photo_put / photo (limits, roles, idempotent), ai_spine off / mock (hints, years, tags)
   test_5_upgrade      a v10.1 database (git 68ae170 api.php, schema 1) upgraded in place by Python = by PHP v12 (1 → 2 → 3)
   test_6_upgrade_v11  a v11.1 database (git 32c3485 api.php, schema 2) upgraded to schema 3 by Python = by PHP v12; one
                       data folder upgraded by Python then served by PHP v12 (and the reverse); v11.1 PHP still serves it
@@ -725,6 +727,72 @@ class DiffTest(unittest.TestCase):
                 self.assertEqual(c.execute("SELECT COUNT(*) FROM access_log WHERE at < '2021'").fetchone()[0], 0)
                 self.assertIsNotNone(c.execute("SELECT v FROM meta WHERE k = 'access_pruned_at'").fetchone())
         d.both("access after pruning", "access", 200, token=A, query={"limit": 200})
+        config()
+        self.assertNoDiff(d)
+
+    def test_1c_v128(self):
+        """v12.8 inventory projects, spine photos and the AI route (mock provider), side by side."""
+        d = Duo(self.php, self.py)
+        d.n = self.duo.n
+
+        def config(extra=""):
+            self.php.write_config(extra=extra)
+            self.py.write_config(extra=extra)
+            time.sleep(2.2)   # opcache of php -S
+
+        config()
+        d.both("ping v12.8: feature inventory", "ping", 200)
+        inv = {"prefix": "Kq7P", "code": "ROSSI24", "client": "Rossi Diff S.r.l. è", "status": "open", "box_to": 3, "binder_to": 5,
+               "tags": ["Fatture", "Bilanci", "Paghe"], "year_from": 2015, "year_to": 2022, "ai": True, "mode": "box",
+               "batches": [{"id": "bt-1", "kind": "box", "from": 1, "to": 3, "at": "2025-11-01T08:00:00.000Z"}]}
+        pj = {"type": "archive", "id": "pj-1", "updated_at": "2025-11-01T08:00:00.000Z",
+              "data": {"id": "pj-1", "name": "Inventario Rossi", "code": "ROSSI", "color": "#2563EB", "levels": [], "qr_levels": [], "inv": inv}}
+        pj2 = {"type": "archive", "id": "pj-0", "updated_at": "2025-11-01T08:00:00.000Z",
+               "data": {"id": "pj-0", "name": "archivio chiuso", "code": "OLD", "inv": dict(inv, prefix="Zz9a", status="closed")}}
+        pj3 = {"type": "archive", "id": "pj-2", "updated_at": "2025-11-01T08:00:00.000Z",
+               "data": {"id": "pj-2", "name": "Alfa", "code": "ALFA", "inv": {"prefix": "bad!"}}}
+        d.both("push 3 projects", "push", 200, token=E, body={"records": [pj, pj2, pj3], "tombstones": [], "deviceId": "dev-diff"})
+        d.both("project list (open, valid prefix only)", "project", 200, token=V)
+        d.both("project by id", "project", 200, token=V, query={"id": "pj-1"})
+        d.both("project of an archive without inv → 404", "project", 404, token=V, query={"id": "ar-1"})
+        d.both("project bad id → 400", "project", 400, token=V, query={"id": "a b"})
+        d.both("project unknown → 404", "project", 404, token=V, query={"id": "nope"})
+        d.both("project no token → 401", "project", 401)
+        d.both("resolve unused binder label n=2 → 404 + label", "resolve", 404, token=V, query={"qr": "dm26Kq7PAAAC"})
+        d.both("resolve unused binder label n=9 (out of range)", "resolve", 404, token=V, query={"qr": "dm26Kq7PAAAK"})
+        d.both("resolve unused box label n=1", "resolve", 404, token=V, query={"qr": "dm26LKq7PAAAB"})
+        d.both("resolve label of a closed project still known", "resolve", 404, token=V, query={"qr": "dm26Zz9aAAAB"})
+        d.both("resolve foreign code → plain 404", "resolve", 404, token=V, query={"qr": "dm26QQQQAAAB"})
+        b = B("b-inv-1", "ROSSI24-0002", "2025-11-02T08:00:00.000Z", short_code="dm26Kq7PAAAC", archive_id="pj-1", inv={"p": "pj-1", "st": "captured", "ph": "ph-1"})
+        d.both("push the scanned binder", "push", 200, token=E, body={"records": [b], "tombstones": [], "deviceId": "phone-diff"})
+        d.both("resolve scanned label → binder", "resolve", 200, token=V, query={"qr": "dm26Kq7PAAAC"})
+        img = base64.b64encode(b"\xff\xd8\xff\xe0" + os.urandom(3000) + b"\xff\xd9").decode()
+        d.both("photo_put", "photo_put", 200, token=E, body={"id": "ph-1", "binder_id": "b-inv-1", "mime": "image/jpeg", "data": img})
+        d.both("photo_put same id → existed", "photo_put", 200, token=E, body={"id": "ph-1", "mime": "image/jpeg", "data": img})
+        d.both("photo_put bad mime → 422", "photo_put", 422, token=E, body={"id": "ph-2", "mime": "image/gif", "data": img})
+        d.both("photo_put bad base64 → 400", "photo_put", 400, token=E, body={"id": "ph-2", "data": "!!"})
+        d.both("photo_put empty → 400", "photo_put", 400, token=E, body={"id": "ph-2", "data": ""})
+        d.both("photo_put bad id → 400", "photo_put", 400, token=E, body={"id": "a/b", "data": img})
+        d.both("photo_put bad binder_id → 400", "photo_put", 400, token=E, body={"id": "ph-2", "binder_id": "x y", "data": img})
+        d.both("photo_put viewer → 403", "photo_put", 403, token=V, body={"id": "ph-2", "data": img})
+        d.both("photo_put GET → 405", "photo_put", 405, token=E)
+        r = d.both("photo get", "photo", 200, token=V, query={"id": "ph-1"})
+        self.assertEqual(r["php"][1]["data"], img)
+        d.both("photo missing → 404", "photo", 404, token=V, query={"id": "ph-9"})
+        d.both("ai_spine with AI off → enabled false", "ai_spine", 200, token=E, body={"photo_id": "ph-1"})
+        config(", 'ai_provider' => 'mock', 'photo_max_kb' => 2")   # below the 16 KB floor → 16 KB
+        big = base64.b64encode(os.urandom(17000)).decode()
+        d.both("photo_put over photo_max_kb (floor 16 KB) → 413", "photo_put", 413, token=E, body={"id": "ph-3", "data": big})
+        hints = {"tags": ["Fatture", "Bilanci", "Paghe", "Fatture", "", ["x"]], "year_from": 2015, "year_to": "2022", "client": "Rossi"}
+        d.both("ai_spine mock: photo + voice", "ai_spine", 200, token=E, body={"photo_id": "ph-1", "voice": "Rossi, fatture 2021 e 2019, bilanci", "hints": hints})
+        d.both("ai_spine mock: voice only, no years", "ai_spine", 200, token=E, body={"voice": "paghe varie", "hints": {"tags": ["Paghe"]}})
+        d.both("ai_spine mock: photo only → empty spine", "ai_spine", 200, token=E, body={"photo_id": "ph-1"})
+        d.both("ai_spine inline data over the limit → 413", "ai_spine", 413, token=E, body={"data": big, "mime": "image/jpeg"})
+        d.both("ai_spine inline data + voice", "ai_spine", 200, token=E, body={"data": img, "mime": "image/webp", "voice": "F24 2020", "hints": {"tags": ["F24"]}})
+        d.both("ai_spine inline bad mime → 400", "ai_spine", 400, token=E, body={"data": "AAAA", "mime": "text/plain"})
+        d.both("ai_spine nothing → 400", "ai_spine", 400, token=E, body={})
+        d.both("ai_spine photo not found → 404", "ai_spine", 404, token=E, body={"photo_id": "ph-9"})
+        d.both("ai_spine viewer → 403", "ai_spine", 403, token=V, body={"voice": "x"})
         config()
         self.assertNoDiff(d)
 

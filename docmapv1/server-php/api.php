@@ -28,6 +28,14 @@
      seen   {items:[{type, id, code, at, via}]} (max 500)   viewer   views served from the client's own copy → {recorded, skipped}
      me also returns remember_minutes (config.php: how long a phone stays signed in; null = device setting)
 
+   v12.8 inventory projects ("Progetti", ping feature 'inventory'; no schema change):
+     project  [&id=<archive id>]   viewer   {project, etag} | no id: {items:[{id, name, code, prefix, client, status, updated_at}]}
+     resolve  404 for a printed but never scanned project label carries error.label {project_id, name, code, kind, n, in_range}
+     photo_put {id, binder_id?, mime, data(base64)}   editor   spine photo → data_dir/photos (encrypted) {id, bytes, existed, at}
+     photo    &id   viewer   {id, binder_id, mime, bytes, at, who, data}
+     ai_spine {photo_id | data+mime, voice?, hints?}   editor   {enabled:false} or {enabled, provider, model, result, ms}
+              config: ai_provider '' (off) | 'anthropic' | 'mock' (tests), ai_api_key, ai_model, ai_effort, ai_timeout, photo_max_kb
+
    v12 statuses: record type 'status_event' (append-only movements: taken, returned, given to the council…) written by push
    like any record; HMAC k_short = 'st/b|l/<target id>', k_code = 'stbox/<box id>'; ping feature 'status_events'. No schema change.
 
@@ -47,7 +55,7 @@ declare(strict_types=1);
 
 const DM_API = 'docmap-php';
 const DM_API_VERSION = 1;
-const DM_APP_VERSION = '26.12.7';   // v12.4: DocMap release these server files belong to (ping 'app_version'; the app compares it with its own)
+const DM_APP_VERSION = '26.12.8';   // v12.4: DocMap release these server files belong to (ping 'app_version'; the app compares it with its own)
 const DM_TYPES = ['binder', 'client', 'location', 'archive', 'status_event'];   // v11: + location (tree of boxes) · v12: + archive (clusters) + status_event (append-only status log); generic records, no schema change
 const DM_ROLES = ['viewer' => 1, 'editor' => 2, 'admin' => 3];
 const DM_MOBILE_FIELDS = ['archive_state', 'contents_items', 'room_code', 'cabinet_code', 'shelf_code', 'sector_code', 'notes', 'tags', 'location_id', 'location_code'];   // v11: + location (association mode)
@@ -62,6 +70,14 @@ const DM_ACCESS_VIA = ['qr', 'search', 'nav', 'nfc'];   // v12: how a binder / l
 const DM_ACCESS_TYPES = ['binder', 'location'];
 const DM_ACCESS_PAGE = 50, DM_ACCESS_PAGE_MAX = 200, DM_SEEN_MAX = 500, DM_LAST_SEEN_MAX = 20;
 const DM_STATUS_PER_TARGET = 200;   // v12: newest status events returned with a binder / location
+/* v12.8 inventory projects ("Progetti"): an archive with an `inv` object is a project. Its pre-printed labels need no
+   record until they are scanned: a box label is dm26L + prefix(4) + n(4), a binder label dm26 + prefix(4) + n(4), with
+   n written in base 56 over the short-code alphabet (SC_ALPHABET in 02-core.js). */
+const DM_INV_ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+const DM_INV_BIN = '/^dm26([A-Za-z0-9]{4})([A-Za-z0-9]{4})$/', DM_INV_LOC = '/^dm26L([A-Za-z0-9]{4})([A-Za-z0-9]{4})$/';
+const DM_PHOTO_MIMES = ['image/jpeg', 'image/webp', 'image/png'];
+const DM_AI_PROVIDERS = ['anthropic', 'mock'];
+const DM_AI_TAGS_MAX = 40;
 
 define('DOCMAP_API', true);
 ini_set('display_errors', '0');
@@ -102,7 +118,8 @@ function load_config(): array {
   if (!is_array($c)) fail(500, 'config', 'config.php must return an array.');
   $c += ['data_dir' => '', 'aes_key' => '', 'tokens' => [], 'allowed_origins' => [], 'max_fails' => 5, 'lock_seconds' => 60, 'max_body_mb' => 20, 'studio_name' => '',
     'journal_keep_days' => 0, 'journal_pulls' => 'changes',   // v11 (optional in config.php): 0 = keep the whole journal; pulls: changes | all | none
-    'access_keep_days' => 365, 'access_dedupe_seconds' => 120, 'remember_minutes' => null];   // v12 (optional): access log retention (0 = keep all), repeated reads merged, phone sign-in kept (null = device setting; 0 always ask, 480, 43200, -1 never expires)
+    'access_keep_days' => 365, 'access_dedupe_seconds' => 120, 'remember_minutes' => null,
+    'photo_max_kb' => 800, 'ai_provider' => '', 'ai_api_key' => '', 'ai_model' => 'claude-opus-5-5', 'ai_effort' => 'low', 'ai_timeout' => 30];   // v12.8 (optional): spine photos, AI reading of the spine ('' = off, 'anthropic', 'mock' for tests)   // v12 (optional): access log retention (0 = keep all), repeated reads merged, phone sign-in kept (null = device setting; 0 always ask, 480, 43200, -1 never expires)
   $key = base64_decode((string)$c['aes_key'], true);
   if ($key === false || strlen($key) !== 32) fail(500, 'config', 'Encryption key missing or invalid: aes_key must be 32 random bytes in base64 (setup.php creates it). The API does not run without encryption.');
   if (!in_array('aes-256-gcm', openssl_get_cipher_methods(), true)) fail(500, 'config', 'OpenSSL without aes-256-gcm.');
@@ -293,6 +310,8 @@ function rec_write(PDO $db, array $c, string $type, string $id, string $updated,
   } elseif ($type === 'status_event' && !$deleted) {   // v12: k_short = its binder (documents too) or location, k_code = the box it went through
     $ks = st_key($c, (string)($data['target_type'] ?? ''), (string)($data['target_id'] ?? ''));
     $kc = ($data['box_id'] ?? '') !== '' ? hidx($c, 'stbox/' . (string)$data['box_id']) : null;
+  } elseif ($type === 'archive' && !$deleted) {   // v12.8: an inventory project is found from any of its label codes
+    $p = inv_prefix($data); $ks = $p !== '' ? hidx($c, 'invp/' . $p) : null;
   }
   unset($data['updated_at']);
   $st = $db->prepare('INSERT INTO records (type, id, updated_at, deleted, who, payload, seq, k_short, k_code, k_cab) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -395,7 +414,7 @@ function jr_meta(array $c, array $row): array { $m = $row['meta'] ? json_decode(
 function jr_payload(array $c, array $it): array { $p = $it['payload'] ? json_decode(dec($c, $it['payload'], 'journal/' . $it['jid'] . '/' . $it['n']), true) : null; return is_array($p) ? $p : []; }
 
 /* ---------------- routes ---------------- */
-function r_ping(array $c): array { return ['ok' => true, 'api' => DM_API, 'version' => DM_API_VERSION, 'schema' => DM_SCHEMA, 'features' => ['journal', 'device_info', 'locations', 'archives', 'access_log', 'status_events'], 'server_time' => now_iso(), 'php' => PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION, 'app_version' => DM_APP_VERSION]; }
+function r_ping(array $c): array { return ['ok' => true, 'api' => DM_API, 'version' => DM_API_VERSION, 'schema' => DM_SCHEMA, 'features' => ['journal', 'device_info', 'locations', 'archives', 'access_log', 'status_events', 'inventory'], 'server_time' => now_iso(), 'php' => PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION, 'app_version' => DM_APP_VERSION]; }
 
 function r_pull(PDO $db, array $c, ?array $who = null): array {
   $since = max(0, (int)param($c, 'since', 0)); $logSince = max(0, (int)param($c, 'log_since', 0));
@@ -597,12 +616,198 @@ function r_location(PDO $db, array $c): array {
 function r_resolve(PDO $db, array $c): array {
   $qr = trim((string)param($c, 'qr', ''));
   if (!preg_match('/^[A-Za-z0-9_-]{1,40}$/', $qr)) fail(400, 'invalid', 'qr');
-  if (preg_match(DM_LOC_SC, $qr)) { $row = loc_find($db, $c, $qr, '', ''); if (!$row) fail(404, 'not_found', 'location not found'); return ['type' => 'location'] + loc_pack($db, $c, $row); }
+  if (preg_match(DM_LOC_SC, $qr)) { $row = loc_find($db, $c, $qr, '', ''); if (!$row) { $lb = inv_label($db, $c, $qr); fail(404, 'not_found', 'location not found', $lb ? ['label' => $lb] : []); } return ['type' => 'location'] + loc_pack($db, $c, $row); }
   $q = $db->prepare("SELECT * FROM records WHERE type = 'binder' AND deleted = 0 AND k_short = ? ORDER BY updated_at DESC LIMIT 1"); $q->execute([hidx($c, $qr)]); $row = $q->fetch();
-  if (!$row) fail(404, 'not_found', 'binder not found');
+  if (!$row) { $lb = inv_label($db, $c, $qr); fail(404, 'not_found', 'binder not found', $lb ? ['label' => $lb] : []); }
   return ['type' => 'binder'] + binder_pack($db, $c, $row);
 }
 
+/* ---------------- v12.8: inventory projects, spine photos, AI reading of the spine ----------------
+   A project is an archive record whose data has `inv` = {prefix (4 chars of the short-code alphabet), code, client,
+   status ('open' | 'closed'), box_to, binder_to (labels generated so far), tags[], year_from, year_to, ai, mode, batches[]}.
+   Its labels exist only on paper until they are scanned: then the phone pushes a binder / location record with that
+   short code (route push, like any record). Photos are files in data_dir/photos (AES-256-GCM, AAD photo/<id>). */
+function inv_prefix(?array $d): string {
+  $i = is_array($d['inv'] ?? null) ? $d['inv'] : null;
+  $p = $i !== null && is_string($i['prefix'] ?? null) ? $i['prefix'] : '';
+  return preg_match('/^[A-Za-z0-9]{4}$/', $p) ? $p : '';
+}
+/** Base-56 number of a label (0 when a character is outside the alphabet). */
+function inv_seq(string $s): int {
+  $n = 0;
+  for ($i = 0; $i < strlen($s); $i++) { $k = strpos(DM_INV_ALPHA, $s[$i]); if ($k === false) return 0; $n = $n * 56 + $k; }
+  return $n;
+}
+/** A label printed by a project and not scanned yet: {project_id, name, code, kind: box|binder, n, in_range}. */
+function inv_label(PDO $db, array $c, string $qr): ?array {
+  if (preg_match(DM_INV_LOC, $qr, $m)) $kind = 'box'; elseif (preg_match(DM_INV_BIN, $qr, $m)) $kind = 'binder'; else return null;
+  $q = $db->prepare("SELECT * FROM records WHERE type = 'archive' AND deleted = 0 AND k_short = ? ORDER BY updated_at DESC LIMIT 1"); $q->execute([hidx($c, 'invp/' . $m[1])]); $row = $q->fetch();
+  if (!$row) return null;
+  $d = rec_data($c, $row); if (inv_prefix($d) !== $m[1]) return null;
+  $n = inv_seq($m[2]); $to = (int)($d['inv'][$kind === 'box' ? 'box_to' : 'binder_to'] ?? 0);
+  return ['project_id' => $row['id'], 'name' => (string)($d['name'] ?? ''), 'code' => (string)($d['code'] ?? ''), 'kind' => $kind, 'n' => $n, 'in_range' => $n >= 1 && $n <= $to];
+}
+/** project &id=<archive id> → {project, etag} · no id → {items:[{id, name, code, prefix, client, status, updated_at}]} (open projects). */
+function r_project(PDO $db, array $c): array {
+  $id = trim((string)param($c, 'id', ''));
+  if ($id === '') {
+    $items = [];
+    foreach ($db->query("SELECT * FROM records WHERE type = 'archive' AND deleted = 0 AND k_short IS NOT NULL ORDER BY id")->fetchAll() as $r) {
+      $d = rec_data($c, $r); $p = inv_prefix($d); if ($p === '') continue;
+      $st = (string)($d['inv']['status'] ?? 'open'); if ($st === 'closed') continue;
+      $items[] = ['id' => $r['id'], 'name' => (string)($d['name'] ?? ''), 'code' => (string)($d['code'] ?? ''), 'prefix' => $p, 'client' => cut_str($d['inv']['client'] ?? '', 120), 'status' => $st, 'updated_at' => $r['updated_at']];
+    }
+    usort($items, fn($a, $b) => strcmp(strtolower($a['name']), strtolower($b['name'])) ?: strcmp($a['id'], $b['id']));
+    return ['items' => $items];
+  }
+  if (!valid_id($id)) fail(400, 'invalid', 'id');
+  $row = rec_load($db, 'archive', $id);
+  if (!$row || (int)$row['deleted'] || inv_prefix(rec_data($c, $row)) === '') fail(404, 'not_found', 'project not found');
+  $p = rec_public($c, $row);
+  return ['project' => $p['data'], 'etag' => $row['updated_at']];
+}
+function photo_dir(array $c): string {
+  $d = rtrim($c['data_dir'], '/\\') . DIRECTORY_SEPARATOR . 'photos';
+  if (!is_dir($d) && !@mkdir($d, 0700, true) && !is_dir($d)) fail(500, 'storage', 'cannot create the photos folder in data_dir');
+  return $d . DIRECTORY_SEPARATOR;
+}
+function photo_read(array $c, string $id): ?array {
+  $f = photo_dir($c) . $id;
+  if (!is_file($f . '.meta') || !is_file($f . '.bin')) return null;
+  $m = json_decode(dec($c, (string)file_get_contents($f . '.meta'), 'photo-meta/' . $id), true);
+  if (!is_array($m)) return null;
+  $m['raw'] = dec($c, (string)file_get_contents($f . '.bin'), 'photo/' . $id);
+  return $m;
+}
+function file_put_atomic(string $f, string $data): void {
+  $tmp = $f . '.tmp' . bin2hex(random_bytes(4));
+  if (@file_put_contents($tmp, $data, LOCK_EX) !== strlen($data)) { @unlink($tmp); fail(500, 'storage', 'cannot write the photo'); }
+  if (!@rename($tmp, $f)) { @unlink($tmp); fail(500, 'storage', 'cannot write the photo'); }
+}
+/** photo_put {id, binder_id?, mime, data (base64)} → {id, bytes, existed, at}. Same id again = the first copy stays. */
+function r_photo_put(array $c, array $who): array {
+  $b = body($c); $id = $b['id'] ?? ''; $bid = $b['binder_id'] ?? ''; $mime = $b['mime'] ?? 'image/jpeg'; $data = $b['data'] ?? null;
+  if (!valid_id($id)) fail(400, 'invalid', 'id');
+  if ($bid !== '' && !valid_id($bid)) fail(400, 'invalid', 'binder_id');
+  if (!in_array($mime, DM_PHOTO_MIMES, true)) fail(422, 'invalid', 'mime', ['allowed' => DM_PHOTO_MIMES]);
+  $raw = is_string($data) ? base64_decode($data, true) : false;
+  if ($raw === false || $raw === '') fail(400, 'invalid', 'data (base64)');
+  $max = max(16, (int)$c['photo_max_kb']) * 1024;
+  if (strlen($raw) > $max) fail(413, 'too_large', 'photo too large', ['max_bytes' => $max]);
+  $old = photo_read($c, $id);
+  if ($old !== null) return ['id' => $id, 'bytes' => (int)($old['bytes'] ?? 0), 'existed' => true, 'at' => (string)($old['at'] ?? '')];
+  $at = now_iso(); $f = photo_dir($c) . $id;
+  file_put_atomic($f . '.bin', enc($c, $raw, 'photo/' . $id));
+  file_put_atomic($f . '.meta', enc($c, jenc(['id' => $id, 'binder_id' => $bid, 'mime' => $mime, 'bytes' => strlen($raw), 'at' => $at, 'who' => $who['user']]), 'photo-meta/' . $id));
+  return ['id' => $id, 'bytes' => strlen($raw), 'existed' => false, 'at' => $at];
+}
+/** photo &id → {id, binder_id, mime, bytes, at, who, data (base64)} */
+function r_photo(array $c): array {
+  $id = trim((string)param($c, 'id', ''));
+  if (!valid_id($id)) fail(400, 'invalid', 'id');
+  $m = photo_read($c, $id);
+  if ($m === null) fail(404, 'not_found', 'photo not found');
+  return ['id' => $id, 'binder_id' => (string)($m['binder_id'] ?? ''), 'mime' => (string)($m['mime'] ?? 'image/jpeg'), 'bytes' => strlen($m['raw']), 'at' => (string)($m['at'] ?? ''), 'who' => (string)($m['who'] ?? ''), 'data' => base64_encode($m['raw'])];
+}
+/** Hints sent with a spine: tags to choose from, expected years, client. */
+function ai_hints($h): array {
+  $h = is_array($h) ? $h : [];
+  $tags = [];
+  foreach ((is_array($h['tags'] ?? null) ? $h['tags'] : []) as $t) { $t = cut_str($t, 40); if ($t !== '' && !in_array($t, $tags, true)) $tags[] = $t; if (count($tags) >= DM_AI_TAGS_MAX) break; }
+  $yf = (int)($h['year_from'] ?? 0); $yt = (int)($h['year_to'] ?? 0);
+  return ['tags' => $tags, 'year_from' => $yf >= 1800 && $yf <= 2200 ? $yf : 0, 'year_to' => $yt >= 1800 && $yt <= 2200 ? $yt : 0, 'client' => cut_str($h['client'] ?? '', 120)];
+}
+/** Same shape whatever the provider answered; tags only among the hints. */
+function ai_norm($r, array $hints): array {
+  $r = is_array($r) ? $r : [];
+  $yr = function ($v) { $v = is_numeric($v) ? (int)$v : 0; return $v >= 1800 && $v <= 2200 ? $v : 0; };
+  $yf = $yr($r['year_from'] ?? 0); $yt = $yr($r['year_to'] ?? 0);
+  if ($yf && !$yt) $yt = $yf; if ($yt && !$yf) $yf = $yt; if ($yf > $yt) { $x = $yf; $yf = $yt; $yt = $x; }
+  $tags = [];
+  foreach ((is_array($r['tags'] ?? null) ? $r['tags'] : []) as $t) foreach ($hints['tags'] as $h) if (is_string($t) && mb_strtolower(trim($t)) === mb_strtolower($h) && !in_array($h, $tags, true)) $tags[] = $h;
+  $cf = is_numeric($r['confidence'] ?? null) ? (float)$r['confidence'] : 0.0; $cf = round(max(0.0, min(1.0, $cf)), 2);
+  return ['company' => cut_str($r['company'] ?? '', 120), 'title' => cut_str($r['title'] ?? '', 160), 'year_from' => $yf, 'year_to' => $yt, 'doc_type' => cut_str($r['doc_type'] ?? '', 60),
+    'tags' => $tags, 'notes' => cut_str($r['notes'] ?? '', 300), 'text' => cut_str($r['text'] ?? '', 500), 'confidence' => $cf, 'empty_spine' => !empty($r['empty_spine'])];
+}
+/** Test provider: reads only the dictated words (years, tags named), so PHP and Python answer the same. */
+function ai_mock(string $voice, array $hints): array {
+  preg_match_all('/\b(?:19|20)\d\d\b/', $voice, $m); $ys = array_map('intval', $m[0]);
+  $tags = []; $lv = mb_strtolower($voice);
+  foreach ($hints['tags'] as $t) if ($lv !== '' && mb_strpos($lv, mb_strtolower($t)) !== false) $tags[] = $t;
+  return ['company' => '', 'title' => $voice, 'year_from' => $ys ? min($ys) : 0, 'year_to' => $ys ? max($ys) : 0, 'doc_type' => '', 'tags' => $tags, 'notes' => '', 'text' => '',
+    'confidence' => $voice !== '' ? 0.9 : 0.2, 'empty_spine' => $voice === ''];
+}
+function ai_prompt(string $voice, array $hints): string {
+  $p = "Sei un archivista. La foto mostra la costa (il dorso) di un faldone o di una scatola d'archivio con un'etichetta QR.\n"
+    . "Leggi solo quello che e' scritto sulla costa, a mano o a stampa; ignora il QR e i testi stampati sull'etichetta QR.\n"
+    . "Campi: company = ditta, cliente o persona se scritta; title = contenuto in poche parole come scritto (es. \"Fatture acquisti\");\n"
+    . "year_from / year_to = anni indicati (0 se mancano, uguali se c'e' un solo anno); doc_type = tipo di documenti in una o due parole;\n"
+    . "tags = solo tra questi, se corrispondono: " . ($hints['tags'] ? implode(', ', $hints['tags']) : '(nessuno)') . ";\n"
+    . "notes = altre scritte utili; text = trascrizione fedele di tutto il testo leggibile della costa;\n"
+    . "confidence = quanto sei sicuro della lettura, da 0 a 1; empty_spine = true se sulla costa non c'e' nulla di leggibile.\n"
+    . "Non inventare: se non leggi un campo lascialo vuoto (0 per gli anni).";
+  if ($hints['client'] !== '') $p .= "\nL'archivio appartiene al cliente: " . $hints['client'] . '.';
+  if ($hints['year_from'] || $hints['year_to']) $p .= "\nGli anni attesi sono tra " . ($hints['year_from'] ?: '?') . ' e ' . ($hints['year_to'] ?: '?') . '.';
+  if ($voice !== '') $p .= "\nL'operatore ha detto a voce: \"" . $voice . "\". Le sue parole valgono piu' della foto.";
+  return $p;
+}
+function ai_schema(): array {
+  $s = ['type' => 'string'];
+  return ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['company', 'title', 'year_from', 'year_to', 'doc_type', 'tags', 'notes', 'text', 'confidence', 'empty_spine'],
+    'properties' => ['company' => $s, 'title' => $s, 'year_from' => ['type' => 'integer'], 'year_to' => ['type' => 'integer'], 'doc_type' => $s,
+      'tags' => ['type' => 'array', 'items' => $s], 'notes' => $s, 'text' => $s, 'confidence' => ['type' => 'number'], 'empty_spine' => ['type' => 'boolean']]];
+}
+/** Claude Messages API over HTTPS (raw HTTP: api.php is one file with no Composer, so no SDK on shared hosting). */
+function ai_anthropic(array $c, ?array $img, string $voice, array $hints): array {
+  $key = (string)$c['ai_api_key']; if ($key === '') fail(503, 'ai_off', 'ai_api_key missing in config.php');
+  $model = (string)$c['ai_model'] ?: 'claude-opus-5-5';
+  $content = [];
+  if ($img) $content[] = ['type' => 'image', 'source' => ['type' => 'base64', 'media_type' => $img['mime'], 'data' => base64_encode($img['raw'])]];
+  $content[] = ['type' => 'text', 'text' => ai_prompt($voice, $hints)];
+  $req = ['model' => $model, 'max_tokens' => 4000, 'output_config' => ['effort' => (string)$c['ai_effort'] ?: 'low', 'format' => ['type' => 'json_schema', 'schema' => ai_schema()]],
+    'messages' => [['role' => 'user', 'content' => $content]]];
+  $headers = ['Content-Type: application/json', 'x-api-key: ' . $key, 'anthropic-version: 2026-10-21'];
+  if (preg_match('/^claude-(opus|fable|sonnet-5-5)/', $model)) { $req['fallbacks'] = 'default'; $headers[] = 'anthropic-beta: server-side-fallback-2026-07-01'; }   // a refusal is retried on a fallback model in the same call
+  $timeout = max(5, (int)$c['ai_timeout']); $body = jenc($req); $status = 0; $raw = false;
+  if (function_exists('curl_init')) {
+    $ch = curl_init('https://api.anthropic.com/v1/messages');
+    curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => $body, CURLOPT_HTTPHEADER => $headers, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => $timeout, CURLOPT_CONNECTTIMEOUT => 10]);
+    $raw = curl_exec($ch); $status = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE); $err = curl_errno($ch); curl_close($ch);
+    if ($raw === false) fail($err === 28 ? 504 : 502, $err === 28 ? 'ai_timeout' : 'ai_error', 'AI service not reachable');
+  } else {
+    $ctx = stream_context_create(['http' => ['method' => 'POST', 'header' => implode("\r\n", $headers), 'content' => $body, 'timeout' => $timeout, 'ignore_errors' => true]]);
+    $raw = @file_get_contents('https://api.anthropic.com/v1/messages', false, $ctx);
+    if ($raw === false) fail(502, 'ai_error', 'AI service not reachable');
+    foreach ($http_response_header ?? [] as $h) if (preg_match('#^HTTP/\S+\s+(\d{3})#', $h, $m)) $status = (int)$m[1];
+  }
+  $j = json_decode((string)$raw, true);
+  if ($status < 200 || $status >= 300 || !is_array($j)) fail(502, 'ai_error', 'AI service error' . (is_array($j) && isset($j['error']['message']) ? ': ' . cut_str($j['error']['message'], 200) : ' (HTTP ' . $status . ')'));
+  if (($j['stop_reason'] ?? '') === 'refusal') fail(502, 'ai_refused', 'the AI declined to read this photo');
+  $txt = '';
+  foreach ((array)($j['content'] ?? []) as $blk) if (is_array($blk) && ($blk['type'] ?? '') === 'text') $txt .= (string)($blk['text'] ?? '');
+  $r = json_decode($txt, true);
+  if (!is_array($r)) fail(502, 'ai_error', 'AI answer not readable');
+  return ['model' => (string)($j['model'] ?? $model), 'result' => $r];
+}
+/** ai_spine {photo_id? | data + mime, voice?, hints?:{tags[], year_from, year_to, client}} → {enabled, provider, model, result, ms}. */
+function r_ai_spine(array $c): array {
+  $prov = (string)$c['ai_provider'];
+  if (!in_array($prov, DM_AI_PROVIDERS, true)) return ['enabled' => false];
+  $b = body($c); $voice = cut_str($b['voice'] ?? '', 500); $hints = ai_hints($b['hints'] ?? null); $img = null;
+  $pid = $b['photo_id'] ?? '';
+  if ($pid !== '') { if (!valid_id($pid)) fail(400, 'invalid', 'photo_id'); $img = photo_read($c, $pid); if ($img === null) fail(404, 'not_found', 'photo not found'); }
+  elseif (isset($b['data'])) {
+    $raw = is_string($b['data']) ? base64_decode($b['data'], true) : false; $mime = $b['mime'] ?? 'image/jpeg';
+    if ($raw === false || $raw === '' || !in_array($mime, DM_PHOTO_MIMES, true)) fail(400, 'invalid', 'data / mime');
+    if (strlen($raw) > max(16, (int)$c['photo_max_kb']) * 1024) fail(413, 'too_large', 'photo too large');
+    $img = ['raw' => $raw, 'mime' => $mime];
+  }
+  if ($img === null && $voice === '') fail(400, 'invalid', 'photo_id, data or voice required');
+  if ($prov === 'mock') return ['enabled' => true, 'provider' => 'mock', 'model' => 'mock', 'result' => ai_norm(ai_mock($voice, $hints), $hints), 'ms' => 0];
+  $t0 = microtime(true); $a = ai_anthropic($c, $img, $voice, $hints);
+  return ['enabled' => true, 'provider' => $prov, 'model' => $a['model'], 'result' => ai_norm($a['result'], $hints), 'ms' => (int)round((microtime(true) - $t0) * 1000)];
+}
 function r_patch(PDO $db, array $c, array $who): array {
   $b = body($c); $id = $b['id'] ?? ''; $patch = $b['patch'] ?? null;
   if (!valid_id($id) || !is_array($patch)) fail(400, 'invalid', 'id and patch required');
@@ -1133,8 +1338,8 @@ if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) {
     $c = load_config();
     cors($c);
     if ($method === 'OPTIONS') { http_response_code(204); exit; }
-    $reads = ['me' => 'viewer', 'pull' => 'viewer', 'binder' => 'viewer', 'location' => 'viewer', 'resolve' => 'viewer', 'tokens' => 'admin', 'journal' => 'editor', 'access' => 'editor', 'last_seen' => 'viewer'];
-    $writes = ['push' => 'editor', 'patch' => 'editor', 'token_create' => 'admin', 'token_revoke' => 'admin', 'journal_restore' => 'admin', 'seen' => 'viewer'];
+    $reads = ['me' => 'viewer', 'pull' => 'viewer', 'binder' => 'viewer', 'location' => 'viewer', 'resolve' => 'viewer', 'tokens' => 'admin', 'journal' => 'editor', 'access' => 'editor', 'last_seen' => 'viewer', 'project' => 'viewer', 'photo' => 'viewer'];
+    $writes = ['push' => 'editor', 'patch' => 'editor', 'token_create' => 'admin', 'token_revoke' => 'admin', 'journal_restore' => 'admin', 'seen' => 'viewer', 'photo_put' => 'editor', 'ai_spine' => 'editor'];
     if (!isset($reads[$route]) && !isset($writes[$route])) fail(404, 'no_route', 'unknown route');
     if (isset($writes[$route]) && $method !== 'POST') fail(405, 'method', 'use POST');
     if (!in_array($method, ['GET', 'POST'], true)) fail(405, 'method', 'use GET or POST');
@@ -1159,6 +1364,10 @@ if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) {
       case 'access': $res = r_access($db, $c, $who); break;   // v12
       case 'last_seen': $res = r_last_seen($db, $c); break;
       case 'seen': $res = r_seen($db, $c, $who); break;
+      case 'project': $res = r_project($db, $c); break;   // v12.8 inventory
+      case 'photo': $res = r_photo($c); break;
+      case 'photo_put': $res = r_photo_put($c, $who); break;
+      case 'ai_spine': $res = r_ai_spine($c); break;
       default: $res = r_token_revoke($db, $c);
     }
     out(200, $res);

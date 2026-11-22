@@ -22,7 +22,7 @@ import time
 from urllib.parse import unquote_to_bytes
 
 from . import licence
-from .crypto import CryptoError, dec as _dec, enc as _enc, hidx as _hidx
+from .crypto import CryptoError, dec as _dec, dec_bytes, enc as _enc, enc_bytes, hidx as _hidx
 from .phpcompat import (
     PhpWarning, akey, ascii_lower, ascii_upper, b64decode_strict, canon, elvis, is_arr, is_scalar, iso_ms, jenc,
     json_decode, now_iso, numeric_string, pget, php_array_values, php_empty, php_int, php_str, php_trim, php_truthy, strnatcasecmp,
@@ -34,7 +34,7 @@ log = logging.getLogger("docmap")
 
 DM_API = "docmap-php"
 DM_API_VERSION = 1
-DM_APP_VERSION = "26.12.7"   # v12.7 (was v12.6): DocMap release these server files belong to (ping app_version; the app compares it with its own)
+DM_APP_VERSION = "26.12.8"   # v12.8 (was v12.7): DocMap release these server files belong to (ping app_version; the app compares it with its own)
 DM_TYPES = ("binder", "client", "location", "archive", "status_event")   # v11: + location · v12: + archive + status_event
 DM_ROLES = {"viewer": 1, "editor": 2, "admin": 3}
 DM_MOBILE_FIELDS = ("archive_state", "contents_items", "room_code", "cabinet_code", "shelf_code", "sector_code", "notes",
@@ -246,7 +246,8 @@ class Ctx:
             fail(500, "config", "config.php must return an array.")
         defaults = {"data_dir": "", "aes_key": "", "tokens": {}, "allowed_origins": {}, "max_fails": 5, "lock_seconds": 60,
                     "max_body_mb": 20, "studio_name": "", "journal_keep_days": 0, "journal_pulls": "changes",
-                    "access_keep_days": 365, "access_dedupe_seconds": 120, "remember_minutes": None}   # v12 (optional)
+                    "access_keep_days": 365, "access_dedupe_seconds": 120, "remember_minutes": None,   # v12 (optional)
+                    "photo_max_kb": 800, "ai_provider": "", "ai_api_key": "", "ai_model": "claude-opus-5-5", "ai_effort": "low", "ai_timeout": 30}   # v12.8 (optional)
         for k, v in defaults.items():
             if k not in c:
                 c[k] = v
@@ -500,6 +501,9 @@ def rec_write(ctx, type_, id_, updated, deleted, who, data, device):
         ks = st_key(ctx, php_str(pget(data, "target_type", "")), php_str(pget(data, "target_id", "")))
         box = pget(data, "box_id", "")
         kc = ctx.hidx("stbox/" + php_str(box)) if box != "" else None
+    elif type_ == "archive" and not deleted:   # v12.8: an inventory project is found from any of its label codes
+        p = inv_prefix(data)
+        ks = ctx.hidx("invp/" + p) if p != "" else None
     data = dict(data)
     data.pop("updated_at", None)
     db.execute("""INSERT INTO records (type, id, updated_at, deleted, who, payload, seq, k_short, k_code, k_cab) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -644,7 +648,7 @@ def jr_payload(ctx, it):
 
 # ---------------------------------------------------------------- routes
 def r_ping():
-    return {"ok": True, "api": DM_API, "version": DM_API_VERSION, "schema": DM_SCHEMA, "features": ["journal", "device_info", "locations", "archives", "access_log", "status_events"],
+    return {"ok": True, "api": DM_API, "version": DM_API_VERSION, "schema": DM_SCHEMA, "features": ["journal", "device_info", "locations", "archives", "access_log", "status_events", "inventory"],
             "server_time": now_iso(), "php": PING_RUNTIME, "app_version": DM_APP_VERSION}
 
 
@@ -1044,12 +1048,342 @@ def r_resolve(ctx):
     if DM_LOC_SC.match(qr):
         row = loc_find(ctx, qr, "", "")
         if not row:
-            fail(404, "not_found", "location not found")
+            lb = inv_label(ctx, qr)
+            fail(404, "not_found", "location not found", {"label": lb} if lb else {})
         return {"type": "location", **loc_pack(ctx, row)}
     row = ctx.db.execute("SELECT * FROM records WHERE type = 'binder' AND deleted = 0 AND k_short = ? ORDER BY updated_at DESC LIMIT 1", (ctx.hidx(qr),)).fetchone()
     if not row:
-        fail(404, "not_found", "binder not found")
+        lb = inv_label(ctx, qr)
+        fail(404, "not_found", "binder not found", {"label": lb} if lb else {})
     return {"type": "binder", **binder_pack(ctx, row)}
+
+
+# ---------------------------------------------------------------- v12.8 inventory projects, spine photos, AI reading
+# Same as the v12.8 block of api.php: an archive with `inv` is a project; its labels (dm26L + prefix + n for boxes,
+# dm26 + prefix + n for binders, n in base 56) need no record until scanned. Photos: data_dir/photos (AES-256-GCM).
+DM_INV_ALPHA = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789"
+DM_INV_BIN = re.compile(r"dm26([A-Za-z0-9]{4})([A-Za-z0-9]{4})\n?\Z")
+DM_INV_LOC = re.compile(r"dm26L([A-Za-z0-9]{4})([A-Za-z0-9]{4})\n?\Z")
+DM_INV_PREFIX = re.compile(r"[A-Za-z0-9]{4}\n?\Z")
+DM_PHOTO_MIMES = ("image/jpeg", "image/webp", "image/png")
+DM_AI_PROVIDERS = ("anthropic", "mock")
+DM_AI_TAGS_MAX = 40
+YEAR_RE = re.compile(r"\b(?:19|20)\d\d\b", re.ASCII)
+
+
+def _vals(v):
+    return list(v.values()) if isinstance(v, dict) else list(v) if isinstance(v, list) else []
+
+
+def inv_prefix(d):
+    i = pget(d, "inv", None) if isinstance(d, dict) else None
+    i = i if is_arr(i) else None
+    p = pget(i, "prefix", None) if i is not None else None
+    p = p if isinstance(p, str) else ""
+    return p if DM_INV_PREFIX.match(p) else ""
+
+
+def inv_seq(s):
+    n = 0
+    for ch in s:
+        k = DM_INV_ALPHA.find(ch)
+        if k < 0:
+            return 0
+        n = n * 56 + k
+    return n
+
+
+def inv_label(ctx, qr):
+    m = DM_INV_LOC.match(qr)
+    kind = "box"
+    if not m:
+        m = DM_INV_BIN.match(qr)
+        kind = "binder"
+    if not m:
+        return None
+    row = ctx.db.execute("SELECT * FROM records WHERE type = 'archive' AND deleted = 0 AND k_short = ? ORDER BY updated_at DESC LIMIT 1",
+                         (ctx.hidx("invp/" + m.group(1)),)).fetchone()
+    if not row:
+        return None
+    d = rec_data(ctx, row)
+    if inv_prefix(d) != m.group(1):
+        return None
+    n = inv_seq(m.group(2))
+    to = php_int(pget(pget(d, "inv", {}), "box_to" if kind == "box" else "binder_to", 0))
+    return {"project_id": row["id"], "name": php_str(pget(d, "name", "")), "code": php_str(pget(d, "code", "")), "kind": kind, "n": n, "in_range": 1 <= n <= to}
+
+
+def r_project(ctx):
+    id_ = php_trim(php_str(ctx.param("id", "")))
+    if id_ == "":
+        items = []
+        for r in ctx.db.execute("SELECT * FROM records WHERE type = 'archive' AND deleted = 0 AND k_short IS NOT NULL ORDER BY id").fetchall():
+            d = rec_data(ctx, r)
+            p = inv_prefix(d)
+            if p == "":
+                continue
+            inv = pget(d, "inv", {})
+            st = php_str(pget(inv, "status", "open"))
+            if st == "closed":
+                continue
+            items.append({"id": r["id"], "name": php_str(pget(d, "name", "")), "code": php_str(pget(d, "code", "")), "prefix": p,
+                          "client": cut_str(pget(inv, "client", ""), 120), "status": st, "updated_at": r["updated_at"]})
+        items.sort(key=lambda x: (ascii_lower(x["name"]).encode("utf-8"), x["id"].encode("utf-8")))
+        return {"items": items}
+    if not valid_id(id_):
+        fail(400, "invalid", "id")
+    row = rec_load(ctx.db, "archive", id_)
+    if not row or php_int(row["deleted"]) or inv_prefix(rec_data(ctx, row)) == "":
+        fail(404, "not_found", "project not found")
+    p = rec_public(ctx, row)
+    return {"project": p["data"], "etag": row["updated_at"]}
+
+
+def photo_dir(ctx):
+    d = os.path.join(php_str(ctx.c["data_dir"]).rstrip("/\\"), "photos")
+    if not os.path.isdir(d):
+        try:
+            os.makedirs(d, 0o700, exist_ok=True)
+        except OSError:
+            fail(500, "storage", "cannot create the photos folder in data_dir")
+    return d + os.sep
+
+
+def _photo_dec(ctx, blob, aad):
+    try:
+        return dec_bytes(ctx.c["_key"], blob, aad)
+    except CryptoError as e:
+        if str(e) == "unreadable":
+            fail(500, "crypto", "stored payload unreadable")
+        fail(500, "crypto", "stored payload does not match the key (wrong aes_key?)")
+
+
+def photo_read(ctx, id_):
+    f = photo_dir(ctx) + id_
+    if not os.path.isfile(f + ".meta") or not os.path.isfile(f + ".bin"):
+        return None
+    with open(f + ".meta", "rb") as fh:
+        m = jdec(ctx.dec(fh.read(), "photo-meta/" + id_))
+    if not isinstance(m, dict):
+        return None
+    with open(f + ".bin", "rb") as fh:
+        m["raw"] = _photo_dec(ctx, fh.read(), "photo/" + id_)
+    return m
+
+
+def file_put_atomic(f, data: bytes):
+    tmp = f + ".tmp" + os.urandom(4).hex()
+    try:
+        with open(tmp, "wb") as fh:
+            fh.write(data)
+        os.replace(tmp, f)
+    except OSError:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        fail(500, "storage", "cannot write the photo")
+
+
+def r_photo_put(ctx, who):
+    b = ctx.body()
+    id_ = pget(b, "id", "")
+    bid = pget(b, "binder_id", "")
+    mime = pget(b, "mime", "image/jpeg")
+    data = pget(b, "data", None)
+    if not valid_id(id_):
+        fail(400, "invalid", "id")
+    if bid != "" and not valid_id(bid):
+        fail(400, "invalid", "binder_id")
+    if not (isinstance(mime, str) and mime in DM_PHOTO_MIMES):
+        fail(422, "invalid", "mime", {"allowed": list(DM_PHOTO_MIMES)})
+    raw = b64decode_strict(data) if isinstance(data, str) else None
+    if not raw:
+        fail(400, "invalid", "data (base64)")
+    mx = max(16, php_int(ctx.c["photo_max_kb"])) * 1024
+    if len(raw) > mx:
+        fail(413, "too_large", "photo too large", {"max_bytes": mx})
+    old = photo_read(ctx, id_)
+    if old is not None:
+        return {"id": id_, "bytes": php_int(pget(old, "bytes", 0)), "existed": True, "at": php_str(pget(old, "at", ""))}
+    at = now_iso()
+    f = photo_dir(ctx) + id_
+    file_put_atomic(f + ".bin", enc_bytes(ctx.c["_key"], raw, "photo/" + id_))
+    file_put_atomic(f + ".meta", ctx.enc(jenc({"id": id_, "binder_id": bid, "mime": mime, "bytes": len(raw), "at": at, "who": who["user"]}), "photo-meta/" + id_))
+    return {"id": id_, "bytes": len(raw), "existed": False, "at": at}
+
+
+def r_photo(ctx):
+    id_ = php_trim(php_str(ctx.param("id", "")))
+    if not valid_id(id_):
+        fail(400, "invalid", "id")
+    m = photo_read(ctx, id_)
+    if m is None:
+        fail(404, "not_found", "photo not found")
+    return {"id": id_, "binder_id": php_str(pget(m, "binder_id", "")), "mime": php_str(pget(m, "mime", "image/jpeg")), "bytes": len(m["raw"]),
+            "at": php_str(pget(m, "at", "")), "who": php_str(pget(m, "who", "")), "data": base64.b64encode(m["raw"]).decode("ascii")}
+
+
+def ai_hints(h):
+    h = h if is_arr(h) else {}
+    tags = []
+    for t in _vals(pget(h, "tags", None) if is_arr(pget(h, "tags", None)) else []):
+        t = cut_str(t, 40)
+        if t != "" and t not in tags:
+            tags.append(t)
+        if len(tags) >= DM_AI_TAGS_MAX:
+            break
+    yf = php_int(pget(h, "year_from", 0))
+    yt = php_int(pget(h, "year_to", 0))
+    return {"tags": tags, "year_from": yf if 1800 <= yf <= 2200 else 0, "year_to": yt if 1800 <= yt <= 2200 else 0, "client": cut_str(pget(h, "client", ""), 120)}
+
+
+def _round2(x):
+    from decimal import ROUND_HALF_UP, Decimal
+    return float(Decimal(repr(x)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+
+def ai_norm(r, hints):
+    r = r if is_arr(r) else {}
+
+    def yr(v):
+        v = php_int(v) if php_is_numeric(v) else 0
+        return v if 1800 <= v <= 2200 else 0
+    yf = yr(pget(r, "year_from", 0))
+    yt = yr(pget(r, "year_to", 0))
+    if yf and not yt:
+        yt = yf
+    if yt and not yf:
+        yf = yt
+    if yf > yt:
+        yf, yt = yt, yf
+    tags = []
+    rt = pget(r, "tags", None)
+    for t in _vals(rt if is_arr(rt) else []):
+        for h in hints["tags"]:
+            if isinstance(t, str) and php_trim(t).lower() == h.lower() and h not in tags:
+                tags.append(h)
+    cv = pget(r, "confidence", None)
+    cf = float(cv) if php_is_numeric(cv) else 0.0
+    cf = _round2(max(0.0, min(1.0, cf)))
+    return {"company": cut_str(pget(r, "company", ""), 120), "title": cut_str(pget(r, "title", ""), 160), "year_from": yf, "year_to": yt,
+            "doc_type": cut_str(pget(r, "doc_type", ""), 60), "tags": tags, "notes": cut_str(pget(r, "notes", ""), 300), "text": cut_str(pget(r, "text", ""), 500),
+            "confidence": cf, "empty_spine": not php_empty(pget(r, "empty_spine", None))}
+
+
+def ai_mock(voice, hints):
+    ys = [int(x) for x in YEAR_RE.findall(voice)]
+    lv = voice.lower()
+    tags = [t for t in hints["tags"] if lv != "" and t.lower() in lv]
+    return {"company": "", "title": voice, "year_from": min(ys) if ys else 0, "year_to": max(ys) if ys else 0, "doc_type": "", "tags": tags, "notes": "", "text": "",
+            "confidence": 0.9 if voice != "" else 0.2, "empty_spine": voice == ""}
+
+
+def ai_prompt(voice, hints):
+    p = ("Sei un archivista. La foto mostra la costa (il dorso) di un faldone o di una scatola d'archivio con un'etichetta QR.\n"
+         "Leggi solo quello che e' scritto sulla costa, a mano o a stampa; ignora il QR e i testi stampati sull'etichetta QR.\n"
+         "Campi: company = ditta, cliente o persona se scritta; title = contenuto in poche parole come scritto (es. \"Fatture acquisti\");\n"
+         "year_from / year_to = anni indicati (0 se mancano, uguali se c'e' un solo anno); doc_type = tipo di documenti in una o due parole;\n"
+         "tags = solo tra questi, se corrispondono: " + (", ".join(hints["tags"]) if hints["tags"] else "(nessuno)") + ";\n"
+         "notes = altre scritte utili; text = trascrizione fedele di tutto il testo leggibile della costa;\n"
+         "confidence = quanto sei sicuro della lettura, da 0 a 1; empty_spine = true se sulla costa non c'e' nulla di leggibile.\n"
+         "Non inventare: se non leggi un campo lascialo vuoto (0 per gli anni).")
+    if hints["client"] != "":
+        p += "\nL'archivio appartiene al cliente: " + hints["client"] + "."
+    if hints["year_from"] or hints["year_to"]:
+        p += "\nGli anni attesi sono tra " + (str(hints["year_from"]) if hints["year_from"] else "?") + " e " + (str(hints["year_to"]) if hints["year_to"] else "?") + "."
+    if voice != "":
+        p += "\nL'operatore ha detto a voce: \"" + voice + "\". Le sue parole valgono piu' della foto."
+    return p
+
+
+def ai_schema():
+    s = {"type": "string"}
+    return {"type": "object", "additionalProperties": False,
+            "required": ["company", "title", "year_from", "year_to", "doc_type", "tags", "notes", "text", "confidence", "empty_spine"],
+            "properties": {"company": s, "title": s, "year_from": {"type": "integer"}, "year_to": {"type": "integer"}, "doc_type": s,
+                           "tags": {"type": "array", "items": s}, "notes": s, "text": s, "confidence": {"type": "number"}, "empty_spine": {"type": "boolean"}}}
+
+
+def ai_anthropic(ctx, img, voice, hints):
+    """Claude Messages API over HTTPS with the standard library, like api.php (no extra dependency on the appliance)."""
+    import json as _json
+    import urllib.error
+    import urllib.request
+    c = ctx.c
+    key = php_str(c["ai_api_key"])
+    if key == "":
+        fail(503, "ai_off", "ai_api_key missing in config.php")
+    model = php_str(c["ai_model"]) or "claude-opus-5-5"
+    content = []
+    if img:
+        content.append({"type": "image", "source": {"type": "base64", "media_type": img["mime"], "data": base64.b64encode(img["raw"]).decode("ascii")}})
+    content.append({"type": "text", "text": ai_prompt(voice, hints)})
+    req = {"model": model, "max_tokens": 4000, "output_config": {"effort": php_str(c["ai_effort"]) or "low", "format": {"type": "json_schema", "schema": ai_schema()}},
+           "messages": [{"role": "user", "content": content}]}
+    headers = {"Content-Type": "application/json", "x-api-key": key, "anthropic-version": "2026-10-21"}
+    if re.match(r"claude-(opus|fable|sonnet-5-5)", model):
+        req["fallbacks"] = "default"
+        headers["anthropic-beta"] = "server-side-fallback-2026-07-01"
+    timeout = max(5, php_int(c["ai_timeout"]))
+    status, raw = 0, b""
+    try:
+        with urllib.request.urlopen(urllib.request.Request("https://api.anthropic.com/v1/messages", data=jenc(req).encode("utf-8"), headers=headers, method="POST"), timeout=timeout) as resp:
+            status, raw = resp.status, resp.read()
+    except urllib.error.HTTPError as e:
+        status, raw = e.code, e.read()
+    except TimeoutError:
+        fail(504, "ai_timeout", "AI service not reachable")
+    except (urllib.error.URLError, OSError):
+        fail(502, "ai_error", "AI service not reachable")
+    try:
+        j = _json.loads(raw.decode("utf-8"))
+    except (ValueError, UnicodeError):
+        j = None
+    if status < 200 or status >= 300 or not isinstance(j, dict):
+        msg = j.get("error", {}).get("message") if isinstance(j, dict) and isinstance(j.get("error"), dict) else None
+        fail(502, "ai_error", "AI service error" + (": " + cut_str(msg, 200) if isinstance(msg, str) else " (HTTP %d)" % status))
+    if j.get("stop_reason") == "refusal":
+        fail(502, "ai_refused", "the AI declined to read this photo")
+    txt = "".join(blk.get("text", "") for blk in (j.get("content") or []) if isinstance(blk, dict) and blk.get("type") == "text")
+    r = jdec(txt)
+    if not isinstance(r, dict):
+        fail(502, "ai_error", "AI answer not readable")
+    return {"model": php_str(j.get("model") or model), "result": r}
+
+
+def r_ai_spine(ctx):
+    c = ctx.c
+    prov = php_str(c["ai_provider"])
+    if prov not in DM_AI_PROVIDERS:
+        return {"enabled": False}
+    b = ctx.body()
+    voice = cut_str(pget(b, "voice", ""), 500)
+    hints = ai_hints(pget(b, "hints", None))
+    img = None
+    pid = pget(b, "photo_id", "")
+    if pid != "":
+        if not valid_id(pid):
+            fail(400, "invalid", "photo_id")
+        img = photo_read(ctx, pid)
+        if img is None:
+            fail(404, "not_found", "photo not found")
+    elif pget(b, "data", None) is not None:
+        d = pget(b, "data", None)
+        raw = b64decode_strict(d) if isinstance(d, str) else None
+        mime = pget(b, "mime", "image/jpeg")
+        if not raw or not (isinstance(mime, str) and mime in DM_PHOTO_MIMES):
+            fail(400, "invalid", "data / mime")
+        if len(raw) > max(16, php_int(c["photo_max_kb"])) * 1024:
+            fail(413, "too_large", "photo too large")
+        img = {"raw": raw, "mime": mime}
+    if img is None and voice == "":
+        fail(400, "invalid", "photo_id, data or voice required")
+    if prov == "mock":
+        return {"enabled": True, "provider": "mock", "model": "mock", "result": ai_norm(ai_mock(voice, hints), hints), "ms": 0}
+    t0 = time.time()
+    a = ai_anthropic(ctx, img, voice, hints)
+    return {"enabled": True, "provider": prov, "model": a["model"], "result": ai_norm(a["result"], hints), "ms": int(round((time.time() - t0) * 1000))}
 
 
 def r_patch(ctx, who):
@@ -1556,8 +1890,8 @@ def r_seen(ctx, who):
 
 # ---------------------------------------------------------------- dispatch
 READS = {"me": "viewer", "pull": "viewer", "binder": "viewer", "location": "viewer", "resolve": "viewer", "tokens": "admin", "journal": "editor",
-         "access": "editor", "last_seen": "viewer"}
-WRITES = {"push": "editor", "patch": "editor", "token_create": "admin", "token_revoke": "admin", "journal_restore": "admin", "seen": "viewer"}
+         "access": "editor", "last_seen": "viewer", "project": "viewer", "photo": "viewer"}
+WRITES = {"push": "editor", "patch": "editor", "token_create": "admin", "token_revoke": "admin", "journal_restore": "admin", "seen": "viewer", "photo_put": "editor", "ai_spine": "editor"}
 # Licence: in read_only every write route answers 403 licence_read_only, except these audit writes (they record that
 # someone looked at the data; reading is never blocked by the licence, so neither is logging the read).
 LICENCE_AUDIT_WRITES = ("seen",)
@@ -1635,6 +1969,14 @@ def handle(req: Request, config_path: str) -> Response:
                 res = r_last_seen(ctx)
             elif route == "seen":
                 res = r_seen(ctx, who)
+            elif route == "project":   # v12.8 inventory
+                res = r_project(ctx)
+            elif route == "photo":
+                res = r_photo(ctx)
+            elif route == "photo_put":
+                res = r_photo_put(ctx, who)
+            elif route == "ai_spine":
+                res = r_ai_spine(ctx)
             else:
                 res = r_token_revoke(ctx)
             if etag:
