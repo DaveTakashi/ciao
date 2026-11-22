@@ -414,7 +414,22 @@ function jr_meta(array $c, array $row): array { $m = $row['meta'] ? json_decode(
 function jr_payload(array $c, array $it): array { $p = $it['payload'] ? json_decode(dec($c, $it['payload'], 'journal/' . $it['jid'] . '/' . $it['n']), true) : null; return is_array($p) ? $p : []; }
 
 /* ---------------- routes ---------------- */
-function r_ping(array $c): array { return ['ok' => true, 'api' => DM_API, 'version' => DM_API_VERSION, 'schema' => DM_SCHEMA, 'features' => ['journal', 'device_info', 'locations', 'archives', 'access_log', 'status_events', 'inventory'], 'server_time' => now_iso(), 'php' => PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION, 'app_version' => DM_APP_VERSION]; }
+function r_ping(array $c): array { return ['ok' => true, 'api' => DM_API, 'version' => DM_API_VERSION, 'schema' => DM_SCHEMA, 'features' => ['journal', 'device_info', 'locations', 'archives', 'access_log', 'status_events', 'inventory', 'finder'], 'server_time' => now_iso(), 'php' => PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION, 'app_version' => DM_APP_VERSION]; }
+
+/* v12.10 lost-item QR: the PUBLIC contact a finder sees on a binder QR (no token, no binder data, never says whether
+   the code exists). The studio turns it on in Settings › Faldone smarrito; it travels in the shared settings subset. */
+function finder_str($v, int $max): string { return is_string($v) ? mb_substr(trim($v), 0, $max, 'UTF-8') : ''; }
+function r_finder(PDO $db, array $c): array {
+  $code = $_GET['c'] ?? ''; if (!is_string($code) || !preg_match('/^[A-Za-z0-9._-]{1,40}$/D', $code)) $code = '';
+  $r = $db->query("SELECT json FROM settings_shared WHERE key = 'subset'")->fetch();
+  $d = $r ? json_decode(dec($c, $r['json'], 'settings/subset'), true) : null;
+  $f = is_array($d) && is_array($d['finder'] ?? null) ? $d['finder'] : null;
+  if (!$f || ($f['on'] ?? false) !== true) return ['ok' => true, 'on' => false, 'code' => $code];
+  $o = ['ok' => true, 'on' => true, 'code' => $code, 'name' => finder_str($f['name'] ?? '', 120), 'phone' => finder_str($f['phone'] ?? '', 40),
+    'email' => finder_str($f['email'] ?? '', 120), 'whatsapp' => finder_str($f['whatsapp'] ?? '', 40), 'note' => finder_str($f['note'] ?? '', 400)];
+  if ($o['name'] === '') $o['name'] = finder_str((string)($d['studioName'] ?? ''), 120);
+  return $o;
+}
 
 function r_pull(PDO $db, array $c, ?array $who = null): array {
   $since = max(0, (int)param($c, 'since', 0)); $logSince = max(0, (int)param($c, 'log_since', 0));
@@ -1343,6 +1358,10 @@ if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) {
     $c = load_config();
     cors($c);
     if ($method === 'OPTIONS') { http_response_code(204); exit; }
+    if ($route === 'finder'){   // v12.10: public, read only, contact details only
+      if ($method !== 'GET') fail(405, 'method', 'use GET');
+      out(200, r_finder(db($c), $c)); exit;
+    }
     $reads = ['me' => 'viewer', 'pull' => 'viewer', 'binder' => 'viewer', 'location' => 'viewer', 'resolve' => 'viewer', 'tokens' => 'admin', 'journal' => 'editor', 'access' => 'editor', 'last_seen' => 'viewer', 'project' => 'viewer', 'photo' => 'viewer'];
     $writes = ['push' => 'editor', 'patch' => 'editor', 'token_create' => 'admin', 'token_revoke' => 'admin', 'journal_restore' => 'admin', 'seen' => 'viewer', 'photo_put' => 'editor', 'ai_spine' => 'editor'];
     if (!isset($reads[$route]) && !isset($writes[$route])) fail(404, 'no_route', 'unknown route');

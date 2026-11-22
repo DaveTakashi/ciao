@@ -446,6 +446,17 @@ class DiffTest(unittest.TestCase):
                      "settings": {"updated_at": "2025-10-01T00:00:00.000Z", "data": {"studioName": "old"}},
                      "activity_log": [{"id": "log-3", "at": "2025-10-26T00:00:00.000Z", "action": "y"}, {"id": "log-1", "action": "dup"}]}, headers=DEV)
         d.both("push settings newer", "push", 200, token=E, body={"settings": {"updated_at": "2025-10-27T00:00:00.000Z", "data": {"studioName": "nuovo", "x": []}}})
+        # v12.10 lost-item QR: public route, no token, contact only
+        d.both("finder off (no finder block)", "finder", 200, query={"c": "dm26DfJRXQx"})
+        d.both("finder POST → 405", "finder", 405, method="POST", body={})
+        d.both("finder array param", "finder", 200, query={"c[]": "x"})
+        d.both("push settings + finder on", "push", 200, token=E, body={"settings": {"updated_at": "2025-10-27T12:00:00.000Z", "data": {"studioName": "nuovo",
+               "finder": {"on": True, "name": "  ", "phone": " +39 02 1234 ", "email": "archivio@example.test", "whatsapp": "+39333", "note": "Grazie! " + "è" * 500, "secret": "no"}}}})
+        d.both("finder on: contact, studio name fallback, trimmed and capped", "finder", 200, query={"c": "dm26DfJRXQx"})
+        d.both("finder on: odd code dropped", "finder", 200, query={"c": "<b>x</b>"})
+        d.both("finder on: no code", "finder", 200)
+        d.both("finder on: code with trailing newline dropped", "finder", 200, query={"c": "abc\n"})
+        d.both("OPTIONS finder", "finder", 204, method="OPTIONS")
         d.both("pull since=0 after LWW", "pull", 200, token=V, query={"since": 0})
         d.both("pull since=10", "pull", 200, token=E, query={"since": 10, "log_since": 2})
         d.both("pull since=999 (nothing new)", "pull", 200, token=E, query={"since": 999, "log_since": 999})
