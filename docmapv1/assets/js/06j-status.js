@@ -115,7 +115,7 @@ function sqBadgeHTML(ev, opts){
 function sqRecord(targets, statusId, vals, opts){
   vals = vals || {}; opts = opts || {};
   const types = sqTy(), ty = sqType(types, statusId); if (!ty || !targets.length) return [];
-  const batch = targets.length > 1 ? 'sb-' + uuid() : '', list = sqEv(), out = [];
+  const batch = opts.batch_id || (targets.length > 1 ? 'sb-' + uuid() : ''), list = sqEv(), out = [];   // v12.10: a pick list / hand-over passes its own batch id
   targets.forEach(tg => {
     const e = sqNewEvent({target_type:tg.target_type, target_id:tg.target_id, doc_id:tg.doc_id || '', status_id:statusId, holder:vals.holder || '', due_date:vals.due_date || '', date:vals.date || '', note:vals.note || '',
       via:opts.via || 'desktop', box_id:opts.box_id || tg.box_id || '', batch_id:batch, code:tg.code || '', doc_text:tg.doc_text || ''}, {user:sqWho(), device:sqDev(), events:list});

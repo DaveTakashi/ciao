@@ -29,7 +29,7 @@
 const SQ_PRESENCE = ['in', 'out', 'missing', 'neutral'];
 const SQ_APPLIES = ['binder', 'document', 'box'];
 const SQ_EV_TARGETS = ['binder', 'document', 'location'];
-const SQ_VIA = ['scan', 'desktop', 'box', 'bulk', 'verify', 'scanner', 'editor', 'undo'];
+const SQ_VIA = ['scan', 'desktop', 'box', 'bulk', 'verify', 'scanner', 'editor', 'undo', 'pick', 'handover'];   // v12.10: + pick (pick list), handover (signed hand-over / return)
 const SQ_NEEDS = ['', 'optional', 'required'];
 const SQ_HOLDER = ['', 'me', 'client', 'entity'];
 const SQ_ID_RE = /^[A-Za-z0-9._:@-]{1,100}$/;   // = valid_id() of server-php/api.php
@@ -74,7 +74,7 @@ Object.assign(I18N.it, {
   sq_e_holder:'Indica chi lo ha.', sq_e_due:'Indica la data di rientro.', sq_e_note:'Scrivi una nota.', sq_e_date:'Indica la data.',
   sq_csv_at:'quando', sq_csv_user:'chi', sq_csv_target:'oggetto', sq_csv_code:'codice', sq_csv_doc:'documento', sq_csv_status:'stato', sq_csv_presence:'presenza', sq_csv_holder:'chi_lo_ha',
   sq_csv_due:'rientro_entro', sq_csv_date:'in_data', sq_csv_note:'nota', sq_csv_via:'come', sq_csv_box:'scatola', sq_csv_batch:'operazione', sq_csv_since:'da', sq_csv_overdue:'in_ritardo',
-  sq_tt_binder:'faldone', sq_tt_document:'documento', sq_tt_location:'scatola', sq_via_scan:'QR telefono', sq_via_desktop:'PC', sq_via_box:'tutta la scatola', sq_via_bulk:'selezione', sq_via_verify:'verifica rientro', sq_via_scanner:'lettore QR', sq_via_editor:'scheda faldone', sq_via_undo:'annulla',
+  sq_tt_binder:'faldone', sq_tt_document:'documento', sq_tt_location:'scatola', sq_via_scan:'QR telefono', sq_via_desktop:'PC', sq_via_box:'tutta la scatola', sq_via_bulk:'selezione', sq_via_verify:'verifica rientro', sq_via_scanner:'lettore QR', sq_via_editor:'scheda faldone', sq_via_undo:'annulla', sq_via_pick:'prelievo', sq_via_handover:'consegna firmata',
   sq_last_scan:'Ultima scansione: {u}, {w}', sq_last_act:'Ultima azione: {s} · {u}, {w}', sq_yes:'sì', sq_no:'no',
   sq_vf_outcome:'esito', sq_vf_w_found:'trovato', sq_vf_w_missing:'mancante', sq_vf_w_extra:'in più',
   jr_t_status_event:'stato'
@@ -89,7 +89,7 @@ Object.assign(I18N.en, {
   sq_e_holder:'Say who has it.', sq_e_due:'Give the return date.', sq_e_note:'Write a note.', sq_e_date:'Give the date.',
   sq_csv_at:'when', sq_csv_user:'who', sq_csv_target:'object', sq_csv_code:'code', sq_csv_doc:'document', sq_csv_status:'status', sq_csv_presence:'presence', sq_csv_holder:'holder',
   sq_csv_due:'due_date', sq_csv_date:'on_date', sq_csv_note:'note', sq_csv_via:'via', sq_csv_box:'box', sq_csv_batch:'batch', sq_csv_since:'since', sq_csv_overdue:'overdue',
-  sq_tt_binder:'binder', sq_tt_document:'document', sq_tt_location:'box', sq_via_scan:'phone QR', sq_via_desktop:'PC', sq_via_box:'whole box', sq_via_bulk:'selection', sq_via_verify:'return check', sq_via_scanner:'QR scanner', sq_via_editor:'binder form', sq_via_undo:'undo',
+  sq_tt_binder:'binder', sq_tt_document:'document', sq_tt_location:'box', sq_via_scan:'phone QR', sq_via_desktop:'PC', sq_via_box:'whole box', sq_via_bulk:'selection', sq_via_verify:'return check', sq_via_scanner:'QR scanner', sq_via_editor:'binder form', sq_via_undo:'undo', sq_via_pick:'pick list', sq_via_handover:'signed hand-over',
   sq_last_scan:'Last scan: {u}, {w}', sq_last_act:'Last action: {s} · {u}, {w}', sq_yes:'yes', sq_no:'no',
   sq_vf_outcome:'outcome', sq_vf_w_found:'found', sq_vf_w_missing:'missing', sq_vf_w_extra:'extra',
   jr_t_status_event:'status'
