@@ -26,6 +26,7 @@ step "v12.9 nuovo stile: tema scuro e Ctrl+K (Playwright)"; (cd tests && NODE_PA
 step "v12.10 prelievi, percorso, consegna firmata (Playwright)"; (cd tests && NODE_PATH="${NODE_PATH:-$(npm root -g)}" run node v1210.js) || fail=1
 step "v12.10 faldone smarrito (Playwright)"; (cd tests && NODE_PATH="${NODE_PATH:-$(npm root -g)}" run node v1210b.js) || fail=1
 step "v12.10 andamento e previsioni (Playwright)"; (cd tests && NODE_PATH="${NODE_PATH:-$(npm root -g)}" run node v1210c.js) || fail=1
+step "v12.10 ondata 1: Oggi, Annulla, stati vuoti (Playwright)"; (cd tests && NODE_PATH="${NODE_PATH:-$(npm root -g)}" run node v1210d.js) || fail=1
 echo
 if [ $fail = 0 ]; then echo "VERIFICA VELOCE: tutto OK"; else echo "VERIFICA VELOCE: ci sono errori (vedi ✗ sopra)"; fi
 exit $fail

@@ -96,7 +96,7 @@ const draw = async (pg, sel) => { const box = await pg.locator(sel).boundingBox(
     const W = await p.evaluate((id) => { const j = JSON.parse(workspaceJSON(true)); const keep = clone(S.picks); S.picks = []; applyWorkspaceObject(j); return {inJson:(j.picks || []).length, back:S.picks.length && S.picks[0].id === id && S.picks[0].handovers.length === 2}; }, P.id);
     ok(W.inJson === 1 && W.back, 'backup: the lists travel in the workspace JSON and come back', W);
     await p.evaluate(() => renderView());
-    await p.click('.pk-more summary'); await p.click('[data-a="pk-del"]'); await p.waitForTimeout(150); await p.click('.modal-f .btn-danger-solid'); await p.waitForTimeout(250);
+    await p.click('.pk-more summary'); await p.click('[data-a="pk-del"]'); await p.waitForTimeout(250);   // no question: «Annulla» (06u-wave1.js)
     ok(await p.evaluate(() => S.picks.length) === 0 && await p.evaluate((id) => sqEv().filter(e => String(e.batch_id).startsWith(id)).length, P.id) === 12, 'delete: the list goes, the statuses stay');
     await p.evaluate(() => { const t0 = $$('.toast button').pop(); if (t0) t0.click(); }); await p.waitForTimeout(250);
     ok(await p.evaluate((id) => S.picks.length === 1 && S.picks[0].id === id, P.id), 'undo brings the deleted list back');

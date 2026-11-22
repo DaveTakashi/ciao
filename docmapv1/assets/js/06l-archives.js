@@ -259,7 +259,7 @@ function archOpenMerge(id){
 function archDelete(id){
   const a = archById(id); if (!a || archIsDefault(a)) return;
   const c = archCountOf(id); if (c.b || c.l){ toast(t('ar_not_empty'), 'warn'); return archOpenMerge(id); }
-  confirmAction({plain:true, danger:true, okLabel:t('ar_del'), detail:t('ar_del_d', {n:archName(a)}), onOk:() => {
+  confirmAction({plain:true, danger:true, undoable:true, okLabel:t('ar_del'), detail:t('ar_del_d', {n:archName(a)}), onOk:() => {
     undoPoint();
     S.archives = S.archives.filter(x => x.id !== a.id);
     if (archKey(S.archiveSel) === a.id || !archMulti()) S.archiveSel = '';

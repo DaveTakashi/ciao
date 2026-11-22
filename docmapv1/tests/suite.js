@@ -225,9 +225,16 @@ const sec = (n) => console.log('\n== ' + n);
   sec('safety');
   ok(await p.evaluate(() => { S.hasUnexportedChanges = true; const e = new Event('beforeunload', {cancelable:true}); window.dispatchEvent(e); return e.defaultPrevented; }), 'beforeunload guard active when dirty');
   await p.evaluate(() => { S.view = 'archive'; renderAll(); }); await p.waitForTimeout(200);
+  // v12.10: one binder goes at once with «Annulla» (undo restores it); «Chiedi sempre conferma» brings the question back
+  const nDel0 = await p.evaluate(() => S.binders.length);
   await p.click('[data-a="del"] >> nth=0'); await p.waitForTimeout(200);
-  ok((await p.innerText('.overlay')).includes('Sei sicuro?'), 'delete asks confirmation');
-  await p.keyboard.press('Escape');
+  ok(await p.evaluate((n) => S.binders.length === n - 1 && !topModal() && $$('.toast button').length > 0, nDel0), 'delete one binder: done at once, «Annulla» offered');
+  await p.evaluate(() => { const b0 = $$('.toast button').pop(); if (b0) b0.click(); }); await p.waitForTimeout(250);
+  ok(await p.evaluate((n) => S.binders.length === n, nDel0), 'undo brings the deleted binder back');
+  await p.evaluate(() => { S.settings.confirmDeletes = true; renderAll(); }); await p.waitForTimeout(150);
+  await p.click('[data-a="del"] >> nth=0'); await p.waitForTimeout(200);
+  ok((await p.innerText('.overlay')).includes('Sei sicuro?'), 'delete asks confirmation when «Chiedi sempre conferma» is on');
+  await p.keyboard.press('Escape'); await p.evaluate(() => { S.settings.confirmDeletes = false; persist(); });
   // XSS: names are escaped
   await p.evaluate(() => { S.binders.push(normalizeBinder({speaking_code:'XS1', company_name:'<img src=x onerror="window.__x=1">', short_code:newShortCode()})); renderAll(); S.view = 'print'; renderAll(); });
   await p.waitForTimeout(300);
@@ -1152,7 +1159,7 @@ const sec = (n) => console.log('\n== ' + n);
   ok(Lv.op === 'Dave Test' && Lv.e.action === 'settings.operator' && Lv.e.who === 'Dave Test' && Lv.e.details.to === 'Dave Test' && Lv.e.details.from === '', 'log: operator name set in Settings is logged and used as "who"', Lv);
   // single delete (confirm), bulk delete, undo
   await p.evaluate(() => { S.view = 'archive'; renderAll(); ACTIONS['del']({dataset:{id:S.binders.find(x => x.speaking_code === 'LGT1').id}}); });
-  await p.click('.modal-f .btn-danger-solid'); await p.waitForTimeout(100);
+  await p.waitForTimeout(100);   // v12.10: no question, «Annulla» instead
   Lv = await p.evaluate(() => ({e:LOG.entries[LOG.entries.length - 1], gone:!S.binders.some(x => x.speaking_code === 'LGT1')}));
   ok(Lv.gone && Lv.e.action === 'binder.delete' && Lv.e.who === 'Dave Test' && Lv.e.target.code === 'LGT1', 'log: single delete by the operator', Lv);
   await p.evaluate(() => { S.binders.forEach(b => b.selected_for_print = false); ['LGB1','LGB2','LGB3'].forEach(c => S.binders.push(normalizeBinder({speaking_code:c, company_name:'Bulk Log', selected_for_print:true, short_code:newShortCode()}))); commit(); renderView(); ACTIONS['del-sel'](); });
@@ -4558,8 +4565,7 @@ const sec = (n) => console.log('\n== ' + n);
     ok(Cv.back && Cv.b, 'C: undo brings the merged archive back with its binder', Cv);
     await p.evaluate(([tmp, st]) => { archMerge(tmp, st); commit(); const e = archCreate({name:'Vuoto'}); commit(); S.view = 'info'; S.infoTab = 'arch'; renderAll(); }, [CTMP, CST]);
     const CEMPTY = await p.evaluate(() => S.archives.find(a => a.name === 'Vuoto').id);
-    await p.click('#ar-grid [data-a="ar-del"][data-id="' + CEMPTY + '"]'); await p.waitForTimeout(100);
-    await p.click('.modal-f .btn-danger-solid'); await p.waitForTimeout(120);
+    await p.click('#ar-grid [data-a="ar-del"][data-id="' + CEMPTY + '"]'); await p.waitForTimeout(220);   // v12.10: empty archive goes at once, «Annulla» instead
     Cv = await p.evaluate((id) => ({gone:!archById(id), dflt:!document.querySelector('#ar-grid [data-a="ar-del"][data-id="' + ARCH_DEFAULT_ID + '"]') && !document.querySelector('#ar-grid [data-a="ar-merge"][data-id="' + ARCH_DEFAULT_ID + '"]'),
       log:LOG.entries.some(e => e.action === 'archive.delete' && e.target.id === id)}), CEMPTY);
     ok(Cv.gone && Cv.dflt && Cv.log, 'C: an empty archive can be deleted; the default archive can be neither merged away nor deleted', Cv);

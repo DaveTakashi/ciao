@@ -408,7 +408,7 @@ const PK_ACTIONS = {
   'pk-pad-clear': () => { if (PK.pad) PK.pad.clear(); },
   'pk-csv': (el) => { const p = pkGet(el.dataset.id); if (p) pkCsv(p); },
   'pk-close': (el) => { const p = pkGet(el.dataset.id); if (!p) return; p.closed_at = p.closed_at ? '' : nowISO(); p.updated_at = nowISO(); logAct(p.closed_at ? 'pick.close' : 'pick.reopen', null, (p.closed_at ? 'Chiuso' : 'Riaperto') + ' il prelievo "' + p.title + '"', {pick:p.id}, 'ui'); commit(); pkRefresh(); },
-  'pk-del': (el) => { const p = pkGet(el.dataset.id); if (!p) return; confirmAction({danger:true, plain:true, detail:t('pk_del_q', {t:p.title}), okLabel:t('pk_a_del'), onOk:() => {
+  'pk-del': (el) => { const p = pkGet(el.dataset.id); if (!p) return; confirmAction({danger:true, plain:true, undoable:true, detail:t('pk_del_q', {t:p.title}), okLabel:t('pk_a_del'), onOk:() => {
     undoPoint(); const i = pkList().indexOf(p); if (i >= 0) pkList().splice(i, 1); logAct('pick.delete', null, 'Eliminato l\'elenco di prelievo "' + p.title + '"', {pick:p.id}, 'ui'); commit(); PK.open = ''; renderView(); undoToast(t('pk_a_del')); }}); },
   'pk-receipt': (el) => { const p = pkGet(el.dataset.id); if (p) pkPrintReceipt(p, p.handovers.find(h => h.id === el.dataset.h)); },
   'pk-receipt-ev': (el) => pkReceiptFromEvents(el.dataset.b),

@@ -23,7 +23,7 @@ const ACTIONS = {
   },
   'del': (el) => {
     const b = byId(el.dataset.id); if (!b) return;
-    confirmAction({ danger:true, okLabel:t('delete'), detail:t('c_del_one', {c:b.speaking_code + ' — ' + b.company_name}),
+    confirmAction({ danger:true, undoable:true, okLabel:t('delete'), detail:t('c_del_one', {c:b.speaking_code + ' — ' + b.company_name}),
       onOk: () => { undoPoint(); logBinderDelete([b]); S.binders = S.binders.filter(x => x.id !== b.id); commit(); undoToast(t('deleted') + ': ' + b.speaking_code); renderView(); } });
   },
   'del-sel': () => {
