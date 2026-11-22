@@ -342,6 +342,7 @@ function hxAboutBody(){
       row(t('hx_mode'), esc(t(f.dev.mode === 'web' ? 'hx_mode_web' : 'hx_mode_local'))) +
       row(t('hx_path'), '<span class="mono small hx-break" id="hx-m-path">' + esc(f.path) + '</span><div class="hint">' + esc(t('hx_path_d')) + '</div>') +
       row(t('hx_key'), '<span class="mono small">' + esc(f.key) + '</span>') +
+      (typeof dmtHTML === 'function' ? row(t('dmt_h'), dmtHTML()) : '') +
       row(t('hx_docs'), HX_UPGRADE_DOCS.map(d => '<span class="kbd">' + esc(d) + '</span>').join(' ') + '<div class="hint">' + esc(t('hx_docs_d')) + '</div>') + '</dl>' +
     (w ? '<div class="warn-box small">' + ic('alert') + '<div>' + esc(w) + '</div></div>' : '') +
     '<div class="row hx-acts" style="margin-top:12px"><button class="btn btn-sm" data-a="hx-help" data-id="upgrade">' + ic('book') + esc(t('hx_upg_help')) + '</button></div>';
@@ -352,7 +353,7 @@ function hxSupportText(){
     t('hx_db') + ': ' + hxDbText(f.db), t('hx_counts') + ': ' + t('hx_counts_v', f.counts),
     t('hx_srv') + ': ' + (f.url ? f.url + ' · ' : '') + hxSrvText(f) + (f.ping ? ' · ' + t('hx_srv_at', {d:fmtDate(f.ping.at, true)}) + (f.ping.php ? ' · PHP ' + f.ping.php : '') : ''),
     t('hx_dev') + ': ' + f.dev.name + ' (' + f.dev.id + ')', t('hx_path') + ': ' + f.path, t('hx_key') + ': ' + f.key,
-    'Browser: ' + f.ua, nowISO()].join('\n');
+    'Browser: ' + f.ua, nowISO()].join('\n') + (typeof dmtSummaryText === 'function' ? '\n' + dmtSummaryText() : '');
 }
 function hxAboutOpen(){
   if (typeof helpClose === 'function' && HELP.open) helpClose();

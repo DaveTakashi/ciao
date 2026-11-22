@@ -449,3 +449,15 @@ details.adv > summary .tiny{flex:1;text-align:right}
 .slot-phys{position:absolute;box-shadow:0 0 0 1.5px #475569;border-radius:2px;pointer-events:none;z-index:2}
 .fld-grid .fld-empty{grid-column:1 / -1;margin-top:6px;padding-top:8px;border-top:1px dashed var(--border-2);align-items:flex-start}
 @media print{ .phys-scr{display:none} }
+
+/* v12.9 stopwatch of real working times (02h-timing.js) */
+.dmt-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.dmt-list li{display:grid;gap:2px}
+.dmt-list b{font-size:.92rem;color:var(--text)}
+.dmt-v{font-size:.86rem;color:var(--muted)}
+.dmt-v.ok{color:var(--green)}
+.dmt-v.slow{color:var(--amber)}
+.dmt-note,.dmt-say{font-size:.8rem;color:var(--muted);margin:8px 0 0}
+.dmt-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.dmt-btn{font:inherit;font-size:.86rem;padding:8px 12px;min-height:40px;border-radius:10px;border:1px solid var(--border-2);background:var(--surface);color:var(--text);cursor:pointer}
+.dmt-btn:hover{border-color:var(--accent)}

@@ -32,7 +32,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     p.on('dialog', d => d.accept());
     await p.goto(fileUrl('index.html')); await p.waitForTimeout(1300);
     await p.evaluate(() => { const m = document.querySelector('.modal-f [data-a="modal-btn"]'); if (m) m.click(); });
-    ok(await p.evaluate(() => APP_VERSION === '26.12.8' && typeof viewInv === 'function' && typeof invLabelCode === 'function'), 'v12.8 loaded');
+    ok(await p.evaluate(() => APP_VERSION >= '26.12.8' && typeof viewInv === 'function' && typeof invLabelCode === 'function'), 'v12.8 loaded');
 
     // ---- model (02f) ----
     const M = await p.evaluate(() => {
@@ -129,6 +129,9 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     ok(PC.n === 1 && PC.st === 'proposed' && PC.loc === 1, 'PC: the open desktop merges the phone capture live (log line)', PC);
     // undo within 10 s
     await q.evaluate((c) => IV_API.ivHandle(c, 'test'), bin2); await q.waitForTimeout(300);
+    // v12.9 stopwatch: two binders in a row = one «catalog» sample (durations only, this browser only)
+    const T9 = await q.evaluate(() => ({s:dmtLoad().filter(x => x.k === 'catalog'), pace:IV.pace && IV.pace.length}));
+    ok(T9.s.length === 1 && T9.s[0].ms > 0 && T9.s[0].ms < 120000 && T9.pace === 1 && Object.keys(T9.s[0]).sort().join() === 'at,dev,k,ms,via', 'v12.9: catalogue time measured between two binders, no names or codes stored', T9);
     await q.click('#iv-undo'); await q.waitForTimeout(800);
     V = await q.evaluate((c) => { const st = JSON.parse(localStorage.getItem(LS_KEY)); return {gone:!st.binders.some(b => b.short_code === c), tomb:(st.tombstones || []).some(x => x.id === 'inv-' + c), msg:IV.msg.text}; }, bin2);
     ok(V.gone && /Annullato/.test(V.msg), 'phone: undo removes the binder', V);

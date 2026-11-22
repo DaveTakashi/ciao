@@ -177,3 +177,18 @@ button{cursor:pointer;-webkit-tap-highlight-color:transparent}
 /* v12.1: admin only — small link to the full app */
 .sc-admin-link{display:inline-flex;align-items:center;gap:4px;margin-left:8px;font-size:12px;font-weight:700;color:var(--accent,#2563EB);text-decoration:none;border:1px solid currentColor;border-radius:999px;padding:3px 9px;white-space:nowrap}
 .sc-admin-link .sc-ic{width:14px;height:14px}
+
+/* v12.9 stopwatch of real working times (02h-timing.js) */
+.dmt-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.dmt-list li{display:grid;gap:2px}
+.dmt-list b{font-size:.92rem;color:var(--text)}
+.dmt-v{font-size:.86rem;color:var(--muted)}
+.dmt-v.ok{color:var(--green)}
+.dmt-v.slow{color:var(--amber)}
+.dmt-note,.dmt-say{font-size:.8rem;color:var(--muted);margin:8px 0 0}
+.dmt-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.dmt-btn{font:inherit;font-size:.86rem;padding:8px 12px;min-height:40px;border-radius:10px;border:1px solid var(--border-2);background:var(--surface);color:var(--text);cursor:pointer}
+.dmt-btn:hover{border-color:var(--accent)}
+.sc-dmt{margin:14px 0 0;padding:10px 14px;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
+.sc-dmt summary{cursor:pointer;font-weight:600;color:var(--text-2);min-height:32px;display:flex;align-items:center}
+.iv-pace{font-weight:600;color:var(--accent)}

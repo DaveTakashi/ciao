@@ -17,7 +17,7 @@ Default TARGET: <folder containing docmapv1>/deploy/<slug>
 import argparse, hashlib, json, os, re, shutil, sys
 
 APP = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-COPY_FILES = ['index.html', 'scan.html']
+COPY_FILES = ['index.html', 'scan.html', 'sw.js', 'manifest.webmanifest', 'scan.webmanifest']   # v12.9: installable app
 COPY_DIRS = ['assets', 'vendor']
 SERVER_FILES = ['server-php/api.php', 'server-php/setup.php', 'server-php/config.sample.php', 'server-php/.htaccess',
                 'server-php/data/.htaccess', 'server-php/data/index.html']   # never config.php, never a database
@@ -94,6 +94,7 @@ ErrorDocument 404 {b}404.html
 <IfModule mod_mime.c>
   AddType application/javascript .js
   AddType font/woff2 .woff2
+  AddType application/manifest+json .webmanifest
 </IfModule>
 """
 

@@ -32,7 +32,7 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       iv_box:'Scatola', iv_nobox:'Nessuna scatola attiva: scansiona il QR della scatola.', iv_box_n:'{n} faldoni in questa scatola', iv_box_1:'1 faldone in questa scatola', iv_box_set:'Scatola attiva: {c}', iv_box_new:'Nuova scatola: {c}',
       iv_ok:'{c} acquisito', iv_ok_box:'{c} in {b}', iv_dup:'{c} è già stato acquisito', iv_other:'Etichetta di un altro progetto ({c})', iv_unknown:'QR sconosciuto: {c}', iv_range:'{c}: numero oltre le etichette generate (controlla i lotti sul PC)',
       iv_need_box:'Prima la scatola: scansiona il QR della scatola.', iv_ro:'Con il tuo ruolo puoi solo consultare: chiedi a un amministratore il ruolo "editor".', iv_closed:'Il progetto è chiuso: riaprilo dal PC per acquisire.',
-      iv_last:'Ultimo faldone', iv_none:'Ancora nessun faldone in questa sessione.', iv_undo:'Annulla', iv_undone:'Annullato: {c}', iv_session:'In questa sessione: {n}', iv_total:'Acquisiti nel progetto: {n}',
+      iv_last:'Ultimo faldone', iv_none:'Ancora nessun faldone in questa sessione.', iv_undo:'Annulla', iv_undone:'Annullato: {c}', iv_session:'In questa sessione: {n}', iv_total:'Acquisiti nel progetto: {n}', iv_pace:'{s} s a faldone (mediana)',
       iv_tags:'Tag rapidi', iv_years:'Anni', iv_keep:'Mantieni per i prossimi', iv_voice:'Tieni premuto e parla', iv_voice_on:'Ti ascolto…', iv_voice_no:'Il riconoscimento vocale non è disponibile in questo browser: scrivi nel campo sotto.', iv_voice_err:'Voce non riconosciuta: {m}',
       iv_note_ph:'Descrizione (es. fatture acquisti 2019)', iv_typed:'Oppure scrivi o leggi il codice (lettore Bluetooth)', iv_typed_ph:'dm26… o ROSSI24-0042',
       iv_st_captured:'acquisito', iv_st_proposed:'proposta AI', iv_st_review:'da rivedere', iv_st_confirmed:'confermato', iv_st_sending:'in invio', iv_st_ai:'lettura AI…',
@@ -47,7 +47,7 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       iv_box:'Box', iv_nobox:'No active box: scan the box QR.', iv_box_n:'{n} binders in this box', iv_box_1:'1 binder in this box', iv_box_set:'Active box: {c}', iv_box_new:'New box: {c}',
       iv_ok:'{c} captured', iv_ok_box:'{c} in {b}', iv_dup:'{c} was already captured', iv_other:'Label of another project ({c})', iv_unknown:'Unknown QR: {c}', iv_range:'{c}: number beyond the labels generated (check the batches on the PC)',
       iv_need_box:'Box first: scan the box QR.', iv_ro:'Your role can only view: ask an administrator for the "editor" role.', iv_closed:'The project is closed: reopen it on the PC to capture.',
-      iv_last:'Last binder', iv_none:'No binder in this session yet.', iv_undo:'Undo', iv_undone:'Undone: {c}', iv_session:'This session: {n}', iv_total:'Captured in the project: {n}',
+      iv_last:'Last binder', iv_none:'No binder in this session yet.', iv_undo:'Undo', iv_undone:'Undone: {c}', iv_session:'This session: {n}', iv_total:'Captured in the project: {n}', iv_pace:'{s} s per binder (median)',
       iv_tags:'Quick tags', iv_years:'Years', iv_keep:'Keep for the next ones', iv_voice:'Hold and speak', iv_voice_on:'Listening…', iv_voice_no:'Speech recognition is not available in this browser: type in the field below.', iv_voice_err:'Voice not recognised: {m}',
       iv_note_ph:'Description (e.g. purchase invoices 2019)', iv_typed:'Or type or read the code (Bluetooth scanner)', iv_typed_ph:'dm26… or ROSSI24-0042',
       iv_st_captured:'captured', iv_st_proposed:'AI proposal', iv_st_review:'to review', iv_st_confirmed:'confirmed', iv_st_sending:'sending', iv_st_ai:'AI reading…',
@@ -285,10 +285,21 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       ivRecentPut(b); IV.last = b;
       IV.list.forEach(y => { y.thumb = ''; });   // only the last photo stays in memory
       IV.list.push({code, num, box:IV.box ? IV.box.code : '', at:Date.now(), thumb:photo, st:'captured', sent:false, ai:IV.proj.inv.ai && phId ? 'wait' : '', via});
+      ivPaceMark(via);
       ivSay('ok', IV.box ? t('iv_ok_box', {c:num, b:IV.box.code}) : t('iv_ok', {c:num}));
       ivEnqueue({kind:'rec', recs:[b], entry:ivEntry('inventory.capture', {type:'binder', id:b.id, code:num}, t('iv_log_cap', {c:num}), {project:IV.pid, short_code:code, box:IV.box ? IV.box.code : '', photo:!!phId, via})});
       if (IV.proj.inv.ai && phId) ivEnqueue({kind:'ai', code, ph:phId, voice:'', hints:{tags:IV.proj.inv.tags, year_from:IV.proj.inv.year_from, year_to:IV.proj.inv.year_to, client:IV.proj.inv.client}});
       ivArmUndo(); ivPrefsSave(); ivRender();
+    }
+    /** v12.9 stopwatch: seconds between two binders in a row (a gap over DMT_PAUSE_MS is a pause, not a sample). */
+    function ivPaceMark(via){
+      const now = Date.now(), gap = IV.capAt ? now - IV.capAt : 0;
+      if (gap > 0 && typeof DMT_PAUSE_MS !== 'undefined' && gap <= DMT_PAUSE_MS){ (IV.pace = IV.pace || []).push(gap); if (typeof dmtAdd === 'function') dmtAdd('catalog', gap, via || 'scan'); }
+      IV.capAt = now;
+    }
+    function ivPaceHTML(){
+      const v = (IV.pace || []).slice().sort((x, y) => x - y);
+      return v.length >= 2 && typeof dmtPct === 'function' ? ' · <span class="iv-pace" id="iv-pace">' + esc(t('iv_pace', {s:dmtSec(dmtPct(v, 0.5))})) + '</span>' : '';
     }
     function ivArmUndo(){ clearTimeout(IV.undoTimer); IV.undoTimer = setTimeout(() => { IV.undoTimer = 0; const u = document.getElementById('iv-undo'); if (u) u.remove(); }, IV_UNDO_MS); }
     async function ivUndo(){
@@ -401,7 +412,7 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
     function ivListHTML(){
       const L = IV.list.filter(x => !x.undone).slice(-25).reverse();
       if (!L.length) return '';
-      return '<section class="sc-card iv-list"><h2>' + esc(t('iv_session', {n:IV.list.filter(x => !x.undone).length})) + ' · ' + esc(t('iv_total', {n:ivTotal()})) + '</h2><ul id="iv-list">' +
+      return '<section class="sc-card iv-list"><h2>' + esc(t('iv_session', {n:IV.list.filter(x => !x.undone).length})) + ' · ' + esc(t('iv_total', {n:ivTotal()})) + ivPaceHTML() + '</h2><ul id="iv-list">' +
         L.map(x => { const b = ivRecent()[x.code] || {}, st = x.ai === 'run' ? 'ai' : !x.sent ? 'sending' : (b.inv && b.inv.st) || x.st;
           return '<li><span class="iv-l-code">' + esc(x.num) + '</span><span class="iv-l-t">' + esc(x.title || b.binder_title || x.box || '') + '</span><span class="iv-st st-' + esc(st) + '">' + esc(t('iv_st_' + st)) + '</span></li>'; }).join('') + '</ul></section>';
     }
