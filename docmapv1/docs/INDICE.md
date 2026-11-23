@@ -1,6 +1,6 @@
 # Indice della documentazione DocMap
 
-> Mappa di tutti i documenti di `docmapv1/` (versione **26.12.10**, hub **0.11.2**): a cosa serve ognuno, chi lo deve leggere e in che
+> Mappa di tutti i documenti di `docmapv1/` (versione **26.12.10**, hub **0.12.0**): a cosa serve ognuno, chi lo deve leggere e in che
 > ordine. I percorsi sono relativi a `docmapv1/`.
 
 ## Per ripartire (tutti)
@@ -55,6 +55,7 @@
 | [`AGGIORNAMENTO-v12.8-v12.9.md`](AGGIORNAMENTO-v12.8-v12.9.md) | **Guida dalla v12.8 alla v12.9**: app installabile (PWA, apertura senza rete dei soli file del programma) e cronometro dei tempi reali. Nessuna migrazione. |
 | [`AGGIORNAMENTO-v12.9-v12.10.md`](AGGIORNAMENTO-v12.9-v12.10.md) | **Guida dalla v12.9 alla v12.10**: prelievi con percorso ottimizzato, consegna e rientro firmati con ricevuta verificabile, faldone smarrito (rotta pubblica `finder`), promemoria di rientro, andamento e previsioni, «Oggi», Annulla al posto della domanda. Nessuna migrazione. |
 | [`AGGIORNAMENTO-v12.7-v12.8.md`](AGGIORNAMENTO-v12.7-v12.8.md) | **Guida dalla v12.7 alla v12.8**: Progetti di inventario (etichette, telefono Scatola → Faldoni, revisione, AI facoltativa), indirizzo dei QR configurabile. Migrazioni solo additive. |
+| [`AGGIORNAMENTO-HUB-0.12.0.md`](AGGIORNAMENTO-HUB-0.12.0.md) | DocMap Hub: alla 0.12 (backup automatico a ogni versione nuova, backup controllati, ripristino sicuro, Controllo dell'hub, situazione clienti in Excel). Registro invariato. |
 | [`AGGIORNAMENTO-HUB-0.11.2.md`](AGGIORNAMENTO-HUB-0.11.2.md) | DocMap Hub: alla 0.11.2 (zip completo con «Inizia qui», guide HTML, domande frequenti, RACCOGLI-INFO.bat, zip controllato). |
 | [`AGGIORNAMENTO-HUB-0.11.1.md`](AGGIORNAMENTO-HUB-0.11.1.md) | DocMap Hub: alla 0.11.1 (correzioni del double check finale: sposta il sito in sottocartella, Attiva tutto che riprende, pagina Attività). Registro invariato. |
 | [`AGGIORNAMENTO-HUB-0.11.md`](AGGIORNAMENTO-HUB-0.11.md) | DocMap Hub: alla 0.11 (elimina cliente, pacchetto della sede pronto, più PC con il sito online, sposta il sito). Registro invariato. |

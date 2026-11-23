@@ -89,7 +89,6 @@ def activate_customer(hub, vk: VaultKey, cid: str, *, log=lambda m: None, deploy
     """Run every missing online step. Returns {done:[label], failed:{label,error}|None, configs:{env_name: b64},
     people:{env_name:[user]}}."""
     from . import deploy as D
-    from . import health
     D = deploy_mod or D
     setup_fn = setup_fn or (lambda env_id: SS.setup_site(hub, vk, env_id, log=log))
     check_fn = check_fn or (lambda env_id: _check_one(hub, vk, env_id))

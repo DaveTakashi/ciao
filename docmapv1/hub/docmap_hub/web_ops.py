@@ -15,7 +15,7 @@ import time
 import traceback
 import urllib.parse
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 
 from . import health
 from .registry import ENV_KINDS
