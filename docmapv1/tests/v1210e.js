@@ -66,7 +66,7 @@ const ok = (c, n, x) => { if (c) passes++; else { fails++; console.log('  ✗ FA
     // backups
     const B = await p.evaluate(() => { const j = JSON.parse(workspaceJSON(true)); const keep = clone(S.reminders); S.reminders = {}; applyWorkspaceObject(j); return {inJson:!!j.reminders, back:JSON.stringify(S.reminders) === JSON.stringify(keep)}; });
     ok(B.inJson && B.back, 'backup: the reminder history travels in the workspace JSON', B);
-    ok(await p.evaluate(() => { const g = NAV_MORE.find(x => x[0] === 'nm_work'); return g[1].map(x => x[0]).join() === 'pick,reminders,insights'; }), 'menu: Lavoro › Prelievi, Promemoria, Andamento');
+    ok(await p.evaluate(() => { const g = NAV_MORE.find(x => x[0] === 'nm_work'); return g[1].map(x => x[0]).join().startsWith('pick,reminders,insights'); }), 'menu: Lavoro › Prelievi, Promemoria, Andamento');
     ok(await p.evaluate(() => { helpEnsure(); HELP.q = 'sollecito ritardo'; const r = helpList().map(x => x.id); HELP.q = ''; return r[0] === 'reminders'; }), 'help: «sollecito ritardo» finds the topic first');
     await p.setViewportSize({width:390, height:844}); await p.evaluate(() => { S.view = 'reminders'; renderAll(); }); await p.waitForTimeout(200);
     ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'phone width: no horizontal scroll');

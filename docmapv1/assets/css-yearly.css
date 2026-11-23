@@ -1,0 +1,44 @@
+/* DocMap v12.11 — Nuovo anno (ny-*), Scarto (rt-*), Dove lo metto? (pl-*), Ricerca a voce (vs-*). Tokens only (css-tokens.css). */
+.ok-box{display:flex;gap:12px;padding:14px 16px;border-radius:12px;background:var(--green-weak);border:1px solid var(--green-line);color:var(--green)}
+.ok-box p{margin:4px 0 0;color:var(--text-2)}
+
+/* Nuovo anno + Scarto tables */
+.ny-tbl td small,.rt-tbl td small{display:block;font-size:var(--fs-xs);margin-top:2px}
+.ny-tbl td,.rt-tbl td{vertical-align:top}
+.ny-tbl tr.ny-off td,.rt-tbl tr.ny-off td{opacity:.45}
+.ny-new{font-weight:var(--fw-strong);color:var(--brand)}
+.ny-place b{display:block}
+.ny-opts summary,.rt-rules summary{cursor:pointer}
+.ny-made .row{flex-wrap:wrap}
+
+/* Scarto */
+.rt-ds .rt-st{font-size:var(--fs-xs);font-weight:var(--fw-strong);padding:1px 8px;border-radius:99px;background:var(--amber-weak);color:var(--amber-ink);border:1px solid var(--amber-line);vertical-align:middle;margin-left:6px}
+.rt-ds.rt-executed .rt-st{background:var(--green-weak);color:var(--green);border-color:var(--green-line)}
+.rt-ds.rt-cancelled{opacity:.7}
+.rt-ds.rt-cancelled .rt-st{background:var(--surface-3);color:var(--muted);border-color:var(--border)}
+.rt-rtbl .inp{min-width:90px}
+.rt-rtbl td{vertical-align:middle}
+
+/* Dove lo metto? (binder form) */
+.pl-ed{margin-top:8px}
+.pl-list{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.pl-it{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface)}
+.pl-it:first-child{border-color:var(--brand-line);background:var(--brand-weak)}
+.pl-tx{min-width:0}
+.pl-tx small{display:block;color:var(--text-2);font-size:var(--fs-xs);margin-top:2px}
+.pl-full{opacity:.75}
+.pl-tag{font-size:var(--fs-xs);padding:0 6px;border-radius:6px;background:var(--red-weak);color:var(--red-ink);border:1px solid var(--red-line)}
+.pl-none{margin:6px 0 0}
+
+/* Ricerca a voce */
+.search .vs-mic{position:absolute;right:8px;top:50%;transform:translateY(-50%)}
+.search:has(.vs-mic) .inp{padding-right:44px}
+.vs-mic{display:inline-grid;place-items:center;width:32px;height:32px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);cursor:pointer;padding:0}
+.vs-mic svg{position:static;transform:none;color:inherit;width:16px;height:16px}
+.vs-mic:hover{border-color:var(--brand-line);color:var(--brand)}
+.vs-mic:focus-visible{outline:none;box-shadow:0 0 0 4px var(--ring)}
+.vs-mic.on{background:var(--red-weak);border-color:var(--red-line);color:var(--red-ink);animation:vs-pulse 1.2s ease-in-out infinite}
+.ck-in .vs-mic{margin-right:6px;flex:none}
+@keyframes vs-pulse{50%{box-shadow:0 0 0 6px var(--red-weak)}}
+@media (prefers-reduced-motion:reduce){.vs-mic.on{animation:none}}
+@media print{.vs-mic,.pl-ed{display:none!important}}

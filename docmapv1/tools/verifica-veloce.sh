@@ -28,6 +28,7 @@ step "v12.10 faldone smarrito (Playwright)"; (cd tests && NODE_PATH="${NODE_PATH
 step "v12.10 andamento e previsioni (Playwright)"; (cd tests && NODE_PATH="${NODE_PATH:-$(npm root -g)}" run node v1210c.js) || fail=1
 step "v12.10 ondata 1: Oggi, Annulla, stati vuoti (Playwright)"; (cd tests && NODE_PATH="${NODE_PATH:-$(npm root -g)}" run node v1210d.js) || fail=1
 step "v12.10 promemoria di rientro (Playwright)"; (cd tests && NODE_PATH="${NODE_PATH:-$(npm root -g)}" run node v1210e.js) || fail=1
+step "v12.11 nuovo anno, scarto, dove lo metto, voce (Playwright)"; (cd tests && NODE_PATH="${NODE_PATH:-$(npm root -g)}" run node v1211.js) || fail=1
 echo
 if [ $fail = 0 ]; then echo "VERIFICA VELOCE: tutto OK"; else echo "VERIFICA VELOCE: ci sono errori (vedi ✗ sopra)"; fi
 exit $fail

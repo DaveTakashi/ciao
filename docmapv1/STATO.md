@@ -1,16 +1,16 @@
 # STATO di DocMap — fonte unica
 
-> Aggiornato al **2026-11-22**. Chi cambia una versione, un test o una decisione aggiorna questo file nello stesso
+> Aggiornato al **2026-11-23**. Chi cambia una versione, un test o una decisione aggiorna questo file nello stesso
 > commit. Per ripartire dopo una pausa (persona o agente) si legge questo, poi [`CHANGELOG.md`](CHANGELOG.md).
 
 ## 1. Versioni correnti e cosa va con cosa
 
 | Componente | Versione | Dove si legge | Zip per Dave (file del progetto) |
 |---|---|---|---|
-| App DocMap (PC, web, telefono) | **26.12.10** (v12.10, ondata 2: prelievi con percorso, consegna e rientro firmati, faldone smarrito, andamento e previsioni; fine ondata 1: Oggi, Annulla, stati vuoti) | `APP_VERSION` in `assets/js/02-core.js` | dentro lo zip completo `docmapv1/python/DocMap-hub-0.11.2-app-26.12.10.zip` |
+| App DocMap (PC, web, telefono) | **26.12.11** (v12.11, ondata 2 seconda parte: nuovo anno in un clic, scarto proposto con verbale, «Dove lo metto?», ricerca a voce; prima 26.12.10: prelievi, consegna firmata, faldone smarrito, promemoria, previsioni) | `APP_VERSION` in `assets/js/02-core.js` | dentro lo zip completo `docmapv1/python/DocMap-hub-0.11.2-app-26.12.11.zip` |
 | Database locale (SQLite nel browser) | schema **9** | `DB_SCHEMA_VERSION` in `assets/js/06-db.js` | — |
-| Server web PHP (`server-php/api.php`) | 26.12.10 (v12.10: rotta pubblica `finder`, solo GET, solo il contatto del faldone smarrito), schema **3**, licenza con `licence_required`; `setup.php` con cartella per sito e modalità JSON; v12.8: rotte `project`, `photo_put`, `photo`, `ai_spine` | `DM_APP_VERSION`, `DM_SCHEMA` | dentro lo zip dell'app (`deploy/`) |
-| Server Python (sede) | pacchetto 1.0.0, parità con PHP 26.12.10 (anche sulla licenza, sull'inventario e su `finder`) | `server-python/docmap_server/__init__.py` | dentro l'installer |
+| Server web PHP (`server-php/api.php`) | 26.12.11 (v12.11: solo il numero; v12.10: rotta pubblica `finder`, solo GET, solo il contatto del faldone smarrito), schema **3**, licenza con `licence_required`; `setup.php` con cartella per sito e modalità JSON; v12.8: rotte `project`, `photo_put`, `photo`, `ai_spine` | `DM_APP_VERSION`, `DM_SCHEMA` | dentro lo zip dell'app (`deploy/`) |
+| Server Python (sede) | pacchetto 1.0.0, parità con PHP 26.12.11 (anche sulla licenza, sull'inventario e su `finder`) | `server-python/docmap_server/__init__.py` | dentro l'installer |
 | Strumenti di installazione Windows | 1.2.0 | `TOOLS_VERSION` in `installer-windows/docmap_tools.py` | dentro lo zip completo (`installer-windows/`); i pacchetti per i clienti li fa l'hub (il vecchio `DocMap-installer-26.12.7.zip` è in `vecchie-versioni/`) |
 | Hub (PC di Dave) | **0.11.2**, registro schema **4** (modelli cliente) (`registry.py`) | `hub/docmap_hub/__init__.py` | `docmapv1/python/DocMap-hub-0.11.2.zip` (**zip completo**: hub + app + sito + server + installatore + guide; fatto e controllato da `tools/crea-zip.py`) |
 | Aggiornatore del PC | con l'app | `AGGIORNA-DOCMAP.bat` + `tools/aggiorna-app.ps1` | dentro lo zip dell'app |
@@ -26,6 +26,7 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
 - App 26.12.8 (Progetti di inventario, indirizzo dei QR configurabile): ramo `claude/project-thread-epf33l` (parte dalla PR #5).
 - App 26.12.9 (app installabile PWA, cronometro dei tempi; ondata 0 e prima parte dell'ondata 1): PR #8, unita in `main`.
 - App 26.12.10 (ondata 2: funzioni 1, 3, 5, 7 scelte da Dave; fine ondata 1): ramo `claude/project-thread-1dzp8h` ripartito da `main`, PR verso `main`.
+- App 26.12.11 (ondata 2: K9 nuovo anno, K2 scarto, K8 dove lo metto, K7 voce): ramo `claude/project-thread-o4rwcv` da `main`, PR verso `main`.
 - Dopo l'unione: `main` è la versione vera; ogni thread parte da `main`.
 
 ## 3. Test
@@ -35,6 +36,17 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
 | Verifica veloce (tutto tranne la suite completa) | `bash tools/verifica-veloce.sh` | ~4 min | vedi §3bis |
 | Suite completa app (Playwright) | `cd tests && NODE_PATH=$(npm root -g) node suite.js` | ~35 min | 1374/1374 (2026-11-22, app 26.12.8) |
 | CI su GitHub | `ci/docmap-ci.yml` (attivo solo se copiato in `.github/workflows/`) | — | in attesa del sì di Dave |
+
+### Esito 2026-11-23, app 26.12.11 (nuovo anno, scarto, dove lo metto, voce)
+
+- Test nuovo, nella verifica veloce: `tests/v1211.js` 49/49 (anni e serie, `yrShift`, frasi a voce → ricerca anche sul
+  telefono, «Dove lo metto?» con capienza e albero, scheda «Metti qui», nuovo anno: piano, spunte, crea, stampa solo i
+  nuovi, niente doppioni, Annulla, opzioni, Oggi; scarto: regole, esclusi, verbale con impronta, firma richiesta,
+  distruzione, codici mai riusati, Annulla, verbale annullato, backup, regole condivise, avviso annuale; microfono finto
+  su Archivio e Ctrl+K; dati della 26.12.10). `tests/v1210e.js`: il menu Lavoro ora ha anche Nuovo anno e Scarto.
+- Esiti di verifica veloce e suite completa: vedi il commit del rilascio.
+- Provato solo in Chromium con un riconoscimento vocale finto: **microfono vero, stampa vera del verbale e regole di
+  conservazione con un consulente mai provati** (righe D19–D22 di `COLLAUDO-REALE.md`).
 
 ### Esito 2026-11-22, app 26.12.10 (prelievi, consegna firmata, faldone smarrito, previsioni, fine ondata 1)
 
@@ -131,6 +143,9 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
 
 Scheda unica da seguire: [`docs/COLLAUDO-REALE.md`](docs/COLLAUDO-REALE.md).
 
+- App 26.12.11 (righe D19–D22): nuovo anno sui dati veri (titoli strani, clienti scritti in modi diversi), «Dove lo metto?»
+  sugli scaffali veri, regole di scarto viste da un consulente e verbale stampato, ricerca a voce con un microfono vero.
+
 - App 26.12.8, **inventario rapido** su telefoni veri (righe D7–D9): velocità reale per faldone, fotocamera e beep su
   iPhone/Android, microfono (Web Speech: Chrome Android sì; Safari iPhone da verificare), lettura AI con una chiave vera
   (mai chiamata davvero: solo il fornitore finto `mock` e un test con la rete simulata).
@@ -147,6 +162,11 @@ Scheda unica da seguire: [`docs/COLLAUDO-REALE.md`](docs/COLLAUDO-REALE.md).
 - **Telefoni** Android e iPhone (accesso ricordato, stati, associazione, offline) e **NFC** (solo Android/Chrome).
 
 ## 5. Limiti noti
+
+- Scarto (26.12.11): è una **proposta** con regole indicative (non consulenza legale, non conservazione a norma). I verbali
+  stanno nel salvataggio del PC e nei backup, non sul server (le regole sì). Un faldone senza anno non viene mai proposto.
+- Nuovo anno: le serie si riconoscono da cliente + categoria + titolo senza anni; un cliente scritto in due modi senza
+  Codice Multi forma due serie. Ricerca a voce: riconoscimento del browser (può usare un servizio online del browser).
 
 - App installabile (26.12.9): solo da `https://` (o `localhost`); la sede in HTTP semplice o `file://` non si installa.
   La copia senza rete contiene solo il programma: i dati del server senza rete non ci sono. I tempi misurati restano sul
