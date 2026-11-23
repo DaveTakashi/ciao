@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# DocMap — fast checks (~3 min) for agents and CI. Full regression = tests/suite.js (~35 min), before every release.
+# DocMap — fast checks (~4 min) for agents and CI. Full regression = tests/suite.js (~35 min), before every release.
 #   bash docmapv1/tools/verifica-veloce.sh          (from the repo root or anywhere)
 # Needs: python 3.11+ with fastapi uvicorn cryptography pyftpdlib, php 8 with pdo_sqlite, node + playwright.
 set -u
@@ -10,6 +10,14 @@ step(){ echo; echo "== $1"; }
 run(){ "$@" || { echo "  ✗ FAILED: $*"; fail=1; return 1; }; }
 step "syntax: JavaScript"
 for f in assets/js/*.js docmap.config.js hub/docmap_hub/ui/app.js; do node --check "$f" || { echo "  ✗ $f"; fail=1; }; done
+step "lint: JavaScript (globals between files, eslint bug rules)"
+if NODE_PATH="${NODE_PATH:-$(npm root -g)}" node -e "require('eslint')" 2>/dev/null; then
+  NODE_PATH="${NODE_PATH:-$(npm root -g)}" run node tools/lint-js.js
+else echo "  (eslint not installed: npm install -g eslint — skipped)"; fi
+step "lint: Python (pyflakes, only real bugs)"; run python3 tools/lint-py.py
+step "CI: .github/workflows/docmap-ci.yml = ci/docmap-ci.yml"
+if [ -f ../.github/workflows/docmap-ci.yml ]; then run cmp -s ci/docmap-ci.yml ../.github/workflows/docmap-ci.yml && echo "  OK same file"
+else echo "  (CI not active: .github/workflows/docmap-ci.yml missing)"; fi
 step "syntax: PHP"
 for f in server-php/*.php; do run php -l "$f" >/dev/null; done
 step "hub (Python)";              (cd hub && run python3 -m unittest discover -s tests) || fail=1
@@ -18,17 +26,12 @@ step "PHP <-> Python parity";     run python3 server-python/tests/diff_test.py
 step "PHP <-> Python licence";    run python3 server-python/tests/diff_licence_test.py
 step "zip completo (tools/crea-zip.py)"; ZD=$(mktemp -d); run python3 tools/crea-zip.py --out "$ZD" >/dev/null
 step "installer-windows";         (cd installer-windows && run python3 -m unittest discover -s tests) || fail=1
-step "smoke test app (Playwright)"; (cd tests && NODE_PATH="${NODE_PATH:-$(npm root -g)}" run node smoke.js) || fail=1
-step "v12.6 licenza e stato sync (Playwright + php)"; (cd tests && NODE_PATH="${NODE_PATH:-$(npm root -g)}" run node v126.js) || fail=1
-step "v12.8 progetti di inventario (Playwright + php)"; (cd tests && NODE_PATH="${NODE_PATH:-$(npm root -g)}" run node v128.js) || fail=1
-step "v12.9 app installabile e cronometro (Playwright + php)"; (cd tests && NODE_PATH="${NODE_PATH:-$(npm root -g)}" run node v129.js) || fail=1
-step "v12.9 nuovo stile: tema scuro e Ctrl+K (Playwright)"; (cd tests && NODE_PATH="${NODE_PATH:-$(npm root -g)}" run node v129b.js) || fail=1
-step "v12.10 prelievi, percorso, consegna firmata (Playwright)"; (cd tests && NODE_PATH="${NODE_PATH:-$(npm root -g)}" run node v1210.js) || fail=1
-step "v12.10 faldone smarrito (Playwright)"; (cd tests && NODE_PATH="${NODE_PATH:-$(npm root -g)}" run node v1210b.js) || fail=1
-step "v12.10 andamento e previsioni (Playwright)"; (cd tests && NODE_PATH="${NODE_PATH:-$(npm root -g)}" run node v1210c.js) || fail=1
-step "v12.10 ondata 1: Oggi, Annulla, stati vuoti (Playwright)"; (cd tests && NODE_PATH="${NODE_PATH:-$(npm root -g)}" run node v1210d.js) || fail=1
-step "v12.10 promemoria di rientro (Playwright)"; (cd tests && NODE_PATH="${NODE_PATH:-$(npm root -g)}" run node v1210e.js) || fail=1
-step "v12.11 nuovo anno, scarto, dove lo metto, voce (Playwright)"; (cd tests && NODE_PATH="${NODE_PATH:-$(npm root -g)}" run node v1211.js) || fail=1
+step "app: test Playwright (smoke, unit, aggiornamento, v12.6 … v12.11), più file insieme (tests/run.js)"
+# smoke · unit (pure functions, 2 time zones) · upgrade (real previous releases from git → current: no data lost)
+# v126 licence + sync · v128 inventory · v129 PWA + stopwatch · v129b theme + Ctrl+K · v1210 picks + signed hand-over
+# v1210b lost-item QR · v1210c forecasts · v1210d «Oggi», undo, empty states · v1210e return reminders
+# v1211 new year, disposal, «Dove lo metto?», voice search
+(cd tests && NODE_PATH="${NODE_PATH:-$(npm root -g)}" run node run.js) || fail=1
 echo
 if [ $fail = 0 ]; then echo "VERIFICA VELOCE: tutto OK"; else echo "VERIFICA VELOCE: ci sono errori (vedi ✗ sopra)"; fi
 exit $fail

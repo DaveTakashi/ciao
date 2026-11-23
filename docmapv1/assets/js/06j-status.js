@@ -281,7 +281,6 @@ function viewStatus(){
       '<span style="flex:1"></span><button class="btn btn-sm" data-a="sq-csv-out" id="sq-csv-out">' + ic('download') + esc(t('sq_ex_out')) + '</button><button class="btn btn-sm" data-a="sq-csv-all" id="sq-csv-all">' + ic('download') + esc(t('sq_ex_all')) + '</button></div>' +
       '<div id="sq-dash-rows">' + sqDashRowsHTML(rows, all.length) + '</div></div>' +
     '<div class="card card-p" style="margin-top:16px" id="sq-verifs"><h2>' + esc(t('sq_verifs')) + '</h2>' + sqVerifsHTML() + '</div>';
-  void types;
 }
 function sqDashRowsHTML(rows, total){
   if (!total) return '<div class="empty" id="sq-empty">' + sqIc('in', 'lg') + '<p>' + esc(t('sq_none_out')) + '</p></div>';

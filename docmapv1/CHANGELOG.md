@@ -5,7 +5,13 @@ Formato: versione · data · cosa cambia per chi la usa · dati/server.
 
 ## Da rilasciare
 
-- (niente)
+- **Qualità e CI** (2026-11-23, nessuna versione nuova): controlli statici JavaScript (`tools/lint-js.js`) e Python
+  (`tools/lint-py.py`), test unitari delle funzioni v12.10 in due fusi orari (`tests/unit.js`), test di aggiornamento dai
+  rilasci veri 26.12.7 e 26.12.9 (`tests/upgrade.js`), test app in parallelo (`tests/run.js`, ~40 s), aiuto comune per i
+  test (`tests/lib/harness.js`), guida `docs/TEST.md`, CI su GitHub attiva (`.github/workflows/docmap-ci.yml`).
+- **Correzioni app** (incluse nella 26.12.11): faldone smarrito, l'e-mail dello studio accetta solo un
+  indirizzo semplice e il link è codificato (prima `studio@x.it?cc=…` aggiungeva destinatari); dizionario inglese
+  dell'inventario senza testi italiani doppi. Nessun dato cambia.
 
 ## 2026-11-06 — app 26.12.6, hub 0.8, consolidamento
 

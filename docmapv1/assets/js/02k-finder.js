@@ -34,7 +34,8 @@ function fdNorm(f, implicitOn, studio){
   const o = {};
   Object.keys(FD_MAX).forEach(k => { o[k] = fdStr(f[k], FD_MAX[k]); });
   if (!o.name) o.name = fdStr(studio || '', FD_MAX.name);
-  if (o.email && !/^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(o.email)) o.email = '';
+  // plain address only: characters like ? & # , ; would add cc / bcc / body to the mailto: link (v12.11 unit test)
+  if (o.email && !/^[A-Za-z0-9._%+'-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/.test(o.email)) o.email = '';
   if (!o.phone && !o.email && !o.whatsapp) return null;
   return o;
 }
@@ -48,7 +49,7 @@ function fdLinks(f, code){
   if (tel) out.push({k:'call', href:'tel:' + tel, label:t('fd_call')});
   if (wa) out.push({k:'wa', href:'https://wa.me/' + wa + '?text=' + encodeURIComponent(msg), label:t('fd_wa')});
   if (tel) out.push({k:'sms', href:'sms:' + tel + '?body=' + encodeURIComponent(msg), label:t('fd_sms')});
-  if (f.email) out.push({k:'mail', href:'mailto:' + f.email + '?subject=' + encodeURIComponent(t('fd_subj', {c:code}).trim()) + '&body=' + encodeURIComponent(msg), label:t('fd_mail')});
+  if (f.email) out.push({k:'mail', href:'mailto:' + encodeURIComponent(f.email).replace(/%40/g, '@') + '?subject=' + encodeURIComponent(t('fd_subj', {c:code}).trim()) + '&body=' + encodeURIComponent(msg), label:t('fd_mail')});
   return out;
 }
 /** The card the finder sees (also the live preview in the PC settings). `btn`: class of the buttons. */
