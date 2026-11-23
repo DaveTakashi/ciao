@@ -384,3 +384,46 @@ const IVDB = {
 };
 window.IVDB = IVDB;
 
+
+/* ---------------- v12.14 quick estimate of a job (K3: quote before the inventory) ---------------- */
+/* Pure: from what you can see on site (metres of shelf, or boxes) to binders, labels, hours, days and price.
+   q = {metres, perMetre, boxes, perBox, docsPerBinder, secPerBinder, people, setupHours, hoursPerDay, spare}
+   The seconds per binder default to the studio's own measured pace (invPaceHistory), else INV_EST_DEFAULT.sec. */
+const INV_EST_DEFAULT = {perMetre:12, perBox:8, sec:8, people:1, setupHours:1, hoursPerDay:6.5, spare:10};
+function invEstimate(q, prices){
+  q = q && typeof q === 'object' ? q : {};
+  const num = (v, d, lo, hi) => { v = parseFloat(String(v == null ? '' : v).replace(',', '.')); return isFinite(v) && v >= lo ? Math.min(hi, v) : d; };
+  const D = INV_EST_DEFAULT;
+  const metres = num(q.metres, 0, 0, 100000), perMetre = num(q.perMetre, D.perMetre, 1, 100);
+  const boxes = Math.round(num(q.boxes, 0, 0, 1000000)), perBox = num(q.perBox, D.perBox, 1, 200);
+  const binders = Math.round(metres * perMetre + boxes * perBox);
+  const docs = Math.round(binders * num(q.docsPerBinder, 0, 0, 500));
+  const sec = num(q.secPerBinder, D.sec, 1, 600), people = Math.max(1, Math.round(num(q.people, D.people, 1, 50)));
+  const setup = num(q.setupHours, D.setupHours, 0, 1000), perDay = num(q.hoursPerDay, D.hoursPerDay, 1, 24), spare = num(q.spare, D.spare, 0, 100);
+  // documents take about a third of a binder's time each (one scan, no box)
+  const workH = (binders * sec + docs * sec / 3) / 3600 / people;
+  const work = binders || docs || boxes, hours = work ? Math.round((workH + setup) * 10) / 10 : 0, days = work ? Math.max(0.5, Math.ceil(hours / perDay * 2) / 2) : 0;
+  const boxEst = boxes || (binders ? Math.ceil(binders / perBox) : 0);
+  const labels = {binder:Math.ceil(binders * (1 + spare / 100)), box:Math.ceil(boxEst * (1 + spare / 100)), doc:Math.ceil(docs * (1 + spare / 100))};
+  const bill = prices ? invBill({binders, boxes:boxEst, docs}, prices) : null;
+  return {binders, boxes:boxEst, docs, sec, people, hours, days, labels, bill, perHourBinders:sec ? Math.round(3600 / sec * people) : 0};
+}
+/** The studio's measured pace: median of the medians of past projects with at least `min` binders (ms), or 0. */
+function invPaceHistory(projects, binders, logs, settings, min){
+  const v = [];
+  (projects || []).forEach(a => { const r = invReport(a, binders, [], logs || [], settings || {}, 120000); if (r.binders >= (min || 20) && r.median_ms > 0) v.push(r.median_ms); });
+  return v.length ? Math.round(invMedian(v)) : 0;
+}
+
+/* ---------------- v12.14 rescue file: what a phone has not sent yet, carried to the PC by hand ---------------- */
+/* {format:'docmap-inv-rescue', v:1, at, device, who, project:{id, code, name}, recs:[record…], photos:{id:dataURL}}.
+   Records keep their deterministic ids (inv-<short code>), so importing twice, or after the phone did send, never
+   duplicates anything: the newer updated_at wins. */
+const INV_RESCUE_FORMAT = 'docmap-inv-rescue';
+function invRescueParse(text){
+  let j; try { j = JSON.parse(String(text || '')); } catch(e){ return null; }
+  if (!j || j.format !== INV_RESCUE_FORMAT || !Array.isArray(j.recs)) return null;
+  const recs = j.recs.filter(r => r && typeof r === 'object' && /^inv-[A-Za-z0-9]+$/.test(String(r.id || '')) && (r._type === 'binder' || r._type === 'location'));
+  const photos = {}; Object.keys(j.photos || {}).forEach(k => { const v = j.photos[k]; if (/^ph-[A-Za-z0-9-]+$/.test(k) && typeof v === 'string' && /^data:image\/(jpeg|png|webp);base64,/.test(v)) photos[k] = v; });
+  return {at:String(j.at || ''), device:String(j.device || ''), who:String(j.who || ''), project:j.project && typeof j.project === 'object' ? {id:String(j.project.id || ''), code:String(j.project.code || ''), name:String(j.project.name || '')} : {id:'', code:'', name:''}, recs, photos};
+}

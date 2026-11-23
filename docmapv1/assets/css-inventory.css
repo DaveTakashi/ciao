@@ -164,3 +164,18 @@
 .modal .ivq-r th,.modal .ivq-r td{border-bottom-color:var(--border)}
 .modal .ivq-note{color:var(--muted)}
 @media (prefers-reduced-motion:reduce){.ivq-dot{animation:none}}
+
+/* v12.14 phone health: queue status opens the details, warnings, rescue copy */
+.iv-q-w{display:flex;flex-direction:column;gap:6px;align-self:stretch}
+.iv-q-t{border:0;background:transparent;color:inherit;font:inherit;padding:0;cursor:pointer;text-align:left;text-decoration:underline dotted;text-underline-offset:3px}
+.iv-q-warn{padding:8px 12px;border-radius:10px;background:var(--red-weak);color:var(--red);font-size:13px;font-weight:600}
+.iv-health{border:1px solid var(--border);border-radius:12px;padding:10px 12px;background:var(--surface)}
+.iv-health dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:0 0 8px;font-size:13px}
+.iv-health dt{color:var(--text-2,#555)} .iv-health dd{margin:0;font-weight:600;text-align:right}
+.iv-health-b{display:flex;flex-wrap:wrap;gap:8px}
+/* v12.14 quick estimate (PC) */
+.ivq-est{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.ivq-est-out{margin-top:12px;border-top:1px solid var(--border);padding-top:12px}
+.ivq-est-out .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+.ivq-est-out .kpi{border:1px solid var(--border);border-radius:10px;padding:8px 10px}
+.ivq-est-out .kpi b{display:block;font-size:20px} .ivq-est-out .kpi small{color:var(--text-2,#666)}

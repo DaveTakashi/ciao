@@ -71,7 +71,8 @@ function ivpProHTML(a){
   return '<div class="grid g2 ivq-top" style="margin-top:16px"><div class="card card-p"><h2>' + esc(t('ivq_work')) + '</h2><div class="row wrap">' +
       '<button class="btn btn-primary" data-a="ivq-report" data-id="' + esc(a.id) + '" id="ivq-report">' + ic('file') + esc(t('ivq_report')) + '</button>' +
       '<button class="btn' + (live ? ' on' : '') + '" data-a="ivq-live" data-id="' + esc(a.id) + '" id="ivq-live">' + ic('refresh') + esc(live ? t('ivq_live_off') : t('ivq_live')) + '</button>' +
-      '<button class="btn" data-a="ivq-tpl" data-id="' + esc(a.id) + '" id="ivq-tpl">' + ic('copy') + esc(t('ivq_tpl_save')) + '</button></div></div>' +
+      '<button class="btn" data-a="ivq-tpl" data-id="' + esc(a.id) + '" id="ivq-tpl">' + ic('copy') + esc(t('ivq_tpl_save')) + '</button>' +
+      (typeof ivxRescueButtonHTML === 'function' ? ivxRescueButtonHTML(a) : '') + '</div></div>' +
     '<div class="card card-p"><h2>' + esc(t('ivq_ver_h')) + '</h2>' + ver + '</div></div>' +
     (live ? '<div class="card card-p ivq-live" style="margin-top:16px" id="ivq-live-card">' + ivqLiveHTML(a) + '</div>' : '');
 }
