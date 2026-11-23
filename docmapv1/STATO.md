@@ -27,14 +27,29 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
 - App 26.12.9 (app installabile PWA, cronometro dei tempi; ondata 0 e prima parte dell'ondata 1): PR #8, unita in `main`.
 - App 26.12.10 (ondata 2: funzioni 1, 3, 5, 7 scelte da Dave; fine ondata 1): ramo `claude/project-thread-1dzp8h` ripartito da `main`, PR verso `main`.
 - Dopo l'unione: `main` è la versione vera; ogni thread parte da `main`.
+- Qualità e CI (lint, test unitari e di aggiornamento, test in parallelo, CI attiva): ramo `claude/project-thread-imzwad` da `main` dopo l'unione della PR #9, PR verso `main`.
 
 ## 3. Test
 
 | Cosa | Comando | Durata | Ultimo esito |
 |---|---|---|---|
-| Verifica veloce (tutto tranne la suite completa) | `bash tools/verifica-veloce.sh` | ~4 min | vedi §3bis |
-| Suite completa app (Playwright) | `cd tests && NODE_PATH=$(npm root -g) node suite.js` | ~35 min | 1374/1374 (2026-11-22, app 26.12.8) |
-| CI su GitHub | `ci/docmap-ci.yml` (attivo solo se copiato in `.github/workflows/`) | — | in attesa del sì di Dave |
+| Verifica veloce (tutto tranne la suite completa) | `bash tools/verifica-veloce.sh` | ~4 min | tutto OK (2026-11-23) |
+| Lint JS / Python | `node tools/lint-js.js`, `python3 tools/lint-py.py` (dentro la verifica veloce) | 5 s | 0 problemi (2026-11-23) |
+| Test app tutti insieme (smoke, unit, aggiornamento, v12.6 … v12.10) | `cd tests && NODE_PATH=$(npm root -g) node run.js` | ~40 s | 12/12 file OK (2026-11-23) |
+| Suite completa app (Playwright) | `cd tests && NODE_PATH=$(npm root -g) node suite.js` | ~35 min | 1376/1376 (2026-11-23, app 26.12.10) |
+| CI su GitHub | `.github/workflows/docmap-ci.yml` (= `ci/docmap-ci.yml`) | ~10 min | nella PR «qualità e CI» (unica cartella fuori da `docmapv1/`, da confermare da Dave) |
+
+Come sono fatti i test e come aggiungerne: [`docs/TEST.md`](docs/TEST.md).
+
+### Esito 2026-11-23, qualità e CI (nessuna versione nuova dell'app)
+
+- Nuovi controlli: `tools/lint-js.js` (nomi tra i file di ogni pagina + regole eslint che sono sempre difetti),
+  `tools/lint-py.py` (pyflakes, solo difetti veri), `tests/unit.js` 132/132 (funzioni pure v12.10 in due fusi orari),
+  `tests/upgrade.js` 28/28 (dati creati dalle vere 26.12.7 e 26.12.9 aperti dalla versione attuale e poi di nuovo dalla
+  vecchia), `tests/run.js` (test app in parallelo: ~40 s invece di ~4 min), `tests/lib/harness.js` (aiuto comune).
+- Difetti trovati e corretti: e-mail del faldone smarrito che accettava `?cc=` / `&body=` (si poteva aggiungere un
+  destinatario al link mailto; ora solo indirizzi semplici e link codificato); 4 testi italiani duplicati nel dizionario
+  inglese dell'inventario; una riga morta in `06j-status.js`.
 
 ### Esito 2026-11-22, app 26.12.10 (prelievi, consegna firmata, faldone smarrito, previsioni, fine ondata 1)
 
@@ -180,6 +195,7 @@ Vedi `docs/ROADMAP.md` §5 (D1–D7) e la memoria del progetto. Aggiunte:
 | D17 | 2026-11-06 | «Attiva tutto» pubblica solo su cartelle vuote; il kit di consegna resta in memoria e non va mai sul disco del hub | velocità senza rischiare un sito in uso né lasciare chiavi del database sul PC |
 | D18 | 2026-11-22 | L'indirizzo dei QR è configurabile (`qr7.it` di default); Doc Location è solo il marchio, nessun dominio forzato | Dave: «voglio essere libero, agnostico» |
 | D19 | 2026-11-22 | Un progetto di inventario è un archivio con `inv`; etichette = codici brevi normali con il prefisso del progetto; record del telefono con id `inv-<codice>` | niente tipi nuovi da sincronizzare, nessun doppione, QR7 e manifest invariati |
+| D20 | 2026-11-23 | CI attiva: l'unico file fuori da `docmapv1/` è `.github/workflows/docmap-ci.yml` (GitHub legge solo lì), copia identica di `ci/docmap-ci.yml` controllata dalla verifica veloce | da confermare da Dave nella PR «qualità e CI» |
 | D15 | 2026-11-06 | Dopo ogni cambio di licenza il hub la carica subito sui siti online (FTP); il canale resta per la sede | la sospensione deve valere subito, non al prossimo deploy |
 
 ## 7. Prossimi passi (ordine concordato con Dave il 2026-11-06)

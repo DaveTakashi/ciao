@@ -148,6 +148,9 @@ Example: new field `foo`. Touch every item; the suite will catch most misses.
 
 ## 6. Running the tests
 
+Overview of every check (lint, unit, upgrade, feature files, fast check, full suite, CI) and how to add a test with
+`tests/lib/harness.js`: [`docs/TEST.md`](docs/TEST.md). Fast path: `cd tests && NODE_PATH=$(npm root -g) node run.js` (~40 s).
+
 Requirements: Node.js, `playwright` (Chromium), `jsqr`, `pngjs`; Python 3 with `pypdfium2` (used to rasterise printed PDFs at 300 dpi for QR decoding); PHP 8 CLI with `pdo_sqlite` + `openssl` for the server sections W, X, J (skipped with a message when missing); `git` history for the v10.1 `api.php` (commit `68ae170`) used by X and J.
 
 ```bash

@@ -22,7 +22,9 @@ Vale per app (26.12.x), server PHP/Python, installatore e hub. Nessun passo si s
 1. `bash tools/verifica-veloce.sh` → «tutto OK».
 2. Se l'app cambia: suite completa `cd tests && NODE_PATH=$(npm root -g) node suite.js` → 0 fallimenti. Se un test
    fallisce per un errore del test stesso, correggilo **e rilancia la suite intera** prima di dire che è verde.
-3. Un test che apre i dati della versione precedente (regola "nessun dato perso", `AGGIORNAMENTI.md`).
+3. Un test che apre i dati della versione precedente (regola "nessun dato perso", `AGGIORNAMENTI.md`): `tests/upgrade.js`
+   lo fa con i rilasci veri; dopo il rilascio aggiorna il suo elenco `FROM` (`docs/TEST.md` §4).
+4. Un file di test nuovo va nell'elenco `FAST` di `tests/run.js`; `tools/lint-js.js` e `tools/lint-py.py` a zero problemi.
 
 ## 4. Documentazione (nello stesso commit)
 

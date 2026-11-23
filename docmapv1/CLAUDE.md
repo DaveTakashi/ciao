@@ -30,8 +30,12 @@ Leggi questo file per primo, poi [`STATO.md`](STATO.md) (dove siamo) e il manual
 ## Prima di ogni push
 
 ```bash
-bash docmapv1/tools/verifica-veloce.sh      # ~3 min: sintassi, hub, server, parità PHP⇄Python, installer, smoke app
+bash docmapv1/tools/verifica-veloce.sh      # ~4 min: lint JS/Python, sintassi, hub, server, parità PHP⇄Python, installer, test app
 ```
+
+I test app si lanciano anche da soli o tutti insieme in ~40 s (`cd docmapv1/tests && NODE_PATH=$(npm root -g) node run.js`).
+Un file di test nuovo usa `tests/lib/harness.js` e va nell'elenco `FAST` di `tests/run.js`: vedi [`docs/TEST.md`](docs/TEST.md).
+La CI su GitHub (`.github/workflows/docmap-ci.yml`, copia identica di `ci/docmap-ci.yml`) fa la stessa verifica a ogni push.
 
 Prima di un **rilascio** anche la suite completa: `cd docmapv1/tests && NODE_PATH=$(npm root -g) node suite.js`.
 Se `api.php` cambia, il server Python va riallineato nello stesso rilascio (il PHP è la specifica).
