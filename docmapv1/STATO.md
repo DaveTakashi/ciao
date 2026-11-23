@@ -37,7 +37,7 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
 | Lint JS / Python | `node tools/lint-js.js`, `python3 tools/lint-py.py` (dentro la verifica veloce) | 5 s | 0 problemi (2026-11-23) |
 | Test app tutti insieme (smoke, unit, aggiornamento, v12.6 … v12.10) | `cd tests && NODE_PATH=$(npm root -g) node run.js` | ~40 s | 12/12 file OK (2026-11-23) |
 | Suite completa app (Playwright) | `cd tests && NODE_PATH=$(npm root -g) node suite.js` | ~35 min | 1376/1376 (2026-11-23, app 26.12.10 + correzioni della PR qualità) |
-| CI su GitHub | `.github/workflows/docmap-ci.yml` (= `ci/docmap-ci.yml`), Ubuntu 24.04 | ~5 min | verde sulla PR #10 (2026-11-23); unica cartella fuori da `docmapv1/`, da confermare da Dave |
+| CI su GitHub | `.github/workflows/docmap-ci.yml` (= `ci/docmap-ci.yml`), Ubuntu 24.04 | ~5 min | verde sulla PR #10 (2026-11-23); unica cartella fuori da `docmapv1/`, confermata da Dave (D20) |
 
 Come sono fatti i test e come aggiungerne: [`docs/TEST.md`](docs/TEST.md).
 
@@ -195,7 +195,7 @@ Vedi `docs/ROADMAP.md` §5 (D1–D7) e la memoria del progetto. Aggiunte:
 | D17 | 2026-11-06 | «Attiva tutto» pubblica solo su cartelle vuote; il kit di consegna resta in memoria e non va mai sul disco del hub | velocità senza rischiare un sito in uso né lasciare chiavi del database sul PC |
 | D18 | 2026-11-22 | L'indirizzo dei QR è configurabile (`qr7.it` di default); Doc Location è solo il marchio, nessun dominio forzato | Dave: «voglio essere libero, agnostico» |
 | D19 | 2026-11-22 | Un progetto di inventario è un archivio con `inv`; etichette = codici brevi normali con il prefisso del progetto; record del telefono con id `inv-<codice>` | niente tipi nuovi da sincronizzare, nessun doppione, QR7 e manifest invariati |
-| D20 | 2026-11-23 | CI attiva: l'unico file fuori da `docmapv1/` è `.github/workflows/docmap-ci.yml` (GitHub legge solo lì), copia identica di `ci/docmap-ci.yml` controllata dalla verifica veloce | da confermare da Dave nella PR «qualità e CI» |
+| D20 | 2026-11-23 | CI attiva: l'unico file fuori da `docmapv1/` è `.github/workflows/docmap-ci.yml` (GitHub legge solo lì), copia identica di `ci/docmap-ci.yml` controllata dalla verifica veloce | confermato da Dave il 2026-11-23 (eccezione alla regola 1 di `CLAUDE.md`) |
 | D15 | 2026-11-06 | Dopo ogni cambio di licenza il hub la carica subito sui siti online (FTP); il canale resta per la sede | la sospensione deve valere subito, non al prossimo deploy |
 
 ## 7. Prossimi passi (ordine concordato con Dave il 2026-11-06)

@@ -5,7 +5,7 @@ Leggi questo file per primo, poi [`STATO.md`](STATO.md) (dove siamo) e il manual
 ## Regole che non si discutono
 
 1. **Lavora solo dentro `docmapv1/`** del repository `DaveTakashi/ciao` (repo di test). L'unica eccezione autorizzata
-   va chiesta a Dave e scritta in `STATO.md`.
+   va chiesta a Dave e scritta in `STATO.md`. Eccezione in vigore: `.github/workflows/docmap-ci.yml` (CI, decisione D20).
 2. **Nessun dato perso, mai.** Migrazioni solo additive, chiavi di memoria (`localStorage`, IndexedDB) invariate,
    backup prima di ogni aggiornamento, guida di aggiornamento per ogni rilascio (`docs/AGGIORNAMENTI.md`).
 3. **Lingua**: Dave scrive in italiano; documenti per l'utente in italiano semplice; codice e commenti in inglese.
