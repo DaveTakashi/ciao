@@ -26,7 +26,10 @@ const fileUrl = (dir, f) => 'file://' + path.join(dir, f).replace(/\\/g, '/');
 
 function extract(ref, into){
   fs.mkdirSync(into, {recursive: true});
-  const tar = execFileSync('git', ['-C', REPO, 'archive', '--format=tar', ref, 'docmapv1/index.html', 'docmapv1/scan.html', 'docmapv1/assets', 'docmapv1/vendor', 'docmapv1/docmap.config.js'], {maxBuffer: 1 << 28});
+  // brand.js exists from 26.12.12 on (white label): add it only when that release has it
+  const has = (f) => { try { execFileSync('git', ['-C', REPO, 'cat-file', '-e', ref + ':' + f], {stdio:'ignore'}); return true; } catch (e) { return false; } };
+  const paths = ['docmapv1/index.html', 'docmapv1/scan.html', 'docmapv1/assets', 'docmapv1/vendor', 'docmapv1/docmap.config.js'].concat(has('docmapv1/brand.js') ? ['docmapv1/brand.js'] : []);
+  const tar = execFileSync('git', ['-C', REPO, 'archive', '--format=tar', ref].concat(paths), {maxBuffer: 1 << 28});
   execFileSync('tar', ['-x', '-C', into], {input: tar});
   return path.join(into, 'docmapv1');
 }
