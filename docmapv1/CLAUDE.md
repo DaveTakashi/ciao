@@ -1,6 +1,7 @@
 # CLAUDE.md — regole fisse per gli agenti su DocMap
 
 Leggi questo file per primo, poi [`STATO.md`](STATO.md) (dove siamo) e il manuale tecnico adatto alla zona che tocchi.
+Tutto il codice vero è su `main` (app 26.12.11, hub 0.12.0 al 2026-11-23): parti sempre da `main` aggiornato.
 
 ## Regole che non si discutono
 
@@ -26,6 +27,7 @@ Leggi questo file per primo, poi [`STATO.md`](STATO.md) (dove siamo) e il manual
 | Server Python (sede, porting 1:1) | `server-python/` | `server-python/README.md`, `docs/python/PORTING.md` | `python3 -m unittest discover -s tests` |
 | Hub (PC di Dave: clienti, licenze, deploy) | `hub/` | `hub/AGENTE-OPERATIVO.md`, `docs/WIKI-HUB.md` | idem, dentro `hub/` |
 | Installatore Windows | `installer-windows/` | `installer-windows/GUIDA-INSTALLAZIONE.md` | idem, dentro `installer-windows/` |
+| Test, lint e CI (tutte le zone) | `tests/`, `tools/lint-*.{js,py}`, `ci/` + `.github/workflows/` | [`docs/TEST.md`](docs/TEST.md) | `tools/verifica-veloce.sh` |
 
 ## Prima di ogni push
 

@@ -42,6 +42,9 @@ In breve:
     rischiosa. `ripristina-backup` **solo su richiesta esplicita di Dave**, con la pagina dell'hub chiusa: sposta i dati
     di adesso in `backups\prima-del-ripristino-<ora>\` (dillo a Dave). Non cancellare mai quelle cartelle né i backup
     `docmap-hub-prima-della-*.zip`. `cliente situazione --csv FILE` per un riepilogo da dare a Dave (niente segreti).
+18. (2026-11-23) Prima di ogni push sull'hub: `bash tools/verifica-veloce.sh` (da `docmapv1/`), che contiene anche
+    `python3 tools/lint-py.py` (nomi non definiti, funzioni ridefinite: deve dare 0 problemi) e i test dell'hub. La CI
+    su GitHub fa lo stesso a ogni push; una PR si unisce solo con la CI verde. Come scrivere i test: `docs/TEST.md`.
 16. (0.11.2) Se qualcosa non va sul PC di Dave: chiedigli `RACCOGLI-INFO.bat` (nella cartella `hub`) e una foto
     dell'errore; le soluzioni note sono in `docs/DOMANDE-FREQUENTI.md`. Non chiedere mai passphrase, kit o `config.php`.
 13. (0.9) Per sapere cosa manca a un cliente: `cliente percorso --cliente "Nome"` (o la scheda nella pagina): fai o

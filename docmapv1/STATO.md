@@ -20,15 +20,14 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
 
 ## 2. Codice
 
-- Ramo di consolidamento: `claude/project-thread-5qvqr5` (contiene tutto: app v12.6 + server Python + installer + hub 0.8),
-  PR #4 verso `main`. Sostituisce le PR a catena #1 (app), #2 (Python), #3 (hub).
-- Hub 0.9 + app 26.12.7 (autocritica del hub), hub 0.10/0.10.1 (modelli, Attiva tutto, kit), 0.10.2 (cartelle) e 0.11 (elimina cliente, pacchetto sede pronto, più PC, sposta il sito): ramo `claude/project-thread-acqq2g`, PR #5 sopra la #4.
-- App 26.12.8 (Progetti di inventario, indirizzo dei QR configurabile): ramo `claude/project-thread-epf33l` (parte dalla PR #5).
-- App 26.12.9 (app installabile PWA, cronometro dei tempi; ondata 0 e prima parte dell'ondata 1): PR #8, unita in `main`.
-- App 26.12.10 (ondata 2: funzioni 1, 3, 5, 7 scelte da Dave; fine ondata 1): ramo `claude/project-thread-1dzp8h` ripartito da `main`, PR verso `main`.
-- App 26.12.11 (ondata 2: K9 nuovo anno, K2 scarto, K8 dove lo metto, K7 voce): ramo `claude/project-thread-o4rwcv` da `main`, PR verso `main`.
-- Dopo l'unione: `main` è la versione vera; ogni thread parte da `main`.
-- Qualità e CI (lint, test unitari e di aggiornamento, test in parallelo, CI attiva): ramo `claude/project-thread-imzwad` da `main` dopo l'unione della PR #9, PR verso `main`.
+- **2026-11-23: tutto è in `main`** (unico ramo vero): PR #9 (app 26.12.10), #10 (qualità e CI), #11 (app 26.12.11),
+  #12 (hub 0.12.0), unite con la PR di integrazione del ramo `claude/project-thread-imzwad`. Le PR #1–#8 sono unite o
+  chiuse (già incluse). **Ogni thread nuovo parte da `main` aggiornato** e apre la sua PR verso `main`; la CI su GitHub
+  deve essere verde prima dell'unione.
+- Storia dei rami: consolidamento `claude/project-thread-5qvqr5` (PR #4, app 26.12.6 + server Python + installatore + hub
+  0.8); hub 0.9–0.11 `claude/project-thread-acqq2g` (PR #5); app 26.12.8 `claude/project-thread-epf33l` (PR #7); app
+  26.12.9–26.12.10 `claude/project-thread-1dzp8h` (PR #8, #9); app 26.12.11 `claude/project-thread-o4rwcv` (PR #11); hub
+  0.12.0 `claude/project-thread-4o1oly` (PR #12); qualità e CI `claude/project-thread-imzwad` (PR #10 e integrazione).
 
 ## 3. Test
 

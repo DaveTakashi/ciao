@@ -1,7 +1,7 @@
 # DocMap Hub: aggiornare alla 0.12 (controllo, backup verificati, ripristino sicuro, situazione clienti)
 
 La 0.12 rende l'hub più sicuro **da aggiornare e da riparare**. Il registro resta allo **schema 4** (nessuna
-migrazione), l'app dentro lo zip è la **26.12.10**. Se arrivi da una versione più vecchia leggi prima le guide
+migrazione), l'app dentro lo zip è la **26.12.11** (guida `AGGIORNAMENTO-v12.10-v12.11.md`). Se arrivi da una versione più vecchia leggi prima le guide
 `AGGIORNAMENTO-HUB-0.11*.md`: i passi sotto valgono lo stesso, e il registro si aggiorna da solo.
 
 ## Cosa cambia per te

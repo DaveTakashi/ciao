@@ -1,6 +1,6 @@
 # Wiki di DocMap Hub
 
-Vale per **hub 0.12.0**, **DocMap 26.12.10 (app v12.10)** e **strumenti di installazione 1.2.0**. Data: 23 novembre 2026.
+Vale per **hub 0.12.0**, **DocMap 26.12.11 (app v12.11)** e **strumenti di installazione 1.2.0**. Data: 23 novembre 2026.
 
 > **Novità 0.12.** Aggiornare e riparare senza paura: **backup automatico al primo avvio di ogni versione nuova**, ogni backup **controllato** (pulsante «Verifica»), **ripristino sicuro** con `hub\RIPRISTINA-BACKUP.bat` (i dati di adesso vanno da parte, mai cancellati), **Controllo dell'hub** in Impostazioni (`controllo`), **Clienti › Situazione (Excel)**. Capitoli 3, 6.13, 6.18. Aggiornamento: `AGGIORNAMENTO-HUB-0.12.0.md`.
 >
