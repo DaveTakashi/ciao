@@ -23,6 +23,8 @@ Tests:
                       access_dedupe_seconds = 0, access_keep_days = 0 then pruning
   test_1c_v128        v12.8: project records (archive + inv), project list / get, resolve of unused labels (error.label),
                       photo_put / photo (limits, roles, idempotent), ai_spine off / mock (hints, years, tags)
+  test_1d_v1212       v12.12: project detail=1 (box, number, level), ai hints kind, OpenAI-compatible / Ollama provider
+                      against a fake local service (fenced JSON, key, bad model, bad URL, service down, unknown provider)
   test_5_upgrade      a v10.1 database (git 68ae170 api.php, schema 1) upgraded in place by Python = by PHP v12 (1 → 2 → 3)
   test_6_upgrade_v11  a v11.1 database (git 32c3485 api.php, schema 2) upgraded to schema 3 by Python = by PHP v12; one
                       data folder upgraded by Python then served by PHP v12 (and the reverse); v11.1 PHP still serves it
@@ -210,7 +212,7 @@ class Norm:
 
     def __call__(self, v):
         if isinstance(v, dict):
-            return {k: self(x) for k, x in v.items()}
+            return {k: ("<ms>" if k == "ms" and isinstance(x, int) else self(x)) for k, x in v.items()}   # ms: duration of an AI call
         if isinstance(v, list):
             return [self(x) for x in v]
         if isinstance(v, str):
@@ -812,6 +814,84 @@ class DiffTest(unittest.TestCase):
         d.both("ai_spine photo not found → 404", "ai_spine", 404, token=E, body={"photo_id": "ph-9"})
         d.both("ai_spine viewer → 403", "ai_spine", 403, token=V, body={"voice": "x"})
         config()
+        self.assertNoDiff(d)
+
+    def test_1d_v1212(self):
+        """v12.12: project detail for the box verification, AI hints kind, OpenAI-compatible / Ollama provider (a fake
+        local service answers both servers the same way)."""
+        import http.server
+        import threading
+        d = Duo(self.php, self.py)
+        d.n = self.duo.n
+        seen = []
+
+        class Fake(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):
+                body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)))
+                seen.append((self.path, self.headers.get("Authorization"), body["model"], body["messages"][0]["content"][0]["text"][-30:]))
+                txt = body["messages"][0]["content"][0]["text"]
+                if "MALE" in txt:
+                    out = {"choices": [{"message": {"content": "non so leggere"}}]}
+                else:
+                    out = {"model": "fake-vl", "choices": [{"message": {"content": "```json\n" + json.dumps({"company": "Rossi è", "title": "Contratti",
+                           "year_from": 2021, "year_to": 2019, "tags": ["paghe", "Altro"], "confidence": "0.666", "empty_spine": 0, "text": "ROSSI"}) + "\n```"}}]}
+                raw = json.dumps(out).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(raw)))
+                self.end_headers()
+                self.wfile.write(raw)
+
+            def log_message(self, *a):
+                pass
+        srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Fake)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        base = "http://127.0.0.1:%d/v1" % srv.server_address[1]
+
+        def config(extra=""):
+            self.php.write_config(extra=extra)
+            self.py.write_config(extra=extra)
+            time.sleep(2.2)   # opcache of php -S
+        try:
+            config()
+            inv = {"prefix": "Rt5Q", "code": "VER", "status": "open", "box_to": 2, "binder_to": 6, "doc": True,
+                   "batches": [{"id": "b1", "kind": "binder", "from": 1, "to": 4}, {"id": "b2", "kind": "doc", "from": 5, "to": 6}]}
+            pj = {"type": "archive", "id": "pj-v", "updated_at": "2025-11-03T08:00:00.000Z", "data": {"id": "pj-v", "name": "Verifica", "code": "VER", "inv": inv}}
+            box = {"type": "location", "id": "inv-dm26LRt5QAAAB", "updated_at": "2025-11-03T08:00:00.000Z", "data": {"id": "inv-dm26LRt5QAAAB", "short_code": "dm26LRt5QAAAB", "archive_id": "pj-v"}}
+            b1 = {"type": "binder", "id": "inv-dm26Rt5QAAAB", "updated_at": "2025-11-03T08:00:00.000Z",
+                  "data": {"id": "inv-dm26Rt5QAAAB", "short_code": "dm26Rt5QAAAB", "speaking_code": "VER-0001", "archive_id": "pj-v", "location_id": "inv-dm26LRt5QAAAB", "inv": {"p": "pj-v", "st": "captured"}}}
+            d1 = {"type": "binder", "id": "inv-dm26Rt5QAAAF", "updated_at": "2025-11-03T08:00:00.000Z",
+                  "data": {"id": "inv-dm26Rt5QAAAF", "short_code": "dm26Rt5QAAAF", "speaking_code": "VER-0005 ò", "archive_id": "pj-v", "location_id": "inv-dm26LRt5QAAAB",
+                           "inv": {"p": "pj-v", "st": "captured", "lvl": "doc", "parent": "inv-dm26Rt5QAAAB"}}}
+            d.both("push project + box + binder + document", "push", 200, token=E, body={"records": [pj, box, b1, d1], "tombstones": [], "deviceId": "dev-diff"})
+            d.both("project without detail: unchanged shape", "project", 200, token=V, query={"id": "pj-v"})
+            d.both("project detail=1: box, number, level", "project", 200, token=V, query={"id": "pj-v", "detail": "1"})
+            d.both("project detail=0 → no detail", "project", 200, token=V, query={"id": "pj-v", "detail": "0"})
+            config(", 'ai_provider' => 'mock'")
+            d.both("ai_spine mock: hints kind doc", "ai_spine", 200, token=E, body={"voice": "contratto 2020", "hints": {"tags": ["Contratti"], "kind": "doc"}})
+            d.both("ai_spine mock: hints kind bad", "ai_spine", 200, token=E, body={"voice": "x", "hints": {"kind": ["page"]}})
+            config(", 'ai_provider' => 'ollama', 'ai_model' => 'fake-vl:7b', 'ai_base_url' => '" + base + "/'")
+            img = base64.b64encode(b"\xff\xd8\xff\xe0" + b"x" * 400 + b"\xff\xd9").decode()
+            r = d.both("ai_spine ollama (fake local service): fenced JSON normalised", "ai_spine", 200, token=E,
+                       body={"data": img, "mime": "image/jpeg", "hints": {"tags": ["Paghe"], "kind": "page"}})
+            self.assertEqual(r["php"][1]["result"]["tags"], ["Paghe"])
+            d.both("ai_spine ollama: unreadable answer → 502", "ai_spine", 502, token=E, body={"voice": "MALE"})
+            config(", 'ai_provider' => 'openai_compatible', 'ai_model' => 'fake-vl', 'ai_api_key' => 'sk-local', 'ai_base_url' => '" + base + "'")
+            d.both("ai_spine openai_compatible with a key", "ai_spine", 200, token=E, body={"voice": "Rossi contratti", "hints": {"tags": ["Contratti"]}})
+            config(", 'ai_provider' => 'openai_compatible', 'ai_model' => 'claude-haiku-5-5'")
+            d.both("ai_spine openai_compatible with a Claude model → 503 ai_off", "ai_spine", 503, token=E, body={"voice": "x"})
+            config(", 'ai_provider' => 'ollama', 'ai_model' => 'm', 'ai_base_url' => 'ftp://x'")
+            d.both("ai_spine bad base url → 503", "ai_spine", 503, token=E, body={"voice": "x"})
+            config(", 'ai_provider' => 'ollama', 'ai_model' => 'm', 'ai_base_url' => 'http://127.0.0.1:9/v1', 'ai_timeout' => 5")
+            d.both("ai_spine service down → 502", "ai_spine", 502, token=E, body={"voice": "x"})
+            config(", 'ai_provider' => 'sconosciuto'")
+            d.both("ai_spine unknown provider → enabled false", "ai_spine", 200, token=E, body={"voice": "x"})
+            config()
+            auth = sorted(set(str(x[1]) for x in seen))
+            self.assertEqual(auth, ["Bearer sk-local", "None"])
+            self.assertTrue(all(x[0] == "/v1/chat/completions" for x in seen))
+        finally:
+            srv.shutdown()
         self.assertNoDiff(d)
 
     # ------------------------------------------------------------------ 2

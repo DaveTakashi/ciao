@@ -18,7 +18,7 @@ const {chromium} = require('playwright');
 const APP = path.resolve(__dirname, '..');
 const REPO = path.resolve(APP, '..');
 // [label, git ref]. Keep the release Dave has installed in the office and the previous one.
-const FROM = [['26.12.7 (installata in studio)', 'e34086d'], ['26.12.10', 'a8254c9'], ['26.12.11 (rilascio precedente)', 'b5b2ae9']];
+const FROM = [['26.12.7 (installata in studio)', 'e34086d'], ['26.12.11', 'b5b2ae9'], ['26.12.12 (rilascio precedente)', '492cac8']];
 
 let passes = 0, fails = 0;
 const ok = (c, n, x) => { if (c) passes++; else { fails++; console.log('  ✗ FAIL', n, x !== undefined ? JSON.stringify(x).slice(0, 900) : ''); } return !!c; };
@@ -26,7 +26,10 @@ const fileUrl = (dir, f) => 'file://' + path.join(dir, f).replace(/\\/g, '/');
 
 function extract(ref, into){
   fs.mkdirSync(into, {recursive: true});
-  const tar = execFileSync('git', ['-C', REPO, 'archive', '--format=tar', ref, 'docmapv1/index.html', 'docmapv1/scan.html', 'docmapv1/assets', 'docmapv1/vendor', 'docmapv1/docmap.config.js'], {maxBuffer: 1 << 28});
+  // brand.js exists from 26.12.12 on (white label): add it only when that release has it
+  const has = (f) => { try { execFileSync('git', ['-C', REPO, 'cat-file', '-e', ref + ':' + f], {stdio:'ignore'}); return true; } catch (e) { return false; } };
+  const paths = ['docmapv1/index.html', 'docmapv1/scan.html', 'docmapv1/assets', 'docmapv1/vendor', 'docmapv1/docmap.config.js'].concat(has('docmapv1/brand.js') ? ['docmapv1/brand.js'] : []);
+  const tar = execFileSync('git', ['-C', REPO, 'archive', '--format=tar', ref].concat(paths), {maxBuffer: 1 << 28});
   execFileSync('tar', ['-x', '-C', into], {input: tar});
   return path.join(into, 'docmapv1');
 }

@@ -51,14 +51,25 @@ return [
 
   // v12.8 inventory projects ("Progetti"). All optional.
   // photo_max_kb: largest spine photo accepted from the phone (the phone sends ~150-300 KB JPEGs).
-  // ai_provider: '' = no AI reading of the spines (default) · 'anthropic' = Claude reads each spine photo (needs ai_api_key;
-  //   photos and dictated words are sent to Anthropic: a data processing agreement / GDPR art. 28 is needed) · 'mock' = tests only.
-  // ai_model: 'claude-opus-5-5' (default, best reading) or a cheaper model such as 'claude-haiku-5-5'.
-  // ai_effort: 'low' keeps each reading short and fast. ai_timeout: seconds before giving up (the phone never waits for it).
+  // ai_provider: who reads the spine photos (v12.13: any provider, the operator never waits for it):
+  //   ''                  = no AI reading (default)
+  //   'anthropic'         = Claude (needs ai_api_key)
+  //   'openai_compatible' = any service with the OpenAI chat/completions API and image input (needs ai_base_url, usually
+  //                         ai_api_key; default base https://api.openai.com/v1)
+  //   'ollama'            = a vision model running on a PC of the office (Ollama or LM Studio): nothing leaves the office.
+  //                         ai_base_url default http://127.0.0.1:11434/v1 (LM Studio: http://<pc>:1234/v1), no key.
+  //                         Example: 'ai_provider' => 'ollama', 'ai_model' => 'qwen2.5vl:7b'
+  //   'mock'              = tests only.
+  //   With a cloud provider the photos and dictated words leave the office: a data processing agreement (GDPR art. 28)
+  //   is needed, see docs/commerciale/NOMINA-SUBRESPONSABILE-AI-BOZZA.md.
+  // ai_model: for 'anthropic' 'claude-opus-5-5' (default, best reading) or a cheaper 'claude-haiku-5-5'; for the other
+  //   providers the model name of that service (required).
+  // ai_effort: 'anthropic' only, 'low' keeps each reading short. ai_timeout: seconds before giving up (the phone never waits).
   'photo_max_kb' => 800,
   'ai_provider' => '',
   'ai_api_key' => '',
   'ai_model' => 'claude-opus-5-5',
   'ai_effort' => 'low',
   'ai_timeout' => 30,
+  'ai_base_url' => '',
 ];

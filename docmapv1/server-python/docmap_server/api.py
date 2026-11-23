@@ -34,7 +34,7 @@ log = logging.getLogger("docmap")
 
 DM_API = "docmap-php"
 DM_API_VERSION = 1
-DM_APP_VERSION = "26.12.12"   # v12.12 (was v12.11, white label): DocMap release these server files belong to (ping app_version; the app compares it with its own)
+DM_APP_VERSION = "26.12.13"   # v12.13 (was v12.12, white label): DocMap release these server files belong to (ping app_version; the app compares it with its own)
 DM_TYPES = ("binder", "client", "location", "archive", "status_event")   # v11: + location · v12: + archive + status_event
 DM_ROLES = {"viewer": 1, "editor": 2, "admin": 3}
 DM_MOBILE_FIELDS = ("archive_state", "contents_items", "room_code", "cabinet_code", "shelf_code", "sector_code", "notes",
@@ -247,7 +247,7 @@ class Ctx:
         defaults = {"data_dir": "", "aes_key": "", "tokens": {}, "allowed_origins": {}, "max_fails": 5, "lock_seconds": 60,
                     "max_body_mb": 20, "studio_name": "", "journal_keep_days": 0, "journal_pulls": "changes",
                     "access_keep_days": 365, "access_dedupe_seconds": 120, "remember_minutes": None,   # v12 (optional)
-                    "photo_max_kb": 800, "ai_provider": "", "ai_api_key": "", "ai_model": "claude-opus-5-5", "ai_effort": "low", "ai_timeout": 30}   # v12.8 (optional)
+                    "photo_max_kb": 800, "ai_provider": "", "ai_api_key": "", "ai_model": "claude-opus-5-5", "ai_effort": "low", "ai_timeout": 30, "ai_base_url": ""}   # v12.8 (optional)
         for k, v in defaults.items():
             if k not in c:
                 c[k] = v
@@ -1089,8 +1089,10 @@ DM_INV_BIN = re.compile(r"dm26([A-Za-z0-9]{4})([A-Za-z0-9]{4})\n?\Z")
 DM_INV_LOC = re.compile(r"dm26L([A-Za-z0-9]{4})([A-Za-z0-9]{4})\n?\Z")
 DM_INV_PREFIX = re.compile(r"[A-Za-z0-9]{4}\n?\Z")
 DM_PHOTO_MIMES = ("image/jpeg", "image/webp", "image/png")
-DM_AI_PROVIDERS = ("anthropic", "mock")
+DM_AI_PROVIDERS = ("anthropic", "openai_compatible", "ollama", "mock")   # v12.12: any OpenAI-compatible service, local Ollama / LM Studio
+DM_AI_KINDS = ("spine", "doc", "page")
 DM_AI_TAGS_MAX = 40
+DM_AI_JSON_HINT = "\nRispondi solo con un oggetto JSON con queste chiavi: company, title, year_from, year_to, doc_type, tags, notes, text, confidence, empty_spine."
 YEAR_RE = re.compile(r"\b(?:19|20)\d\d\b", re.ASCII)
 
 
@@ -1161,9 +1163,21 @@ def r_project(ctx):
     p = rec_public(ctx, row)
     px = inv_prefix(p["data"])
     # labels already scanned: their records have deterministic ids inv-<short code> (no decryption needed)
-    rows = ctx.db.execute("SELECT type, id, updated_at FROM records WHERE deleted = 0 AND ((type = 'binder' AND length(id) = 16 AND substr(id, 1, 12) = ?) "
+    # v12.12 detail=1 (verification of a box on the phone): binders also carry their box (l), number (n) and level (d)
+    detail = php_str(ctx.param("detail", "")) == "1"
+    rows = ctx.db.execute("SELECT " + ("*" if detail else "type, id, updated_at") + " FROM records WHERE deleted = 0 AND ((type = 'binder' AND length(id) = 16 AND substr(id, 1, 12) = ?) "
                           "OR (type = 'location' AND length(id) = 17 AND substr(id, 1, 13) = ?)) ORDER BY id", ("inv-dm26" + px, "inv-dm26L" + px)).fetchall()
-    sc = [{"t": "l" if r["type"] == "location" else "b", "c": r["id"][4:], "u": r["updated_at"]} for r in rows]
+    sc = []
+    for r in rows:
+        e = {"t": "l" if r["type"] == "location" else "b", "c": r["id"][4:], "u": r["updated_at"]}
+        if detail and r["type"] == "binder":
+            d = rec_data(ctx, r)
+            e["l"] = cut_str(pget(d, "location_id", ""), 100)
+            e["n"] = cut_str(pget(d, "speaking_code", ""), 60)
+            inv = pget(d, "inv", None)
+            if is_arr(inv) and pget(inv, "lvl", "") == "doc":
+                e["d"] = 1
+        sc.append(e)
     return {"project": p["data"], "etag": row["updated_at"], "scanned": sc}
 
 
@@ -1263,7 +1277,9 @@ def ai_hints(h):
             break
     yf = php_int(pget(h, "year_from", 0))
     yt = php_int(pget(h, "year_to", 0))
-    return {"tags": tags, "year_from": yf if 1800 <= yf <= 2200 else 0, "year_to": yt if 1800 <= yt <= 2200 else 0, "client": cut_str(pget(h, "client", ""), 120)}
+    k = pget(h, "kind", "spine")
+    return {"tags": tags, "year_from": yf if 1800 <= yf <= 2200 else 0, "year_to": yt if 1800 <= yt <= 2200 else 0, "client": cut_str(pget(h, "client", ""), 120),
+            "kind": k if isinstance(k, str) and k in DM_AI_KINDS else "spine"}
 
 
 def _round2(x):
@@ -1308,8 +1324,13 @@ def ai_mock(voice, hints):
 
 
 def ai_prompt(voice, hints):
-    p = ("Sei un archivista. La foto mostra la costa (il dorso) di un faldone o di una scatola d'archivio con un'etichetta QR.\n"
-         "Leggi solo quello che e' scritto sulla costa, a mano o a stampa; ignora il QR e i testi stampati sull'etichetta QR.\n"
+    kind = hints.get("kind", "spine")   # v12.12: spine (default) · doc = first page of a document · page = inside of a binder with an empty spine
+    what = ("La foto mostra la prima pagina di un documento d'archivio con un'etichetta QR.\n" if kind == "doc"
+            else "La foto mostra la prima pagina o l'interno di un faldone d'archivio (la costa era vuota).\n" if kind == "page"
+            else "La foto mostra la costa (il dorso) di un faldone o di una scatola d'archivio con un'etichetta QR.\n")
+    where = ("Leggi solo quello che e' scritto sulla costa, a mano o a stampa; ignora il QR e i testi stampati sull'etichetta QR.\n" if kind == "spine"
+             else "Leggi intestazione, oggetto, date e nomi principali; ignora il QR e i testi stampati sull'etichetta QR.\n")
+    p = ("Sei un archivista. " + what + where +
          "Campi: company = ditta, cliente o persona se scritta; title = contenuto in poche parole come scritto (es. \"Fatture acquisti\");\n"
          "year_from / year_to = anni indicati (0 se mancano, uguali se c'e' un solo anno); doc_type = tipo di documenti in una o due parole;\n"
          "tags = solo tra questi, se corrispondono: " + (", ".join(hints["tags"]) if hints["tags"] else "(nessuno)") + ";\n"
@@ -1380,6 +1401,89 @@ def ai_anthropic(ctx, img, voice, hints):
     return {"model": php_str(j.get("model") or model), "result": r}
 
 
+def ai_parse_text(txt):
+    """v12.12: JSON object in a model's text answer (```json fences and text around it accepted), or None (as api.php)."""
+    import json as _json
+    s = php_trim(txt)
+    m = re.search(r"```(?:json)?\s*([\s\S]*?)```", s, re.I)
+    if m:
+        s = php_trim(m.group(1))
+
+    def obj(x):
+        try:
+            v = _json.loads(x)
+        except ValueError:
+            return None
+        return v if isinstance(v, dict) else None
+    v = obj(s)
+    if v is not None:
+        return v
+    a, z = s.find("{"), s.rfind("}")
+    if a >= 0 and z > a:
+        return obj(s[a:z + 1])
+    return None
+
+
+def ai_base(ctx, prov):
+    u = php_trim(php_str(ctx.c["ai_base_url"]))
+    if u == "":
+        u = "http://127.0.0.1:11434/v1" if prov == "ollama" else "https://api.openai.com/v1"
+    if not re.match(r"(?i)https?://\S+\Z", u):
+        fail(503, "ai_off", "ai_base_url must start with http:// or https://")
+    return u.rstrip("/")
+
+
+def ai_http(url, headers, body, timeout):
+    """POST → (status, raw bytes); timeouts and network errors become ai_timeout / ai_error (as api.php)."""
+    import socket
+    import urllib.error
+    import urllib.request
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, data=body.encode("utf-8"), headers=headers, method="POST"), timeout=timeout) as resp:
+            return resp.status, resp.read()
+    except urllib.error.HTTPError as e:
+        return e.code, e.read()
+    except (TimeoutError, socket.timeout):
+        fail(504, "ai_timeout", "AI service not reachable")
+    except (urllib.error.URLError, OSError):
+        fail(502, "ai_error", "AI service not reachable")
+
+
+def ai_openai(ctx, prov, img, voice, hints):
+    """v12.12: any OpenAI-compatible Chat Completions service (OpenAI, Mistral, Azure OpenAI, OpenRouter, vLLM, LM Studio,
+    Ollama…), same request as api.php: image as a data URL, JSON mode, the prompt + the list of keys. Key optional."""
+    import json as _json
+    c = ctx.c
+    model = php_trim(php_str(c["ai_model"]))
+    if model == "" or model.startswith("claude-"):
+        fail(503, "ai_off", "ai_model must name a model of the " + prov + " service")
+    content = [{"type": "text", "text": ai_prompt(voice, hints) + DM_AI_JSON_HINT}]
+    if img:
+        content.append({"type": "image_url", "image_url": {"url": "data:" + img["mime"] + ";base64," + base64.b64encode(img["raw"]).decode("ascii")}})
+    req = {"model": model, "messages": [{"role": "user", "content": content}], "response_format": {"type": "json_object"}, "max_tokens": 1500}
+    headers = {"Content-Type": "application/json"}
+    key = php_str(c["ai_api_key"])
+    if key != "":
+        headers["Authorization"] = "Bearer " + key
+    status, raw = ai_http(ai_base(ctx, prov) + "/chat/completions", headers, jenc(req), max(5, php_int(c["ai_timeout"])))
+    try:
+        j = _json.loads(raw.decode("utf-8"))
+    except (ValueError, UnicodeError):
+        j = None
+    if status < 200 or status >= 300 or not isinstance(j, dict):
+        msg = j.get("error", {}).get("message") if isinstance(j, dict) and isinstance(j.get("error"), dict) else None
+        fail(502, "ai_error", "AI service error" + (": " + cut_str(msg, 200) if isinstance(msg, str) else " (HTTP %d)" % status))
+    ch = j.get("choices")
+    msg = ch[0].get("message") if isinstance(ch, list) and ch and isinstance(ch[0], dict) else None
+    if isinstance(msg, dict) and isinstance(msg.get("refusal"), str) and msg.get("refusal") != "":
+        fail(502, "ai_refused", "the AI declined to read this photo")
+    txt = msg.get("content") if isinstance(msg, dict) and isinstance(msg.get("content"), str) else ""
+    r = ai_parse_text(txt)
+    if r is None:
+        fail(502, "ai_error", "AI answer not readable")
+    return {"model": php_str(j.get("model") or model), "result": r}
+
+
 def r_ai_spine(ctx):
     c = ctx.c
     prov = php_str(c["ai_provider"])
@@ -1410,7 +1514,7 @@ def r_ai_spine(ctx):
     if prov == "mock":
         return {"enabled": True, "provider": "mock", "model": "mock", "result": ai_norm(ai_mock(voice, hints), hints), "ms": 0}
     t0 = time.time()
-    a = ai_anthropic(ctx, img, voice, hints)
+    a = ai_anthropic(ctx, img, voice, hints) if prov == "anthropic" else ai_openai(ctx, prov, img, voice, hints)
     return {"enabled": True, "provider": prov, "model": a["model"], "result": ai_norm(a["result"], hints), "ms": int(round((time.time() - t0) * 1000))}
 
 

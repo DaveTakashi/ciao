@@ -92,5 +92,72 @@ class AiAnthropicTest(unittest.TestCase):
         self.assertEqual(e.exception.code_name, "ai_off")
 
 
+class AiOpenAiCompatibleTest(unittest.TestCase):
+    """v12.12: the OpenAI-compatible request (cloud services and local Ollama / LM Studio) and the parsing of the answer."""
+    def call(self, answer, status=200, prov="openai_compatible", **cfg):
+        seen = {}
+
+        def fake(req, timeout=None):
+            seen["url"], seen["headers"], seen["body"] = req.full_url, {k.lower(): v for k, v in req.header_items()}, json.loads(req.data)
+            if status != 200:
+                raise urllib.error.HTTPError(req.full_url, status, "err", {}, io.BytesIO(json.dumps(answer).encode()))
+            return FakeResp(json.dumps(answer).encode())
+        hints = api.ai_hints({"tags": ["Fatture", "Bilanci"], "year_from": 2015, "year_to": 2022, "kind": "doc"})
+        c = dict({"ai_model": "gpt-vision", "ai_base_url": "", "ai_api_key": ""}, **cfg)
+        with mock.patch.object(urllib.request, "urlopen", fake):
+            out = api.ai_openai(Ctx(**c), prov, {"raw": b"\xff\xd8jpeg", "mime": "image/jpeg"}, "", hints)
+        return out, seen, hints
+
+    def test_request_shape_and_fenced_answer(self):
+        ans = {"model": "gpt-vision-1", "choices": [{"message": {"role": "assistant", "content": "```json\n" + json.dumps({"company": "Rossi", "title": "Contratto", "year_from": "2019",
+                                                                                                                       "tags": ["bilanci"], "confidence": 0.7}) + "\n```"}}]}
+        out, seen, hints = self.call(ans, ai_api_key="sk-x")
+        self.assertEqual(seen["url"], "https://api.openai.com/v1/chat/completions")
+        self.assertEqual(seen["headers"]["authorization"], "Bearer sk-x")
+        b = seen["body"]
+        self.assertEqual(b["model"], "gpt-vision")
+        self.assertEqual(b["response_format"], {"type": "json_object"})
+        c = b["messages"][0]["content"]
+        self.assertIn("prima pagina di un documento", c[0]["text"])
+        self.assertTrue(c[0]["text"].endswith("empty_spine."))
+        self.assertTrue(c[1]["image_url"]["url"].startswith("data:image/jpeg;base64,"))
+        r = api.ai_norm(out["result"], hints)
+        self.assertEqual((r["company"], r["year_from"], r["year_to"], r["tags"], r["confidence"]), ("Rossi", 2019, 2019, ["Bilanci"], 0.7))
+        self.assertEqual(out["model"], "gpt-vision-1")
+
+    def test_ollama_local_default_no_key(self):
+        ans = {"choices": [{"message": {"content": "Ecco: {\"title\": \"Fatture\", \"confidence\": 1}"}}]}
+        out, seen, _ = self.call(ans, prov="ollama", ai_model="qwen2.5vl:7b")
+        self.assertEqual(seen["url"], "http://127.0.0.1:11434/v1/chat/completions")
+        self.assertNotIn("authorization", seen["headers"])
+        self.assertEqual(out["result"]["title"], "Fatture")
+        out, seen, _ = self.call(ans, prov="ollama", ai_model="llava", ai_base_url="http://192.168.1.20:1234/v1/")
+        self.assertEqual(seen["url"], "http://192.168.1.20:1234/v1/chat/completions")
+
+    def test_errors(self):
+        for cfg, code in (({"ai_model": ""}, "ai_off"), ({"ai_model": "claude-haiku-5-5"}, "ai_off"), ({"ai_base_url": "ftp://x"}, "ai_off")):
+            with self.assertRaises(api.ApiError) as e:
+                self.call({}, **cfg)
+            self.assertEqual(e.exception.code_name, code)
+        with self.assertRaises(api.ApiError) as e:
+            self.call({"choices": [{"message": {"content": None, "refusal": "no"}}]})
+        self.assertEqual(e.exception.code_name, "ai_refused")
+        with self.assertRaises(api.ApiError) as e:
+            self.call({"choices": [{"message": {"content": "[1, 2]"}}]})
+        self.assertEqual(e.exception.code_name, "ai_error")
+        with self.assertRaises(api.ApiError) as e:
+            self.call({"error": {"message": "model not found"}}, status=404)
+        self.assertIn("model not found", e.exception.message)
+
+    def test_hints_kind_and_prompt(self):
+        self.assertEqual(api.ai_hints({"kind": "page"})["kind"], "page")
+        self.assertEqual(api.ai_hints({"kind": "bad"})["kind"], "spine")
+        self.assertEqual(api.ai_hints({"kind": 1})["kind"], "spine")
+        self.assertIn("costa (il dorso)", api.ai_prompt("", api.ai_hints({})))
+        self.assertIn("costa era vuota", api.ai_prompt("", api.ai_hints({"kind": "page"})))
+        self.assertEqual(api.ai_parse_text("{}"), {})
+        self.assertIsNone(api.ai_parse_text("nulla"))
+
+
 if __name__ == "__main__":
     unittest.main()

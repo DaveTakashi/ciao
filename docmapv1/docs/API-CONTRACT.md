@@ -50,10 +50,10 @@
 | `journal_restore` (v11) | POST | admin | `{"jid":n,"n":n,"version":"prev"|"new"}` | `{"ok":true,"type","id","updated_at","deleted":bool,"journal_id":n,"seq":n}` |
 | `access` (v12) | GET | editor (solo le proprie righe) · admin (tutte, con IP) | filtri, vedi §11 | `{"items":[AccessItem],"more":bool,"next_before":aid|null,"server_time":"…"}` · viewer → 403 |
 | `last_seen` (v12) | GET | viewer | `type=binder|location` + `id=<id>` oppure `code=<codice>`, `limit` (5, max 20) | `{"items":[{"at","user","via","route","device_name"}],"total":n,"server_time":"…"}` · 400 senza id/code |
-| `project` (v12.8) | GET | viewer | nessun parametro → progetti aperti · `id=<id dell'archivio>` | `{"items":[{"id","name","code","prefix","client","status","updated_at"}]}` · `{"project":Archive,"etag","scanned":[{"t":"b"|"l","c":"<short_code>","u":"<updated_at>"}]}` · 404 · §14 |
+| `project` (v12.8) | GET | viewer | nessun parametro → progetti aperti · `id=<id dell'archivio>` (v12.13: `&detail=1` aggiunge a `scanned` anche `l` scatola, `n` numero stampato, `d` livello documento) | `{"items":[{"id","name","code","prefix","client","status","updated_at"}]}` · `{"project":Archive,"etag","scanned":[{"t":"b"|"l","c":"<short_code>","u":"<updated_at>"}]}` · 404 · §14 |
 | `photo_put` (v12.8) | POST | editor | `{"id":"ph-…","binder_id","mime":"image/jpeg"|"image/png"|"image/webp","data":"<base64>"}` | `{"id","bytes","existed":bool,"at"}` (stesso id = non riscrive) · 413 oltre `photo_max_kb` · §14 |
 | `photo` (v12.8) | GET | viewer | `id=<id della foto>` | `{"id","binder_id","mime","bytes","at","who","data":"<base64>"}` · 404 |
-| `ai_spine` (v12.8) | POST | editor | `{"photo_id"}` oppure `{"data","mime"}` e/o `{"voice"}` · `hints:{tags[],year_from,year_to,client}` | `{"enabled":false}` senza `ai_provider` · `{"enabled":true,"provider","model","result":SpineResult,"ms"}` · §14 |
+| `ai_spine` (v12.8) | POST | editor | `{"photo_id"}` oppure `{"data","mime"}` e/o `{"voice"}` · `hints:{tags[],year_from,year_to,client,kind}` (v12.13 `kind`: `spine`·`doc`·`page`) | `{"enabled":false}` senza `ai_provider` · `{"enabled":true,"provider","model","result":SpineResult,"ms"}` · §14 |
 | `seen` (v12) | POST | viewer | `{"items":[{"type":"binder","id","code","at","via"}]}` (max 500) | `{"recorded":n,"skipped":n,"server_time":"…"}` · 413 oltre 500 |
 
 Campi aggiunti in v11 (un client v10.1 li ignora): `ping` → `"schema":2,"features":[…]` (v11: `journal`, `device_info`, `locations`; v12: `archives`, `access_log` e schema 3);
@@ -375,4 +375,26 @@ Nessuna migrazione di schema (resta 3); `ping` aggiunge `"inventory"` alle `feat
   `SpineResult` = `{company, title, year_from, year_to, doc_type, tags[] (solo tra hints.tags), notes, text, confidence 0–1,
   empty_spine}`. Il provider `mock` legge solo `voice` (anni e tag nominati, fiducia 0.9 o 0.2): PHP e Python rispondono uguale.
 - Il server **non** applica il risultato: lo fa il telefono (campi vuoti soltanto, stato `proposed` se la fiducia supera
+
+### 14bis. v12.13 — fasi 3 e 4 dell'inventario, AI agnostica
+
+Nessuna migrazione di schema (resta 3), nessuna rotta nuova; tutto è dentro i record già esistenti.
+
+- **Fornitori AI** (`ai_provider`): `''` spento · `anthropic` · `openai_compatible` (qualsiasi servizio con l'API
+  `chat/completions` e immagini; `ai_base_url`, predefinito `https://api.openai.com/v1`, `ai_api_key` come `Bearer`) ·
+  `ollama` (modello di visione su un PC della sede, Ollama o LM Studio; `ai_base_url` predefinito
+  `http://127.0.0.1:11434/v1`, nessuna chiave) · `mock`. Per i fornitori diversi da `anthropic` `ai_model` è obbligatorio
+  e non può essere un modello `claude-*` (→ `ai_off`). `ai_base_url` accetta solo `http(s)://`. La risposta del modello
+  può avere testo attorno o un blocco ```json: il server prende il primo oggetto JSON (`ai_parse_text`); un rifiuto →
+  `ai_refused`, un errore HTTP → 502 `ai_error` con il messaggio del servizio. Il prompt è lo stesso testo in PHP, Python
+  e app (`invAiPrompt`), con una variante per `hints.kind` (`spine` costa, `doc` prima pagina, `page` costa vuota → pagina).
+- **Progetto** `inv`: `mode` anche `station` (stazione fissa) e `chain` (catena a due); `doc` (bool, livello documento);
+  `price = {binder, box, doc, fixed, vat}` (prezzi del preventivo, vuoti = quelli di Impostazioni › Inventario);
+  `template` (id del modello usato). Lotti di etichette: `kind` anche `doc` e `any` (jolly), con la numerazione dei faldoni.
+- **Faldone**: `inv.lvl = 'doc'` e `parent` (id del faldone che lo contiene) per i documenti; `inv.ph2` seconda foto
+  (pagina interna). La **verifica di una scatola** non cambia record: è una riga del registro attività
+  `inventory.verify` (`{project, box, box_id, expected, found, missing[], misplaced[{c,from}], unknown[]}`).
+- **Vecchie app**: un'app 26.12.12 o precedente legge un progetto `station`/`chain` come `capture` e un lotto `doc`/`any` come `binder`;
+  non cancella i campi nuovi (il server conserva tutto il record).
+
   `inv.auto_confirm` o se c'è una descrizione a voce, altrimenti `review`) con un nuovo `push`.
