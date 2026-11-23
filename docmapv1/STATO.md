@@ -45,7 +45,7 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
   settimane, tempo risparmiato, suggerimenti, capienza, vista) 17/17; `tests/v1210d.js` (Oggi per profilo, Annulla,
   stati vuoti) 18/18; `tests/v1210e.js` (promemoria: gruppi, testo, inviato e Annulla, ripetizione, rinvio,
   contatti, regole, avviso giornaliero, backup) 16/16. Parità PHP ⇄ Python: 9 confronti nuovi sulla rotta `finder`.
-- Suite completa: vedi il commit del rilascio. Aggiornati 3 test della suite: eliminare un faldone o un archivio vuoto
+- Suite completa 2026-11-23: **1376/1376**. Aggiornati 3 test della suite: eliminare un faldone o un archivio vuoto
   non chiede più conferma (c'è Annulla; con «Chiedi sempre conferma» la domanda torna, provato).
 - Provato solo in Chromium: **firma col dito, fotocamera e WhatsApp mai su un telefono vero** (righe D14–D18 di
   `COLLAUDO-REALE.md`). «Offline completo» dell'ondata 1: il giro di prelievo e le firme del telefono funzionano senza
