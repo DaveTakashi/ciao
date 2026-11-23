@@ -65,6 +65,35 @@ paths:
           content:
             application/json:
               schema: {$ref: "#/components/schemas/PingResponse"}
+  /finder:
+    get:
+      tags: [telefono]
+      operationId: finder
+      summary: Contatto pubblico per chi trova un faldone smarrito (v12.10, nessun token)
+      description: |
+        Solo il contatto scelto dallo studio (impostazioni condivise, chiave `finder`), mai dati dei faldoni e mai se
+        il codice esiste. `code` è l'eco del parametro `c` solo se è un codice semplice, altrimenti "". POST → 405.
+      security: []
+      x-docmap-route: finder
+      parameters:
+        - {name: c, in: query, required: false, schema: {type: string, maxLength: 40}}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, on, code]
+                properties:
+                  ok: {type: boolean}
+                  on: {type: boolean}
+                  code: {type: string}
+                  name: {type: string, maxLength: 120}
+                  phone: {type: string, maxLength: 40}
+                  email: {type: string, maxLength: 120}
+                  whatsapp: {type: string, maxLength: 40}
+                  note: {type: string, maxLength: 400}
   /me:
     get:
       tags: [stato]
@@ -617,7 +646,7 @@ components:
         api: {const: docmap-php, description: "Un server Python può rispondere con un altro nome: il client non lo controlla."}
         version: {const: 1}
         schema: {type: integer, minimum: 1, description: "Schema del database del server: 1 = v10.1, 2 = v11, 3 = v12 (access_log)"}
-        features: {type: array, items: {type: string}, description: "Oggi [journal, device_info, locations, archives, access_log, status_events] (archives = v12: record di tipo archive; access_log = v12: registro accessi; status_events = v12: record di tipo status_event e campi status_events/status_types in binder e location)"}
+        features: {type: array, items: {type: string}, description: "Oggi [journal, device_info, locations, archives, access_log, status_events, inventory, finder] (finder = v12.10: rotta pubblica finder; archives = v12: record di tipo archive; access_log = v12: registro accessi; status_events = v12: record di tipo status_event e campi status_events/status_types in binder e location)"}
         server_time: {$ref: "#/components/schemas/Iso"}
         php: {type: string, description: "Versione di PHP (un server Python può mettere la sua)."}
         app_version: {type: string, description: "v12.4, facoltativo: versione di DocMap dei file del server (es. 26.12.4). Il client la confronta con la sua in Verifica dopo l'aggiornamento; se manca dice che i file sono precedenti alla 26.12.4."}

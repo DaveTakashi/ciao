@@ -19,6 +19,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
   // ---- files ----
   const swSrc = fs.readFileSync(path.join(APP, 'sw.js'), 'utf8'), core = fs.readFileSync(path.join(APP, 'assets/js/02-core.js'), 'utf8');
   const swVer = (swSrc.match(/SW_VERSION = '([^']+)'/) || [])[1], appVer = (core.match(/APP_VERSION = '([^']+)'/) || [])[1];
+  const APP_V = appVer;
   ok(swVer && swVer === appVer, 'sw.js SW_VERSION = APP_VERSION (a new release replaces the old cache)', [swVer, appVer]);
   const man = ['manifest.webmanifest', 'scan.webmanifest'].map(f => JSON.parse(fs.readFileSync(path.join(APP, f), 'utf8')));
   ok(man[0].start_url === './index.html' && man[1].start_url === './scan.html' && man.every(m => m.scope === './' && m.display === 'standalone' && m.icons.length === 3 &&
@@ -39,7 +40,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     const F = await p.evaluate(() => ({v:APP_VERSION, allowed:dmPwaAllowed(), man:!!document.querySelector('link[rel="manifest"]'),
       https:dmPwaAllowed({protocol:'https:', hostname:'docmap.example.it'}), lan:dmPwaAllowed({protocol:'http:', hostname:'192.168.1.20'}), lh:dmPwaAllowed({protocol:'http:', hostname:'127.0.0.1'}),
       phone:[dmPwaIsPhonePage('/studio-de/scan.html'), dmPwaIsPhonePage('/studio-de/q/dm26AbCdEfGh'), dmPwaIsPhonePage('/studio-de/index.html'), dmPwaIsPhonePage('/studio-de/')]}));
-    ok(F.v === '26.12.9' && F.allowed === false && !F.man, 'file://: no service worker, no manifest link', F);
+    ok(F.v === APP_V && F.allowed === false && !F.man, 'file://: no service worker, no manifest link', F);
     ok(F.https === true && F.lan === false && F.lh === true && F.phone.join() === 'true,true,false,false', 'PWA only on https (or localhost); phone manifest on scan.html and /q/<code>', F);
 
     // ---- stopwatch model ----
@@ -99,7 +100,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
       return {keys, controlled:!!navigator.serviceWorker.controller, reqs};
     });
     const need = ['index.html', 'scan.html', 'docmap.config.js', 'manifest.webmanifest', 'scan.webmanifest', 'assets/js/02-core.js', 'assets/js/11-scan.js', 'assets/css-scan.css', 'vendor/sql-wasm.js', 'assets/icons/icon-512.png', 'assets/icons/icon-maskable-512.png', 'assets/fonts/inter-latin-wght-normal.woff2'];
-    ok(C.controlled && C.keys.join() === 'docmap-shell-26.12.9' && need.every(f => C.reqs.includes('/studio-de/' + f)), 'web: page controlled; program files, styles, fonts and icons precached', need.filter(f => !C.reqs.includes('/studio-de/' + f)));
+    ok(C.controlled && C.keys.join() === 'docmap-shell-' + APP_V && need.every(f => C.reqs.includes('/studio-de/' + f)), 'web: page controlled; program files, styles, fonts and icons precached', need.filter(f => !C.reqs.includes('/studio-de/' + f)));
     ok(!C.reqs.some(u => /server-php|api\.php|\/q\//.test(u)), 'web: nothing from the API or the QR route in the cache', C.reqs.filter(u => /server-php|api|\/q\//.test(u)));
     const Ph = await w.evaluate(async (o) => { const m = await (await fetch(o + 'scan.webmanifest')).json(); const r = await fetch(o + m.icons[1].src); return {start:m.start_url, icon:r.status, type:r.headers.get('content-type')}; }, O);
     ok(Ph.start === './scan.html' && Ph.icon === 200 && /image\/png/.test(Ph.type), 'web: phone manifest and icons served', Ph);
@@ -109,7 +110,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     await wctx.setOffline(true);
     await w.reload(); await w.waitForTimeout(800);
     const Off1 = await w.evaluate(() => ({app:typeof APP_VERSION !== 'undefined' && APP_VERSION, title:document.title}));
-    ok(Off1.app === '26.12.9' && /DocMap/.test(Off1.title), 'offline: index.html opens from the cache', Off1);
+    ok(Off1.app === APP_V && /DocMap/.test(Off1.title), 'offline: index.html opens from the cache', Off1);
     await w.goto(O + 'q/dm26AbCdEfGh'); await w.waitForTimeout(800);
     const Off2 = await w.evaluate(async () => ({scan:typeof scBoot === 'function', man:(document.querySelector('link[rel="manifest"]') || {}).getAttribute ? document.querySelector('link[rel="manifest"]').getAttribute('href') : '',
       api:await fetch('server-php/api.php?r=ping').then(() => 'answered', () => 'failed')}));

@@ -7,10 +7,10 @@
 
 | Componente | Versione | Dove si legge | Zip per Dave (file del progetto) |
 |---|---|---|---|
-| App DocMap (PC, web, telefono) | **26.12.9** (v12.9, app installabile + cronometro dei tempi + nuovo stile: tema scuro, Ctrl+K) | `APP_VERSION` in `assets/js/02-core.js` | dentro lo zip completo `docmapv1/python/DocMap-hub-0.11.2-app-26.12.8.zip` |
+| App DocMap (PC, web, telefono) | **26.12.10** (v12.10, ondata 2: prelievi con percorso, consegna e rientro firmati, faldone smarrito, andamento e previsioni; fine ondata 1: Oggi, Annulla, stati vuoti) | `APP_VERSION` in `assets/js/02-core.js` | dentro lo zip completo `docmapv1/python/DocMap-hub-0.11.2-app-26.12.10.zip` |
 | Database locale (SQLite nel browser) | schema **9** | `DB_SCHEMA_VERSION` in `assets/js/06-db.js` | — |
-| Server web PHP (`server-php/api.php`) | 26.12.9 (solo il numero; rotte come la 26.12.8), schema **3**, licenza con `licence_required`; `setup.php` con cartella per sito e modalità JSON; v12.8: rotte `project`, `photo_put`, `photo`, `ai_spine` | `DM_APP_VERSION`, `DM_SCHEMA` | dentro lo zip dell'app (`deploy/`) |
-| Server Python (sede) | pacchetto 1.0.0, parità con PHP 26.12.9 (anche sulla licenza e sull'inventario) | `server-python/docmap_server/__init__.py` | dentro l'installer |
+| Server web PHP (`server-php/api.php`) | 26.12.10 (v12.10: rotta pubblica `finder`, solo GET, solo il contatto del faldone smarrito), schema **3**, licenza con `licence_required`; `setup.php` con cartella per sito e modalità JSON; v12.8: rotte `project`, `photo_put`, `photo`, `ai_spine` | `DM_APP_VERSION`, `DM_SCHEMA` | dentro lo zip dell'app (`deploy/`) |
+| Server Python (sede) | pacchetto 1.0.0, parità con PHP 26.12.10 (anche sulla licenza, sull'inventario e su `finder`) | `server-python/docmap_server/__init__.py` | dentro l'installer |
 | Strumenti di installazione Windows | 1.2.0 | `TOOLS_VERSION` in `installer-windows/docmap_tools.py` | dentro lo zip completo (`installer-windows/`); i pacchetti per i clienti li fa l'hub (il vecchio `DocMap-installer-26.12.7.zip` è in `vecchie-versioni/`) |
 | Hub (PC di Dave) | **0.11.2**, registro schema **4** (modelli cliente) (`registry.py`) | `hub/docmap_hub/__init__.py` | `docmapv1/python/DocMap-hub-0.11.2.zip` (**zip completo**: hub + app + sito + server + installatore + guide; fatto e controllato da `tools/crea-zip.py`) |
 | Aggiornatore del PC | con l'app | `AGGIORNA-DOCMAP.bat` + `tools/aggiorna-app.ps1` | dentro lo zip dell'app |
@@ -24,7 +24,8 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
   PR #4 verso `main`. Sostituisce le PR a catena #1 (app), #2 (Python), #3 (hub).
 - Hub 0.9 + app 26.12.7 (autocritica del hub), hub 0.10/0.10.1 (modelli, Attiva tutto, kit), 0.10.2 (cartelle) e 0.11 (elimina cliente, pacchetto sede pronto, più PC, sposta il sito): ramo `claude/project-thread-acqq2g`, PR #5 sopra la #4.
 - App 26.12.8 (Progetti di inventario, indirizzo dei QR configurabile): ramo `claude/project-thread-epf33l` (parte dalla PR #5).
-- App 26.12.9 (app installabile PWA, cronometro dei tempi; ondata 0 e prima parte dell'ondata 1: colori unici, tema scuro, Ctrl+K della roadmap «verso lo stato dell'arte»): ramo `claude/project-thread-1dzp8h` (parte dalla PR #7).
+- App 26.12.9 (app installabile PWA, cronometro dei tempi; ondata 0 e prima parte dell'ondata 1): PR #8, unita in `main`.
+- App 26.12.10 (ondata 2: funzioni 1, 3, 5, 7 scelte da Dave; fine ondata 1): ramo `claude/project-thread-1dzp8h` ripartito da `main`, PR verso `main`.
 - Dopo l'unione: `main` è la versione vera; ogni thread parte da `main`.
 
 ## 3. Test
@@ -34,6 +35,20 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
 | Verifica veloce (tutto tranne la suite completa) | `bash tools/verifica-veloce.sh` | ~4 min | vedi §3bis |
 | Suite completa app (Playwright) | `cd tests && NODE_PATH=$(npm root -g) node suite.js` | ~35 min | 1374/1374 (2026-11-22, app 26.12.8) |
 | CI su GitHub | `ci/docmap-ci.yml` (attivo solo se copiato in `.github/workflows/`) | — | in attesa del sì di Dave |
+
+### Esito 2026-11-22, app 26.12.10 (prelievi, consegna firmata, faldone smarrito, previsioni, fine ondata 1)
+
+- Test nuovi, tutti nella verifica veloce: `tests/v1210.js` (prelievi: percorso, link telefono, presa, consegna e rientro
+  firmati sul PC e sul telefono in locale, impronta verificata e manomissione vista, backup, Annulla) 43/43;
+  `tests/v1210b.js` (faldone smarrito: modello, impostazioni, subset condiviso, telefono locale, web con rotta finta,
+  `docmap.config.js`) 16/16; `tests/v1210c.js` (previsioni: stagionalità riconosciuta, tendenza, piatto, storia corta,
+  settimane, tempo risparmiato, suggerimenti, capienza, vista) 17/17; `tests/v1210d.js` (Oggi per profilo, Annulla,
+  stati vuoti) 18/18. Parità PHP ⇄ Python: 9 confronti nuovi sulla rotta `finder`.
+- Suite completa: vedi il commit del rilascio. Aggiornati 3 test della suite: eliminare un faldone o un archivio vuoto
+  non chiede più conferma (c'è Annulla; con «Chiedi sempre conferma» la domanda torna, provato).
+- Provato solo in Chromium: **firma col dito, fotocamera e WhatsApp mai su un telefono vero** (righe D14–D17 di
+  `COLLAUDO-REALE.md`). «Offline completo» dell'ondata 1: il giro di prelievo e le firme del telefono funzionano senza
+  rete (coda), il resto era già coperto dalla 26.12.9.
 
 ### Esito 2026-11-22, app 26.12.9 (app installabile, cronometro)
 
@@ -47,7 +62,7 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
   faldone primo e aperto con Invio + tempo «trovare», pagina, nessun risultato), telefono.
 - Provato solo in Chromium: **installazione vera su Android, iPhone e Edge mai provata** (righe D10–D13 di `COLLAUDO-REALE.md`).
 - Esito finale 2026-11-22: verifica veloce tutto OK (v129 24/24, v129b 24/24), suite completa **1374 su 1374**.
-- Ondata 1 ancora da fare: home per ruolo, «Annulla» al posto delle conferme, stati vuoti che insegnano, offline completo.
+- Ondata 1 completata nella 26.12.10.
 
 ### Esito 2026-11-22, app 26.12.8 (Progetti di inventario)
 

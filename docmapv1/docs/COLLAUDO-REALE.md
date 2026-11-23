@@ -83,6 +83,10 @@ il numero e l'immagine. Se un passo si blocca, salta al blocco successivo.
 - [ ] D11. **Senza rete**: modalità aereo, apri l'icona: la pagina si apre (i dati del server, ovviamente, no: compare l'avviso). Riattiva la rete, riapri: tutto normale.
 - [ ] D12. **Tempi misurati**: sul telefono cerca 10 faldoni (Cerca → apri) e cataloga 10 faldoni in un inventario; poi sotto la casella del codice **Tempi misurati › Copia i tempi** e incolla il testo nel messaggio a Claude. Obiettivo: trovare ≤ 15 s, catalogare ≤ 7 s (mediana).
 - [ ] D13. **Tema scuro e Ctrl+K**: metti il telefono e Windows in tema scuro: DocMap diventa scuro, ma l'anteprima delle etichette e la stampa restano bianche. Sul PC premi Ctrl+K, scrivi un codice e premi Invio: si apre il faldone.
+- [ ] D14. **Prelievo col telefono** (app 26.12.10): sul PC ⚙ › Lavoro › Prelievi e consegne › Nuovo prelievo, motivo «Verifica fiscale», un cliente con 5-10 faldoni: il percorso segue davvero gli scaffali? Annota le tappe sbagliate: ______. **Spunta col telefono**: inquadra il QR, accedi, scansiona i faldoni nel giro; uno di un altro cliente risulta «in più».
+- [ ] D15. **Consegna firmata dal telefono**: a fine giro «Consegna con firma», firma col dito, scarica la ricevuta. Sul PC, dopo la sincronizzazione, la consegna compare nei prelievi e «Ricevuta» dice **Firma e ricevuta integre**. Ripeti con i dati spenti: tutto parte quando li riaccendi.
+- [ ] D16. **Faldone smarrito**: sul PC Impostazioni › Faldone smarrito, metti un numero e attivalo, sincronizza. Da un telefono **di un'altra persona** (senza DocMap) inquadra un'etichetta: vede solo il contatto e i pulsanti; Chiama/WhatsApp partono col codice nel messaggio; nessun nome di cliente sullo schermo.
+- [ ] D17. **Andamento e previsioni** dopo qualche settimana d'uso: i numeri del tempo risparmiato vi sembrano credibili con i vostri minuti? Annota i valori usati: ______.
 - [ ] D6. Il telefono in sede (stessa rete Wi-Fi del PC di prova) apre DocMap con il certificato dello studio.
 
 ## E. Stampa (30 min) — guida: `CHECKLIST-COLLAUDO.md` §1, `MANUALE-UTENTE.md` §19

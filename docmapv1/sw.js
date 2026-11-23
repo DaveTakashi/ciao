@@ -15,7 +15,7 @@
    ===================================================================== */
 'use strict';
 
-const SW_VERSION = '26.12.9';
+const SW_VERSION = '26.12.10';
 const SW_CACHE = 'docmap-shell-' + SW_VERSION;
 const SW_PAGES = ['index.html', 'scan.html', 'docmap.config.js', 'manifest.webmanifest', 'scan.webmanifest'];
 /* program paths, relative to the app folder (a leading q/ is the QR route of scan.html: same files) */

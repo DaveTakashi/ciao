@@ -706,3 +706,61 @@ chiare, così un'etichetta non esce mai con lo sfondo scuro.
 pezzo di codice, cliente, titolo, oppure il nome di una pagina («stampa», «progetti») o di un'azione («backup»,
 «nuovo faldone», «tema»). **↑ ↓** per scegliere, **Invio** per aprire, **Esc** per chiudere. Aprire un faldone da qui
 conta nei «Tempi misurati».
+
+## 25. Prelievi e consegne: preparare i faldoni per una verifica, un cliente, una pratica (v12.10)
+
+Menu **⚙ Funzioni avanzate › Lavoro › Prelievi e consegne › Nuovo prelievo** (oppure Ctrl+K e scrivi «prelievo»).
+
+1. **Motivo**: verifica fiscale, richiesta del cliente, pratica interna, avvocato o tribunale, revisione, digitalizzazione,
+   trasloco, scarto, altro. DocMap propone lo stato da registrare (per esempio «Dato al Comune / ente»), a chi vanno
+   (per una verifica fiscale «Agenzia delle Entrate») e la data di rientro. Puoi cambiare tutto.
+2. **Quali faldoni**: scrivi il cliente (nome o Codice Multi), gli anni dal–al, una ricerca, una categoria o un tag;
+   oppure incolla i codici (uno per riga, anche da Excel) o usa i faldoni spuntati nell'Archivio. L'anteprima mostra
+   quanti sono, quelli **già fuori** e quelli **senza posizione**; togli la spunta a quelli che non servono.
+3. **Crea il prelievo**: compare il **percorso** tra gli scaffali, tappa per tappa, già nell'ordine migliore (stanza,
+   armadio, ripiano; un armadio in andata e il successivo in ritorno) con il tempo stimato.
+4. Poi, a scelta:
+   - **Stampa la distinta** (A4 con le caselle «Preso» / «Rientrato») o il **modulo di consegna su carta**;
+   - **Spunta col telefono**: inquadra il QR, accedi, e il telefono mostra la prossima tappa; ogni faldone
+     scansionato si spunta (doppi rifiutati, faldoni non in elenco segnalati «in più»). Funziona anche senza rete;
+   - **Segna come prelevati**: registra lo stato su tutti i faldoni in un colpo;
+   - **Consegna con firma**: chi riceve scrive nome (e documento) e firma col mouse, col dito o con la penna; esce una
+     **ricevuta** con un'impronta digitale (SHA-256). Al ritorno **Rientro** (anche firmato).
+5. Le consegne firmate dal telefono compaiono nella stessa pagina: **Ricevuta** la ristampa e controlla l'impronta
+   («Firma e ricevuta integre»). La firma è una **prova interna** di chi ha preso cosa e quando, non una firma
+   elettronica qualificata.
+
+Eliminare un elenco di prelievo non cancella gli stati registrati: restano nella storia di ogni faldone.
+
+## 26. Faldone smarrito: chi lo trova vi può chiamare (v12.10)
+
+**Impostazioni › Faldone smarrito**: spunta «Mostra il contatto a chi trova un faldone» e scrivi almeno un telefono, un
+numero WhatsApp o un'e-mail (più un messaggio, per esempio indirizzo e orari). L'anteprima mostra cosa vedrà.
+
+Chi trova un faldone e inquadra il QR con la fotocamera, **senza accedere** vede solo questo contatto e i pulsanti
+**Chiama, WhatsApp, SMS, E-mail** con il codice dell'etichetta già scritto nel messaggio. Non vede il cliente, il
+contenuto né se il codice esiste. Chi è dello studio accede come sempre sotto. Dopo la modifica fai «Sincronizza con
+il server», così il contatto vale anche sul sito.
+
+## 27. Andamento e previsioni: quanto tempo risparmiate e cosa vi aspetta (v12.10)
+
+Menu **⚙ Funzioni avanzate › Lavoro › Andamento e previsioni**.
+
+- **Tempo risparmiato** in ore e in euro (questo mese, 12 mesi, da sempre, prossimi 3 mesi). In **Come è calcolato**
+  metti i vostri minuti per trovare un faldone senza DocMap (di serie 6), per registrarlo a mano (3), il costo orario
+  (30 €) e la capienza dell'archivio.
+- **Attività e previsioni** per consultazioni, uscite e nuovi faldoni, settimana per settimana. La linea tratteggiata è
+  la previsione, la fascia chiara l'intervallo in cui il valore cade 8 volte su 10. Sotto: il modello usato e l'errore
+  medio. Con meno di 8 settimane di dati la previsione non c'è ancora.
+- **Faldoni in archivio**: con la capienza indicata, il mese in cui l'archivio sarà pieno.
+- **Suggerimenti**: faldoni in ritardo, fuori da tanto, senza posizione, i più richiesti, quelli fermi da un anno, gli
+  anni oltre i 10 anni (**da verificare** prima di qualsiasi scarto: DocMap non decide lo scarto), backup, picchi.
+
+## 28. Oggi, Annulla e pagine vuote che spiegano (v12.10)
+
+- **Oggi**: in cima all'Archivio, quando hai finito o nascosto i «Primi passi». Mostra cosa c'è da fare oggi (in rosso
+  le cose urgenti) e i pulsanti più usati dal tuo profilo. **Nascondi** lo chiude su quel computer.
+- **Annulla al posto di «Sei sicuro?»**: eliminare un faldone, un cliente, un prelievo o un archivio vuoto avviene
+  subito; per 9 secondi compare **Annulla** in basso. Se preferisci la domanda: **Impostazioni › Eliminazioni ›
+  Chiedi sempre conferma prima di eliminare**. Eliminare più faldoni insieme chiede sempre.
+- **Nessun risultato**: la pagina dice perché e offre **Togli ricerca e filtri**, **Cerca ovunque** e **Crea …**.
