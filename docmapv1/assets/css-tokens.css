@@ -1,12 +1,12 @@
 /* =====================================================================
-   DocMap 2026 — design tokens (v12.9, wave 1 "qualità percepita"). Loaded FIRST by index.html and scan.html.
+   Design tokens (v12.9, wave 1 "qualità percepita"). Loaded FIRST by index.html and scan.html.
    One place for colour, type, spacing, radius, elevation and motion. Every other stylesheet uses var(--…) only.
 
    Themes: light (default), dark from the system (prefers-color-scheme) or forced with <html data-theme="dark|light">
    (Impostazioni › Aspetto, 02i-theme.js). Dark tokens apply to the SCREEN only: printing (labels, PDF) always uses
    the light values, so a label never comes out with a dark background.
 
-   White label (later): a reseller changes --brand-* (and the logo) only; every accent derives from them.
+   White label: brand.js primary_color overrides --brand-* (00-brand.js); logo_url replaces the text mark.
    ===================================================================== */
 :root{
   /* brand */
@@ -75,3 +75,8 @@
   }
 }
 @media (prefers-reduced-motion:reduce){ :root{ --dur:0s; } }
+
+/* White label: logo image from brand.js (logo_url) in place of the text mark (00-brand.js brandMarkHtml) */
+.brand-logo{background:transparent!important;padding:0}
+.brand-logo:after{display:none!important}
+.brand-logo img{width:100%;height:100%;object-fit:contain;display:block}

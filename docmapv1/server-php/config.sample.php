@@ -51,7 +51,7 @@ return [
 
   // v12.8 inventory projects ("Progetti"). All optional.
   // photo_max_kb: largest spine photo accepted from the phone (the phone sends ~150-300 KB JPEGs).
-  // ai_provider: who reads the spine photos (v12.12: any provider, the operator never waits for it):
+  // ai_provider: who reads the spine photos (v12.13: any provider, the operator never waits for it):
   //   ''                  = no AI reading (default)
   //   'anthropic'         = Claude (needs ai_api_key)
   //   'openai_compatible' = any service with the OpenAI chat/completions API and image input (needs ai_base_url, usually

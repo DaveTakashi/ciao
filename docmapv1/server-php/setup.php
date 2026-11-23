@@ -1,10 +1,12 @@
 <?php
-/* DocMap 2026 — one-time set-up of the shared online database (v10.1).
+/* One-time set-up of the shared online database (v10.1).
    Open https://<site>/<base>/server-php/setup.php ONCE (with the SiteGround password protection already active):
    it creates the data folder, a random AES-256 key and the access tokens, writes config.php and then disables
    itself (it refuses to run while config.php exists, and renames itself to setup.php.disabled when it can).
    Tokens are shown ONLY on this page: config.php keeps their SHA-256. */
 declare(strict_types=1);
+if (is_file(__DIR__ . '/brand.php')) require_once __DIR__ . '/brand.php';   // product name from brand.js (white label)
+if (!function_exists('dm_brand_name')) { function dm_brand_name(): string { return 'Archivio documenti'; } }
 ini_set('display_errors', '0');
 header('Content-Type: text/html; charset=utf-8');
 header('Cache-Control: no-store');
@@ -16,7 +18,7 @@ $CFG = __DIR__ . '/config.php';
 function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 function page(string $title, string $body, int $code = 200): void {
   http_response_code($code);
-  echo '<!DOCTYPE html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>DocMap — ' . h($title) . '</title>',
+  echo '<!DOCTYPE html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>' . h(dm_brand_name()) . ' — ' . h($title) . '</title>',
     '<style>body{font-family:system-ui,sans-serif;background:#F1F5F9;color:#0F172A;margin:0;padding:16px}main{max-width:760px;margin:0 auto;background:#fff;border:1px solid #E2E8F0;border-radius:14px;padding:20px}',
     'h1{font-size:22px;margin:0 0 12px}label{display:block;font-weight:600;margin:12px 0 4px}input,textarea{width:100%;box-sizing:border-box;padding:8px;border:1px solid #CBD5E1;border-radius:8px;font:inherit}',
     'textarea{font-family:ui-monospace,monospace}button{margin-top:16px;padding:10px 18px;border:0;border-radius:10px;background:#2563EB;color:#fff;font-weight:700;font-size:15px}',
@@ -62,9 +64,9 @@ $https = (($_SERVER['HTTPS'] ?? '') !== '' && $_SERVER['HTTPS'] !== 'off') || ((
    again (config.php, which is not in the zip, went with it): a new aes_key could not read the old data. */
 function existing_db(string $dir): string { foreach (['docmap.sqlite', 'docmap.sqlite-wal'] as $f) if (is_file(rtrim($dir, '/\\') . '/' . $f)) return rtrim($dir, '/\\') . '/' . $f; return ''; }
 function existing_db_page(string $file): void {
-  if ($GLOBALS['JSON']) { jout(409, ['ok' => false, 'state' => 'existing_db', 'file' => $file, 'error' => 'Nella cartella c\'è già un database DocMap: non creo una chiave nuova (recupera config.php).']); return; }
+  if ($GLOBALS['JSON']) { jout(409, ['ok' => false, 'state' => 'existing_db', 'file' => $file, 'error' => 'Nella cartella c\'è già un database del programma: non creo una chiave nuova (recupera config.php).']); return; }
   page('C\'è già un database: non creo una chiave nuova',
-    '<div class="err">Nella cartella scelta c\'è già il database di DocMap (<code>' . h($file) . '</code>). Una chiave nuova non potrebbe leggerlo.</div>' .
+    '<div class="err">Nella cartella scelta c\'è già il database di ' . h(dm_brand_name()) . ' (<code>' . h($file) . '</code>). Una chiave nuova non potrebbe leggerlo.</div>' .
     '<p><b>Di solito è successo questo:</b> la cartella dell\'app è stata cancellata e caricata di nuovo, e con lei è sparito <code>server-php/config.php</code> (non è nello zip).</p>' .
     '<ol><li>Recupera <code>config.php</code> dal backup di SiteGround (Site Tools › Sicurezza › Backup › ripristino di file) o dalla copia che hai scaricato alla prima installazione.</li>' .
     '<li>Rimettilo in <code>' . h(__DIR__) . '/</code>: i dati tornano subito, con gli stessi codici di accesso.</li>' .
@@ -75,15 +77,15 @@ $legacyDb = ($siteSlug !== '' && $legacyDir !== '') ? existing_db($legacyDir) : 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
   if (($ex = existing_db($defDir)) !== '' || ($ex = existing_db(__DIR__ . '/data')) !== '') { existing_db_page($ex); exit; }
   if ($JSON) { jout(200, ['ok' => true, 'state' => 'ready', 'default_data_dir' => $defDir, 'https' => $https, 'legacy_db' => $legacyDb !== '']); exit; }
-  page('Configura il database online di DocMap',
-    ($legacyDb !== '' ? '<div class="warn">Nella vecchia cartella comune <code>' . h($legacyDir) . '</code> c\'è già un database DocMap. Se è <b>di questo sito</b> (cartella ricaricata e <code>config.php</code> perso), non continuare: rimetti la copia di <code>config.php</code> e i dati tornano. Se è di un altro sito, continua pure: questo sito avrà la sua cartella.</div>' : '') .
+  page('Configura il database online di ' . dm_brand_name(),
+    ($legacyDb !== '' ? '<div class="warn">Nella vecchia cartella comune <code>' . h($legacyDir) . '</code> c\'è già un database di ' . h(dm_brand_name()) . '. Se è <b>di questo sito</b> (cartella ricaricata e <code>config.php</code> perso), non continuare: rimetti la copia di <code>config.php</code> e i dati tornano. Se è di un altro sito, continua pure: questo sito avrà la sua cartella.</div>' : '') .
     ($https ? '' : '<div class="warn">La pagina non è in HTTPS: attiva il certificato SSL prima di continuare (i token viaggerebbero in chiaro).</div>') .
     '<div class="warn">Questa pagina genera la chiave del database e i codici di accesso <b>una sola volta</b>, poi si disattiva. Alla fine scarica la copia di <code>config.php</code> e conservala: senza quella chiave i dati non si leggono.</div>' .
     '<form method="post" autocomplete="off">' .
     '<label for="data_dir">Cartella del database (meglio <b>fuori</b> da public_html)</label><input id="data_dir" name="data_dir" value="' . h($defDir) . '">' .
     '<small>Proposta: la cartella accanto a public_html. Se scegli una cartella dentro il sito, usa <code>' . h(__DIR__ . '/data') . '</code>, già protetta dal suo .htaccess.</small>' .
     '<label for="studio">Nome dello studio (facoltativo)</label><input id="studio" name="studio_name" value="">' .
-    '<label for="users">Persone che useranno DocMap: una per riga, <code>nome,ruolo</code> (ruolo: admin, editor, viewer)</label>' .
+    '<label for="users">Persone che useranno ' . h(dm_brand_name()) . ': una per riga, <code>nome,ruolo</code> (ruolo: admin, editor, viewer)</label>' .
     '<textarea id="users" name="users" rows="6">davide,admin' . "\n" . 'dipendente1,editor' . "\n" . 'dipendente2,editor</textarea>' .
     '<small>Ogni persona riceve il suo codice di accesso (token). Altri token si creano poi dall\'app (amministratore).</small>' .
     '<label><input type="checkbox" name="allow_file" value="1" checked style="width:auto"> Consenti la sincronizzazione dal programma sul PC (aperto da file://)</label>' .
@@ -123,10 +125,10 @@ foreach ($users as [$name, $role]) {
 $cfg = ['data_dir' => $dir, 'aes_key' => base64_encode(random_bytes(32)), 'tokens' => $tokens,
   'allowed_origins' => !empty($_POST['allow_file']) ? ['null'] : [], 'max_fails' => 5, 'lock_seconds' => 60, 'max_body_mb' => 20,
   'studio_name' => substr(trim((string)($_POST['studio_name'] ?? '')), 0, 120)];
-// v12.6: a site built by DocMap Hub carries the hub's public key (trusted_keys.json): then the licence is checked
+// v12.6: a site built by the hub carries the hub's public key (trusted_keys.json): then the licence is checked
 // (expired beyond grace / suspended / revoked → read-only, data never locked). Hand-made sites stay as before.
 if (is_file(__DIR__ . '/trusted_keys.json')) $cfg['licence_required'] = true;
-$php = "<?php\n/* DocMap 2026 — generated by setup.php on " . gmdate('Y-m-d H:i:s') . " UTC. KEEP A COPY IN A SAFE PLACE:\n" .
+$php = "<?php\n/* generated by setup.php on " . gmdate('Y-m-d H:i:s') . " UTC. KEEP A COPY IN A SAFE PLACE:\n" .
   "   without aes_key the database (and its backups) cannot be read. Never publish or e-mail this file. */\n" .
   "if (!defined('DOCMAP_API')) { http_response_code(404); exit; }\nreturn " . var_export($cfg, true) . ";\n";
 $tmp = $CFG . '.tmp-' . bin2hex(random_bytes(4));

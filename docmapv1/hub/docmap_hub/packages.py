@@ -22,6 +22,7 @@ from urllib.parse import urlsplit
 from . import __version__
 from . import licence as L
 from .registry import RegistryError
+from .branding import brand_for_customer, brand_for_env, brand_name as _bn, override_for_env
 
 
 def _slug(text: str) -> str:
@@ -50,21 +51,23 @@ def _online_url(reg, project_id: str) -> str:
     return ""
 
 
-PS1 = r"""# DocMap - collega questo PC a DocMap dello studio (nessun diritto di amministratore richiesto).
+PS1 = (  # brand: keep (only the LOCALAPPDATA folder name, kept for existing PCs; the product name comes from postazione.json)
+    r"""# collega questo PC al programma dello studio (nessun diritto di amministratore richiesto).
 # v0.11: con il sito online il collegamento principale e il SITO (funziona anche se il PC server e spento);
-# se c'e anche il server in sede si aggiunge "DocMap (ufficio)", piu veloce in rete locale.
+# se c'e anche il server in sede si aggiunge "<prodotto> (ufficio)", piu veloce in rete locale.
 $ErrorActionPreference = 'Stop'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $cfg = Get-Content -Raw -Encoding UTF8 (Join-Path $here 'postazione.json') | ConvertFrom-Json
+$prod = if ($cfg.prodotto) { [string]$cfg.prodotto } else { 'Archivio' }   # product name (brand.js / reseller), hub 0.13
 Write-Host ''
-Write-Host "DocMap - postazione '$($cfg.postazione)' di $($cfg.cliente)" -ForegroundColor Cyan
+Write-Host "$prod - postazione '$($cfg.postazione)' di $($cfg.cliente)" -ForegroundColor Cyan
 Write-Host ''
 $desk = [Environment]::GetFolderPath('Desktop')
 $edge = @("${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe", "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
 function New-Collegamento([string]$name, [string]$url) {
   if ($edge) {
     $sh = (New-Object -ComObject WScript.Shell).CreateShortcut((Join-Path $desk "$name.lnk"))
-    $sh.TargetPath = $edge; $sh.Arguments = "--app=$url"; $sh.Description = "DocMap ($($cfg.postazione))"; $sh.Save()
+    $sh.TargetPath = $edge; $sh.Arguments = "--app=$url"; $sh.Description = "$prod ($($cfg.postazione))"; $sh.Save()
   } else {
     Set-Content -Encoding ASCII -Path (Join-Path $desk "$name.url") -Value "[InternetShortcut]`r`nURL=$url"
   }
@@ -74,13 +77,13 @@ $url = [string]$cfg.indirizzo_server
 $aperto = $null
 if ($online) {
   Write-Host "1. Collegamento al sito online: $online"
-  New-Collegamento "DocMap - $($cfg.nome_studio)" $online
+  New-Collegamento "$prod - $($cfg.nome_studio)" $online
   Write-Host '   Fatto: funziona da qui, da casa e dal telefono, anche se il PC server dello studio e spento.' -ForegroundColor Green
   $aperto = $online
 }
 if ($url -or -not $online) {
   if (-not $url) {
-    Write-Host "Scrivi l'indirizzo del server DocMap dello studio."
+    Write-Host "Scrivi l'indirizzo del server $prod dello studio."
     Write-Host "Lo trovi sul PC server nel file C:\DocMap\LEGGIMI-INDIRIZZO.txt (es. https://192.168.1.20:8443/)."
     $url = Read-Host 'Indirizzo'
   }
@@ -106,7 +109,7 @@ if ($url -or -not $online) {
     Write-Host '   (deve coincidere con quella stampata sul PC server in LEGGIMI-INDIRIZZO.txt)'
     Write-Host '   Lo installo per il tuo utente Windows: conferma con "Si" nella finestra di Windows.'
     Import-Certificate -FilePath $tmp -CertStoreLocation Cert:\CurrentUser\Root | Out-Null
-    $nome = if ($online) { "DocMap (ufficio) - $($cfg.nome_studio)" } else { "DocMap - $($cfg.nome_studio)" }
+    $nome = if ($online) { "$prod (ufficio) - $($cfg.nome_studio)" } else { "$prod - $($cfg.nome_studio)" }
     New-Collegamento $nome $url
     if (-not $aperto) { $aperto = $url }
   }
@@ -117,12 +120,12 @@ $cfg | Add-Member -NotePropertyName indirizzo_usato -NotePropertyValue $aperto -
 $cfg | Add-Member -NotePropertyName collegata_il -NotePropertyValue (Get-Date).ToString('s') -Force
 $cfg | ConvertTo-Json | Set-Content -Encoding UTF8 (Join-Path $dir 'postazione.json')
 Write-Host ''
-Write-Host "Fatto. Apri 'DocMap' dal desktop ed entra con il tuo utente e il codice della tua lettera di benvenuto." -ForegroundColor Green
+Write-Host "Fatto. Apri '$prod' dal desktop ed entra con il tuo utente e il codice della tua lettera di benvenuto." -ForegroundColor Green
 if ($aperto) { Start-Process $aperto }
 Read-Host 'Invio per chiudere'
-"""
+""")
 
-BAT = ("@echo off\r\nrem DocMap - collega questo PC al server dello studio\r\ncd /d \"%~dp0\"\r\n"
+BAT = (f"@echo off\r\nrem {_bn()} - collega questo PC al server dello studio\r\ncd /d \"%~dp0\"\r\n"
        "powershell -NoProfile -ExecutionPolicy Bypass -File \"%~dp0collega-questo-pc.ps1\"\r\n")
 
 
@@ -136,34 +139,35 @@ def workstation_zip(hub, wid: str) -> tuple[str, bytes]:
     url = _server_url(reg, p["id"])
     online = _online_url(reg, p["id"])
     studio = (p["data"] or {}).get("nome_studio") or c["name"]
+    bn = brand_for_customer(reg, c)["product_name"]   # reseller brand when the customer has one
     cfg = {"formato": "docmap-postazione/1", "postazione": w["name"], "etichetta": w.get("tag") or "",
            "workstation_id": w["id"], "cliente": c["name"], "customer_id": c["id"], "progetto": p["name"],
            "project_id": p["id"], "nome_studio": studio, "indirizzo_server": url, "indirizzo_online": online,
-           "porta_certificato": 8080,
-           "preparato_da": f"DocMap Hub {__version__}", "preparato_il": L.format_time(datetime.now(timezone.utc))}
+           "porta_certificato": 8080, "prodotto": bn,
+           "preparato_da": f"{_bn()} Hub {__version__}", "preparato_il": L.format_time(datetime.now(timezone.utc))}
     if online:
-        leggimi = (f"DocMap - postazione \"{w['name']}\" ({c['name']})\r\n\r\n"
-                   "Cosa fa: collega questo PC a DocMap dello studio. Non installa programmi e non contiene dati.\r\n\r\n"
+        leggimi = (f"{bn} - postazione \"{w['name']}\" ({c['name']})\r\n\r\n"
+                   f"Cosa fa: collega questo PC a {bn} dello studio. Non installa programmi e non contiene dati.\r\n\r\n"
                    "1. Estrai questo zip (tasto destro > Estrai tutto).\r\n"
                    "2. Fai doppio clic su collega-questo-pc.bat.\r\n"
-                   f"3. Sul desktop compare \"DocMap\": apre il sito {online}\r\n"
+                   f"3. Sul desktop compare \"{bn}\": apre il sito {online}\r\n"
                    "   Funziona anche se il PC server dello studio e spento, da casa e dal telefono.\r\n"
                    "4. Entra con il tuo utente e il codice della tua lettera di benvenuto.\r\n"
                    + (f"\r\nIn ufficio c'e anche il server {url}: con il PC server acceso il file aggiunge\r\n"
-                      "\"DocMap (ufficio)\" (installa il certificato dello studio per il tuo utente, conferma \"Si\").\r\n"
+                      f"\"{bn} (ufficio)\" (installa il certificato dello studio per il tuo utente, conferma \"Si\").\r\n"
                       if url else ""))
     else:
-        leggimi = (f"DocMap - postazione \"{w['name']}\" ({c['name']})\r\n\r\n"
-                   "Cosa fa: collega questo PC al server DocMap dello studio. Non installa programmi e non contiene dati.\r\n\r\n"
+        leggimi = (f"{bn} - postazione \"{w['name']}\" ({c['name']})\r\n\r\n"
+                   f"Cosa fa: collega questo PC al server {bn} dello studio. Non installa programmi e non contiene dati.\r\n\r\n"
                    "1. Il PC server dello studio deve essere acceso e questo PC nella stessa rete.\r\n"
                    "2. Estrai questo zip (tasto destro > Estrai tutto).\r\n"
                    "3. Fai doppio clic su collega-questo-pc.bat.\r\n"
                    + ("4. Se chiede l'indirizzo, copialo dal PC server: C:\\DocMap\\LEGGIMI-INDIRIZZO.txt.\r\n" if not url else
                       f"4. Indirizzo del server: {url}\r\n")
                    + "5. Conferma \"Si\" quando Windows chiede di installare il certificato dello studio.\r\n"
-                   "6. Sul desktop compare \"DocMap\": aprilo ed entra con il tuo utente.\r\n\r\n"
+                   f"6. Sul desktop compare \"{bn}\": aprilo ed entra con il tuo utente.\r\n\r\n"
                    "Il certificato viene installato solo per il tuo utente Windows. Per toglierlo: certmgr.msc >\r\n"
-                   "Autorita di certificazione radice attendibili > DocMap CA.\r\n")
+                   f"Autorita di certificazione radice attendibili > {bn} CA.\r\n")
     buf = io.BytesIO()
     folder = f"DocMap-{_slug(c['name'])}-{_slug(w['name'])}"
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
@@ -192,17 +196,17 @@ def web_zip_path(hub, env: dict) -> Path:
     return d / "online" / env["name"] / f"DocMap-{d.name}-online-{env['name']}.zip"
 
 
-AUTOINSTALL_NOTE = """DocMap - pacchetto "autoinstall web" per {url}
+AUTOINSTALL_NOTE = """{prodotto} - pacchetto "autoinstall web" per {url}
 
 Usalo quando l'hub non ha l'accesso FTP: carichi tu i file dal pannello dell'hosting.
 
 1. Nel pannello dell'hosting (es. SiteGround > Site Tools > File Manager) apri la cartella del sito:
    {path}
-   (creala se non esiste). NON cancellare una cartella che contiene già DocMap: i dati sono in server-php/data/.
+   (creala se non esiste). NON cancellare una cartella che contiene già {prodotto}: i dati sono in server-php/data/.
 2. Carica questo zip nella cartella e usa "Estrai" (Extract). Sovrascrivi i file se richiesto.
 3. Apri {url}server-php/setup.php e segui le schermate: crea la chiave e gli utenti.
    setup.php non crea mai una chiave nuova se trova già un database.
-4. Apri {url} ed entra. Nel DocMap Hub premi "Controlla tutto": lo stato diventa Online.
+4. Apri {url} ed entra. Nell'hub premi "Controlla tutto": lo stato diventa Online.
 
 Dettagli tecnici in README-DEPLOY.md (dentro questo zip).
 """
@@ -223,10 +227,10 @@ def build_web_zip(hub, env_id: str, log=print) -> Path:
     parts = urlsplit(url)
     res = run_build_deploy(site, base_path=s.get("base_path") or parts.path or "/", slug=s.get("slug") or "studio",
                            domain=s.get("domain") or (f"{parts.scheme}://{parts.netloc}" if parts.netloc else "https://example.invalid"),
-                           studio_name=s.get("studio_name") or "", reg=reg)
+                           studio_name=s.get("studio_name") or "", reg=reg, brand=override_for_env(reg, env))
     tmp = zp.with_suffix(".tmp")
     with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as z:
-        z.writestr("LEGGIMI-AUTOINSTALL.txt", AUTOINSTALL_NOTE.format(url=url or "(indirizzo del sito)/",
+        z.writestr("LEGGIMI-AUTOINSTALL.txt", AUTOINSTALL_NOTE.format(prodotto=brand_for_env(reg, env)["product_name"], url=url or "(indirizzo del sito)/",
                                                                       path=s.get("base_path") or parts.path or "/").replace("\n", "\r\n"))
         for f in sorted(site.rglob("*")):
             if f.is_file():
@@ -242,7 +246,7 @@ def build_web_zip(hub, env_id: str, log=print) -> Path:
 # ---------------------------------------------------------------------------
 
 QUICK_BAT = ("@echo off\r\n"
-             "rem DocMap - installazione in sede SENZA DOMANDE (pacchetto pronto del hub).\r\n"
+             f"rem {_bn()} - installazione in sede SENZA DOMANDE (pacchetto pronto del hub).\r\n"
              "rem Nome dello studio, licenza e collegamento al sito sono gia dentro il pacchetto.\r\n"
              "setlocal\r\ncd /d \"%~dp0\"\r\n"
              # double-click from inside the zip (Explorer's zip view): only this file is in a temp folder

@@ -128,8 +128,8 @@ function newBinderForClient(id){
 }
 function exportClientsCSV(){
   const rows = [['multi_code','ragione_sociale','indirizzo','cap','localita','provincia','tipo','categoria','note']].concat((S.clients || []).slice().sort((a, b) => naturalCmp(a.name, b.name)).map(c => [c.multi_code, c.name, c.address, c.cap, c.city, c.province, c.type, c.category, c.notes].map(safeCell)));
-  download('docmap_clienti.csv', '﻿' + toCSV(rows, ';'), 'text/csv');
-  toast(t('ex_done', {f:'docmap_clienti.csv'}));
+  download(brandFile('clienti', 'csv'), '﻿' + toCSV(rows, ';'), 'text/csv');
+  toast(t('ex_done', {f:brandFile('clienti', 'csv')}));
 }
 
 /* ---------------- Clients panel (Informazioni › Clienti) ---------------- */

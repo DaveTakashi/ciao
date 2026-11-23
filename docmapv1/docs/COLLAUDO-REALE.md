@@ -92,7 +92,7 @@ il numero e l'immagine. Se un passo si blocca, salta al blocco successivo.
 - [ ] D20. **Dove lo metto?**: apri un faldone nuovo di un cliente che ha già faldoni: il primo posto proposto è quello giusto sullo scaffale vero? Con la capienza scritta in Impostazioni, un ripiano pieno lascia il posto a quello accanto? ______.
 - [ ] D21. **Scarto**: ⚙ › Lavoro › Scarto, controllate le Regole con il commercialista o il consulente; la proposta 2026 vi sembra corretta? **Prepara il verbale**, stampatelo su carta: è leggibile e firmabile? (Non premete «Segna come distrutti» sui dati veri finché la distruzione non è avvenuta davvero.) ______.
 - [ ] D22. **Ricerca a voce**: su PC con Chrome o Edge (microfono acceso) e sul telefono, dite «trovami le fatture di [cliente vero] del 2024»: trova il faldone? Provate un codice scandito («codice B L tre»). Annota le frasi non capite: ______.
-- [ ] D23. **Stazione fissa** (app 26.12.12): progetto di prova in modalità *Stazione fissa*, telefono su un supporto (o appoggiato a una pila di libri) con la fotocamera accesa; passate 20 faldoni davanti alla fotocamera uno dopo l'altro. Secondi a faldone ______; faldoni letti due volte o saltati ______; la conferma grande si vede da 1 metro? ______.
+- [ ] D23. **Stazione fissa** (app 26.12.13): progetto di prova in modalità *Stazione fissa*, telefono su un supporto (o appoggiato a una pila di libri) con la fotocamera accesa; passate 20 faldoni davanti alla fotocamera uno dopo l'altro. Secondi a faldone ______; faldoni letti due volte o saltati ______; la conferma grande si vede da 1 metro? ______.
 - [ ] D24. **Lettore Bluetooth** (se ne avete uno o lo prendete in prova): collegatelo al telefono come tastiera, aprite il progetto e leggete 10 etichette senza toccare lo schermo. Tutte acquisite? ______. Stessa prova collegato al PC.
 - [ ] D25. **Catena a due**: una persona scansiona con il telefono, l'altra al PC apre il progetto e preme **In diretta**: i faldoni compaiono entro pochi secondi con la foto? Correggete e confermate due faldoni mentre l'altra continua. ______.
 - [ ] D26. **Verifica di una scatola**: dopo aver acquisito una scatola, togliete un faldone e mettetene uno di un'altra scatola; **Verifica una scatola** sul telefono: mancante e fuori posto giusti? **Sposta qui** funziona? La verifica compare nel PC (scheda Verifiche)? ______.
@@ -120,6 +120,14 @@ il numero e l'immagine. Se un passo si blocca, salta al blocco successivo.
 - [ ] F7. Impostazioni › **Controllo dell'hub** › «Controlla adesso»: nessuna riga rossa; **Verifica** su un backup dice «Si può ripristinare».
 - [ ] F8. Chiudi la pagina dell'hub, doppio clic su `hub\RIPRISTINA-BACKUP.bat`, scegli il backup più recente, scrivi `SI`: finisce con «Fatto»; in `%APPDATA%\DocMapHub\backups\` c'è la cartella `prima-del-ripristino-…`; riapri l'hub: clienti e licenze ci sono, stessa passphrase.
 - [ ] F9. Clienti › **Situazione (Excel)**: il file si apre con un doppio clic in Excel, colonne separate, accenti giusti.
+
+## G. Nome e marchio (15 min, app 26.12.12 + hub 0.13) — guida: `MARCHIO.md`
+
+- [ ] G1. Dopo l'aggiornamento il PC mostra **Doc Location** (in alto, accesso, scheda del browser) e i dati sono tutti lì; un backup vecchio `DocMap_…json` si ripristina.
+- [ ] G2. Sul telefono (sito online aggiornato con «Siti da aggiornare»): la pagina e l'app installata si chiamano Doc Location dopo una riapertura con la rete; i QR già stampati si aprono come prima.
+- [ ] G3. Hub: un cliente di prova › **Marchio e prezzo** › Modifica, nome «Archivio Prova», sigla AP, un colore; «Siti da aggiornare» › aggiorna il sito di prova: il sito mostra solo «Archivio Prova» (nessun Doc Location), con quel colore.
+- [ ] G4. Stesso cliente: preventivo Studio Pro con sconto 10%: la scheda dice 80,10 €/mese. Poi **Azzera**: torna al listino.
+- [ ] G5. `python tools\brand.py imposta --nome "Prova Nome"` in una **copia** della cartella del programma, poi apri `index.html` della copia: si chiama «Prova Nome». (Non farlo nella cartella vera.)
 
 ## Dopo il collaudo
 

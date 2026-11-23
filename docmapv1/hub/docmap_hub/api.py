@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from . import __version__
 from . import licence as L
 from .registry import RegistryError
+from .branding import brand_name as _bn
 
 KIND_IT = {"web-php": "Sito online (PHP)", "local-python": "Server sul PC del hub",
            "studio-python": "Server di sede"}
@@ -125,12 +126,21 @@ def _current(lics: list[dict]) -> list[dict]:
 # reads
 # ---------------------------------------------------------------------------
 
+def _brand_public(app) -> dict:
+    """Name and mark of the hub UI (brand.js of the program tree; docs/MARCHIO.md)."""
+    from .branding import product_brand
+    b = product_brand(app.hub.registry)
+    return {"product_name": b["product_name"], "hub_name": b.get("hub_name") or "Hub", "mark": b.get("mark") or "",
+            "primary_color": b.get("primary_color") or ""}
+
+
 def session_info(app, logged: bool) -> dict:
     from . import autoaccess
     from .vault import Vault
     v = Vault(app.hub.registry)
     return {
         "version": __version__, "logged": logged, "unlocked": app.unlocked,
+        "brand": _brand_public(app),
         "key_id": app.key_id if logged else None,
         "has_keys": app.has_keys(),
         "vault": ("open" if app.vault_key is not None else "closed") if v.initialized else "none",
@@ -546,7 +556,7 @@ def create_customer(app, body: dict) -> dict:
     if isinstance(body.get("extra"), dict) or body.get("status"):
         reg.update_customer(c["id"], **({"extra": body["extra"]} if isinstance(body.get("extra"), dict) else {}),
                             **({"status": body["status"]} if body.get("status") else {}))
-    pname = _str(body, "project_name") or f"DocMap {c['name']}"
+    pname = _str(body, "project_name") or f"{_bn()} {c['name']}"
     p = reg.add_project(c["id"], pname)
     return {"id": c["id"], "project_id": p["id"]}
 
@@ -557,6 +567,38 @@ def update_customer(app, cid: str, body: dict) -> dict:
         fields["extra"] = body["extra"]
     c = app.hub.registry.update_customer(cid, **fields)
     return {"id": c["id"]}
+
+
+def customer_commercial(app, cid: str, q: dict | None = None) -> dict:
+    """0.13: brand the customer sees (product → reseller → own) and the quote against the price list."""
+    from . import branding as BR
+    from . import pricing as P
+    reg = app.hub.registry
+    c = reg.get_customer(cid)
+    lst = P.load_listino(app.hub.dir)
+    return {"brand": BR.brand_for_customer(reg, c), "own_brand": BR.customer_extra(c).get("brand") or {},
+            "reseller_brand": (reg.get_reseller(c["reseller_id"]).get("branding") or {}) if c.get("reseller_id") else {},
+            "product_name": BR.brand_name(reg), "quote": P.quote(lst, c),
+            "plans": {k: {"label": v.get("label", k), "monthly_eur": (v.get("price") or {}).get("monthly_eur"),
+                          "yearly_eur": (v.get("price") or {}).get("yearly_eur")} for k, v in lst["plans"].items()},
+            "modules": {k: v.get("label", k) for k, v in (lst.get("modules") or {}).items()}}
+
+
+def set_customer_commercial(app, cid: str, body: dict) -> dict:
+    from . import branding as BR
+    from . import pricing as P
+    reg = app.hub.registry
+    if isinstance(body.get("preventivo"), dict):
+        P.set_quote(reg, cid, body["preventivo"], clear=bool(body.get("preventivo_azzera")))
+    elif body.get("preventivo_azzera"):
+        P.set_quote(reg, cid, {}, clear=True)
+    if "brand" in body:
+        new = {k: v for k, v in (body.get("brand") or {}).items() if v not in (None, "")}
+        errs = BR.validate_override(reg, new) if new else []
+        if errs:
+            raise RegistryError("Marchio non valido: " + "; ".join(errs))
+        reg.update_customer(cid, extra={"brand": new or None})
+    return customer_commercial(app, cid)
 
 
 def customer_delete_preview(app, cid: str, q: dict | None = None) -> dict:

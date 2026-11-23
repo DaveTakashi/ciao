@@ -156,7 +156,8 @@ def app_version_of(api_php: Path) -> str | None:
 
 def run_build_deploy(target: Path, *, base_path: str = "/", slug: str = "studio", domain: str = "http://127.0.0.1",
                      studio_name: str = "", reg: Registry | None = None, timeout: int = 300,
-                     trusted_keys: Path | None = None, licence: Path | None = None) -> dict:
+                     trusted_keys: Path | None = None, licence: Path | None = None, brand: dict | None = None) -> dict:
+    """tools/build_deploy.py into ``target``; ``brand`` = brand fields that replace brand.js (reseller / customer)."""
     script = build_deploy_script(reg)
     cmd = [sys.executable, str(script), str(target), "--base-path", base_path or "/", "--slug", slug or "studio",
            "--domain", domain or "http://127.0.0.1"]
@@ -166,7 +167,13 @@ def run_build_deploy(target: Path, *, base_path: str = "/", slug: str = "studio"
         cmd += ["--trusted-keys", str(trusted_keys)]
     if licence:
         cmd += ["--licence", str(licence)]
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    import tempfile
+    with tempfile.TemporaryDirectory(prefix="docmap-brand-") as td:
+        if brand:
+            bf = Path(td) / "marchio.json"
+            bf.write_text(json.dumps(brand, ensure_ascii=False), "utf-8")
+            cmd += ["--brand", str(bf)]
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
     if r.returncode != 0:
         raise RunnerError("Costruzione del deploy non riuscita: " + (r.stderr or r.stdout).strip()[-500:])
     return {"target": target, "version": app_version_of(target / "server-php" / "api.php"),

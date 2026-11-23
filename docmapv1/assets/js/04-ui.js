@@ -333,7 +333,7 @@ function mergeManifest(text, prune){
 }
 function exportFullCSV(){
   const rows = [CSV_COLUMNS].concat(sortedBinders().map(b => binderToCsvRow(b).map(safeCell)));
-  const name = 'docmap_full_backup.csv';
+  const name = brandFile('full_backup', 'csv');
   download(name, '﻿' + toCSV(rows, ';'), 'text/csv');
   markExported(name); toast(t('ex_done', {f:name}));
 }
@@ -342,13 +342,13 @@ function workspaceJSON(withLog){   // withLog: backups carry the activity log (o
     settings:S.settings, lang:S.lang, print:S.print, customPresets:S.customPresets, usedSlots:S.usedSlots, binders:S.binders, clients:S.clients || [], locations:S.locations || [], archives:S.archives || [], activity_log:withLog ? logEntriesForBackup() : undefined }, null, 2);
 }
 function exportJSON(){
-  const name = 'docmap_workspace.json';
+  const name = brandFile('workspace', 'json');
   download(name, workspaceJSON(true), 'application/json');
   markExported(name); toast(t('ex_done', {f:name}));
 }
 function quickBackup(){
   const d = new Date(), p = (n) => String(n).padStart(2, '0');
-  const name = 'docmap_workspace_' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '_' + p(d.getHours()) + p(d.getMinutes()) + '.json';
+  const name = brandFile('workspace_') + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '_' + p(d.getHours()) + p(d.getMinutes()) + '.json';
   download(name, workspaceJSON(true), 'application/json');
   markExported(name); toast(t('ex_done', {f:name}));
   $$('.overlay [data-a="quick-backup"]').forEach(b => { b.disabled = true; });
@@ -364,10 +364,10 @@ function buildAIPrompt(includeCtx){
   const clients = Array.from(new Set(S.binders.map(b => b.company_name + ' → ' + initialsOf(b.company_name)))).slice(0, 60);
   const L = [];
   L.push('###################################################################');
-  L.push('### PART 1 — SYSTEM INSTRUCTIONS FOR THE AI (DocMap 2026 / DM26) ###');
+  L.push(('### PART 1 — SYSTEM INSTRUCTIONS FOR THE AI (' + brandName() + ') ###'));
   L.push('###################################################################');
   L.push('');
-  L.push('ROLE: You are a meticulous archival data-entry assistant for an Italian accounting firm (studio commercialista / CPA firm). Convert the user\'s notes, lists or photos (PART 2, written in Italian) into rows for "DocMap 2026", a physical-digital archive of binders (faldoni / cartelle).');
+  L.push(('ROLE: You are a meticulous archival data-entry assistant for an Italian accounting firm (studio commercialista / CPA firm). Convert the user\'s notes, lists or photos (PART 2, written in Italian) into rows for "' + brandName() + '", a physical-digital archive of binders (faldoni / cartelle).'));
   L.push('');
   L.push('OUTPUT RULES (MANDATORY — follow exactly):');
   L.push('1. Reply with EXACTLY ONE fenced code block labelled csv and NOTHING ELSE: no greeting, no explanation, no notes before or after the block.');
@@ -388,14 +388,14 @@ function buildAIPrompt(includeCtx){
   L.push('- room_code: room letter or name exactly as the user calls it (A, B, "Ufficio 1", "Archivio"…). cabinet_code: cabinet number (1, 2, 3…). All location fields are optional: leave empty what is not known.');
   L.push('- shelf_code: shelf identifier as the user uses it: numbers (1, 2, 3), letters (A, B), Greek letters from the top down (α, β, γ, δ, ε), an emoji, a symbol or a short name. Default suggestion: Greek letters.');
   L.push('- sector_code: optional horizontal sector: SX (left), CX (centre), DX (right). Leave empty if unknown.');
-  L.push('- location_code: room_code + cabinet_code + "-" + shelf_code, plus "-" + sector_code when present. Examples: A1-α, B2-β-SX. With a room name use "Ufficio 1 · 2-α". You can also leave it empty: DocMap computes it.');
+  L.push(('- location_code: room_code + cabinet_code + "-" + shelf_code, plus "-" + sector_code when present. Examples: A1-α, B2-β-SX. With a room name use "Ufficio 1 · 2-α". You can also leave it empty: ' + brandName() + ' computes it.'));
   L.push('- archive_state: CURRENT (archivio corrente), HISTORICAL (archivio storico), CHECKED_OUT (in uso / prelevato). Default: CURRENT.');
   L.push('- contents: the documents inside the binder, pipe-separated, each as "YEAR: Description" (year optional). Example: 2025: Fatture Acquisto Q1-Q4|2025: Liquidazioni IVA|2024: Bilancio d\'esercizio. If nothing is known, leave empty.');
   L.push('- tags: comma-separated lowercase keywords without spaces (e.g. iva,fatture,bilancio,2025).');
   L.push('- color_hex: by category → Ordinaria #2563EB, Semplificata #059669, Lavoro #D97706, Societario #7C3AED, Dichiarativi #DC2626, any other #475569.');
-  L.push('- short_code: PREFERABLY LEAVE EMPTY — DocMap generates a unique code automatically. If you fill it, it must be "dm26" + exactly 8 characters from A-Z a-z 2-9, excluding I O l o (example: dm26K8m2P9xL), unique in the file.');
+  L.push(('- short_code: PREFERABLY LEAVE EMPTY — ' + brandName() + ' generates a unique code automatically. If you fill it, it must be "dm26" + exactly 8 characters from A-Z a-z 2-9, excluding I O l o (example: dm26K8m2P9xL), unique in the file.'));
   L.push('- short_url: leave empty if short_code is empty, otherwise https://qr7.it/{short_code}.');
-  L.push('- final_destination: leave EMPTY (DocMap fills it from the studio template).');
+  L.push(('- final_destination: leave EMPTY (' + brandName() + ' fills it from the studio template).'));
   L.push('- ref_year: optional reference year of the contents (e.g. 2025, or a range like 2020-2024). Not the creation date.');
   L.push('- extra_codes: optional other identifiers printed on the archive part of the label (protocol numbers, practice numbers…), comma-separated. Never invent them.');
   L.push('- contacts: optional people involved with the binder (client contact, colleague in charge…), comma-separated, as the user wrote them. Never invent names.');

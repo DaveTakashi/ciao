@@ -19,6 +19,7 @@ import re
 
 from . import __version__
 from .registry import RegistryError
+from .branding import brand_name as _bn
 
 FORMAT = "docmap-progetto/1"
 PLACEHOLDER_RE = re.compile(r"^\{\{[A-Z0-9_ ]+\}\}$")
@@ -117,7 +118,7 @@ EXAMPLE: dict = {
         "note": "Due sedi, archivio cartaceo di 1.800 faldoni. Vuole partire a gennaio.",
     },
     "progetto": {
-        "nome": "DocMap Studio Rossi",
+        "nome": f"{_bn()} Studio Rossi",
         "nome_studio": "Studio Rossi",
         "installazioni": ["sede", "online"],
         "custodia_chiave": False,
@@ -159,10 +160,10 @@ def build_prompt(hub) -> str:
     plans = "\n".join(f"  - `{k}`: {v.get('label', k)} — durata {v.get('duration_months', 12)} mesi, limiti "
                       f"{_limits_txt(v.get('limits') or {})}" for k, v in hub.plans.items())
     resellers = ", ".join(r["name"] for r in hub.registry.list_resellers()) or "nessuno (vendita diretta)"
-    return f"""Sei l'assistente di Dave per preparare un nuovo progetto DocMap (codice DM26) da caricare nel suo DocMap Hub (versione {__version__}).
+    return f"""Sei l'assistente di Dave per preparare un nuovo progetto {_bn()} (codice DM26) da caricare nel suo {_bn()} Hub (versione {__version__}).
 
-## Cos'è DocMap
-DocMap è un sistema "phygital" per archivi cartacei di commercialisti, professionisti, enti e aziende di archiviazione conto terzi: ogni faldone ha un'etichetta con QR (dominio qr7.it), una posizione sugli scaffali e uno storico (prestiti, rientri). Si installa in due modi, anche insieme:
+## Cos'è {_bn()}
+{_bn()} è un sistema "phygital" per archivi cartacei di commercialisti, professionisti, enti e aziende di archiviazione conto terzi: ogni faldone ha un'etichetta con QR (dominio qr7.it), una posizione sugli scaffali e uno storico (prestiti, rientri). Si installa in due modi, anche insieme:
 - **sede**: un PC dello studio fa da server (programma Python, database cifrato, backup cifrati); gli altri PC e i telefoni dello studio si collegano in rete locale. Ogni PC aggiuntivo è una **postazione** con un nome (es. "PC Luigi").
 - **online**: un sito web (PHP) su un hosting, es. https://docmap.pr-it.it/<nome-studio>/, caricato via FTP/FTPS/SFTP. Può avere uno **staging** (sito di prova) con indirizzo e cartella diversi.
 Con sede + online i dati si sincronizzano da soli ogni 10 minuti.
@@ -176,14 +177,14 @@ Con sede + online i dati si sincronizzano da soli ogni 10 minuti.
 ## Regole dei campi
 - `formato`: lascia "{FORMAT}".
 - `cliente.ragione_sociale`: obbligatoria. `partita_iva`: 11 cifre (o codice fiscale), senza "IT". `stato`: "active" (cliente) o "prospect" (trattativa). `colore`: "#RRGGBB" o "". `etichette`: parole brevi. `rivenditore`: uno tra: {resellers}; altrimenti "".
-- `progetto.nome`: es. "DocMap <nome breve>". `nome_studio`: come appare nell'app e sulle etichette. `installazioni`: ["sede"], ["online"] oppure ["sede", "online"]. `custodia_chiave`: true solo se il cliente ha firmato il consenso a farmi conservare la sua chiave (di solito false).
+- `progetto.nome`: es. "{_bn()} <nome breve>". `nome_studio`: come appare nell'app e sulle etichette. `installazioni`: ["sede"], ["online"] oppure ["sede", "online"]. `custodia_chiave`: true solo se il cliente ha firmato il consenso a farmi conservare la sua chiave (di solito false).
 - `licenza.piano`: uno di questi:
 {plans}
   `mesi`: null = durata del piano. `limiti`: null = quelli del piano; -1 = illimitato.
 - `online` (solo se c'è "online"): `indirizzo` e `staging` completi in https e diversi tra loro, finiscono con "/". `ftp.protocollo`: "ftps" (consigliato), "sftp" o "ftp". `ftp.cartella`: la cartella sul server FTP che corrisponde all'indirizzo (es. "/studio-rossi/"); `cartella_staging` diversa. Se non c'è online lascia tutto "".
 - `sede` (solo se c'è "sede"): `indirizzo` = indirizzo del server in rete locale se già noto (es. "https://192.168.1.20:8443/"), altrimenti "". `pc_server`: quale PC fa da server.
 - `postazioni`: gli altri PC dello studio, ciascuno con `nome` univoco ed `etichetta` facoltativa (stanza, uso). Lista vuota se nessuno.
-- `utenti_iniziali`: chi userà DocMap; `ruolo` = "admin", "editor" o "viewer". Almeno un admin.
+- `utenti_iniziali`: chi userà {_bn()}; `ruolo` = "admin", "editor" o "viewer". Almeno un admin.
 - `archivi`: gli archivi fisici da creare (nome + note su dove sono).
 - `domande_aperte`: cose da verificare prima di installare.
 
@@ -516,7 +517,7 @@ def apply_extras(hub, d: dict, rep: dict, draft_id: str) -> list[str]:
     for iid in rep["instances"].values():
         pid = reg.get_instance(iid).get("project_id") or pid
     if pid is None:
-        pid = reg.add_project(cid, p["nome"] or f"DocMap {c['ragione_sociale']}")["id"]
+        pid = reg.add_project(cid, p["nome"] or f"{_bn()} {c['ragione_sociale']}")["id"]
     reg.update_project(pid, name=p["nome"] or reg.get_project(pid)["name"], notes=p["note"] or None,
                        data={"nome_studio": p["nome_studio"], "utenti_iniziali": d["utenti_iniziali"],
                              "archivi": d["archivi"], "pc_server": d["sede"]["pc_server"], "bozza": draft_id})

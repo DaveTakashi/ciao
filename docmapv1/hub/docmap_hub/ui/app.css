@@ -1,4 +1,4 @@
-/* DocMap Hub 0.4 — management app. No external assets: fonts come from the app's own assets/fonts. */
+/* Hub 0.4 — management app. No external assets: fonts come from the app's own assets/fonts. */
 @font-face{font-family:"InterHub";src:url(/ui/fonts/inter-latin-wght-normal.woff2) format("woff2");font-weight:100 900;font-display:swap}
 @font-face{font-family:"InterHub";src:url(/ui/fonts/inter-latin-ext-wght-normal.woff2) format("woff2");font-weight:100 900;font-display:swap;unicode-range:U+0100-024F,U+1E00-1EFF}
 @font-face{font-family:"MonoHub";src:url(/ui/fonts/jetbrains-mono-latin-wght-normal.woff2) format("woff2");font-weight:100 900;font-display:swap}

@@ -1,46 +1,49 @@
-# Listino DocMap 2026 (bozza)
+# Listino Doc Location (bozza da validare con i primi 3-5 clienti)
 
-> Prezzi IVA esclusa, canone annuale anticipato. Da validare con i primi 3-5 clienti (fase F6 della roadmap).
+> **File generato** da `hub/docmap_hub/plans.json` (unica fonte dei prezzi): non modificarlo a mano.
+> Cambia i prezzi in `plans.json`, poi: `python -m docmap_hub listino --md ../docs/commerciale/LISTINO.md`.
+> Prezzi IVA esclusa. Pagando l'anno anticipato: 10 mesi invece di 12. Aggiornato al 2026-11-23.
+> I prezzi concordati con un singolo cliente non vanno qui: sono il suo **preventivo** (`cliente preventivo`).
 
 ## Piani
 
-| Piano | Per chi | Incluso | Prezzo |
+| Piano | Per chi | Incluso | Al mese | All'anno |
+|---|---|---|---|---|
+| **Prova gratuita** (`trial`) | chi vuole provare con i propri faldoni | 1 archivio, fino a 300 faldoni, 2 utenti, telefoni, etichette | **0 €** | 0 € |
+| **Studio** (`studio`) | studio fino a 5 persone | 3 archivi, fino a 5.000 faldoni, 5 utenti, telefoni, etichette, backup | **39 €** | 390 € |
+| **Studio Pro** (`studio_pro`) | studio grande o più sedi | 10 archivi, fino a 20.000 faldoni, 15 utenti, sincronizzazione sede ⇄ online, stati e registro, crediti AI | **89 €** | 890 € |
+| **Archiviazione conto terzi** (`conto_terzi`) | società di archiviazione per conto terzi | 50 archivi, fino a 100.000 faldoni, 30 utenti, prelievi e consegne, crediti AI | **190 €** | 1.900 € |
+| **Appliance (PC dedicato)** (`appliance`) | studio che vuole tutto in sede (mini-PC preconfigurato) | come Studio Pro con 10 utenti, tutto in sede; il mini-PC preconfigurato con backup cifrato si paga a parte + 600 € una tantum | **99 €** | 990 € |
+| **Rivenditore (istanza propria)** (`reseller`) | rivenditore con il proprio marchio (white label) | marchio proprio su app, sito, pacchetti e lettere ai clienti; fino a 10 istanze 290 €/mese, fino a 30 istanze 590 €/mese, oltre 19 €/mese per istanza | **290 €** | 2.900 € |
+
+## Moduli aggiuntivi
+
+| Modulo | Al mese | All'anno | Note |
 |---|---|---|---|
-| **Studio** | studio fino a 5 persone | 1 archivio, fino a 3.000 faldoni, 5 utenti, telefoni, etichette, backup | **390 €/anno** |
-| **Pro** | studio grande o più sedi | archivi illimitati, fino a 20.000 faldoni, 20 utenti, sincronizzazione sede ⇄ online, registro accessi | **890 €/anno** |
-| **Conto terzi** | società di archiviazione | più clienti finali, giacenze e prelievi (modulo dedicato), utenti illimitati | **da 2.500 €/anno** |
+| Conservazione e scarto (verbale firmato) (`retention`) | 9 € | 90 € |  |
+| Consegna e ritiro con firma sul telefono (`handover`) | 9 € | 90 € |  |
+| Spazio online gestito (UE) (`hosting`) | 10 € | 100 € | incluso in Studio Pro, Conto terzi e Rivenditore |
+| Lettura AI delle coste e compilazione dei campi (`ai`) | — | — | crediti prepagati: costo del fornitore AI × 2,5 |
 
-I limiti (faldoni, utenti, archivi) sono scritti nella licenza: superarli non cancella né nasconde nulla, chiede solo
-di passare al piano superiore.
+## Servizi
 
-## Installazione e servizi
-
-| Voce | Prezzo |
+| Servizio | Prezzo |
 |---|---|
-| Avvio (installazione, import dell'elenco clienti, prova di stampa, formazione di 1 ora) | **300 – 1.500 €** una tantum, secondo la dimensione |
-| Appliance in sede (mini-PC preconfigurato con backup cifrato) | **+600 €** una tantum |
-| Spazio online gestito da QR7 (UE) | incluso nel piano Pro; per Studio **+120 €/anno** |
-| Giornata di etichettatura in studio | […] €/giornata + trasferta |
-
-## Servizio di inventario (lavoro a misura)
-
-I prezzi a faldone, a scatola, a documento, la quota fissa e l'IVA **non si scrivono qui**: stanno in un posto solo,
-**Impostazioni › Inventario** dell'app (valori di partenza nel codice: `INV_PRICE_DEFAULT` in
-`assets/js/02f-inventory.js`, oggi di esempio). Il **preventivo** di un cliente si scrive nel suo progetto (un campo
-vuoto usa il prezzo generale) e il report di fine lavoro calcola il totale da lì. Le condizioni privacy del lavoro:
-`NOMINA-SUBRESPONSABILE-AI-BOZZA.md` e `INFORMATIVA-INVENTARIO-AI-BOZZA.md`.
-
-## Moduli aggiuntivi (si accendono dalla licenza)
-
-| Modulo | Stato | Prezzo indicativo |
-|---|---|---|
-| Conservazione e scarto (date di scarto, verbale PDF) | fatto (app 26.12.11), da provare con un consulente | +90 €/anno |
-| Consegna e ritiro documenti con firma sul telefono | fatto (app 26.12.10) | +90 €/anno |
-| Lettura AI (foto → campi compilati; fornitore a scelta, anche locale) | fatto (app 26.12.8, fornitori 26.12.12), mai provato con una chiave vera | crediti prepagati, ricarico 2-3× sul costo |
-| White-label per rivenditori | in licenza (campo `reseller`, `branding`) | 30–40% al rivenditore sul canone |
+| Avvio: installazione, import dell'elenco clienti, prova di stampa, 1 ora di formazione | 300 € – 1.500 € una tantum |
+| Giornata di etichettatura in studio | da 450 € (più trasferta) |
+| Ora di formazione in più (anche online) | da 60 € |
 
 ## Regole
 
 - Rinnovo automatico salvo disdetta 30 giorni prima della scadenza.
-- Licenza scaduta: 30 giorni di tolleranza, poi **sola lettura** (mai blocco dei dati, sempre esportabili).
+- I limiti (faldoni, utenti, archivi) sono scritti nella licenza: superarli non cancella né nasconde nulla, chiede solo di passare al piano superiore.
+- Licenza scaduta: i giorni di tolleranza del piano, poi sola lettura (mai blocco dei dati, sempre esportabili).
+- Rivenditore: incassa dal cliente finale al prezzo che sceglie; paga il canone del piano Rivenditore più le istanze oltre la soglia.
 - Fattura elettronica (SDI). Pagamento con bonifico o link di pagamento.
+
+## Prezzi per cliente (preventivo)
+
+Il preventivo di un cliente contiene solo quello che cambia rispetto al listino: piano, fatturazione
+(mensile o annuale), sconto in % **oppure** canone concordato, moduli, avvio, note, validità. Tutto il resto
+viene da qui. Comandi: `cliente preventivo <cliente>` (mostra), `cliente preventivo <cliente> --piano studio_pro
+--sconto 10 --moduli retention,handover` (imposta), `--azzera` (torna al listino). Guida: docs/MARCHIO.md §5.

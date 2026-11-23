@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from .licence import format_time
+from .branding import brand_name as _bn
 
 DB_NAME = "registry.sqlite3"
 
@@ -310,7 +311,7 @@ class Registry:
         pid = "prj-" + uuid.uuid4().hex[:12]
         now = _now()
         self.conn.execute("INSERT INTO projects(id,customer_id,name,status,created_at,updated_at) VALUES(?,?,?,?,?,?)",
-                          (pid, customer_id, f"DocMap {c[0] if c else ''}".strip(), "active", now, now))
+                          (pid, customer_id, f"{_bn()} {c[0] if c else ''}".strip(), "active", now, now))
         self.log("project.add", "project", pid, {"customer_id": customer_id, "auto": True}, commit=False)
         return pid
 
@@ -365,6 +366,17 @@ class Registry:
                  json.dumps(branding, ensure_ascii=False, sort_keys=True) if branding else None, notes, _now()))
             self.log("reseller.add", "reseller", rid, {"name": name, "branding": branding}, commit=False)
         return self.get_reseller(rid)
+
+    def update_reseller_branding(self, ref: str, branding: dict | None) -> dict:
+        """0.13: the reseller's brand (brand.js fields: product_name, mark, logo_url, primary_color, support_email, …)."""
+        r = self.get_reseller(ref)
+        if branding is not None and not str(branding.get("product_name") or "").strip():
+            raise RegistryError("Il marchio del rivenditore ha bisogno almeno del nome del prodotto (product_name).")
+        with self.conn:
+            self.conn.execute("UPDATE resellers SET branding_json=? WHERE id=?",
+                              (json.dumps(branding, ensure_ascii=False, sort_keys=True) if branding else None, r["id"]))
+            self.log("reseller.branding", "reseller", r["id"], {"branding": branding}, commit=False)
+        return self.get_reseller(r["id"])
 
     def get_reseller(self, ref: str) -> dict:
         r = self._find("resellers", ref, "rivenditore")
@@ -482,7 +494,7 @@ class Registry:
 
     # -- v0.4: customer details, projects, workstations, drafts --------------------------------------
     CUSTOMER_EXTRA = ("contact", "phone", "pec", "address", "city", "province", "sdi", "codice_multi",
-                      "tags", "color", "website")
+                      "tags", "color", "website", "preventivo", "brand")   # 0.13: quote + own brand (white label)
     CUSTOMER_STATUSES = ("active", "prospect", "suspended", "archived")
 
     @staticmethod

@@ -12,6 +12,7 @@ import zipfile
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from docmap_hub.branding import brand_name  # noqa: E402
 from docmap_hub import pipeline as P
 from docmap_hub.registry import RegistryError
 from test_v04_manager import WebHarness
@@ -116,7 +117,7 @@ class TestPipelineWeb(WebHarness, unittest.TestCase):
         self.assertEqual(cd["customer"]["extra"]["tags"], ["commercialista", "pilota"])
         self.assertEqual(len(cd["projects"]), 1)
         p = cd["projects"][0]
-        self.assertEqual(p["name"], "DocMap Studio Rossi")
+        self.assertEqual(p["name"], f"{brand_name()} Studio Rossi")
         self.assertEqual(p["data"]["archivi"][1]["nome"], "Archivio storico")
         self.assertEqual([w["name"] for w in p["workstations"]], ["PC Luigi", "PC Reception"])
         self.assertEqual(p["instances"][0]["licence"]["limits"]["users"], 8)       # custom limit from the JSON

@@ -9,12 +9,14 @@ step(){ echo; echo "== $1"; }
 # run() inside ( … ) cannot set fail in this shell: it also returns 1, and every ( … ) line adds || fail=1
 run(){ "$@" || { echo "  ✗ FAILED: $*"; fail=1; return 1; }; }
 step "syntax: JavaScript"
-for f in assets/js/*.js docmap.config.js hub/docmap_hub/ui/app.js; do node --check "$f" || { echo "  ✗ $f"; fail=1; }; done
+for f in assets/js/*.js docmap.config.js brand.js hub/docmap_hub/ui/app.js; do node --check "$f" || { echo "  ✗ $f"; fail=1; }; done
 step "lint: JavaScript (globals between files, eslint bug rules)"
 if NODE_PATH="${NODE_PATH:-$(npm root -g)}" node -e "require('eslint')" 2>/dev/null; then
   NODE_PATH="${NODE_PATH:-$(npm root -g)}" run node tools/lint-js.js
 else echo "  (eslint not installed: npm install -g eslint — skipped)"; fi
 step "lint: Python (pyflakes, only real bugs)"; run python3 tools/lint-py.py
+step "brand (white label): brand.js valid, derived files aligned, no product name in strings"
+run node --check brand.js && run python3 tools/brand.py controlla
 step "CI: .github/workflows/docmap-ci.yml = ci/docmap-ci.yml"
 if [ -f ../.github/workflows/docmap-ci.yml ]; then run cmp -s ci/docmap-ci.yml ../.github/workflows/docmap-ci.yml && echo "  OK same file"
 else echo "  (CI not active: .github/workflows/docmap-ci.yml missing)"; fi

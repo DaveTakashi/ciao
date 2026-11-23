@@ -2,7 +2,7 @@
    DocMap 2026 — core: i18n, state, persistence, data model helpers
    ===================================================================== */
 'use strict';
-const APP_VERSION = '26.12.12';
+const APP_VERSION = '26.12.13';
 const LS_KEY = 'docmap_v26_state';
 const LS_PREV = 'docmap_v26_state_prev';
 const SC_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
@@ -90,10 +90,10 @@ const I18N = {
     ex_h:'Esporta e Salva', ex_p:'Quattro uscite distinte. Ogni esportazione CSV/JSON azzera l\'avviso "modifiche non scaricate".',
     ex1:'Manifest qr7.it (redirect)', ex1_d:'CSV con delimitatore punto e virgola e intestazione esatta short_code;short_url;final_destination;tags; (ogni riga termina con ;), pronto per il server qr7.it.',
     ex1_btn:'Scarica manifest_qr7_dm26.csv', ex1_merge:'Unisci al manifest.csv esistente', ex1_merge_d:'Carica il tuo manifest.csv attuale: tutte le righe esistenti (es. 1TSE0G, Oliva01) vengono conservate, le righe dm26 vengono aggiornate o aggiunte in fondo senza duplicati.',
-    ex1_merge_btn:'Carica manifest.csv e unisci', ex1_prune:'Rimuovi le righe dm26 non più presenti in DocMap',
+    ex1_merge_btn:'Carica manifest.csv e unisci', ex1_prune:('Rimuovi le righe dm26 non più presenti in ' + brandName()),
     ex1_merged:'manifest.csv aggiornato: {k} righe conservate, {u} dm26 aggiornate, {a} dm26 aggiunte{r}.', ex1_removed:', {n} dm26 rimosse',
-    ex2:'Database completo CSV', ex2_d:'Tutti i campi (contenuti separati da |). Reimportabile in DocMap e apribile in Excel (UTF-8, punto e virgola).', ex2_btn:'Scarica docmap_full_backup.csv',
-    ex3:'Sessione completa JSON', ex3_d:'Copia integrale senza perdite: faldoni, impostazioni studio, preset geometrici personalizzati e mappa fogli parziali.', ex3_btn:'Scarica docmap_workspace.json',
+    ex2:'Database completo CSV', ex2_d:('Tutti i campi (contenuti separati da |). Reimportabile in ' + brandName() + ' e apribile in Excel (UTF-8, punto e virgola).'), ex2_btn:('Scarica ' + brandFile('full_backup', 'csv')),
+    ex3:'Sessione completa JSON', ex3_d:'Copia integrale senza perdite: faldoni, impostazioni studio, preset geometrici personalizzati e mappa fogli parziali.', ex3_btn:('Scarica ' + brandFile('workspace', 'json')),
     ex4:'Registro Generale d\'Archivio (A4 / PDF)', ex4_d:'Tabella riassuntiva stampabile con codice, posizione, cliente, contenuti, QR, short code e URL qr7.it.', ex4_btn:'Apri Registro e Stampa',
     ex_last:'Ultima esportazione: {d}', ex_never:'Nessuna esportazione eseguita in questa sessione',
     ex_done:'File scaricato: {f}', ex_sel_only:'Solo faldoni selezionati per la stampa',
@@ -110,7 +110,7 @@ const I18N = {
     se_dest_prev:'Esempio', se_apply_dest:'Applica il modello a tutti i faldoni (sovrascrive le destinazioni personalizzate)', se_lang:'Lingua interfaccia',
     se_data:'Dati e sicurezza', se_storage:'Spazio occupato in localStorage: {k} KB', se_restore:'Ripristina da backup JSON', se_demo:'Ricarica dataset demo', se_wipe:'Svuota area di lavoro',
     se_wiped:'Area di lavoro svuotata', se_demo_done:'Dataset demo caricato', se_prev_restore:'Ripristina snapshot precedente', se_prev_done:'Snapshot precedente ripristinato',
-    se_prev_none:'Nessuno snapshot precedente disponibile', se_about:'DocMap 2026 (DM26) • versione {v} • funziona offline; i dati restano in questo browser (e sul server online dello studio, se collegato).',
+    se_prev_none:'Nessuno snapshot precedente disponibile', se_about:('' + brandName() + ' • versione {v} • funziona offline; i dati restano in questo browser (e sul server online dello studio, se collegato).'),
     regenerated:'Nuovo short code generato', qr_modal:'QR Code', open_url:'Apri link'
   },
   en:{
@@ -172,10 +172,10 @@ const I18N = {
     ex_h:'Export & Save', ex_p:'Four distinct outputs. Every CSV/JSON export clears the "changes not downloaded" warning.',
     ex1:'qr7.it Manifest (redirect)', ex1_d:'Semicolon-delimited CSV with the exact header short_code;short_url;final_destination;tags; (every line ends with ;), ready for the qr7.it server.',
     ex1_btn:'Download manifest_qr7_dm26.csv', ex1_merge:'Merge into existing manifest.csv', ex1_merge_d:'Upload your current manifest.csv: all existing rows (e.g. 1TSE0G, Oliva01) are preserved, dm26 rows are updated or appended at the bottom with no duplicates.',
-    ex1_merge_btn:'Upload manifest.csv and merge', ex1_prune:'Remove dm26 rows no longer present in DocMap',
+    ex1_merge_btn:'Upload manifest.csv and merge', ex1_prune:('Remove dm26 rows no longer present in ' + brandName()),
     ex1_merged:'manifest.csv updated: {k} rows preserved, {u} dm26 updated, {a} dm26 appended{r}.', ex1_removed:', {n} dm26 removed',
-    ex2:'Complete database CSV', ex2_d:'All fields (contents pipe-separated). Re-importable into DocMap and opens in Excel (UTF-8, semicolon).', ex2_btn:'Download docmap_full_backup.csv',
-    ex3:'Complete session JSON', ex3_d:'Lossless dump: binders, studio settings, custom geometry presets and partial sheet map.', ex3_btn:'Download docmap_workspace.json',
+    ex2:'Complete database CSV', ex2_d:('All fields (contents pipe-separated). Re-importable into ' + brandName() + ' and opens in Excel (UTF-8, semicolon).'), ex2_btn:('Download ' + brandFile('full_backup', 'csv')),
+    ex3:'Complete session JSON', ex3_d:'Lossless dump: binders, studio settings, custom geometry presets and partial sheet map.', ex3_btn:('Download ' + brandFile('workspace', 'json')),
     ex4:'Master Archive Register (A4 / PDF)', ex4_d:'Printable summary table with code, location, client, contents, QR, short code and qr7.it URL.', ex4_btn:'Open Register & Print',
     ex_last:'Last export: {d}', ex_never:'No export done in this session yet',
     ex_done:'File downloaded: {f}', ex_sel_only:'Only binders selected for printing',
@@ -190,7 +190,7 @@ const I18N = {
     se_dest_prev:'Example', se_apply_dest:'Apply the template to all binders (overwrites custom destinations)', se_lang:'Interface language',
     se_data:'Data & safety', se_storage:'localStorage usage: {k} KB', se_restore:'Restore from JSON backup', se_demo:'Reload demo dataset', se_wipe:'Clear workspace',
     se_wiped:'Workspace cleared', se_demo_done:'Demo dataset loaded', se_prev_restore:'Restore previous snapshot', se_prev_done:'Previous snapshot restored',
-    se_prev_none:'No previous snapshot available', se_about:'DocMap 2026 (DM26) • version {v} • works offline; data stays in this browser (and on the studio online server, if connected).',
+    se_prev_none:'No previous snapshot available', se_about:('' + brandName() + ' • version {v} • works offline; data stays in this browser (and on the studio online server, if connected).'),
     regenerated:'New short code generated', qr_modal:'QR Code', open_url:'Open link'
   }
 };
@@ -476,7 +476,7 @@ function demoBinders(){
 /* ---------------- State ---------------- */
 function defaultState(){
   return {
-    schema:26.9, app:'DocMap26', lang:'it', view:'archive',
+    schema:26.9, app:'DocMap26', lang:BRAND.default_language, view:'archive',
     settings:{ studioName:'Studio Demo Commercialisti Associati', destTemplate:DEFAULT_DEST, qrEcc:'M', operator:'', colorMode:'company' },   // colorMode: spine colour assignment (02b-colors.js)   // operator: name shown in the activity log (06e-log.js)
     binders:[],
     print:{ presetId:'mrink143', geometry:geoFromPreset(BUILTIN_PRESETS[0]), geometryModified:false, padding:4, offsetX:0, offsetY:0,
@@ -525,7 +525,7 @@ function migrate(st){
   if (typeof locIndexUse === 'function') locIndexUse(null);
   // v10: a state without settings.colorMode predates smart colours: keep every colour, lock the hand-picked ones (02b-colors.js)
   if (st && !(st.settings && st.settings.colorMode) && typeof colorLockLegacy === 'function') colorLockLegacy(o.binders, o.settings);
-  if (!['it','en'].includes(o.lang)) o.lang = 'it';
+  if (!BRAND.languages.includes(o.lang)) o.lang = BRAND.default_language;
   if (o.view === 'clients'){ o.view = 'info'; o.infoTab = 'clients'; }   // v8: the client register lives in Informazioni
   o.syncJournal = Array.isArray(o.syncJournal) ? o.syncJournal.filter(e => e && typeof e === 'object' && e.id) : [];   // v11 (06i-journal.js): absent in v10.1 states
   o.statusEvents = typeof sqNormEvents === 'function' ? sqNormEvents(o.statusEvents) : Array.isArray(o.statusEvents) ? o.statusEvents : [];   // v12 (02d-status.js): absent before v12

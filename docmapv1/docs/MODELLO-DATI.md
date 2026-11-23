@@ -851,7 +851,7 @@ extra:[{id, code}]}` (scade dopo 4 ore senza scansioni).
 - **Scatola acquisita** = ubicazione radice con id `inv-<short_code>`, `archive_id` = progetto, `name` = numero stampato.
 - **Faldone acquisito** = faldone con id `inv-<short_code>`, `archive_id`, `location_id` (scatola), `speaking_code`, `company_name`
   (= cliente del progetto se c'è) e `inv = {p, st: captured|proposed|review|confirmed, ph (id foto), ai: {company, title, year_from, year_to, doc_type, tags, notes, text, confidence, empty_spine, model, ms, at}, voice, by, dev, at, n, box, ok_by, ok_at}`.
-- **v12.12** (nessuna migrazione, solo campi in più con valore predefinito, `normalizeInv`): progetto `mode` anche
+- **v12.13** (nessuna migrazione, solo campi in più con valore predefinito, `normalizeInv`): progetto `mode` anche
   `station` | `chain`; `doc` (bool, livello documento); `price: {binder, box, doc, fixed, vat}` (preventivo; `null` = prezzo
   generale, `invPrices`); `template` (id del modello); lotti `kind` anche `doc` | `any` (stessa numerazione `binder_to`).
   Faldone: `inv.lvl = 'doc'`, `inv.parent` (id del faldone che lo contiene), `inv.folder` (suo codice) per i documenti;

@@ -1,7 +1,7 @@
 # Avviso al cliente: come inventariamo il suo archivio e cosa fa l'AI (bozza)
 
 > **BOZZA PER IL LEGALE, NON USARE COSÌ.** Scritta da un agente software il 2026-11-23 sulla base di come funziona il
-> programma (versione 26.12.12). È un foglio da consegnare al **cliente** (titolare dei dati) prima di un lavoro di
+> programma (versione 26.12.13). È un foglio da consegnare al **cliente** (titolare dei dati) prima di un lavoro di
 > inventario, insieme all'allegato di nomina [`NOMINA-SUBRESPONSABILE-AI-BOZZA.md`](NOMINA-SUBRESPONSABILE-AI-BOZZA.md).
 > Non è l'informativa agli interessati (art. 13–14): quella resta del cliente, che può riprendere da qui i punti utili.
 > Dove c'è `[…]` va messo il dato vero; dove c'è **[DA VERIFICARE]** decide il legale. Nessun marchio nel testo.

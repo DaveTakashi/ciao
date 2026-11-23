@@ -5,7 +5,7 @@
 > **K9 nuovo anno, K2 scarto proposto con verbale, K8 «Dove lo metto?», K7 ricerca a voce (26.12.11)**. Restano K14 (ponte
 > gestionali, serve un accesso ai gestionali) e le ondate 3–4.
 > **Progetti di inventario** (documento di fattibilità https://claude.ai/artifact/Ffaw1j5QJtignLeVEwj3Uf): fasi 1–2 nella
-> 26.12.8, **fasi 3–4 nella 26.12.12** (stazione fissa, catena a due, verifica, lettore Bluetooth, documenti, modelli,
+> 26.12.8, **fasi 3–4 nella 26.12.13** (stazione fissa, catena a due, verifica, lettore Bluetooth, documenti, modelli,
 > prezzi, report di fine lavoro, AI con qualsiasi fornitore anche locale). Il cambio di marchio è in un thread a parte.
 
 > **Aggiornamento 2026-11-06 — roadmap verso lo stato dell'arte.** Le fasi F0–F10 sotto sono la storia del primo

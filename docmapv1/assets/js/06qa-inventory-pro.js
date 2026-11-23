@@ -240,7 +240,7 @@ function ivqOpenReport(id){
   const R = ivqReport(a);
   openModal({title:t('ivq_report'), size:'lg', body:'<style>' + IVQ_PRINT_CSS + '</style>' + ivqReportHTML(a, R),
     buttons:[{label:t('close'), cls:'btn', action:'modal-close'},
-      {label:t('ivq_r_csv'), cls:'btn', icon:'download', fn:() => { const nm = 'report_inventario_' + slugify(a.inv.code) + '.csv'; download(nm, ivqReportCSV(ivqReport(a)), 'text/csv'); toast(t('ex_done', {f:nm})); }},
+      {label:t('ivq_r_csv'), cls:'btn', icon:'download', fn:() => { const nm = brandFile('report_inventario_' + slugify(a.inv.code), 'csv'); download(nm, ivqReportCSV(ivqReport(a)), 'text/csv'); toast(t('ex_done', {f:nm})); }},
       {label:t('ivq_r_print'), cls:'btn btn-primary', icon:'printer', fn:() => { const html = '<style>' + IVQ_PRINT_CSS + '</style>' + ivqReportHTML(a, ivqReport(a)); closeModal(true); doPrint('register', html); }}]});
 }
 

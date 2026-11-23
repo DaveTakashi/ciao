@@ -265,7 +265,7 @@ async function dbDownload(){
   dbSyncFromState('download');
   await dbPersist();
   const d = new Date(), p = (n) => String(n).padStart(2, '0');
-  const name = 'docmap_' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '_' + p(d.getHours()) + p(d.getMinutes()) + '.sqlite';
+  const name = brandFile('') + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '_' + p(d.getHours()) + p(d.getMinutes()) + '.sqlite';
   downloadBytes(name, DB.db.export(), 'application/x-sqlite3');
   markExported(name); toast(t('ex_done', {f:name}));
 }

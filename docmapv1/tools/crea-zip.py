@@ -30,6 +30,9 @@ from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent          # docmapv1/
+sys.path.insert(0, str(ROOT / "tools"))
+import brand as BR   # noqa: E402  (brand.js reader)
+BN = BR.load(ROOT)["product_name"]
 REPO = ROOT.parent
 SKIP = re.compile(r"^(tests/|ci/|hub/tests/|server-python/tests/|installer-windows/tests/)")
 FORBIDDEN = re.compile(r"(^|/)(dati-studio/|\.venv/|__pycache__/)|\.(sqlite3?|db|docmap-key|docmap-backup|pem|key)$"
@@ -39,7 +42,8 @@ REQUIRED = [
     "hub/run_windows.bat", "hub/RACCOGLI-INFO.bat", "hub/requirements.txt", "hub/docmap_hub/__init__.py",
     "tools/build_deploy.py", "server-php/api.php", "server-php/setup.php", "server-python/docmap_server/__init__.py",
     "installer-windows/installa.bat", "installer-windows/installa.ps1", "installer-windows/docmap_tools.py",
-    "index.html", "scan.html", "docmap.config.js", "CHANGELOG.md", "STATO.md",
+    "index.html", "scan.html", "docmap.config.js", "brand.js", "server-php/brand.php", "tools/brand.py",
+    "hub/docmap_hub/plans.json", "CHANGELOG.md", "STATO.md",
 ]
 # (source in docmapv1/, name in guide/)
 GUIDES = [
@@ -56,6 +60,9 @@ GUIDES = [
     ("docs/AGGIORNAMENTO-v12.9-v12.10.md", "AGGIORNAMENTO-v12.9-v12.10.html"),
     ("docs/AGGIORNAMENTO-v12.10-v12.11.md", "AGGIORNAMENTO-v12.10-v12.11.html"),
     ("docs/AGGIORNAMENTO-v12.11-v12.12.md", "AGGIORNAMENTO-v12.11-v12.12.html"),
+    ("docs/AGGIORNAMENTO-v12.12-v12.13.md", "AGGIORNAMENTO-v12.12-v12.13.html"),
+    ("docs/MARCHIO.md", "MARCHIO.html"),
+    ("docs/commerciale/LISTINO.md", "LISTINO.html"),
 ]
 CSS = """:root{--fg:#1d232b;--mut:#5b6672;--line:#d9dee4;--bg:#fff;--box:#f4f6f8;--acc:#0b6bcb}
 @media (prefers-color-scheme:dark){:root{--fg:#e6e9ed;--mut:#9aa5b1;--line:#333b45;--bg:#14181d;--box:#1e242b;--acc:#5aa7f0}}
@@ -106,19 +113,19 @@ def generated(v: dict) -> dict[str, bytes]:
     files = {}
     for src, dst in GUIDES:
         text = (ROOT / src).read_text("utf-8")
-        title = (text.lstrip().splitlines() or ["DocMap"])[0].lstrip("# ").strip()
+        title = (text.lstrip().splitlines() or [BN])[0].lstrip("# ").strip()
         files[f"guide/{dst}"] = md_to_html(text, title, back=dst != "INIZIA-QUI.html").encode("utf-8")
     upd = ROOT / "docs" / f"AGGIORNAMENTO-HUB-{v['hub']}.md"
     if upd.exists():
         files["guide/AGGIORNAMENTO-HUB.html"] = md_to_html(upd.read_text("utf-8"), upd.stem, back=True).encode("utf-8")
     start = (ROOT / "docs/INIZIA-QUI.md").read_text("utf-8")
-    start = start.replace("# DocMap · Inizia qui",
-                          f"# DocMap · Inizia qui\n\nHub **{v['hub']}** · app **{v['app']}** · zip del "
+    start = start.replace("# Inizia qui",
+                          f"# {BN} · Inizia qui\n\nHub **{v['hub']}** · app **{v['app']}** · zip del "
                           f"{date.today().isoformat()}", 1)
-    page = md_to_html(start, "DocMap · Inizia qui", back=False)
+    page = md_to_html(start, f"{BN} · Inizia qui", back=False)
     files["INIZIA-QUI.html"] = page.replace('href="', 'href="guide/').replace('href="guide/http', 'href="http') \
         .replace('href="guide/#', 'href="#').encode("utf-8")
-    files["guide/INIZIA-QUI.html"] = md_to_html(start, "DocMap · Inizia qui", back=False).encode("utf-8")
+    files["guide/INIZIA-QUI.html"] = md_to_html(start, f"{BN} · Inizia qui", back=False).encode("utf-8")
     return files
 
 

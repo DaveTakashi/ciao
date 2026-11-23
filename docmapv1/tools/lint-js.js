@@ -220,6 +220,15 @@ results.concat([{problems: lintFiles(results)}, {problems: lintStandalone()}]).f
   const k = `${p.file}:${p.line}:${p.rule}:${p.msg}`; if (seen.has(k)) return; seen.add(k); all.push(p);
 }));
 orphanFiles().forEach(p => all.push(p));
+// White label: a product name written inside a string of the app (use brandName(), tools/brand-sweep.js fixes it).
+(function brandLiterals(){
+  const {findings} = require('./brand-sweep.js');
+  fs.readdirSync(path.join(APP, 'assets/js')).filter(f => f.endsWith('.js') && f !== '00-brand.js').forEach(f => {
+    const src = fs.readFileSync(path.join(APP, 'assets/js', f), 'utf8');
+    try { findings(src).forEach(x => all.push({page: '-', file: 'assets/js/' + f, line: src.slice(0, x.node.range[0]).split('\n').length,
+      rule: 'brand-literal', msg: 'product name written in a string: use brandName() (run tools/brand-sweep.js)'})); } catch(e){ /* parse errors are reported above */ }
+  });
+})();
 
 if (process.argv.includes('--json')) { console.log(JSON.stringify({problems: all}, null, 1)); process.exit(all.length ? 1 : 0); }
 all.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line).forEach(p =>

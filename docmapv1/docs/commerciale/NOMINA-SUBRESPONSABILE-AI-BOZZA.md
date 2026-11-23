@@ -1,7 +1,7 @@
 # Allegato alla nomina art. 28 GDPR — inventario di archivi e lettura AI delle foto (bozza)
 
 > **BOZZA PER IL LEGALE, NON USARE COSÌ.** Scritta da un agente software il 2026-11-23 sulla base di come funziona il
-> programma (versione 26.12.12). Va rivista da un avvocato o da un consulente privacy prima di farla firmare. Dove c'è
+> programma (versione 26.12.13). Va rivista da un avvocato o da un consulente privacy prima di farla firmare. Dove c'è
 > `[…]` va messo il dato vero; dove c'è **[DA VERIFICARE]** il legale deve controllare la norma o le condizioni del
 > fornitore. Il testo non nomina un marchio: vale per il software con qualsiasi nome commerciale (anche in rivendita).
 

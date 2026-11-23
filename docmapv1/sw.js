@@ -1,5 +1,5 @@
 /* =====================================================================
-   DocMap 2026 — service worker (v12.9, app installabile). Lives next to index.html; scope = the app folder.
+   Service worker (v12.9, app installabile). Lives next to index.html; scope = the app folder.
 
    What it does
    - Keeps a copy of the PROGRAM files only, so the app opens without network (phone in a basement archive).
@@ -15,11 +15,11 @@
    ===================================================================== */
 'use strict';
 
-const SW_VERSION = '26.12.12';
+const SW_VERSION = '26.12.13';
 const SW_CACHE = 'docmap-shell-' + SW_VERSION;
-const SW_PAGES = ['index.html', 'scan.html', 'docmap.config.js', 'manifest.webmanifest', 'scan.webmanifest'];
+const SW_PAGES = ['index.html', 'scan.html', 'docmap.config.js', 'brand.js', 'manifest.webmanifest', 'scan.webmanifest'];
 /* program paths, relative to the app folder (a leading q/ is the QR route of scan.html: same files) */
-const SHELL_RE = /^(?:q\/)?((?:assets|vendor)\/[^?#]+\.(?:js|css|woff2|png|svg|ico)|docmap\.config\.js|index\.html|scan\.html|[a-z]+\.webmanifest)$/;
+const SHELL_RE = /^(?:q\/)?((?:assets|vendor)\/[^?#]+\.(?:js|css|woff2|png|svg|ico)|docmap\.config\.js|brand\.js|index\.html|scan\.html|[a-z]+\.webmanifest)$/;
 const QR_RE = /^q\/[A-Za-z0-9_-]{1,40}\/?$/;
 
 const swBase = () => new URL('./', self.location.href).href;

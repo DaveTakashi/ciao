@@ -458,7 +458,7 @@ function buildCalibSheet(){
   let inner = '';
   const preset = findPreset(P.presetId);
   const ox = +P.offsetX || 0, oy = +P.offsetY || 0;
-  const head = 'DocMap 2026 • ' + (S.lang === 'en' ? 'CALIBRATION TEST' : 'PROVA DI CALIBRAZIONE') + ' • ' + preset.name + (S.print.geometryModified ? ' (' + t('g_modified') + ')' : '') + ' • Offset X ' + fmtMM(ox) + ' / Y ' + fmtMM(oy) + ' mm • ↑ ALTO / TOP ↑';
+  const head = ('' + brandName() + ' • ') + (S.lang === 'en' ? 'CALIBRATION TEST' : 'PROVA DI CALIBRAZIONE') + ' • ' + preset.name + (S.print.geometryModified ? ' (' + t('g_modified') + ')' : '') + ' • Offset X ' + fmtMM(ox) + ' / Y ' + fmtMM(oy) + ' mm • ↑ ALTO / TOP ↑';
   inner += '<div class="calib-t" style="left:0;width:210mm;top:3.2mm;text-align:center;font-size:1.9mm">' + esc(head) + '</div>';
   [[5,5],[205,5],[5,292],[205,292],[105,148.5]].forEach(([x, y]) => { inner += cross(x, y, 6); });
   // 50 mm scale bar (verifies 100% scale)
@@ -500,10 +500,10 @@ function buildRegisterHTML(list){
     '<td><div class="rq">' + (b.short_code ? DMQR.svg(b.short_url, {ecl:S.settings.qrEcc || 'M', quiet:1, fg:'#000'}) : '') + '</div></td>' +
     '<td><span class="mono" style="font-size:7.5pt;font-weight:700">' + esc(b.short_code) + '</span></td>' +
     '<td><a class="ru" href="' + esc(b.short_url) + '">' + esc(b.short_url) + '</a></td></tr>').join('');
-  return '<div class="reg"><div class="rh"><div><div style="font-size:8pt;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#2563EB">DocMap 2026 • DM26</div><h1>' + esc(t('reg_t')) + '</h1><div style="font-size:10pt;font-weight:600">' + esc(S.settings.studioName) + '</div></div>' +
+  return ('<div class="reg"><div class="rh"><div><div style="font-size:8pt;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#2563EB">' + brandName() + '</div><h1>') + esc(t('reg_t')) + '</h1><div style="font-size:10pt;font-weight:600">' + esc(S.settings.studioName) + '</div></div>' +
     '<div class="m">' + esc(t('reg_gen', {d:fmtDate(nowISO(), true)})) + '<br>' + esc(t('reg_tot', {n:list.length})) + '</div></div>' +
     '<table><thead><tr><th style="width:15mm">' + c[0] + '</th><th style="width:17mm">' + c[1] + '</th><th>' + c[2] + '</th><th>' + c[3] + '</th><th style="width:19mm">' + c[4] + '</th><th style="width:21mm">' + c[5] + '</th><th style="width:28mm">' + c[6] + '</th></tr></thead><tbody>' + rows + '</tbody></table>' +
-    '<div class="foot"><span>DocMap 2026 — Phygital Archive & Precision Label Studio</span><span>' + esc(S.settings.studioName) + '</span></div></div>';
+    ('<div class="foot"><span>' + brandName() + ' — Phygital Archive & Precision Label Studio</span><span>') + esc(S.settings.studioName) + '</span></div></div>';
 }
 
 /* ---------------- Print driver ---------------- */

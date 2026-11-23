@@ -1,6 +1,6 @@
 # Indice della documentazione DocMap
 
-> Mappa di tutti i documenti di `docmapv1/` (versione **26.12.12**, hub **0.12.0**): a cosa serve ognuno, chi lo deve leggere e in che
+> Mappa di tutti i documenti di `docmapv1/` (versione **26.12.13**, hub **0.13.0**): a cosa serve ognuno, chi lo deve leggere e in che
 > ordine. I percorsi sono relativi a `docmapv1/`.
 
 ## Per ripartire (tutti)
@@ -54,8 +54,11 @@
 | [`AGGIORNAMENTO-v12.6-v12.7.md`](AGGIORNAMENTO-v12.6-v12.7.md) | **Guida dalla v12.6 alla v12.7**: solo `setup.php` (cartella dati per ogni sito, risposta JSON per il hub). Nessuna migrazione. |
 | [`AGGIORNAMENTO-v12.8-v12.9.md`](AGGIORNAMENTO-v12.8-v12.9.md) | **Guida dalla v12.8 alla v12.9**: app installabile (PWA, apertura senza rete dei soli file del programma) e cronometro dei tempi reali. Nessuna migrazione. |
 | [`AGGIORNAMENTO-v12.9-v12.10.md`](AGGIORNAMENTO-v12.9-v12.10.md) | **Guida dalla v12.9 alla v12.10**: prelievi con percorso ottimizzato, consegna e rientro firmati con ricevuta verificabile, faldone smarrito (rotta pubblica `finder`), promemoria di rientro, andamento e previsioni, «Oggi», Annulla al posto della domanda. Nessuna migrazione. |
+| [`AGGIORNAMENTO-v12.11-v12.12.md`](AGGIORNAMENTO-v12.11-v12.12.md) | **Guida dalla v12.11 alla v12.12**: nuovo nome Doc Location, marchio in un solo file (`brand.js`), lingue dal marchio. Nessuna migrazione, nessuna rotta nuova. |
+| [`AGGIORNAMENTO-HUB-0.13.0.md`](AGGIORNAMENTO-HUB-0.13.0.md) | Hub alla 0.13: marchio per rivenditore e cliente in ogni sito e pacchetto, listino unico (`plans.json`), preventivo per cliente. Registro invariato. |
+| [`MARCHIO.md`](MARCHIO.md) | **Marchio (white label), lingue e listino**: dove sta il nome, come cambiarlo, rivendere con un altro marchio, cosa resta `docmap` e perché, regola per chi scrive codice, prezzi e preventivi. |
 | [`AGGIORNAMENTO-v12.10-v12.11.md`](AGGIORNAMENTO-v12.10-v12.11.md) | **Guida dalla v12.10 alla v12.11**: nuovo anno in un clic, scarto proposto con regole di conservazione e verbale con impronta, «Dove lo metto?», ricerca a voce. Nessuna migrazione, nessuna rotta nuova. |
-| [`AGGIORNAMENTO-v12.11-v12.12.md`](AGGIORNAMENTO-v12.11-v12.12.md) | **Guida dalla v12.11 alla v12.12**: inventario fasi 3 e 4 (stazione fissa, catena a due, verifica scatole, lettore Bluetooth, documenti, modelli, prezzi, report di fine lavoro) e lettura AI con qualsiasi fornitore (anche locale). Nessuna migrazione, nessuna rotta nuova. |
+| [`AGGIORNAMENTO-v12.12-v12.13.md`](AGGIORNAMENTO-v12.12-v12.13.md) | **Guida dalla v12.12 alla v12.13**: inventario fasi 3 e 4 (stazione fissa, catena a due, verifica scatole, lettore Bluetooth, documenti, modelli, prezzi, report di fine lavoro) e lettura AI con qualsiasi fornitore (anche locale). Nessuna migrazione, nessuna rotta nuova. |
 | [`AGGIORNAMENTO-v12.7-v12.8.md`](AGGIORNAMENTO-v12.7-v12.8.md) | **Guida dalla v12.7 alla v12.8**: Progetti di inventario (etichette, telefono Scatola → Faldoni, revisione, AI facoltativa), indirizzo dei QR configurabile. Migrazioni solo additive. |
 | [`AGGIORNAMENTO-HUB-0.12.0.md`](AGGIORNAMENTO-HUB-0.12.0.md) | DocMap Hub: alla 0.12 (backup automatico a ogni versione nuova, backup controllati, ripristino sicuro, Controllo dell'hub, situazione clienti in Excel). Registro invariato. |
 | [`AGGIORNAMENTO-HUB-0.11.2.md`](AGGIORNAMENTO-HUB-0.11.2.md) | DocMap Hub: alla 0.11.2 (zip completo con «Inizia qui», guide HTML, domande frequenti, RACCOGLI-INFO.bat, zip controllato). |

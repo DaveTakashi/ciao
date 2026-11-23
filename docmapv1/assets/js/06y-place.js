@@ -179,10 +179,10 @@ document.addEventListener('DOMContentLoaded', () => {
   HELP_TOPICS.push({ id:'place', guide:null, tags:['archive'], pop:46, related:['locations', 'newyear'],
     kw:{it:'dove lo metto posizione suggerita collocare sistemare scaffale ripiano accanto vicino spazio pieno capienza', en:'where put place suggestion locate shelf next to room full capacity'},
     title:{it:'Come so dove mettere un faldone nuovo («Dove lo metto?»)?', en:'How do I know where to put a new binder («Where do I put it?»)?'},
-    body:{it:'<p>Nella scheda del faldone, sotto la posizione, premi <b>Dove lo metto?</b>. DocMap guarda dove sono già i faldoni che vanno con lui e ti propone fino a 3 posti, ognuno con il motivo:</p><ul>' +
+    body:{it:('<p>Nella scheda del faldone, sotto la posizione, premi <b>Dove lo metto?</b>. ' + brandName() + ' guarda dove sono già i faldoni che vanno con lui e ti propone fino a 3 posti, ognuno con il motivo:</p><ul>') +
       '<li><b>accanto allo stesso faldone di un altro anno</b> (stesso cliente, categoria e titolo: ad es. «Fatture 2025» per «Fatture 2026»);</li><li>dove sono gli <b>altri faldoni dello stesso cliente</b>;</li><li>con i faldoni della <b>stessa categoria e dello stesso anno</b>, poi della stessa categoria.</li></ul>' +
       '<p><b>Metti qui</b> imposta la posizione (ubicazione dell\'albero o stanza / armadio / ripiano / settore). Non sposta niente da solo: salva la scheda come sempre.</p>' +
-      '<p>Se in <b>Impostazioni › Dove lo metto?</b> scrivi quanti faldoni ci stanno in un posto, un posto pieno non viene più proposto per primo: al suo posto DocMap propone l\'ubicazione accanto (stesso armadio) che ha ancora spazio. <b>Nuovo anno in un clic</b> usa lo stesso calcolo per ogni faldone nuovo.</p>',
+      ('<p>Se in <b>Impostazioni › Dove lo metto?</b> scrivi quanti faldoni ci stanno in un posto, un posto pieno non viene più proposto per primo: al suo posto ' + brandName() + ' propone l\'ubicazione accanto (stesso armadio) che ha ancora spazio. <b>Nuovo anno in un clic</b> usa lo stesso calcolo per ogni faldone nuovo.</p>'),
       en:'<p>In the binder form, under the location, press <b>Where do I put it?</b>: up to 3 places, each with the reason (next to the same binder of another year, where the client\'s other binders are, with the same category and year). <b>Put it here</b> sets the location. With a capacity in Settings, a full place is replaced by the sibling location with room.</p>'}
   });
 });

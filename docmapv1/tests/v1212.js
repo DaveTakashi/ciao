@@ -206,7 +206,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     let csv = null; await p.evaluate(() => { window.__dl = window.download; window.download = (n, t2) => { window.__csv = {n, t:t2}; }; });
     await p.locator('.modal-f .btn').nth(1).click(); await p.waitForTimeout(100);
     csv = await p.evaluate(() => { window.download = window.__dl; return window.__csv; });
-    ok(/Report di fine lavoro — Verdi Legale 2026/.test(RM.h) && RM.tables >= 4 && RM.total && csv && csv.n === 'report_inventario_verdi26.csv' && /fattura;totale;;;;20,98/.test(csv.t) && /operatore;Ivo;8;3;/.test(csv.t), 'report: modal (print layout) and CSV download', {RM, csv:csv && csv.t.slice(0, 300)});
+    ok(/Report di fine lavoro — Verdi Legale 2026/.test(RM.h) && RM.tables >= 4 && RM.total && csv && /_report_inventario_verdi26\.csv$/.test(csv.n) && /fattura;totale;;;;20,98/.test(csv.t) && /operatore;Ivo;8;3;/.test(csv.t), 'report: modal (print layout) and CSV download', {RM, csv:csv && csv.t.slice(0, 300)});
     await p.evaluate(() => closeModal(true));
     await p.click('#ivq-tpl'); await p.waitForTimeout(150); await p.fill('#ivq-tpl-n', 'Studi legali con documenti'); await p.locator('.modal-f .btn-primary').last().click(); await p.waitForTimeout(150);
     const TP = await p.evaluate(() => ({own:invTemplates(S.settings).filter(x => x.custom).map(x => x.it + ':' + x.mode + ':' + x.doc + ':' + x.price.binder), client:JSON.stringify(S.settings.invTemplates).includes('Verdi 2026')}));

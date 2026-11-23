@@ -1,7 +1,7 @@
-# CLAUDE.md — regole fisse per gli agenti su DocMap
+# CLAUDE.md — regole fisse per gli agenti su Doc Location (nome tecnico DocMap)
 
 Leggi questo file per primo, poi [`STATO.md`](STATO.md) (dove siamo) e il manuale tecnico adatto alla zona che tocchi.
-Tutto il codice vero è su `main` (app 26.12.12 dopo la PR delle fasi 3-4 dell'inventario, hub 0.12.0 al 2026-11-23): parti sempre da `main` aggiornato.
+Tutto il codice vero è su `main` (app 26.12.13, hub 0.13.0 al 2026-11-23): parti sempre da `main` aggiornato.
 
 ## Regole che non si discutono
 
@@ -17,6 +17,14 @@ Tutto il codice vero è su `main` (app 26.12.12 dopo la PR delle fasi 3-4 dell'i
    **configurabile** (Impostazioni › Indirizzo dei QR, `S.settings.qrBase` / `DOCMAP_CONFIG.qrBase`). Dave 2026-11-22: Doc Location
    è solo il marchio, mai forzare un dominio nei QR; il codice resta agnostico.
 8. **Mai force-push**; un ramo per thread, PR verso `main`.
+9. **Mai un nome di prodotto dentro il codice.** Il nome (oggi «Doc Location») sta solo in `brand.js`: si usa
+   `brandName()` (JS), `dm_brand_name()` (PHP), `_bn()` (Python). I nomi tecnici `docmap` (chiavi, formati, cartelle,
+   header) **non** si rinominano. Lint `brand-literal` e `tools/brand.py controlla` lo verificano. Guida: [`docs/MARCHIO.md`](docs/MARCHIO.md).
+10. **Prezzi solo in `hub/docmap_hub/plans.json`** (il listino `docs/commerciale/LISTINO.md` è generato); i prezzi di
+   un singolo cliente sono il suo preventivo (`extra.preventivo`), mai una copia del listino.
+   Cosa diversa: le **tariffe dell'inventario** che chi usa l'app fa ai propri clienti (a faldone, scatola, documento)
+   stanno in Impostazioni › Inventario (partenza `INV_PRICE_DEFAULT` in `02f-inventory.js`) e nel preventivo del progetto
+   (`inv.price`); si leggono solo con `invPrices()` (decisione D23).
 
 ## Dove sta cosa
 
