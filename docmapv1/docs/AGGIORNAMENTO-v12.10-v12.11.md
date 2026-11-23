@@ -51,6 +51,11 @@ rotta nuova sul server** (il server cambia solo il numero di versione).
 - Compare solo dove il browser riconosce la voce (Chrome, Edge, Safari). Il riconoscimento è del browser, che può
   inviare l'audio al proprio servizio: DocMap riceve solo il testo.
 
+### Correzioni comprese
+
+- Faldone smarrito: l'e-mail dello studio accetta solo un indirizzo semplice e il link è codificato.
+- Dizionario inglese dell'inventario senza testi italiani doppi.
+
 ## File nuovi
 
 `assets/js/02l-years.js`, `02m-voice.js`, `06w-newyear.js`, `06x-retention.js`, `06y-place.js`, `06z-voice.js`,
