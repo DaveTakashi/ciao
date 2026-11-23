@@ -34,7 +34,9 @@
      photo_put {id, binder_id?, mime, data(base64)}   editor   spine photo → data_dir/photos (encrypted) {id, bytes, existed, at}
      photo    &id   viewer   {id, binder_id, mime, bytes, at, who, data}
      ai_spine {photo_id | data+mime, voice?, hints?}   editor   {enabled:false} or {enabled, provider, model, result, ms}
-              config: ai_provider '' (off) | 'anthropic' | 'mock' (tests), ai_api_key, ai_model, ai_effort, ai_timeout, photo_max_kb
+              config: ai_provider '' (off) | 'anthropic' | 'openai_compatible' | 'ollama' (v12.12, local) | 'mock' (tests),
+              ai_api_key, ai_model, ai_effort, ai_timeout, ai_base_url (v12.12), photo_max_kb; hints.kind spine | doc | page (v12.12)
+     v12.12: project &id&detail=1 → scanned binders also carry l (location id), n (speaking code), d (1 = document)
 
    v12 statuses: record type 'status_event' (append-only movements: taken, returned, given to the council…) written by push
    like any record; HMAC k_short = 'st/b|l/<target id>', k_code = 'stbox/<box id>'; ping feature 'status_events'. No schema change.
@@ -76,8 +78,10 @@ const DM_STATUS_PER_TARGET = 200;   // v12: newest status events returned with a
 const DM_INV_ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
 const DM_INV_BIN = '/^dm26([A-Za-z0-9]{4})([A-Za-z0-9]{4})$/', DM_INV_LOC = '/^dm26L([A-Za-z0-9]{4})([A-Za-z0-9]{4})$/';
 const DM_PHOTO_MIMES = ['image/jpeg', 'image/webp', 'image/png'];
-const DM_AI_PROVIDERS = ['anthropic', 'mock'];
+const DM_AI_PROVIDERS = ['anthropic', 'openai_compatible', 'ollama', 'mock'];   // v12.12: any OpenAI-compatible service, local Ollama / LM Studio
+const DM_AI_KINDS = ['spine', 'doc', 'page'];
 const DM_AI_TAGS_MAX = 40;
+const DM_AI_JSON_HINT = "\nRispondi solo con un oggetto JSON con queste chiavi: company, title, year_from, year_to, doc_type, tags, notes, text, confidence, empty_spine.";
 
 define('DOCMAP_API', true);
 ini_set('display_errors', '0');
@@ -119,7 +123,7 @@ function load_config(): array {
   $c += ['data_dir' => '', 'aes_key' => '', 'tokens' => [], 'allowed_origins' => [], 'max_fails' => 5, 'lock_seconds' => 60, 'max_body_mb' => 20, 'studio_name' => '',
     'journal_keep_days' => 0, 'journal_pulls' => 'changes',   // v11 (optional in config.php): 0 = keep the whole journal; pulls: changes | all | none
     'access_keep_days' => 365, 'access_dedupe_seconds' => 120, 'remember_minutes' => null,
-    'photo_max_kb' => 800, 'ai_provider' => '', 'ai_api_key' => '', 'ai_model' => 'claude-opus-5-5', 'ai_effort' => 'low', 'ai_timeout' => 30];   // v12.8 (optional): spine photos, AI reading of the spine ('' = off, 'anthropic', 'mock' for tests)   // v12 (optional): access log retention (0 = keep all), repeated reads merged, phone sign-in kept (null = device setting; 0 always ask, 480, 43200, -1 never expires)
+    'photo_max_kb' => 800, 'ai_provider' => '', 'ai_api_key' => '', 'ai_model' => 'claude-opus-5-5', 'ai_effort' => 'low', 'ai_timeout' => 30, 'ai_base_url' => ''];   // v12.8 (optional): spine photos, AI reading of the spine ('' = off, 'anthropic', 'mock' for tests)   // v12 (optional): access log retention (0 = keep all), repeated reads merged, phone sign-in kept (null = device setting; 0 always ask, 480, 43200, -1 never expires)
   $key = base64_decode((string)$c['aes_key'], true);
   if ($key === false || strlen($key) !== 32) fail(500, 'config', 'Encryption key missing or invalid: aes_key must be 32 random bytes in base64 (setup.php creates it). The API does not run without encryption.');
   if (!in_array('aes-256-gcm', openssl_get_cipher_methods(), true)) fail(500, 'config', 'OpenSSL without aes-256-gcm.');
@@ -680,10 +684,20 @@ function r_project(PDO $db, array $c): array {
   if (!$row || (int)$row['deleted'] || inv_prefix(rec_data($c, $row)) === '') fail(404, 'not_found', 'project not found');
   $p = rec_public($c, $row); $px = inv_prefix($p['data']);
   // labels already scanned: their records have deterministic ids inv-<short code> (no decryption needed)
-  $q = $db->prepare("SELECT type, id, updated_at FROM records WHERE deleted = 0 AND ((type = 'binder' AND length(id) = 16 AND substr(id, 1, 12) = ?) OR (type = 'location' AND length(id) = 17 AND substr(id, 1, 13) = ?)) ORDER BY id");
+  // v12.12 detail=1 (verification of a box on the phone): binders also carry their box (l), number (n) and level (d)
+  $detail = (string)param($c, 'detail', '') === '1';
+  $q = $db->prepare("SELECT " . ($detail ? '*' : 'type, id, updated_at') . " FROM records WHERE deleted = 0 AND ((type = 'binder' AND length(id) = 16 AND substr(id, 1, 12) = ?) OR (type = 'location' AND length(id) = 17 AND substr(id, 1, 13) = ?)) ORDER BY id");
   $q->execute(['inv-dm26' . $px, 'inv-dm26L' . $px]);
   $sc = [];
-  foreach ($q->fetchAll() as $r) $sc[] = ['t' => $r['type'] === 'location' ? 'l' : 'b', 'c' => substr($r['id'], 4), 'u' => $r['updated_at']];
+  foreach ($q->fetchAll() as $r) {
+    $e = ['t' => $r['type'] === 'location' ? 'l' : 'b', 'c' => substr($r['id'], 4), 'u' => $r['updated_at']];
+    if ($detail && $r['type'] === 'binder') {
+      $d = rec_data($c, $r);
+      $e['l'] = cut_str($d['location_id'] ?? '', 100); $e['n'] = cut_str($d['speaking_code'] ?? '', 60);
+      if (is_array($d['inv'] ?? null) && ($d['inv']['lvl'] ?? '') === 'doc') $e['d'] = 1;
+    }
+    $sc[] = $e;
+  }
   return ['project' => $p['data'], 'etag' => $row['updated_at'], 'scanned' => $sc];
 }
 function photo_dir(array $c): string {
@@ -735,7 +749,8 @@ function ai_hints($h): array {
   $tags = [];
   foreach ((is_array($h['tags'] ?? null) ? $h['tags'] : []) as $t) { $t = cut_str($t, 40); if ($t !== '' && !in_array($t, $tags, true)) $tags[] = $t; if (count($tags) >= DM_AI_TAGS_MAX) break; }
   $yf = (int)($h['year_from'] ?? 0); $yt = (int)($h['year_to'] ?? 0);
-  return ['tags' => $tags, 'year_from' => $yf >= 1800 && $yf <= 2200 ? $yf : 0, 'year_to' => $yt >= 1800 && $yt <= 2200 ? $yt : 0, 'client' => cut_str($h['client'] ?? '', 120)];
+  $k = $h['kind'] ?? 'spine';
+  return ['tags' => $tags, 'year_from' => $yf >= 1800 && $yf <= 2200 ? $yf : 0, 'year_to' => $yt >= 1800 && $yt <= 2200 ? $yt : 0, 'client' => cut_str($h['client'] ?? '', 120), 'kind' => in_array($k, DM_AI_KINDS, true) ? $k : 'spine'];
 }
 /** Same shape whatever the provider answered; tags only among the hints. */
 function ai_norm($r, array $hints): array {
@@ -758,8 +773,13 @@ function ai_mock(string $voice, array $hints): array {
     'confidence' => $voice !== '' ? 0.9 : 0.2, 'empty_spine' => $voice === ''];
 }
 function ai_prompt(string $voice, array $hints): string {
-  $p = "Sei un archivista. La foto mostra la costa (il dorso) di un faldone o di una scatola d'archivio con un'etichetta QR.\n"
-    . "Leggi solo quello che e' scritto sulla costa, a mano o a stampa; ignora il QR e i testi stampati sull'etichetta QR.\n"
+  $kind = $hints['kind'] ?? 'spine';   // v12.12: spine (default) · doc = first page of a document · page = inside of a binder with an empty spine
+  $what = $kind === 'doc' ? "La foto mostra la prima pagina di un documento d'archivio con un'etichetta QR.\n"
+    : ($kind === 'page' ? "La foto mostra la prima pagina o l'interno di un faldone d'archivio (la costa era vuota).\n"
+    : "La foto mostra la costa (il dorso) di un faldone o di una scatola d'archivio con un'etichetta QR.\n");
+  $where = $kind === 'spine' ? "Leggi solo quello che e' scritto sulla costa, a mano o a stampa; ignora il QR e i testi stampati sull'etichetta QR.\n"
+    : "Leggi intestazione, oggetto, date e nomi principali; ignora il QR e i testi stampati sull'etichetta QR.\n";
+  $p = "Sei un archivista. " . $what . $where
     . "Campi: company = ditta, cliente o persona se scritta; title = contenuto in poche parole come scritto (es. \"Fatture acquisti\");\n"
     . "year_from / year_to = anni indicati (0 se mancano, uguali se c'e' un solo anno); doc_type = tipo di documenti in una o due parole;\n"
     . "tags = solo tra questi, se corrispondono: " . ($hints['tags'] ? implode(', ', $hints['tags']) : '(nessuno)') . ";\n"
@@ -810,7 +830,61 @@ function ai_anthropic(array $c, ?array $img, string $voice, array $hints): array
   if (!is_array($r)) fail(502, 'ai_error', 'AI answer not readable');
   return ['model' => (string)($j['model'] ?? $model), 'result' => $r];
 }
-/** ai_spine {photo_id? | data + mime, voice?, hints?:{tags[], year_from, year_to, client}} → {enabled, provider, model, result, ms}. */
+/** v12.12: JSON object in a model's text answer (```json fences and text around it accepted), or null. */
+function ai_parse_text(string $txt): ?array {
+  $s = trim($txt);
+  if (preg_match('/```(?:json)?\s*([\s\S]*?)```/i', $s, $m)) $s = trim($m[1]);
+  $obj = fn($x) => json_decode($x) instanceof stdClass;   // a JSON object, not a list (PHP 8.0: no array_is_list)
+  if ($obj($s)) return json_decode($s, true);
+  $a = strpos($s, '{'); $z = strrpos($s, '}');
+  if ($a !== false && $z !== false && $z > $a) { $x = substr($s, $a, $z - $a + 1); if ($obj($x)) return json_decode($x, true); }
+  return null;
+}
+/** v12.12: base URL of an OpenAI-compatible service ('' = the provider's default: OpenAI in the cloud, Ollama on this machine). */
+function ai_base(array $c, string $prov): string {
+  $u = trim((string)$c['ai_base_url']);
+  if ($u === '') $u = $prov === 'ollama' ? 'http://127.0.0.1:11434/v1' : 'https://api.openai.com/v1';
+  if (!preg_match('#^https?://[^\s]+$#i', $u)) fail(503, 'ai_off', 'ai_base_url must start with http:// or https://');
+  return rtrim($u, '/');
+}
+/** v12.12: any OpenAI-compatible Chat Completions service (OpenAI, Mistral, Azure OpenAI, OpenRouter, vLLM, LM Studio,
+    Ollama…): image as a data URL, JSON mode, the same prompt + the list of keys. The key is optional (local services). */
+function ai_openai(array $c, string $prov, ?array $img, string $voice, array $hints): array {
+  $model = trim((string)$c['ai_model']);
+  if ($model === '' || preg_match('/^claude-/', $model)) fail(503, 'ai_off', 'ai_model must name a model of the ' . $prov . ' service');
+  $content = [['type' => 'text', 'text' => ai_prompt($voice, $hints) . DM_AI_JSON_HINT]];
+  if ($img) $content[] = ['type' => 'image_url', 'image_url' => ['url' => 'data:' . $img['mime'] . ';base64,' . base64_encode($img['raw'])]];
+  $req = ['model' => $model, 'messages' => [['role' => 'user', 'content' => $content]], 'response_format' => ['type' => 'json_object'], 'max_tokens' => 1500];
+  $headers = ['Content-Type: application/json'];
+  $key = (string)$c['ai_api_key']; if ($key !== '') $headers[] = 'Authorization: Bearer ' . $key;
+  $url = ai_base($c, $prov) . '/chat/completions';
+  [$status, $raw] = ai_http($url, $headers, jenc($req), max(5, (int)$c['ai_timeout']));
+  $j = json_decode((string)$raw, true);
+  if ($status < 200 || $status >= 300 || !is_array($j)) fail(502, 'ai_error', 'AI service error' . (is_array($j) && isset($j['error']['message']) && is_string($j['error']['message']) ? ': ' . cut_str($j['error']['message'], 200) : ' (HTTP ' . $status . ')'));
+  $msg = $j['choices'][0]['message'] ?? null;
+  if (is_array($msg) && is_string($msg['refusal'] ?? null) && $msg['refusal'] !== '') fail(502, 'ai_refused', 'the AI declined to read this photo');
+  $txt = is_array($msg) && is_string($msg['content'] ?? null) ? $msg['content'] : '';
+  $r = ai_parse_text($txt);
+  if ($r === null) fail(502, 'ai_error', 'AI answer not readable');
+  return ['model' => (string)($j['model'] ?? $model), 'result' => $r];
+}
+/** POST over HTTPS/HTTP (curl, else streams) → [status, body]; timeouts and network errors become ai_timeout / ai_error. */
+function ai_http(string $url, array $headers, string $body, int $timeout): array {
+  $status = 0;
+  if (function_exists('curl_init')) {
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => $body, CURLOPT_HTTPHEADER => $headers, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => $timeout, CURLOPT_CONNECTTIMEOUT => 10]);
+    $raw = curl_exec($ch); $status = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE); $err = curl_errno($ch); curl_close($ch);
+    if ($raw === false) fail($err === 28 ? 504 : 502, $err === 28 ? 'ai_timeout' : 'ai_error', 'AI service not reachable');
+    return [$status, $raw];
+  }
+  $ctx = stream_context_create(['http' => ['method' => 'POST', 'header' => implode("\r\n", $headers), 'content' => $body, 'timeout' => $timeout, 'ignore_errors' => true]]);
+  $raw = @file_get_contents($url, false, $ctx);
+  if ($raw === false) fail(502, 'ai_error', 'AI service not reachable');
+  foreach ($http_response_header ?? [] as $h) if (preg_match('#^HTTP/\S+\s+(\d{3})#', $h, $m)) $status = (int)$m[1];
+  return [$status, $raw];
+}
+/** ai_spine {photo_id? | data + mime, voice?, hints?:{tags[], year_from, year_to, client, kind}} → {enabled, provider, model, result, ms}. */
 function r_ai_spine(array $c): array {
   $prov = (string)$c['ai_provider'];
   if (!in_array($prov, DM_AI_PROVIDERS, true)) return ['enabled' => false];
@@ -825,7 +899,7 @@ function r_ai_spine(array $c): array {
   }
   if ($img === null && $voice === '') fail(400, 'invalid', 'photo_id, data or voice required');
   if ($prov === 'mock') return ['enabled' => true, 'provider' => 'mock', 'model' => 'mock', 'result' => ai_norm(ai_mock($voice, $hints), $hints), 'ms' => 0];
-  $t0 = microtime(true); $a = ai_anthropic($c, $img, $voice, $hints);
+  $t0 = microtime(true); $a = $prov === 'anthropic' ? ai_anthropic($c, $img, $voice, $hints) : ai_openai($c, $prov, $img, $voice, $hints);
   return ['enabled' => true, 'provider' => $prov, 'model' => $a['model'], 'result' => ai_norm($a['result'], $hints), 'ms' => (int)round((microtime(true) - $t0) * 1000)];
 }
 function r_patch(PDO $db, array $c, array $who): array {

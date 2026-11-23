@@ -26,6 +26,13 @@ const INV_BIN_RE = /^dm26([A-Za-z0-9]{4})([A-Za-z0-9]{4})$/, INV_LOC_RE = /^dm26
 const INV_STATES = ['captured', 'proposed', 'review', 'confirmed'];
 const INV_DEFAULT_TAGS = ['Fatture', 'Bilanci', 'Paghe', 'F24', 'Contratti', 'Banca', 'Corrispondenza', 'Varie'];
 const INV_AUTO_CONFIRM = 0.85;
+/* v12.12 working modes (feasibility doc): box = Scatola → Faldoni · capture = cattura ora, cataloga dopo ·
+   station = stazione fissa (phone on a stand or PC webcam, hands free) · chain = catena a due persone (A scans, B corrects
+   live on the PC). Verification (mode 6) is a screen of the phone available in every mode. */
+const INV_MODES = ['box', 'capture', 'station', 'chain'];
+/* Label batches: box (location codes) · binder · doc (document inside a binder) · any (jolly: the phone decides at the
+   first scan). binder / doc / any share the binder numbering (binder_to), so every one is a normal binder short code. */
+const INV_BATCH_KINDS = ['box', 'binder', 'doc', 'any'];
 
 /** n → 4 chars (base 56). */
 function invSeqCode(n){
@@ -70,10 +77,13 @@ function normalizeInv(i){
   o.code = invCodeClean(o.code);
   o.client = String(o.client || '').replace(/\s+/g, ' ').trim().slice(0, 120);
   o.status = o.status === 'closed' ? 'closed' : 'open';
-  o.mode = o.mode === 'capture' ? 'capture' : 'box';
+  o.mode = INV_MODES.includes(o.mode) ? o.mode : 'box';
+  o.doc = o.doc === true;   // v12.12: document level (labels of documents inside a binder)
+  o.price = invPriceNorm(o.price);   // v12.12: prices of this quote; null fields = the defaults of Impostazioni
+  o.template = String(o.template || '').slice(0, 60);
   o.box_to = Math.max(0, Math.min(INV_MAX, parseInt(o.box_to, 10) || 0));
   o.binder_to = Math.max(0, Math.min(INV_MAX, parseInt(o.binder_to, 10) || 0));
-  o.batches = (Array.isArray(o.batches) ? o.batches : []).filter(b => b && typeof b === 'object').map(b => ({id:String(b.id || uuid()), kind:b.kind === 'box' ? 'box' : 'binder',
+  o.batches = (Array.isArray(o.batches) ? o.batches : []).filter(b => b && typeof b === 'object').map(b => ({id:String(b.id || uuid()), kind:INV_BATCH_KINDS.includes(b.kind) ? b.kind : 'binder',
     from:parseInt(b.from, 10) || 1, to:parseInt(b.to, 10) || 0, at:String(b.at || ''), printed_at:String(b.printed_at || ''), format:String(b.format || '')}));
   o.tags = invNormTags(o.tags);
   o.year_from = invYear(o.year_from); o.year_to = invYear(o.year_to);
@@ -111,6 +121,183 @@ function invSuggestCode(name, taken){
   const tk = new Set((taken || invProjects().map(a => a.inv.code)).map(invCodeClean));
   let c = base, i = 2; while (tk.has(c)){ c = base.slice(0, 9) + i; i++; }
   return c;
+}
+
+/** Kind of the binder-shaped label n: the last batch that covers it (binder | doc | any); 'binder' when none does. */
+function invBatchKind(inv, n){
+  const L = (inv && Array.isArray(inv.batches) ? inv.batches : []).filter(b => b.kind !== 'box' && n >= b.from && n <= b.to);
+  return L.length ? L[L.length - 1].kind : 'binder';
+}
+/** Counter of a batch kind: boxes have their own numbers, the other kinds share the binder numbers. */
+function invCounterKey(kind){ return kind === 'box' ? 'box_to' : 'binder_to'; }
+/** Level of a scanned binder record: 'doc' for documents, else 'binder'. */
+function invLevel(b){ return b && b.inv && b.inv.lvl === 'doc' ? 'doc' : 'binder'; }
+
+/* ---------------- v12.12 prices of an inventory job (single source: Impostazioni; a project may override them) ---------------- */
+/* Indicative list prices in euro, VAT excluded. They are only defaults: each quote can change them on its project. */
+const INV_PRICE_DEFAULT = {binder:1.2, box:2.5, doc:0.4, fixed:0, vat:22};
+const INV_PRICE_KEYS = ['binder', 'box', 'doc', 'fixed', 'vat'];
+function invPriceNum(v){ if (v === null || v === undefined || v === '') return null; const n = parseFloat(String(v).replace(',', '.')); return isFinite(n) && n >= 0 && n <= 1e6 ? Math.round(n * 10000) / 10000 : null; }
+/** {binder, box, doc, fixed, vat} with null where not set (null = use the default). */
+function invPriceNorm(p){ const o = {}; p = p && typeof p === 'object' ? p : {}; INV_PRICE_KEYS.forEach(k => { o[k] = invPriceNum(p[k]); }); return o; }
+/** Studio defaults (S.settings.invPrices) over the built-in ones. */
+function invPriceDefaults(settings){
+  const s = invPriceNorm(settings && settings.invPrices), o = {};
+  INV_PRICE_KEYS.forEach(k => { o[k] = s[k] !== null ? s[k] : INV_PRICE_DEFAULT[k]; });
+  return o;
+}
+/** Effective prices of a project: its own where set, else the studio defaults. */
+function invPrices(inv, settings){
+  const d = invPriceDefaults(settings), p = invPriceNorm(inv && inv.price), o = {};
+  INV_PRICE_KEYS.forEach(k => { o[k] = p[k] !== null ? p[k] : d[k]; });
+  return o;
+}
+/** Billing lines: quantities × unit prices (cents rounded), VAT on the total. */
+function invBill(q, prices){
+  const r2 = (x) => Math.round(x * 100) / 100, lines = [];
+  [['binder', q.binders || 0], ['box', q.boxes || 0], ['doc', q.docs || 0]].forEach(([k, n]) => { if (n > 0) lines.push({k, qty:n, unit:prices[k], total:r2(n * prices[k])}); });
+  if (prices.fixed > 0) lines.push({k:'fixed', qty:1, unit:prices.fixed, total:r2(prices.fixed)});
+  const net = r2(lines.reduce((s, l) => s + l.total, 0)), vat = r2(net * prices.vat / 100);
+  return {lines, net, vat, gross:r2(net + vat), vatPct:prices.vat};
+}
+
+/* ---------------- v12.12 project templates (by kind of client) ---------------- */
+/* Built-in templates; the studio can save its own (S.settings.invTemplates, same shape). years = how many years back. */
+const INV_TEMPLATES = [
+  {id:'commercialista', it:'Studio commercialista', en:'Accounting firm', mode:'box', years:10, doc:false, tags:['Fatture', 'Bilanci', 'Paghe', 'F24', 'Dichiarazioni', 'Contratti', 'Banca', 'Corrispondenza']},
+  {id:'ente', it:'Comune o ente pubblico', en:'Municipality or public body', mode:'capture', years:30, doc:false, tags:['Delibere', 'Determine', 'Protocollo', 'Contratti', 'Tributi', 'Anagrafe', 'Edilizia', 'Personale']},
+  {id:'legale', it:'Studio legale', en:'Law firm', mode:'box', years:15, doc:true, tags:['Pratiche', 'Atti', 'Sentenze', 'Corrispondenza', 'Parcelle', 'Contratti', 'Perizie', 'Varie']},
+  {id:'azienda', it:'Azienda', en:'Company', mode:'box', years:10, doc:false, tags:['Fatture', 'Contabilità', 'Personale', 'Contratti', 'Acquisti', 'Vendite', 'Qualità', 'Banca']},
+  {id:'condominio', it:'Amministratore di condominio', en:'Building manager', mode:'box', years:10, doc:false, tags:['Verbali', 'Bilanci', 'Fatture', 'Contratti', 'Manutenzioni', 'Assicurazioni', 'Corrispondenza', 'Varie']},
+  {id:'trasloco', it:'Trasloco o liberazione locali', en:'Move or clearance', mode:'station', years:20, doc:false, tags:['Fatture', 'Contratti', 'Personale', 'Tecnico', 'Corrispondenza', 'Da scartare', 'Da conservare', 'Varie']}
+];
+function invTplNorm(x){
+  x = x && typeof x === 'object' ? x : {};
+  return {id:String(x.id || '').slice(0, 60), it:String(x.it || x.name || '').slice(0, 80), en:String(x.en || x.it || x.name || '').slice(0, 80), mode:INV_MODES.includes(x.mode) ? x.mode : 'box',
+    years:Math.max(0, Math.min(200, parseInt(x.years, 10) || 0)), doc:x.doc === true, tags:invNormTags(x.tags), ai:x.ai !== false, auto_confirm:Math.max(0.5, Math.min(1, +x.auto_confirm || INV_AUTO_CONFIRM)), price:invPriceNorm(x.price), custom:x.custom === true};
+}
+/** Built-in + studio templates (studio ones first). */
+function invTemplates(settings){
+  const own = (settings && Array.isArray(settings.invTemplates) ? settings.invTemplates : []).map(x => Object.assign(invTplNorm(x), {custom:true})).filter(x => x.id && x.it);
+  return own.concat(INV_TEMPLATES.map(invTplNorm));
+}
+/** Fields of the project form from a template (year bar: the last N years up to `year`). */
+function invTplFields(tp, year){
+  tp = invTplNorm(tp); year = year || new Date().getFullYear();
+  return {mode:tp.mode, doc:tp.doc, tags:tp.tags.slice(), year_from:tp.years ? year - tp.years : 0, year_to:tp.years ? year : 0, ai:tp.ai, auto_confirm:tp.auto_confirm, price:tp.price, template:tp.id};
+}
+/** A project → a studio template (no client, no labels, no numbers). */
+function invTplFromProject(a, name){
+  const i = normalizeInv(a && a.inv), span = i.year_from && i.year_to ? i.year_to - i.year_from : 0;
+  return invTplNorm({id:'own-' + uuid().slice(0, 8), it:name, en:name, mode:i.mode, years:span, doc:i.doc, tags:i.tags, ai:i.ai, auto_confirm:i.auto_confirm, price:i.price, custom:true});
+}
+
+/* ---------------- v12.12 verification of a box (mode 6) ---------------- */
+/** expected: codes the data puts in the box · seen: codes read now · where: code → box code of a binder elsewhere.
+    → {found[], missing[], misplaced[{c, from}], unknown[]} (codes in reading order). */
+function invVerify(expected, seen, where){
+  const E = new Set(expected || []), S2 = [], out = {found:[], missing:[], misplaced:[], unknown:[]};
+  (seen || []).forEach(c => { if (!S2.includes(c)) S2.push(c); });
+  S2.forEach(c => { if (E.has(c)) out.found.push(c); else if (where && where[c]) out.misplaced.push({c, from:where[c]}); else out.unknown.push(c); });
+  (expected || []).forEach(c => { if (!S2.includes(c)) out.missing.push(c); });
+  return out;
+}
+
+/* ---------------- v12.12 end-of-job report (pure: the PC view and the tests use it) ---------------- */
+function invMedian(a){ const v = a.slice().sort((x, y) => x - y); return v.length ? (v.length % 2 ? v[(v.length - 1) / 2] : (v[v.length / 2 - 1] + v[v.length / 2]) / 2) : 0; }
+/** Gaps between consecutive captures of the same operator (a gap over pauseMs is a pause, not work). */
+function invGaps(ats, pauseMs){
+  const t2 = ats.map(x => Date.parse(x)).filter(x => isFinite(x)).sort((x, y) => x - y), g = [];
+  for (let i = 1; i < t2.length; i++){ const d = t2[i] - t2[i - 1]; if (d > 0 && d <= pauseMs) g.push(d); }
+  return g;
+}
+/** a: project (archive with inv) · binders, locations: of this project · logs: activity-log lines · settings: for the prices. */
+function invReport(a, binders, locations, logs, settings, pauseMs){
+  const i = normalizeInv(a && a.inv), P = pauseMs || 120000;
+  const B = (binders || []).filter(b => b && b.archive_id === (a && a.id));
+  const docs = B.filter(b => invLevel(b) === 'doc'), bins = B.filter(b => invLevel(b) !== 'doc');
+  const boxes = (locations || []).filter(l => l && l.archive_id === (a && a.id) && invParseCode(l.short_code) && invParseCode(l.short_code).kind === 'box');
+  const st = {captured:0, proposed:0, review:0, confirmed:0};
+  B.forEach(b => { const s = b.inv && INV_STATES.includes(b.inv.st) ? b.inv.st : 'confirmed'; st[s]++; });
+  const ats = B.map(b => (b.inv && b.inv.at) || b.created_at || '').filter(Boolean).sort();
+  // per box: binders inside + years
+  const perBox = boxes.map(l => {
+    const L = bins.filter(b => b.location_id === l.id), ys = [];
+    L.forEach(b => (String(b.ref_year || '').match(/\b(1[89]|2[01])\d\d\b/g) || []).forEach(y => ys.push(+y)));
+    return {id:l.id, code:l.name || l.code || l.short_code, n:L.length, y0:ys.length ? Math.min(...ys) : 0, y1:ys.length ? Math.max(...ys) : 0};
+  }).sort((x, y) => naturalCmpSafe(x.code, y.code));
+  // per operator
+  const ops = {};
+  B.forEach(b => { const w = (b.inv && b.inv.by) || '—'; (ops[w] = ops[w] || {who:w, n:0, docs:0, review:0, ats:[]}); ops[w].n++; if (invLevel(b) === 'doc') ops[w].docs++; if (b.inv && b.inv.st === 'review') ops[w].review++; if (b.inv && b.inv.at) ops[w].ats.push(b.inv.at); });
+  const operators = Object.values(ops).map(o => { const g = invGaps(o.ats, P), s = o.ats.slice().sort(); return {who:o.who, n:o.n, docs:o.docs, review:o.review, median_ms:Math.round(invMedian(g)), first:s[0] || '', last:s[s.length - 1] || ''}; })
+    .sort((x, y) => y.n - x.n || String(x.who).localeCompare(String(y.who)));
+  const allGaps = []; Object.values(ops).forEach(o => invGaps(o.ats, P).forEach(g => allGaps.push(g)));
+  // AI
+  const read = B.filter(b => b.inv && b.inv.ai && typeof b.inv.ai === 'object');
+  const conf = read.map(b => +b.inv.ai.confidence || 0);
+  // labels
+  const scannedBin = B.length, unusedBin = Math.max(0, i.binder_to - scannedBin), unusedBox = Math.max(0, i.box_to - boxes.length);
+  const printed = i.batches.filter(b => b.printed_at).reduce((s, b) => s + (b.to - b.from + 1), 0);
+  // verifications (mode 6) from the activity log
+  const ver = (logs || []).filter(e => e && e.action === 'inventory.verify' && e.details && e.details.project === (a && a.id)).map(e => ({at:e.at, who:e.who, box:e.details.box || '', expected:e.details.expected || 0, found:e.details.found || 0, missing:(e.details.missing || []).length, misplaced:(e.details.misplaced || []).length}))
+    .sort((x, y) => String(y.at).localeCompare(String(x.at)));
+  const prices = invPrices(i, settings);
+  const bill = invBill({binders:bins.length, boxes:boxes.length, docs:docs.length}, prices);
+  return {name:(a && a.name) || i.code, code:i.code, client:i.client, mode:i.mode, status:i.status, first:ats[0] || '', last:ats[ats.length - 1] || '',
+    binders:bins.length, docs:docs.length, boxes:boxes.length, states:st, perBox, operators, median_ms:Math.round(invMedian(allGaps)),
+    ai:{read:read.length, avg:conf.length ? Math.round(100 * conf.reduce((s, x) => s + x, 0) / conf.length) / 100 : 0, review:st.review, models:Array.from(new Set(read.map(b => b.inv.ai.model || '').filter(Boolean)))},
+    labels:{box:i.box_to, binder:i.binder_to, printed, unusedBox, unusedBin}, verifications:ver, prices, bill};
+}
+function naturalCmpSafe(x, y){ return typeof naturalCmp === 'function' ? naturalCmp(String(x), String(y)) : String(x).localeCompare(String(y), undefined, {numeric:true}); }
+
+/* ---------------- v12.12 AI reading: prompt + normalisation shared with the servers ---------------- */
+/* invAiPrompt / invAiNorm are the same text and rules as ai_prompt / ai_norm in server-php/api.php and server-python
+   (tests/v1212.js compares them): the PC uses them to ask a LOCAL model directly (Impostazioni › Lettura AI su questo PC). */
+const INV_AI_KINDS = ['spine', 'doc', 'page'];
+function invAiHints(h){
+  h = h && typeof h === 'object' ? h : {};
+  const tags = []; (Array.isArray(h.tags) ? h.tags : []).forEach(x => { x = String(x == null ? '' : x).trim().slice(0, 40); if (x !== '' && !tags.includes(x) && tags.length < 40) tags.push(x); });
+  const yr = (v) => { v = parseInt(v, 10) || 0; return v >= 1800 && v <= 2200 ? v : 0; };
+  return {tags, year_from:yr(h.year_from), year_to:yr(h.year_to), client:String(h.client == null ? '' : h.client).trim().slice(0, 120), kind:INV_AI_KINDS.includes(h.kind) ? h.kind : 'spine'};
+}
+function invAiPrompt(voice, hints){
+  const what = hints.kind === 'doc' ? "La foto mostra la prima pagina di un documento d'archivio con un'etichetta QR.\n"
+    : hints.kind === 'page' ? "La foto mostra la prima pagina o l'interno di un faldone d'archivio (la costa era vuota).\n"
+    : "La foto mostra la costa (il dorso) di un faldone o di una scatola d'archivio con un'etichetta QR.\n";
+  const where = hints.kind === 'spine' ? "Leggi solo quello che e' scritto sulla costa, a mano o a stampa; ignora il QR e i testi stampati sull'etichetta QR.\n"
+    : "Leggi intestazione, oggetto, date e nomi principali; ignora il QR e i testi stampati sull'etichetta QR.\n";
+  let p = "Sei un archivista. " + what + where
+    + "Campi: company = ditta, cliente o persona se scritta; title = contenuto in poche parole come scritto (es. \"Fatture acquisti\");\n"
+    + "year_from / year_to = anni indicati (0 se mancano, uguali se c'e' un solo anno); doc_type = tipo di documenti in una o due parole;\n"
+    + "tags = solo tra questi, se corrispondono: " + (hints.tags.length ? hints.tags.join(', ') : '(nessuno)') + ";\n"
+    + "notes = altre scritte utili; text = trascrizione fedele di tutto il testo leggibile della costa;\n"
+    + "confidence = quanto sei sicuro della lettura, da 0 a 1; empty_spine = true se sulla costa non c'e' nulla di leggibile.\n"
+    + "Non inventare: se non leggi un campo lascialo vuoto (0 per gli anni).";
+  if (hints.client !== '') p += "\nL'archivio appartiene al cliente: " + hints.client + '.';
+  if (hints.year_from || hints.year_to) p += "\nGli anni attesi sono tra " + (hints.year_from || '?') + ' e ' + (hints.year_to || '?') + '.';
+  if (voice !== '') p += "\nL'operatore ha detto a voce: \"" + voice + "\". Le sue parole valgono piu' della foto.";
+  return p;
+}
+/** Extra instruction for the OpenAI-compatible providers (no JSON schema everywhere: JSON mode + the list of keys). */
+const INV_AI_JSON_HINT = "\nRispondi solo con un oggetto JSON con queste chiavi: company, title, year_from, year_to, doc_type, tags, notes, text, confidence, empty_spine.";
+/** Text answer of a model → object (accepts ```json fences and text around the object). */
+function invAiParseText(txt){
+  let s = String(txt || '').trim();
+  const f = s.match(/```(?:json)?\s*([\s\S]*?)```/i); if (f) s = f[1].trim();
+  try { const v = JSON.parse(s); return v && typeof v === 'object' && !Array.isArray(v) ? v : null; } catch(e){}
+  const a = s.indexOf('{'), z = s.lastIndexOf('}');
+  if (a >= 0 && z > a) try { const v = JSON.parse(s.slice(a, z + 1)); return v && typeof v === 'object' && !Array.isArray(v) ? v : null; } catch(e){}
+  return null;
+}
+function invAiNorm(r, hints){
+  r = r && typeof r === 'object' ? r : {};
+  const cut = (v, n) => Array.from(String(v == null || typeof v === 'object' ? '' : typeof v === 'boolean' ? (v ? '1' : '') : v).replace(/[\x00-\x1F\x7F]/g, '')).slice(0, n).join('').trim();
+  const yr = (v) => { v = (typeof v === 'number' || (typeof v === 'string' && /^\s*-?\d+(\.\d+)?\s*$/.test(v))) ? Math.trunc(+v) : 0; return v >= 1800 && v <= 2200 ? v : 0; };
+  let yf = yr(r.year_from), yt = yr(r.year_to);
+  if (yf && !yt) yt = yf; if (yt && !yf) yf = yt; if (yf > yt){ const x = yf; yf = yt; yt = x; }
+  const tags = []; (Array.isArray(r.tags) ? r.tags : []).forEach(x => { if (typeof x !== 'string') return; hints.tags.forEach(h => { if (x.trim().toLowerCase() === h.toLowerCase() && !tags.includes(h)) tags.push(h); }); });
+  let cf = (typeof r.confidence === 'number' || (typeof r.confidence === 'string' && r.confidence.trim() !== '' && isFinite(+r.confidence))) ? +r.confidence : 0; cf = Math.round(Math.max(0, Math.min(1, cf)) * 100) / 100;
+  return {company:cut(r.company, 120), title:cut(r.title, 160), year_from:yf, year_to:yt, doc_type:cut(r.doc_type, 60), tags, notes:cut(r.notes, 300), text:cut(r.text, 500), confidence:cf, empty_spine:!!r.empty_spine};
 }
 
 /* ---------------- phone helpers: voice + years ---------------- */

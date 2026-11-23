@@ -16,7 +16,7 @@
    ===================================================================== */
 'use strict';
 
-const IVP = { open:'', f:'', q:'', photos:new Map(), loading:new Set(), sel:new Set() };
+const IVP = { open:'', f:'', q:'', lv:'', photos:new Map(), loading:new Set(), sel:new Set() };
 
 Object.assign(I18N.it, {
   nav_inv:'Progetti', nav_inv_s:'Inventario rapido', ivp_h:'Progetti di inventario', ivp_p:'Per gli archivi da inventariare: generi le etichette, le attacchi a scatole e faldoni, poi con il telefono scansioni la scatola e un faldone dopo l\'altro. Foto, beep e lettura della costa sono automatici.',
@@ -40,7 +40,14 @@ Object.assign(I18N.it, {
   ivp_qr_h:'Indirizzo dei QR', ivp_qr_p:'L\'indirizzo davanti al codice in ogni QR stampato. Di predefinito https://qr7.it/ (garanzia QR7). Puoi usare qualsiasi altro servizio o dominio: cambialo PRIMA di stampare, perché vale per tutti i QR (anche le ristampe).', ivp_qr_ex:'Esempio: {u}',
   ivp_qr_bad:'Indirizzo non valido: serve https://… (si usa https://qr7.it/).',
   lg_g_inventory:'Inventario', 'lga_inventory.create':'Progetto creato', 'lga_inventory.edit':'Progetto modificato', 'lga_inventory.batch':'Etichette generate', 'lga_inventory.print':'Etichette dell\'inventario stampate',
-  'lga_inventory.capture':'Faldone acquisito (inventario)', 'lga_inventory.box':'Scatola dell\'inventario', 'lga_inventory.undo':'Acquisizione annullata', 'lga_inventory.update':'Faldone aggiornato (inventario)', 'lga_inventory.confirm':'Faldoni confermati'
+  'lga_inventory.capture':'Faldone acquisito (inventario)', 'lga_inventory.box':'Scatola dell\'inventario', 'lga_inventory.undo':'Acquisizione annullata', 'lga_inventory.update':'Faldone aggiornato (inventario)', 'lga_inventory.confirm':'Faldoni confermati',
+  'lga_inventory.verify':'Scatola verificata', 'lga_inventory.move':'Faldone spostato (verifica)', 'lga_inventory.ai':'Lettura AI dal PC', 'lga_inventory.template':'Modello di progetto salvato',
+  ivp_mode_station:'Stazione fissa', ivp_mode_chain:'Catena a due persone', ivp_mode_h:'Scatola → faldoni: una persona, prima la scatola. Cattura ora: solo QR e foto, si cataloga al PC. Stazione fissa: telefono su un supporto o webcam, mani libere. Catena: una persona scansiona, un\'altra corregge al PC in diretta.',
+  ivp_f_doc:'Livello documento: etichette anche sui documenti dentro i faldoni', ivp_f_tpl:'Parti da un modello', ivp_f_tpl_none:'Nessun modello (vuoto)', ivp_tpl_own:'I tuoi modelli', ivp_tpl_std:'Modelli pronti',
+  ivp_f_prices:'Prezzi di questo lavoro (€, IVA esclusa)', ivp_f_prices_h:'Vuoto = il prezzo predefinito di Impostazioni › Inventario ({v}). Scrivi un prezzo solo se il preventivo è diverso.',
+  ivp_pr_binder:'a faldone', ivp_pr_box:'a scatola', ivp_pr_doc:'a documento', ivp_pr_fixed:'fisso (avvio, trasferta)', ivp_pr_vat:'IVA %',
+  ivp_kind_doc:'Documenti', ivp_kind_any:'Jolly', ivp_kw_doc:'DOCUMENTO', ivp_kw_any:'ETICHETTA', ivp_batch_kind_h:'Documenti: per il livello documento. Jolly: diventano faldone o documento alla prima scansione (lo sceglie il telefono).',
+  ivp_k_docs:'Documenti', ivp_doc_in:'Documento in {f}', ivp_f_level:'Livello', ivp_lv_all:'Tutto', ivp_lv_binder:'Faldoni', ivp_lv_doc:'Documenti'
 });
 Object.assign(I18N.en, {
   nav_inv:'Projects', nav_inv_s:'Rapid inventory', ivp_h:'Inventory projects', ivp_p:'For archives to be inventoried: generate the labels, stick them on boxes and binders, then with the phone scan the box and one binder after the other. Photo, beep and reading of the spine are automatic.',
@@ -64,7 +71,14 @@ Object.assign(I18N.en, {
   ivp_qr_h:'QR address', ivp_qr_p:'The address in front of the code in every printed QR. Default https://qr7.it/ (QR7 guarantee). Any other service or domain works: change it BEFORE printing, because it applies to every QR (reprints too).', ivp_qr_ex:'Example: {u}',
   ivp_qr_bad:'Invalid address: https://… is needed (https://qr7.it/ is used).',
   lg_g_inventory:'Inventory', 'lga_inventory.create':'Project created', 'lga_inventory.edit':'Project edited', 'lga_inventory.batch':'Labels generated', 'lga_inventory.print':'Inventory labels printed',
-  'lga_inventory.capture':'Binder captured (inventory)', 'lga_inventory.box':'Inventory box', 'lga_inventory.undo':'Capture undone', 'lga_inventory.update':'Binder updated (inventory)', 'lga_inventory.confirm':'Binders confirmed'
+  'lga_inventory.capture':'Binder captured (inventory)', 'lga_inventory.box':'Inventory box', 'lga_inventory.undo':'Capture undone', 'lga_inventory.update':'Binder updated (inventory)', 'lga_inventory.confirm':'Binders confirmed',
+  'lga_inventory.verify':'Box checked', 'lga_inventory.move':'Binder moved (check)', 'lga_inventory.ai':'AI reading from the PC', 'lga_inventory.template':'Project template saved',
+  ivp_mode_station:'Fixed station', ivp_mode_chain:'Two-person chain', ivp_mode_h:'Box → binders: one person, box first. Capture now: QR and photo only, catalogue on the PC. Fixed station: phone on a stand or webcam, hands free. Chain: one person scans, another corrects live on the PC.',
+  ivp_f_doc:'Document level: labels on the documents inside the binders too', ivp_f_tpl:'Start from a template', ivp_f_tpl_none:'No template (empty)', ivp_tpl_own:'Your templates', ivp_tpl_std:'Ready-made templates',
+  ivp_f_prices:'Prices of this job (€, VAT excluded)', ivp_f_prices_h:'Empty = the default price of Settings › Inventory ({v}). Type a price only when the quote differs.',
+  ivp_pr_binder:'per binder', ivp_pr_box:'per box', ivp_pr_doc:'per document', ivp_pr_fixed:'fixed (start-up, travel)', ivp_pr_vat:'VAT %',
+  ivp_kind_doc:'Documents', ivp_kind_any:'Jolly', ivp_kw_doc:'DOCUMENT', ivp_kw_any:'LABEL', ivp_batch_kind_h:'Documents: for the document level. Jolly: they become binder or document at the first scan (chosen on the phone).',
+  ivp_k_docs:'Documents', ivp_doc_in:'Document in {f}', ivp_f_level:'Level', ivp_lv_all:'All', ivp_lv_binder:'Binders', ivp_lv_doc:'Documents'
 });
 if (typeof LOG_GROUPS !== 'undefined' && !LOG_GROUPS.includes('inventory')) LOG_GROUPS.push('inventory');
 if (typeof NAV_MAIN !== 'undefined' && !NAV_MAIN.some(x => x[0] === 'inv')) NAV_MAIN.splice(1, 0, ['inv', 'grid', 'nav_inv', 'nav_inv_s']);
@@ -80,13 +94,13 @@ function ivpSafe(a, b){ const st = ivpState(b); if (st !== 'proposed') return fa
 function ivpStats(a){
   const L = ivpBinders(a), by = {captured:0, proposed:0, review:0, confirmed:0}; L.forEach(b => by[ivpState(b)]++);
   const boxes = (S.locations || []).filter(l => l.archive_id === a.id && invParseCode(l.short_code)).length;
-  return {binders:L.length, boxes, by, safe:L.filter(b => ivpSafe(a, b)).length};
+  return {binders:L.length, boxes, by, safe:L.filter(b => ivpSafe(a, b)).length, docs:L.filter(b => invLevel(b) === 'doc').length};
 }
 /** Create a project = an archive (06l archCreate) + inv; optional first batches. */
 function ivpCreate(f){
   const a = archCreate({name:f.name, code:f.code});
   a.levels = [{name:S.lang === 'en' ? 'Box' : 'Scatola', prefix:'S'}];
-  a.inv = normalizeInv({prefix:invNewPrefix(), code:f.code || invSuggestCode(f.name), client:f.client, mode:f.mode, tags:f.tags, year_from:f.year_from, year_to:f.year_to, ai:f.ai, auto_confirm:f.auto_confirm, notes:f.notes});
+  a.inv = normalizeInv({prefix:invNewPrefix(), code:f.code || invSuggestCode(f.name), client:f.client, mode:f.mode, tags:f.tags, year_from:f.year_from, year_to:f.year_to, ai:f.ai, auto_confirm:f.auto_confirm, notes:f.notes, doc:f.doc, price:f.price, template:f.template});
   archTouch(a);
   logAct('inventory.create', ivpTarget(a), 'Creato il progetto di inventario ' + a.name + ' (' + a.inv.code + ')', {prefix:a.inv.prefix, code:a.inv.code, client:a.inv.client, mode:a.inv.mode});
   if (f.boxes > 0) ivpBatch(a, 'box', f.boxes, true);
@@ -96,8 +110,9 @@ function ivpCreate(f){
 /** New batch of labels: numbers to_+1 … to_+n, never reused. */
 function ivpBatch(a, kind, n, quiet){
   n = Math.max(1, Math.min(20000, parseInt(n, 10) || 0));
-  const k = kind === 'box' ? 'box_to' : 'binder_to', from = a.inv[k] + 1, to = Math.min(INV_MAX, a.inv[k] + n);
-  const b = {id:uuid(), kind:kind === 'box' ? 'box' : 'binder', from, to, at:nowISO(), printed_at:'', format:''};
+  kind = INV_BATCH_KINDS.includes(kind) ? kind : 'binder';
+  const k = invCounterKey(kind), from = a.inv[k] + 1, to = Math.min(INV_MAX, a.inv[k] + n);
+  const b = {id:uuid(), kind, from, to, at:nowISO(), printed_at:'', format:''};
   a.inv[k] = to; a.inv.batches.push(b); archTouch(a);
   logAct('inventory.batch', ivpTarget(a), 'Generate ' + (to - from + 1) + ' etichette (' + invNumber(a.inv, kind, from) + ' – ' + invNumber(a.inv, kind, to) + ') nel progetto ' + a.name, {kind, from, to});
   if (!quiet) toast(t('ivp_batch_done', {n:to - from + 1, a:invNumber(a.inv, kind, from), z:invNumber(a.inv, kind, to)}));
@@ -132,7 +147,7 @@ function ivpBar(s, i){
 }
 function ivpDetailHTML(a){
   const i = a.inv, s = ivpStats(a);
-  const kind = (k) => t(k === 'box' ? 'ivp_kind_box' : 'ivp_kind_binder');
+  const kind = (k) => t('ivp_kind_' + (INV_BATCH_KINDS.includes(k) ? k : 'binder'));
   const batches = i.batches.length ? '<table class="tbl ivp-batches"><tbody>' + i.batches.slice().reverse().map(b => '<tr><td>' + esc(t('ivp_batch_row', {k:kind(b.kind), a:invNumber(i, b.kind, b.from), z:invNumber(i, b.kind, b.to), n:b.to - b.from + 1})) + '</td><td class="small muted">' + esc(fmtDate(b.at)) + (b.printed_at ? ' · ' + esc(t('ivp_printed', {d:fmtDate(b.printed_at)})) : '') + '</td>' +
       '<td class="acts"><button class="btn btn-sm" data-a="ivp-print" data-id="' + esc(a.id) + '" data-b="' + esc(b.id) + '">' + ic('printer') + esc(t('ivp_print')) + '</button><button class="btn btn-sm" data-a="ivp-manifest" data-id="' + esc(a.id) + '" data-b="' + esc(b.id) + '">' + ic('download') + esc(t('ivp_manifest')) + '</button></td></tr>').join('') + '</tbody></table>'
     : '<div class="small muted">' + esc(t('ivp_batch_none')) + '</div>';
@@ -141,16 +156,19 @@ function ivpDetailHTML(a){
       '<button class="btn btn-primary" data-a="ivp-phone" data-id="' + esc(a.id) + '" id="ivp-phone">' + ic('qr') + esc(t('ivp_phone')) + '</button></div></div>' +
     '<div class="grid g2 ivp-top"><div class="card card-p"><div class="row between"><h2>' + esc(t('ivp_batches')) + '</h2><button class="btn btn-sm btn-primary" data-a="ivp-batch" data-id="' + esc(a.id) + '" id="ivp-batch">' + ic('plus') + esc(t('ivp_batch_new')) + '</button></div>' + batches + '</div>' +
       '<div class="card card-p"><div class="ivp-kpis big"><div><b>' + s.boxes + '</b> / ' + i.box_to + '<small>' + esc(t('ivp_k_boxes')) + '</small></div><div><b>' + s.binders + '</b> / ' + i.binder_to + '<small>' + esc(t('ivp_k_binders')) + '</small></div>' +
-        '<div class="' + (s.by.review ? 'warn' : '') + '"><b>' + s.by.review + '</b><small>' + esc(t('ivp_f_review')) + '</small></div><div><b>' + s.by.proposed + '</b><small>' + esc(t('ivp_f_proposed')) + '</small></div><div><b>' + s.by.confirmed + '</b><small>' + esc(t('ivp_f_confirmed')) + '</small></div></div>' + ivpBar(s, i) + '</div></div>' +
+        '<div class="' + (s.by.review ? 'warn' : '') + '"><b>' + s.by.review + '</b><small>' + esc(t('ivp_f_review')) + '</small></div><div><b>' + s.by.proposed + '</b><small>' + esc(t('ivp_f_proposed')) + '</small></div><div><b>' + s.by.confirmed + '</b><small>' + esc(t('ivp_f_confirmed')) + '</small></div></div>' +
+        (i.doc || s.docs ? '<div class="small muted">' + esc(t('ivp_k_docs')) + ': <b>' + s.docs + '</b></div>' : '') + ivpBar(s, i) + '</div></div>' +
+    (typeof ivpProHTML === 'function' ? ivpProHTML(a) : '') +
     '<div class="card" style="margin-top:16px"><div class="toolbar"><h2 style="margin:0 8px 0 0">' + esc(t('ivp_grid')) + '</h2><div class="search">' + ic('search') + '<input class="inp" type="search" data-ivq="1" id="ivp-q" value="' + esc(IVP.q) + '" placeholder="' + esc(t('ivp_q_ph')) + '"></div>' +
+      (i.doc || s.docs ? '<div class="seg" id="ivp-level">' + [['', 'ivp_lv_all'], ['binder', 'ivp_lv_binder'], ['doc', 'ivp_lv_doc']].map(([v, k]) => '<button data-a="ivp-lv" data-v="' + v + '" class="' + (IVP.lv === v ? 'on' : '') + '">' + esc(t(k)) + '</button>').join('') + '</div>' : '') +
       '<div class="seg" id="ivp-filter">' + [['', 'ivp_f_all'], ['review', 'ivp_f_review'], ['proposed', 'ivp_f_proposed'], ['captured', 'ivp_f_captured'], ['confirmed', 'ivp_f_confirmed']].map(([v, k]) => '<button data-a="ivp-f" data-v="' + v + '" class="' + (IVP.f === v ? 'on' : '') + '">' + esc(t(k)) + ' <span class="muted">' + (v ? s.by[v] : s.binders) + '</span></button>').join('') + '</div>' +
-      '<span style="flex:1"></span>' + (s.safe ? '<button class="btn btn-sm btn-primary" data-a="ivp-confirm-safe" data-id="' + esc(a.id) + '" id="ivp-confirm-safe">' + ic('check') + esc(t('ivp_confirm_safe', {n:s.safe})) + '</button>' : '') +
+      '<span style="flex:1"></span>' + (typeof ivpAiButtonHTML === 'function' ? ivpAiButtonHTML(a) : '') + (s.safe ? '<button class="btn btn-sm btn-primary" data-a="ivp-confirm-safe" data-id="' + esc(a.id) + '" id="ivp-confirm-safe">' + ic('check') + esc(t('ivp_confirm_safe', {n:s.safe})) + '</button>' : '') +
       '<button class="btn btn-sm" data-a="ivp-confirm-sel" data-id="' + esc(a.id) + '" id="ivp-confirm-sel"' + (IVP.sel.size ? '' : ' disabled') + '>' + ic('check') + esc(t('ivp_confirm_sel', {n:IVP.sel.size})) + '</button></div>' +
       '<div id="ivp-grid">' + ivpGridHTML(a) + '</div></div>';
 }
 function ivpRows(a){
   const q = IVP.q.trim().toLowerCase();
-  return ivpBinders(a).filter(b => (!IVP.f || ivpState(b) === IVP.f) && (!q || [b.speaking_code, b.company_name, b.binder_title, b.ref_year, b.tags, b.notes, b.inv && b.inv.voice, b.inv && b.inv.ai && b.inv.ai.text].join(' ').toLowerCase().includes(q)))
+  return ivpBinders(a).filter(b => (!IVP.f || ivpState(b) === IVP.f) && (!IVP.lv || invLevel(b) === IVP.lv) && (!q || [b.speaking_code, b.company_name, b.binder_title, b.ref_year, b.tags, b.notes, b.inv && b.inv.voice, b.inv && b.inv.ai && b.inv.ai.text].join(' ').toLowerCase().includes(q)))
     .sort((x, y) => ((x.inv && x.inv.n) || 0) - ((y.inv && y.inv.n) || 0) || naturalCmp(x.speaking_code, y.speaking_code));
 }
 function ivpGridHTML(a){
@@ -162,7 +180,7 @@ function ivpGridHTML(a){
     const i = b.inv || {}, st = ivpState(b), ai = i.ai || null, loc = b.location_id && typeof locById === 'function' ? locById(b.location_id) : null;
     return '<div class="ivp-item st-' + st + '" data-id="' + esc(b.id) + '"><div class="ivp-ph" data-ivph="' + esc(i.ph || '') + '" data-a="ivp-photo" data-id="' + esc(b.id) + '">' + ivpPhotoHTML(i.ph) + '</div>' +
       '<div class="ivp-body"><div class="row between"><label class="ivp-sel"><input type="checkbox" data-ivsel="' + esc(b.id) + '"' + (IVP.sel.has(b.id) ? ' checked' : '') + '> <b class="mono">' + esc(b.speaking_code) + '</b></label><span class="ivp-st st-' + st + '">' + esc(t('ivp_s_' + st)) + '</span></div>' +
-        '<div class="tiny muted">' + esc([loc ? t('ivp_box', {b:loc.name || loc.code}) : (i.box ? t('ivp_box', {b:i.box}) : ''), ai ? t('ivp_ai', {c:Math.round((+ai.confidence || 0) * 100)}) : (i.ph ? t('ivp_ai_none') : ''), i.by ? t('ivp_by', {w:i.by, d:fmtDate(i.at || b.created_at, true)}) : ''].filter(Boolean).join(' · ')) + '</div>' +
+        '<div class="tiny muted">' + esc([i.lvl === 'doc' ? t('ivp_doc_in', {f:i.folder || i.parent || ''}) : '', loc ? t('ivp_box', {b:loc.name || loc.code}) : (i.box ? t('ivp_box', {b:i.box}) : ''), ai ? t('ivp_ai', {c:Math.round((+ai.confidence || 0) * 100)}) : (i.ph ? t('ivp_ai_none') : ''), i.by ? t('ivp_by', {w:i.by, d:fmtDate(i.at || b.created_at, true)}) : ''].filter(Boolean).join(' · ')) + '</div>' +
         (i.voice ? '<div class="tiny ivp-voice">' + esc(t('ivp_voice', {v:i.voice})) + '</div>' : '') + (ai && ai.text ? '<div class="tiny muted ivp-ocr" title="' + esc(ai.text) + '">“' + esc(ai.text.slice(0, 140)) + '”</div>' : '') +
         inp(b, 'company_name', 'ivp_fd_company') + inp(b, 'binder_title', 'ivp_fd_title') + '<div class="row">' + inp(b, 'ref_year', 'ivp_fd_year') + inp(b, 'tags', 'ivp_fd_tags') + '</div>' +
         '<div class="row"><button class="btn btn-sm' + (st === 'confirmed' ? '' : ' btn-primary') + '" data-a="ivp-confirm" data-id="' + esc(b.id) + '"' + (st === 'confirmed' ? ' disabled' : '') + '>' + ic('check') + esc(st === 'confirmed' ? t('ivp_confirmed') : t('ivp_confirm')) + '</button><button class="btn btn-sm" data-a="edit" data-id="' + esc(b.id) + '">' + ic('pencil') + esc(t('ivp_card')) + '</button></div></div></div>';
@@ -202,27 +220,38 @@ function ivpGridRefresh(){ const a = ivpProj(IVP.open), g = $('#ivp-grid'); if (
 function ivpFormHTML(a){
   const i = a ? a.inv : normalizeInv({}), nm = a ? a.name : '', code = a ? i.code : '';
   const opt = (v, k, cur) => '<option value="' + v + '"' + (cur === v ? ' selected' : '') + '>' + esc(t(k)) + '</option>';
-  return '<div class="stack" id="ivp-form"><div class="field"><label for="ivp-name">' + esc(t('ivp_f_name')) + '</label><input class="inp" id="ivp-name" value="' + esc(nm) + '" placeholder="' + esc(t('ivp_f_name_ph')) + '"></div>' +
+  const tpls = invTemplates(S.settings), own = tpls.filter(x => x.custom), std = tpls.filter(x => !x.custom), tn = (x) => esc(S.lang === 'en' ? x.en : x.it);
+  const tplSel = a ? '' : '<div class="field"><label for="ivp-tpl">' + esc(t('ivp_f_tpl')) + '</label><select class="inp" id="ivp-tpl"><option value="">' + esc(t('ivp_f_tpl_none')) + '</option>' +
+    (own.length ? '<optgroup label="' + esc(t('ivp_tpl_own')) + '">' + own.map(x => '<option value="' + esc(x.id) + '">' + tn(x) + '</option>').join('') + '</optgroup>' : '') +
+    '<optgroup label="' + esc(t('ivp_tpl_std')) + '">' + std.map(x => '<option value="' + esc(x.id) + '">' + tn(x) + '</option>').join('') + '</optgroup></select></div>';
+  const def = invPriceDefaults(S.settings), pr = invPriceNorm(i.price);
+  const prices = '<div class="field"><label>' + esc(t('ivp_f_prices')) + '</label><div class="ivp-prices" id="ivp-prices">' + INV_PRICE_KEYS.map(k => '<label class="ivp-pr"><span class="small">' + esc(t('ivp_pr_' + k)) + '</span><input class="inp inp-sm" id="ivp-pr-' + k + '" inputmode="decimal" value="' + (pr[k] === null ? '' : esc(String(pr[k]).replace('.', S.lang === 'en' ? '.' : ','))) + '" placeholder="' + esc(fmtMoneyPlain(def[k])) + '"></label>').join('') + '</div>' +
+    '<div class="hint">' + esc(t('ivp_f_prices_h', {v:'€ ' + fmtMoneyPlain(def.binder) + ' / ' + t('ivp_pr_binder')})) + '</div></div>';
+  return '<div class="stack" id="ivp-form">' + tplSel + '<div class="field"><label for="ivp-name">' + esc(t('ivp_f_name')) + '</label><input class="inp" id="ivp-name" value="' + esc(nm) + '" placeholder="' + esc(t('ivp_f_name_ph')) + '"></div>' +
     '<div class="grid g2"><div class="field"><label for="ivp-code">' + esc(t('ivp_f_code')) + '</label><input class="inp mono" id="ivp-code" value="' + esc(code) + '" maxlength="12"' + (a && a.inv.batches.length ? ' readonly' : '') + '><div class="hint" id="ivp-code-h">' + esc(t('ivp_f_code_h', {c:code || 'ROSSI24'})) + '</div></div>' +
       '<div class="field"><label for="ivp-client">' + esc(t('ivp_f_client')) + '</label><input class="inp" id="ivp-client" value="' + esc(i.client) + '" list="ivp-clients"><datalist id="ivp-clients">' + (S.clients || []).slice(0, 500).map(c => '<option value="' + esc(c.company_name || c.name || '') + '">').join('') + '</datalist><div class="hint">' + esc(t('ivp_f_client_h')) + '</div></div></div>' +
     '<div class="grid g2"><div class="field"><label for="ivp-tags">' + esc(t('ivp_f_tags')) + '</label><textarea class="inp" id="ivp-tags" rows="6">' + esc(i.tags.join('\n')) + '</textarea></div><div class="stack">' +
       '<div class="field"><label>' + esc(t('ivp_f_years')) + '</label><div class="row"><span class="small">' + esc(t('ivp_f_from')) + '</span><input class="inp inp-sm" id="ivp-yf" type="number" min="1800" max="2200" value="' + (i.year_from || '') + '" style="width:90px"><span class="small">' + esc(t('ivp_f_to')) + '</span><input class="inp inp-sm" id="ivp-yt" type="number" min="1800" max="2200" value="' + (i.year_to || '') + '" style="width:90px"></div></div>' +
-      '<div class="field"><label for="ivp-mode">' + esc(t('ivp_f_mode')) + '</label><select class="inp" id="ivp-mode">' + opt('box', 'ivp_mode_box', i.mode) + opt('capture', 'ivp_mode_capture', i.mode) + '</select></div>' +
+      '<div class="field"><label for="ivp-mode">' + esc(t('ivp_f_mode')) + '</label><select class="inp" id="ivp-mode" title="' + esc(t('ivp_mode_h')) + '">' + INV_MODES.map(m => opt(m, 'ivp_mode_' + m, i.mode)).join('') + '</select><div class="hint">' + esc(t('ivp_mode_h')) + '</div></div>' +
+      '<label class="row small"><input type="checkbox" id="ivp-doc"' + (i.doc ? ' checked' : '') + '> ' + esc(t('ivp_f_doc')) + '</label>' +
       '<label class="row small"><input type="checkbox" id="ivp-ai"' + (i.ai ? ' checked' : '') + '> ' + esc(t('ivp_f_ai')) + '</label>' +
       '<div class="field"><label for="ivp-auto">' + esc(t('ivp_f_auto')) + '</label><select class="inp inp-sm" id="ivp-auto">' + [0.7, 0.8, 0.85, 0.9, 0.95].map(v => '<option value="' + v + '"' + (Math.abs(i.auto_confirm - v) < 0.001 ? ' selected' : '') + '>' + Math.round(v * 100) + '%</option>').join('') + '</select></div></div></div>' +
     (a ? '<div class="field"><label for="ivp-status">' + esc(t('ivp_f_status')) + '</label><select class="inp" id="ivp-status">' + opt('open', 'ivp_st_open', i.status) + opt('closed', 'ivp_st_closed', i.status) + '</select><div class="hint">' + esc(t('ivp_closed_d')) + '</div></div>'
        : '<div class="grid g2"><div class="field"><label for="ivp-nb">' + esc(t('ivp_f_boxes')) + '</label><input class="inp" id="ivp-nb" type="number" min="0" max="20000" value="50"></div><div class="field"><label for="ivp-nf">' + esc(t('ivp_f_binders')) + '</label><input class="inp" id="ivp-nf" type="number" min="0" max="20000" value="500"></div></div>') +
-    '<div class="field"><label for="ivp-notes">' + esc(t('ivp_f_notes')) + '</label><textarea class="inp" id="ivp-notes" rows="2">' + esc(i.notes) + '</textarea></div><div class="err-t small" id="ivp-err"></div></div>';
+    prices + '<div class="field"><label for="ivp-notes">' + esc(t('ivp_f_notes')) + '</label><textarea class="inp" id="ivp-notes" rows="2">' + esc(i.notes) + '</textarea></div><div class="err-t small" id="ivp-err"></div></div>';
 }
 function ivpFormRead(){
   const v = (id) => ($('#' + id) || {}).value || '';
   return {name:v('ivp-name').replace(/\s+/g, ' ').trim(), code:invCodeClean(v('ivp-code')), client:v('ivp-client'), tags:invNormTags(v('ivp-tags').split('\n')), year_from:invYear(v('ivp-yf')), year_to:invYear(v('ivp-yt')),
-    mode:v('ivp-mode'), ai:!!($('#ivp-ai') || {}).checked, auto_confirm:+v('ivp-auto') || INV_AUTO_CONFIRM, status:v('ivp-status') || 'open', notes:v('ivp-notes'), boxes:parseInt(v('ivp-nb'), 10) || 0, binders:parseInt(v('ivp-nf'), 10) || 0};
+    mode:v('ivp-mode'), ai:!!($('#ivp-ai') || {}).checked, auto_confirm:+v('ivp-auto') || INV_AUTO_CONFIRM, status:v('ivp-status') || 'open', notes:v('ivp-notes'), boxes:parseInt(v('ivp-nb'), 10) || 0, binders:parseInt(v('ivp-nf'), 10) || 0,
+    doc:!!($('#ivp-doc') || {}).checked, price:invPriceNorm(INV_PRICE_KEYS.reduce((o, k) => (o[k] = v('ivp-pr-' + k), o), {})), template:v('ivp-tpl')};
 }
 function ivpOpenForm(id){
   const a = id ? ivpProj(id) : null;
   openModal({title:a ? t('ivp_edit_t', {p:a.name}) : t('ivp_new_t'), size:'lg', body:ivpFormHTML(a),
     onMount:(ov) => { const n = ov.querySelector('#ivp-name'), c = ov.querySelector('#ivp-code'); let touched = !!(a && a.inv.code);
+      const tp = ov.querySelector('#ivp-tpl');
+      if (tp) tp.addEventListener('change', () => { const x = invTemplates(S.settings).find(y => y.id === tp.value); if (x) ivpTplFill(ov, invTplFields(x)); });
       if (c) c.addEventListener('input', () => { touched = true; c.value = invCodeClean(c.value); const h = ov.querySelector('#ivp-code-h'); if (h) h.textContent = t('ivp_f_code_h', {c:c.value || 'ROSSI24'}); });
       if (n && c && !c.readOnly) n.addEventListener('input', () => { if (!touched){ c.value = invSuggestCode(n.value); const h = ov.querySelector('#ivp-code-h'); if (h) h.textContent = t('ivp_f_code_h', {c:c.value || 'ROSSI24'}); } }); },
     buttons:[{label:t('cancel'), cls:'btn', action:'modal-close'}, {label:a ? t('save') : t('ivp_new'), cls:'btn btn-primary', icon:'check', fn:() => {
@@ -233,9 +262,9 @@ function ivpOpenForm(id){
       if (a){
         const before = clone(a.inv);
         archSaveFields(a.id, {name:f.name});
-        Object.assign(a.inv, normalizeInv(Object.assign({}, a.inv, {code:a.inv.batches.length ? a.inv.code : f.code, client:f.client, tags:f.tags, year_from:f.year_from, year_to:f.year_to, mode:f.mode, ai:f.ai, auto_confirm:f.auto_confirm, status:f.status, notes:f.notes})));
+        Object.assign(a.inv, normalizeInv(Object.assign({}, a.inv, {code:a.inv.batches.length ? a.inv.code : f.code, client:f.client, tags:f.tags, year_from:f.year_from, year_to:f.year_to, mode:f.mode, ai:f.ai, auto_confirm:f.auto_confirm, status:f.status, notes:f.notes, doc:f.doc, price:f.price})));
         archTouch(a);
-        const ch = ['code', 'client', 'tags', 'year_from', 'year_to', 'mode', 'ai', 'auto_confirm', 'status', 'notes'].filter(k => JSON.stringify(before[k]) !== JSON.stringify(a.inv[k]));
+        const ch = ['code', 'client', 'tags', 'year_from', 'year_to', 'mode', 'ai', 'auto_confirm', 'status', 'notes', 'doc', 'price'].filter(k => JSON.stringify(before[k]) !== JSON.stringify(a.inv[k]));
         if (ch.length) logAct('inventory.edit', ivpTarget(a), 'Modificato il progetto ' + a.name + ': ' + ch.join(', '), {changed:ch.reduce((o, k) => (o[k] = [before[k], a.inv[k]], o), {})});
         commit(); closeModal(true); toast(t('ivp_saved'));
       } else {
@@ -244,10 +273,20 @@ function ivpOpenForm(id){
       if (S.view !== 'inv'){ S.view = 'inv'; renderAll(); } else ivpRefresh();
     }}]});
 }
+/** Fills the project form from a template (only the fields a template has). */
+function ivpTplFill(ov, f){
+  const set = (id, v) => { const el = ov.querySelector('#' + id); if (el) el.value = v; };
+  set('ivp-tags', f.tags.join('\n')); set('ivp-yf', f.year_from || ''); set('ivp-yt', f.year_to || ''); set('ivp-mode', f.mode); set('ivp-auto', String(f.auto_confirm));
+  const d = ov.querySelector('#ivp-doc'); if (d) d.checked = !!f.doc; const ai = ov.querySelector('#ivp-ai'); if (ai) ai.checked = f.ai !== false;
+  INV_PRICE_KEYS.forEach(k => set('ivp-pr-' + k, f.price && f.price[k] !== null && f.price[k] !== undefined ? String(f.price[k]) : ''));
+}
+/** 1234.5 → "1.234,50" (it) / "1,234.50" (en), no currency sign. */
+function fmtMoneyPlain(n){ try { return Number(n || 0).toLocaleString(S.lang === 'en' ? 'en-GB' : 'it-IT', {minimumFractionDigits:2, maximumFractionDigits:2}); } catch(e){ return Number(n || 0).toFixed(2); } }
 function ivpOpenBatch(id){
   const a = ivpProj(id); if (!a) return;
   openModal({title:t('ivp_batch_t', {p:a.name}), body:'<div class="stack" id="ivp-bt"><p class="small">' + esc(t('ivp_batch_hint', {b:a.inv.box_to, f:a.inv.binder_to})) + '</p>' +
-      '<div class="field"><label>' + esc(t('ivp_batch_kind')) + '</label><div class="seg" id="ivp-bt-kind"><button type="button" data-k="binder" class="on">' + esc(t('ivp_kind_binder')) + '</button><button type="button" data-k="box">' + esc(t('ivp_kind_box')) + '</button></div></div>' +
+      '<div class="field"><label>' + esc(t('ivp_batch_kind')) + '</label><div class="seg" id="ivp-bt-kind"><button type="button" data-k="binder" class="on">' + esc(t('ivp_kind_binder')) + '</button><button type="button" data-k="box">' + esc(t('ivp_kind_box')) + '</button>' +
+        (a.inv.doc ? '<button type="button" data-k="doc">' + esc(t('ivp_kind_doc')) + '</button><button type="button" data-k="any">' + esc(t('ivp_kind_any')) + '</button>' : '') + '</div>' + (a.inv.doc ? '<div class="hint">' + esc(t('ivp_batch_kind_h')) + '</div>' : '') + '</div>' +
       '<div class="field"><label for="ivp-bt-n">' + esc(t('ivp_batch_n')) + '</label><input class="inp" id="ivp-bt-n" type="number" min="1" max="20000" value="200"></div></div>',
     onMount:(ov) => { ov.querySelectorAll('#ivp-bt-kind button').forEach(b => b.addEventListener('click', () => { ov.querySelectorAll('#ivp-bt-kind button').forEach(x => x.classList.toggle('on', x === b)); })); },
     buttons:[{label:t('cancel'), cls:'btn', action:'modal-close'}, {label:t('ivp_batch_new'), cls:'btn btn-primary', icon:'plus', fn:() => {
@@ -280,7 +319,7 @@ function ivpLabelHTML(a, it, f){
   const big = Math.max(2.2, Math.min(th * 0.34, tw / (it.num.length * 0.6))), kw = Math.max(1.6, Math.min(big * 0.42, th * 0.16)), sm = Math.max(1.5, Math.min(kw * 0.95, th * 0.13));
   const svg = DMQR.svg(shortUrl(it.code), {ecl:S.settings.qrEcc || 'M', quiet:1, fg:'#000'});
   const txt = '<div style="position:absolute;' + (land ? 'left:' + MM(q + 2 * pad) + ';top:' + MM(pad) : 'left:' + MM(pad) + ';top:' + MM(q + 2 * pad)) + ';width:' + MM(tw) + ';height:' + MM(th) + ';display:flex;flex-direction:column;justify-content:center;overflow:hidden;font-family:\'DM Inter\',Arial,sans-serif;color:#000">' +
-    '<div style="font-size:' + MM(kw) + ';font-weight:800;letter-spacing:.12em">' + esc(t(it.kind === 'box' ? 'ivp_kw_box' : 'ivp_kw_binder')) + '</div>' +
+    '<div style="font-size:' + MM(kw) + ';font-weight:800;letter-spacing:.12em">' + esc(t('ivp_kw_' + (INV_BATCH_KINDS.includes(it.kind) ? it.kind : 'binder'))) + '</div>' +
     '<div class="ivp-num" style="font-size:' + MM(big) + ';font-weight:800;line-height:1.05;white-space:nowrap;font-family:\'DM Mono\',monospace">' + esc(it.num) + '</div>' +
     '<div style="font-size:' + MM(sm) + ';font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(a.name || a.inv.code) + '</div>' +
     (a.inv.client ? '<div style="font-size:' + MM(sm * 0.9) + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(a.inv.client) + '</div>' : '') +
@@ -328,7 +367,7 @@ function ivpLabelPreview(a, it){
 }
 function ivpManifest(id, bid){
   const a = ivpProj(id), b = a && a.inv.batches.find(x => x.id === bid); if (!b) return;
-  const tag = (it) => ['docmap26', 'inventario', slugify(a.inv.code), it.kind === 'box' ? 'scatola' : 'faldone', it.num].filter(Boolean).join(',');
+  const tag = (it) => ['docmap26', 'inventario', slugify(a.inv.code), {box:'scatola', doc:'documento', any:'jolly'}[it.kind] || 'faldone', it.num].filter(Boolean).join(',');
   const rows = [MANIFEST_HEADER].concat(ivpBatchCodes(a, b).map(it => [it.code, shortUrl(it.code), renderDest(S.settings.destTemplate, {short_code:it.code, speaking_code:it.num, id:'inv-' + it.code}), tag(it)]));
   const name = 'manifest_qr7_' + slugify(a.inv.code) + '_' + (b.kind === 'box' ? 'S' : 'F') + b.from + '-' + b.to + '.csv';
   download(name, manifestText(rows), 'text/csv'); toast(t('ex_done', {f:name}));
@@ -354,7 +393,7 @@ function ivpDbRead(db, W){
 /* ---------------- actions + events ---------------- */
 const IVP_ACTIONS = {
   'ivp-new': () => ivpOpenForm(''),
-  'ivp-open': (el) => { IVP.open = el.dataset.id; IVP.f = ''; IVP.q = ''; IVP.sel = new Set(); IVP.lim = 60; S.view = 'inv'; renderAll(); window.scrollTo(0, 0); },
+  'ivp-open': (el) => { IVP.open = el.dataset.id; IVP.f = ''; IVP.q = ''; IVP.lv = ''; IVP.sel = new Set(); IVP.lim = 60; S.view = 'inv'; renderAll(); window.scrollTo(0, 0); },
   'ivp-list': () => { IVP.open = ''; renderView(); window.scrollTo(0, 0); },
   'ivp-edit': (el) => ivpOpenForm(el.dataset.id),
   'ivp-batch': (el) => ivpOpenBatch(el.dataset.id),
@@ -362,12 +401,14 @@ const IVP_ACTIONS = {
   'ivp-manifest': (el) => ivpManifest(el.dataset.id, el.dataset.b),
   'ivp-phone': (el) => ivpOpenPhone(el.dataset.id),
   'ivp-f': (el) => { IVP.f = el.dataset.v || ''; IVP.lim = 60; ivpRefresh(); },
+  'ivp-lv': (el) => { IVP.lv = el.dataset.v || ''; IVP.lim = 60; ivpRefresh(); },
   'ivp-more': () => { IVP.lim = (IVP.lim || 60) + 120; ivpGridRefresh(); },
   'ivp-confirm': (el) => { const b = S.binders.find(x => x.id === el.dataset.id); if (b && ivpConfirm([b], 'one')){ IVP.sel.delete(b.id); ivpRefresh(); } },
   'ivp-confirm-safe': (el) => { const a = ivpProj(el.dataset.id); if (!a) return; const n = ivpConfirm(ivpBinders(a).filter(b => ivpSafe(a, b)), 'safe'); if (n) toast(t('ivp_conf_done', {n})); ivpRefresh(); },
   'ivp-confirm-sel': (el) => { const a = ivpProj(el.dataset.id); if (!a) return; const n = ivpConfirm(ivpBinders(a).filter(b => IVP.sel.has(b.id)), 'selected'); IVP.sel = new Set(); if (n) toast(t('ivp_conf_done', {n})); ivpRefresh(); },
-  'ivp-photo': (el) => { const b = S.binders.find(x => x.id === el.dataset.id), ph = b && b.inv && b.inv.ph, u = ph && IVP.photos.get(ph); if (!u) return;
-    openModal({title:b.speaking_code, size:'lg', body:'<div class="ivp-big"><img src="' + esc(u) + '" alt=""></div>' + (b.inv.ai && b.inv.ai.text ? '<p class="small muted">“' + esc(b.inv.ai.text) + '”</p>' : ''), buttons:[{label:t('close'), cls:'btn btn-primary', action:'modal-close'}]}); }
+  'ivp-photo': async (el) => { const b = S.binders.find(x => x.id === el.dataset.id), ph = b && b.inv && b.inv.ph, u = ph && IVP.photos.get(ph); if (!u) return;
+    const u2 = b.inv.ph2 ? await ivpPhotoGet(b.inv.ph2) : '';   // v12.12: second photo (first page)
+    openModal({title:b.speaking_code, size:'lg', body:'<div class="ivp-big"><img src="' + esc(u) + '" alt="">' + (u2 ? '<img src="' + esc(u2) + '" alt="" style="margin-top:8px">' : '') + '</div>' + (b.inv.ai && b.inv.ai.text ? '<p class="small muted">“' + esc(b.inv.ai.text) + '”</p>' : ''), buttons:[{label:t('close'), cls:'btn btn-primary', action:'modal-close'}]}); }
 };
 if (typeof ACTIONS === 'object') Object.assign(ACTIONS, IVP_ACTIONS);
 else document.addEventListener('DOMContentLoaded', () => { if (typeof ACTIONS === 'object') Object.assign(ACTIONS, IVP_ACTIONS); });

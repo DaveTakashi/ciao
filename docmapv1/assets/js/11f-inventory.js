@@ -38,7 +38,20 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       iv_st_captured:'acquisito', iv_st_proposed:'proposta AI', iv_st_review:'da rivedere', iv_st_confirmed:'confermato', iv_st_sending:'in invio', iv_st_ai:'lettura AI…',
       iv_q_wait:'{n} in attesa di rete', iv_q_send:'{n} in invio', iv_q_err:'{n} non inviati: {m}', iv_q_ok:'Tutto inviato', iv_ai_off:'Lettura AI spenta: si cataloga dal PC',
       iv_done:'Fine', iv_change:'Cambia progetto', iv_log_cap:'Acquisito con l\'inventario rapido il faldone {c}', iv_log_box:'Nuova scatola dell\'inventario {c}', iv_log_undo:'Annullata l\'acquisizione di {c}', iv_log_upd:'Aggiornato dall\'inventario rapido il faldone {c}',
-      iv_err:'Non salvato: {m}', iv_mode_capture:'Modalità: cattura ora, cataloga dopo', iv_mode_box:'Modalità: scatola → faldoni'
+      iv_err:'Non salvato: {m}', iv_mode_capture:'Modalità: cattura ora, cataloga dopo', iv_mode_box:'Modalità: scatola → faldoni',
+      iv_mode_station:'Modalità: stazione fissa', iv_mode_chain:'Modalità: catena a due persone',
+      iv_station_hint:'Stazione fissa: appoggia il telefono (o usa la webcam del PC) e passa i faldoni davanti alla fotocamera, uno alla volta. Bip = fatto.',
+      iv_chain_hint:'Catena a due persone: tu scansioni, la seconda persona corregge sul PC (Progetti › In diretta).', iv_more:'Tag, anni e voce',
+      iv_folder:'Faldone aperto', iv_folder_set:'Faldone aperto: {c} (ora i documenti)', iv_folder_n:'{n} documenti', iv_folder_1:'1 documento', iv_folder_close:'Chiudi il faldone',
+      iv_need_folder:'Prima il faldone: scansiona il QR del faldone che contiene il documento.', iv_doc_ok:'Documento {c} in {f}', iv_jolly:'Le etichette jolly diventano', iv_j_binder:'Faldone', iv_j_doc:'Documento',
+      iv_box_closed:'Chiusa {b}: {n} faldoni{y}', iv_box_years:', anni {y}', iv_page:'Foto della prima pagina', iv_page_ok:'Seconda foto di {c}: l\'AI la legge',
+      iv_hid:'Lettore Bluetooth pronto: leggi un\'etichetta.', iv_st_doc:'documento',
+      iv_v_start:'Verifica una scatola', iv_v_h:'Verifica', iv_v_p:'Scansiona la scatola da controllare, poi tutti i faldoni che contiene. Alla fine vedi cosa manca e cosa è fuori posto.',
+      iv_v_load:'Carico l\'elenco del progetto…', iv_v_box:'Scatola in verifica: {c}', iv_v_need_box:'Prima la scatola da verificare.', iv_v_found:'{c}: c\'è', iv_v_again:'{c} già contato',
+      iv_v_mis:'{c} è registrato in {b}: fuori posto', iv_v_nobox:'{c} non ha una scatola registrata', iv_v_unknown:'{c} non è ancora inventariato', iv_v_doc:'{c} è un documento: in verifica contano i faldoni',
+      iv_v_k_found:'Trovati', iv_v_k_missing:'Mancano', iv_v_k_mis:'Fuori posto', iv_v_k_unknown:'Non inventariati', iv_v_missing:'Mancano', iv_v_move:'Sposta qui', iv_v_move_all:'Sposta qui tutti ({n})',
+      iv_v_moved:'{c} spostato in {b}', iv_v_cap:'Acquisisci qui', iv_v_close:'Chiudi la verifica', iv_v_exit:'Torna all\'inventario', iv_v_done:'Verifica {b}: {f} su {e} trovati, {m} mancanti, {x} fuori posto',
+      iv_v_err:'Elenco non disponibile: {m}', iv_log_verify:'Verificata la scatola {b}: {f} su {e} trovati', iv_log_move:'Spostato {c} nella scatola {b} (verifica)', iv_log_doc:'Acquisito il documento {c} nel faldone {f}'
     });
     Object.assign(I18N.en, {
       iv_title:'Doc Location — Inventory', iv_pick_h:'Rapid inventory', iv_pick_p:'Pick the project you are working on.', iv_pick_none:'No open project. Create it on the PC: Projects › New project.',
@@ -53,7 +66,20 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       iv_st_captured:'captured', iv_st_proposed:'AI proposal', iv_st_review:'to review', iv_st_confirmed:'confirmed', iv_st_sending:'sending', iv_st_ai:'AI reading…',
       iv_q_wait:'{n} waiting for the network', iv_q_send:'{n} sending', iv_q_err:'{n} not sent: {m}', iv_q_ok:'All sent', iv_ai_off:'AI reading off: catalogue on the PC',
       iv_done:'Done', iv_change:'Change project', iv_log_cap:'Binder {c} captured with the rapid inventory', iv_log_box:'New inventory box {c}', iv_log_undo:'Capture of {c} undone', iv_log_upd:'Binder {c} updated by the rapid inventory',
-      iv_err:'Not saved: {m}', iv_mode_capture:'Mode: capture now, catalogue later', iv_mode_box:'Mode: box → binders'
+      iv_err:'Not saved: {m}', iv_mode_capture:'Mode: capture now, catalogue later', iv_mode_box:'Mode: box → binders',
+      iv_mode_station:'Mode: fixed station', iv_mode_chain:'Mode: two-person chain',
+      iv_station_hint:'Fixed station: put the phone on a stand (or use the PC webcam) and pass the binders in front of the camera, one at a time. Beep = done.',
+      iv_chain_hint:'Two-person chain: you scan, the second person corrects on the PC (Projects › Live).', iv_more:'Tags, years and voice',
+      iv_folder:'Open binder', iv_folder_set:'Open binder: {c} (documents now)', iv_folder_n:'{n} documents', iv_folder_1:'1 document', iv_folder_close:'Close the binder',
+      iv_need_folder:'Binder first: scan the QR of the binder that holds the document.', iv_doc_ok:'Document {c} in {f}', iv_jolly:'Jolly labels become', iv_j_binder:'Binder', iv_j_doc:'Document',
+      iv_box_closed:'Closed {b}: {n} binders{y}', iv_box_years:', years {y}', iv_page:'Photo of the first page', iv_page_ok:'Second photo of {c}: the AI reads it',
+      iv_hid:'Bluetooth scanner ready: read a label.', iv_st_doc:'document',
+      iv_v_start:'Check a box', iv_v_h:'Check', iv_v_p:'Scan the box to check, then every binder in it. At the end you see what is missing and what is misplaced.',
+      iv_v_load:'Loading the project list…', iv_v_box:'Box being checked: {c}', iv_v_need_box:'Scan the box to check first.', iv_v_found:'{c}: present', iv_v_again:'{c} already counted',
+      iv_v_mis:'{c} is recorded in {b}: misplaced', iv_v_nobox:'{c} has no box recorded', iv_v_unknown:'{c} is not inventoried yet', iv_v_doc:'{c} is a document: the check counts binders',
+      iv_v_k_found:'Found', iv_v_k_missing:'Missing', iv_v_k_mis:'Misplaced', iv_v_k_unknown:'Not inventoried', iv_v_missing:'Missing', iv_v_move:'Move here', iv_v_move_all:'Move all here ({n})',
+      iv_v_moved:'{c} moved to {b}', iv_v_cap:'Capture here', iv_v_close:'Close the check', iv_v_exit:'Back to the inventory', iv_v_done:'Check {b}: {f} of {e} found, {m} missing, {x} misplaced',
+      iv_v_err:'List not available: {m}', iv_log_verify:'Box {b} checked: {f} of {e} found', iv_log_move:'{c} moved to box {b} (check)', iv_log_doc:'Document {c} captured in binder {f}'
     });
     Object.assign(SC_ICONS, {
       mic:'<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v4"/>',
@@ -63,7 +89,8 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
     ['box', 'cam', 'undo', 'stop', 'scan'].forEach(k => { if (!SC_ICONS[k]) SC_ICONS[k] = SC_ICONS.qr; });
 
     const IV = { pid:'', proj:null, scanned:new Map(), box:null, list:[], last:null, msg:null, cam:null, busy:Promise.resolve(), projects:null,
-      tags:new Set(), years:[], keep:false, rec:null, listening:false, undoTimer:0, amendTimer:0, flushing:{rec:false, ai:false}, q:{wait:0, send:0, err:0, errMsg:''}, wake:null, label:null };
+      tags:new Set(), years:[], keep:false, rec:null, listening:false, undoTimer:0, amendTimer:0, flushing:{rec:false, ai:false}, q:{wait:0, send:0, err:0, errMsg:''}, wake:null, label:null,
+      folder:null, jolly:'binder', verify:null };   // v12.12: open binder (document level), jolly labels, box verification
     window.IV = IV;   // tests and debugging
 
     /* ---------------- small helpers ---------------- */
@@ -84,7 +111,7 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       lsSet(IV_RECENT_LS, r);
     }
     function ivPrefs(){ const p = lsGet(IV_PREFS_LS, {}); return p && typeof p === 'object' ? p : {}; }
-    function ivPrefsSave(){ const p = ivPrefs(); p[IV.pid] = {box:IV.box, keep:IV.keep, tags:IV.keep ? Array.from(IV.tags) : [], years:IV.keep ? IV.years : [], at:nowISO()}; lsSet(IV_PREFS_LS, p); }
+    function ivPrefsSave(){ const p = ivPrefs(); p[IV.pid] = {box:IV.box, keep:IV.keep, tags:IV.keep ? Array.from(IV.tags) : [], years:IV.keep ? IV.years : [], folder:IV.folder, jolly:IV.jolly, at:nowISO()}; lsSet(IV_PREFS_LS, p); }
 
     /* ---------------- providers ---------------- */
     LocalDataProvider.prototype.invList = async function(){
@@ -94,7 +121,7 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
     LocalDataProvider.prototype.invGet = async function(id){
       const {st} = await this.readState(); const a = st && (st.archives || []).find(x => x.id === id && invIsProject(x)); if (!a) return null;
       const sc = []; const p = a.inv.prefix;
-      (st.binders || []).forEach(b => { const x = invParseCode(b.short_code); if (x && x.prefix === p && x.kind === 'binder') sc.push({t:'b', c:b.short_code, u:b.updated_at}); });
+      (st.binders || []).forEach(b => { const x = invParseCode(b.short_code); if (x && x.prefix === p && x.kind === 'binder') sc.push(Object.assign({t:'b', c:b.short_code, u:b.updated_at, l:b.location_id || '', n:b.speaking_code || ''}, invLevel(b) === 'doc' ? {d:1} : {})); });
       (st.locations || []).forEach(l => { const x = invParseCode(l.short_code); if (x && x.prefix === p && x.kind === 'box') sc.push({t:'l', c:l.short_code, u:l.updated_at, id:l.id}); });
       return {project:a, scanned:sc};
     };
@@ -115,7 +142,7 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
     LocalDataProvider.prototype.invAi = async function(){ return {enabled:false}; };
     RemoteDataProvider.prototype.invList = async function(){ const r = await this.srv.call('project'); return Array.isArray(r.items) ? r.items : []; };
     RemoteDataProvider.prototype.invGet = async function(id){
-      try { const r = await this.srv.call('project', {q:{id}}); return {project:r.project, scanned:Array.isArray(r.scanned) ? r.scanned : []}; }
+      try { const r = await this.srv.call('project', {q:Object.assign({id}, arguments[1] && arguments[1].detail ? {detail:'1'} : {})}); return {project:r.project, scanned:Array.isArray(r.scanned) ? r.scanned : []}; }
       catch(e){ if (e.code === 'not_found') return null; throw e; }
     };
     RemoteDataProvider.prototype.invPush = async function(records, tombs, entry){
@@ -141,6 +168,8 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       const pr = ivPrefs()[pid] || {};
       IV.box = pr.box && pr.box.short_code && invParseCode(pr.box.short_code) ? pr.box : null;
       IV.keep = !!pr.keep; IV.tags = new Set(IV.keep ? pr.tags || [] : []); IV.years = IV.keep && Array.isArray(pr.years) ? pr.years : [];
+      IV.folder = IV.proj.inv.doc && pr.folder && pr.folder.short_code && IV.scanned.has(pr.folder.short_code) ? pr.folder : null;
+      IV.jolly = pr.jolly === 'doc' ? 'doc' : 'binder'; IV.verify = null;
       return true;
     }
     function ivBoxCount(){ return IV.box ? IV.list.filter(x => !x.undone && x.box === IV.box.code).length : 0; }
@@ -152,12 +181,13 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       const l = normalizeLocation({id:'inv-' + code, parent_id:'', level:0, kind:'box', name:num, seg:locSegClean(num), code:locSegClean(num), short_code:code, archive_id:IV.pid, created_at:at, updated_at:at});
       l._type = 'location'; return l;
     }
-    function ivNewBinder(code, n, photoId){
-      const inv = IV.proj.inv, at = ivTs(''), yr = ivYearStr(IV.years);
+    function ivNewBinder(code, n, photoId, lvl){
+      const inv = IV.proj.inv, at = ivTs(''), yr = ivYearStr(IV.years), doc = lvl === 'doc' && IV.folder;
       const b = normalizeBinder({id:'inv-' + code, short_code:code, speaking_code:invNumber(inv, 'binder', n), archive_id:IV.pid, company_name:inv.client || '',
-        location_id:IV.box ? IV.box.id : '', tags:Array.from(IV.tags).join(', '), ref_year:yr, created_at:at, updated_at:at});
+        location_id:doc ? IV.folder.loc || '' : IV.box ? IV.box.id : '', tags:Array.from(IV.tags).join(', '), ref_year:yr, created_at:at, updated_at:at});
       b.id = 'inv-' + code; b.updated_at = at; b.created_at = at;
-      b.inv = {p:IV.pid, st:'captured', ph:photoId || '', ai:null, voice:'', by:ivWho(), dev:ivDevice(), at, n, box:IV.box ? IV.box.code : ''};
+      b.inv = {p:IV.pid, st:'captured', ph:photoId || '', ai:null, voice:'', by:ivWho(), dev:ivDevice(), at, n, box:doc ? IV.folder.box || '' : IV.box ? IV.box.code : ''};
+      if (doc) Object.assign(b.inv, {lvl:'doc', parent:IV.folder.id, folder:IV.folder.code});   // v12.12: a document inside the open binder
       b._type = 'binder'; return b;
     }
     function ivYearStr(ys){ const a = (ys || []).filter(Boolean).map(Number).sort((x, y) => x - y); return !a.length ? '' : a[0] === a[a.length - 1] ? String(a[0]) : a[0] + '-' + a[a.length - 1]; }
@@ -203,14 +233,15 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
     async function ivRunJob(job){
       if (job.kind === 'rec'){
         for (const d of job.recs){
-          if (d._type === 'binder' && d.inv && d.inv.ph && !job.photoSent){
-            const ph = await IVDB.get(d.inv.ph).catch(() => null);
+          if (d._type !== 'binder' || !d.inv || job.photoSent) continue;
+          for (const pid of [d.inv.ph, d.inv.ph2].filter(Boolean)){   // v12.12: ph2 = photo of the first page
+            const ph = await IVDB.get(pid).catch(() => null);
             if (ph && ph.data && !ph.sent){
               const m = String(ph.data).match(/^data:([^;]+);base64,(.*)$/);
-              if (m){ const r = await SC.P.data.invPhotoPut({id:d.inv.ph, binder_id:d.id, mime:m[1], data:m[2]}); if (!r.local){ ph.sent = true; IVDB.put(d.inv.ph, ph).catch(() => {}); } }
+              if (m){ const r = await SC.P.data.invPhotoPut({id:pid, binder_id:d.id, mime:m[1], data:m[2]}); if (!r.local){ ph.sent = true; IVDB.put(pid, ph).catch(() => {}); } }
             }
-            ivJobMark(job.id, {photoSent:true});
           }
+          ivJobMark(job.id, {photoSent:true});
         }
         await SC.P.data.invPush(job.recs, job.tombs || [], job.entry || null);
         job.recs.forEach(d => { if (IV.list.some(x => x.code === d.short_code)) ivListSet(d.short_code, {sent:true}); });
@@ -242,7 +273,14 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
 
     /* ---------------- scanning ---------------- */
     function ivHandle(text, via){ IV.busy = IV.busy.then(() => ivHandleOne(text, via)).catch(e => console.warn('inv', e)); return IV.busy; }
-    function ivSay(kind, text){ IV.msg = {kind, text, at:Date.now()}; dmScanFeedback(kind === 'ok' ? 'ok' : kind === 'switch' ? 'switch' : 'warn'); }
+    function ivSay(kind, text){
+      IV.msg = {kind, text, at:Date.now()}; dmScanFeedback(kind === 'ok' ? 'ok' : kind === 'switch' ? 'switch' : 'warn');
+      // v12.12 fixed station: the whole screen flashes, readable from a distance
+      if (IV.proj && IV.proj.inv.mode === 'station' && document.body){
+        const o = document.createElement('div'); o.className = 'iv-burst ' + kind; o.setAttribute('aria-hidden', 'true'); o.textContent = text.split(' · ').pop().slice(0, 60);
+        document.body.appendChild(o); setTimeout(() => o.remove(), 900);
+      }
+    }
     async function ivHandleOne(text, via){
       if (!IV.proj) return;
       if (!ivCan()){ ivSay('err', t('iv_ro')); return ivRenderLive(); }
@@ -256,39 +294,70 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       if (x.prefix !== IV.proj.inv.prefix){ ivSay('err', t('iv_other', {c:p.code})); return ivRenderLive(); }
       const inv = IV.proj.inv, to = x.kind === 'box' ? inv.box_to : inv.binder_to;
       if (!(x.n >= 1 && x.n <= to)){ ivSay('err', t('iv_range', {c:invNumber(inv, x.kind, x.n)})); return ivRenderLive(); }
+      if (IV.verify) return x.kind === 'box' ? ivVerifyBox(p.code, x.n) : ivVerifyScan(p.code, x.n, via);
       if (x.kind === 'box') return ivSetBox(p.code, x.n);
       return ivCapture(p.code, x.n, via);
     }
+    /** v12.12: summary of the box being left (this session): binders + years, said when the next box is scanned. */
+    function ivBoxSummary(b){
+      if (!b) return '';
+      const L = IV.list.filter(x => !x.undone && x.box === b.code && x.lvl !== 'doc'); if (!L.length) return '';
+      const ys = []; L.forEach(x => { const r = ivRecent()[x.code]; (String(r && r.ref_year || '').match(/\b(1[89]|2[01])\d\d\b/g) || []).forEach(y => ys.push(+y)); });
+      const y = ys.length ? t('iv_box_years', {y:Math.min(...ys) === Math.max(...ys) ? Math.min(...ys) : Math.min(...ys) + '-' + Math.max(...ys)}) : '';
+      return t('iv_box_closed', {b:b.code, n:L.length, y});
+    }
     function ivSetBox(code, n){
       const num = invNumber(IV.proj.inv, 'box', n), seen = IV.scanned.get(code);
+      const closed = IV.box && IV.box.short_code !== code ? ivBoxSummary(IV.box) : '';
+      if (IV.folder && IV.box && IV.box.short_code !== code) IV.folder = null;   // a new box closes the open binder
       IV.box = {id:seen && seen.id ? seen.id : 'inv-' + code, code:num, short_code:code, n};
       if (!seen){
         const l = ivNewBox(code, n); IV.box.id = l.id;
         IV.scanned.set(code, {t:'l', c:code, u:l.updated_at, id:l.id});
         ivEnqueue({kind:'rec', recs:[l], entry:ivEntry('inventory.box', {type:'location', id:l.id, code:num}, t('iv_log_box', {c:num}), {project:IV.pid, short_code:code})});
-        ivSay('switch', t('iv_box_new', {c:num}));
-      } else ivSay('switch', t('iv_box_set', {c:num}));
+        ivSay('switch', (closed ? closed + ' · ' : '') + t('iv_box_new', {c:num}));
+      } else ivSay('switch', (closed ? closed + ' · ' : '') + t('iv_box_set', {c:num}));
       ivPrefsSave(); ivRenderLive();
     }
     function ivEntry(action, target, summary, details){ return {id:uuid(), at:nowISO(), who:ivWho(), action, target, summary, details:Object.assign({user_id:(SC.user || {}).id || ''}, details || {}), source:MOBILE_LOG_SOURCE}; }
+    /** v12.12: level of a binder-shaped label: its batch (doc / binder) or, for a jolly label, the choice on the phone. */
+    function ivLevelOf(n){
+      const inv = IV.proj.inv, k = invBatchKind(inv, n);
+      if (k === 'doc') return 'doc';
+      if (k === 'any' && inv.doc && IV.jolly === 'doc') return 'doc';
+      return 'binder';
+    }
+    function ivFolderSet(code, num, loc, box){ IV.folder = {id:'inv-' + code, code:num, short_code:code, loc:loc || '', box:box || ''}; ivPrefsSave(); }
     async function ivCapture(code, n, via){
-      const num = invNumber(IV.proj.inv, 'binder', n);
-      if (IV.scanned.has(code)){ ivSay('warn', t('iv_dup', {c:num})); return ivRenderLive(); }
-      if (IV.proj.inv.mode !== 'capture' && !IV.box){ ivSay('warn', t('iv_need_box')); return ivRenderLive(); }
+      const num = invNumber(IV.proj.inv, 'binder', n), inv = IV.proj.inv, lvl = ivLevelOf(n);
+      if (IV.scanned.has(code)){
+        const s0 = IV.scanned.get(code);
+        // document level: scanning a binder already captured opens it (its documents follow)
+        if (inv.doc && s0.t === 'b' && !s0.d && lvl !== 'doc'){
+          const r = ivRecent()[code] || {}, loc = s0.l || r.location_id || '', bx = (r.inv && r.inv.box) || '';
+          ivFolderSet(code, num, loc, bx); ivSay('switch', t('iv_folder_set', {c:num})); return ivRender();
+        }
+        ivSay('warn', t('iv_dup', {c:num})); return ivRenderLive();
+      }
+      if (lvl === 'doc' && !IV.folder){ ivSay('warn', t('iv_need_folder')); return ivRenderLive(); }
+      if (lvl !== 'doc' && inv.mode !== 'capture' && !IV.box){ ivSay('warn', t('iv_need_box')); return ivRenderLive(); }
       // 1. photo of this very frame (the QR and the spine are in it), before anything else
       let photo = '', phId = '';
       if (IV.cam && IV.cam.video){ photo = invGrabFrame(IV.cam.video, 1280, 0.72); if (photo){ phId = 'ph-' + code + '-' + Date.now().toString(36); try { await IVDB.put(phId, {id:phId, mime:'image/jpeg', data:photo, at:nowISO(), binder_id:'inv-' + code, project:IV.pid}); } catch(e){ phId = ''; } } }
       // 2. the record, at once (tags / years chosen for the previous binder carry over only with "Mantieni")
       if (!IV.keep){ IV.tags = new Set(); IV.years = []; }
-      const b = ivNewBinder(code, n, phId);
-      IV.scanned.set(code, {t:'b', c:code, u:b.updated_at});
+      const b = ivNewBinder(code, n, phId, lvl), doc = lvl === 'doc';
+      IV.scanned.set(code, Object.assign({t:'b', c:code, u:b.updated_at, l:b.location_id || ''}, doc ? {d:1} : {}));
       ivRecentPut(b); IV.last = b;
       IV.list.forEach(y => { y.thumb = ''; });   // only the last photo stays in memory
-      IV.list.push({code, num, box:IV.box ? IV.box.code : '', at:Date.now(), thumb:photo, st:'captured', sent:false, ai:IV.proj.inv.ai && phId ? 'wait' : '', via});
+      IV.list.push({code, num, box:doc ? b.inv.box : IV.box ? IV.box.code : '', at:Date.now(), thumb:photo, st:'captured', sent:false, ai:IV.proj.inv.ai && phId ? 'wait' : '', via, lvl, folder:doc ? IV.folder.id : ''});
       ivPaceMark(via);
-      ivSay('ok', IV.box ? t('iv_ok_box', {c:num, b:IV.box.code}) : t('iv_ok', {c:num}));
-      ivEnqueue({kind:'rec', recs:[b], entry:ivEntry('inventory.capture', {type:'binder', id:b.id, code:num}, t('iv_log_cap', {c:num}), {project:IV.pid, short_code:code, box:IV.box ? IV.box.code : '', photo:!!phId, via})});
-      if (IV.proj.inv.ai && phId) ivEnqueue({kind:'ai', code, ph:phId, voice:'', hints:{tags:IV.proj.inv.tags, year_from:IV.proj.inv.year_from, year_to:IV.proj.inv.year_to, client:IV.proj.inv.client}});
+      if (doc) ivSay('ok', t('iv_doc_ok', {c:num, f:IV.folder.code}));
+      else ivSay('ok', IV.box ? t('iv_ok_box', {c:num, b:IV.box.code}) : t('iv_ok', {c:num}));
+      ivEnqueue({kind:'rec', recs:[b], entry:doc ? ivEntry('inventory.capture', {type:'binder', id:b.id, code:num}, t('iv_log_doc', {c:num, f:IV.folder.code}), {project:IV.pid, short_code:code, folder:IV.folder.code, level:'doc', photo:!!phId, via})
+        : ivEntry('inventory.capture', {type:'binder', id:b.id, code:num}, t('iv_log_cap', {c:num}), {project:IV.pid, short_code:code, box:IV.box ? IV.box.code : '', photo:!!phId, via})});
+      if (IV.proj.inv.ai && phId) ivEnqueue({kind:'ai', code, ph:phId, voice:'', hints:{tags:IV.proj.inv.tags, year_from:IV.proj.inv.year_from, year_to:IV.proj.inv.year_to, client:IV.proj.inv.client, kind:doc ? 'doc' : 'spine'}});
+      if (!doc && inv.doc) ivFolderSet(code, num, b.location_id, b.inv.box);   // document level: the new binder is open for its documents
       ivArmUndo(); ivPrefsSave(); ivRender();
     }
     /** v12.9 stopwatch: seconds between two binders in a row (a gap over DMT_PAUSE_MS is a pause, not a sample). */
@@ -313,6 +382,7 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       if (b.inv && b.inv.ph) IVDB.del(b.inv.ph).catch(() => {});
       const r = ivRecent(); if (r[code]){ r[code]._gone = true; lsSet(IV_RECENT_LS, r); }
       IV.scanned.delete(code); ivListSet(code, {undone:true}); IV.last = null;
+      if (IV.folder && IV.folder.short_code === code) IV.folder = null;
       IV.msg = {kind:'warn', text:t('iv_undone', {c:num}), at:Date.now()}; dmScanFeedback('warn'); ivQueueStats(); ivRender();
     }
     /** Quick tags / years / voice change the last binder (debounced: one record version per burst of taps). */
@@ -346,6 +416,114 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       ivRender();
     }
 
+    /* ---------------- v12.12: second photo (first page, when the spine says nothing) ---------------- */
+    async function ivPagePhoto(){
+      const b = IV.last; if (!b || !IV.cam || !IV.cam.video) return;
+      const photo = invGrabFrame(IV.cam.video, 1600, 0.75); if (!photo) return;
+      const pid = 'ph-' + b.short_code + '-p' + Date.now().toString(36);
+      try { await IVDB.put(pid, {id:pid, mime:'image/jpeg', data:photo, at:nowISO(), binder_id:b.id, project:IV.pid}); } catch(e){ return; }
+      ivAmend(c => { c.inv = Object.assign({}, c.inv, {ph2:pid}); });
+      clearTimeout(IV.amendTimer); const c = ivRecent()[b.short_code]; if (c && !c._gone) ivEnqueue({kind:'rec', recs:[c], amend:true});   // the photo leaves now
+      if (IV.proj.inv.ai) ivEnqueue({kind:'ai', code:b.short_code, ph:pid, voice:(b.inv && b.inv.voice) || '', hints:{tags:IV.proj.inv.tags, year_from:IV.proj.inv.year_from, year_to:IV.proj.inv.year_to, client:IV.proj.inv.client, kind:'page'}});
+      ivListSet(b.short_code, {thumb:photo, ai:IV.proj.inv.ai ? 'wait' : ''});
+      ivSay('ok', t('iv_page_ok', {c:b.speaking_code})); ivRender();
+    }
+
+    /* ---------------- v12.12: verification of a box (mode 6) ---------------- */
+    /* IV.verify = {map: code → {l, n, d}, box:{id, code, short_code}, seen:[codes], expected:[codes], moved:{}} */
+    async function ivVerifyStart(){
+      IV.verify = {loading:true, map:new Map(), box:null, seen:[], expected:[], err:''}; ivRender();
+      try {
+        const r = await SC.P.data.invGet(IV.pid, {detail:true});
+        IV.verify.map = new Map(((r && r.scanned) || []).map(x => [x.c, x]));
+      } catch(e){ IV.verify.err = e && e.code === 'offline' ? t('sc_srv_off') : String(e && (e.message || e.code) || e); }
+      // what this phone captured and has not sent yet counts too
+      ivOutbox().forEach(j => { if (j.kind === 'rec') (j.recs || []).forEach(d => { if (d._type !== 'location') IV.verify.map.set(d.short_code, Object.assign({t:'b', c:d.short_code, l:d.location_id || '', n:d.speaking_code || ''}, invLevel(d) === 'doc' ? {d:1} : {})); }); });
+      IV.verify.loading = false; ivRender();
+    }
+    function ivBoxNum(locId){ const x = invParseCode(String(locId || '').replace(/^inv-/, '')); return x && x.kind === 'box' ? invNumber(IV.proj.inv, 'box', x.n) : (locId ? String(locId) : ''); }
+    function ivVerifyResult(){
+      const V = IV.verify, where = {};
+      V.seen.forEach(c => { const m = V.map.get(c); if (m && !V.expected.includes(c)) where[c] = m.l ? ivBoxNum(m.l) : '—'; });
+      return invVerify(V.expected, V.seen, where);
+    }
+    function ivVerifyBox(code, n){
+      const V = IV.verify; if (!V || V.loading) return;
+      if (V.box && V.box.short_code === code){ ivSay('switch', t('iv_v_box', {c:V.box.code})); return ivRenderLive(); }
+      if (V.box && V.seen.length) ivVerifyClose(true);
+      const id = 'inv-' + code, num = invNumber(IV.proj.inv, 'box', n);
+      V.box = {id, code:num, short_code:code}; V.seen = [];
+      V.expected = Array.from(V.map.values()).filter(x => x.t === 'b' && !x.d && x.l === id).map(x => x.c).sort();
+      ivSay('switch', t('iv_v_box', {c:num})); ivRender();
+    }
+    function ivVerifyScan(code, n, via){
+      const V = IV.verify; if (!V || V.loading) return;
+      const num = invNumber(IV.proj.inv, 'binder', n);
+      if (!V.box){ ivSay('warn', t('iv_v_need_box')); return ivRenderLive(); }
+      if (V.seen.includes(code)){ ivSay('warn', t('iv_v_again', {c:num})); return ivRenderLive(); }
+      const m = V.map.get(code);
+      if (m && m.d){ ivSay('warn', t('iv_v_doc', {c:num})); return ivRenderLive(); }
+      V.seen.push(code);
+      if (V.expected.includes(code)) ivSay('ok', t('iv_v_found', {c:num}));
+      else if (m && m.l) ivSay('err', t('iv_v_mis', {c:num, b:ivBoxNum(m.l)}));
+      else if (m) ivSay('warn', t('iv_v_nobox', {c:num}));
+      else ivSay('warn', t('iv_v_unknown', {c:num}));
+      ivRender();
+    }
+    /** Move a binder recorded elsewhere into the box being checked (newest version, then the outbox). */
+    async function ivVerifyMove(code){
+      const V = IV.verify; if (!V || !V.box || !ivCan()) return;
+      let cur = ivRecent()[code] || null;
+      try { const srv = await SC.P.data.invGetBinder(code); if (srv && (!cur || String(srv.updated_at || '') >= String(cur.updated_at || ''))) cur = Object.assign({}, srv, {_type:'binder'}); } catch(e){ if (!cur) { ivSay('err', t('iv_err', {m:e.code || e.message})); return ivRenderLive(); } }
+      if (!cur){ ivSay('err', t('iv_v_unknown', {c:code})); return ivRenderLive(); }
+      const from = cur.location_id ? ivBoxNum(cur.location_id) : '—';
+      const rec = Object.assign({}, cur, {_type:'binder', location_id:V.box.id, updated_at:ivTs(cur.updated_at)});
+      rec.inv = Object.assign({}, rec.inv || {}, {box:V.box.code});
+      ivRecentPut(rec);
+      ivEnqueue({kind:'rec', recs:[rec], entry:ivEntry('inventory.move', {type:'binder', id:rec.id, code:rec.speaking_code || code}, t('iv_log_move', {c:rec.speaking_code || code, b:V.box.code}), {project:IV.pid, short_code:code, from, to:V.box.code, via:'verify'})});
+      const m = V.map.get(code) || {t:'b', c:code}; m.l = V.box.id; V.map.set(code, m);
+      if (!V.expected.includes(code)) V.expected.push(code);
+      ivSay('ok', t('iv_v_moved', {c:rec.speaking_code || code, b:V.box.code})); ivRender();
+    }
+    /** Capture a label not inventoried yet into the box being checked. */
+    async function ivVerifyCapture(code){
+      const V = IV.verify, x = invParseCode(code); if (!V || !V.box || !x) return;
+      const keep = IV.box; IV.box = {id:V.box.id, code:V.box.code, short_code:V.box.short_code, n:(invParseCode(V.box.short_code) || {}).n || 0};
+      const vv = IV.verify; IV.verify = null;
+      try { await ivCapture(code, x.n, 'verify'); } finally { IV.verify = vv; IV.box = keep; }
+      const b = ivRecent()[code]; if (b && !b._gone){ V.map.set(code, {t:'b', c:code, l:V.box.id, n:b.speaking_code}); if (!V.expected.includes(code)) V.expected.push(code); }
+      ivRender();
+    }
+    /** Close the check: one activity-log line with the result (the PC lists it in the project and in the report). */
+    function ivVerifyClose(quiet){
+      const V = IV.verify; if (!V || !V.box) return;
+      const r = ivVerifyResult(), nm = (c) => { const m = V.map.get(c); return (m && m.n) || ((x) => x ? invNumber(IV.proj.inv, 'binder', x.n) : c)(invParseCode(c)); };
+      const sum = {b:V.box.code, f:r.found.length, e:V.expected.length, m:r.missing.length, x:r.misplaced.length};
+      ivEnqueue({kind:'rec', recs:[], entry:ivEntry('inventory.verify', {type:'location', id:V.box.id, code:V.box.code}, t('iv_log_verify', sum),
+        {project:IV.pid, box:V.box.code, box_id:V.box.id, expected:V.expected.length, found:r.found.length, missing:r.missing.map(nm), misplaced:r.misplaced.map(x => ({c:nm(x.c), from:x.from})), unknown:r.unknown.map(nm)})});
+      if (!quiet) ivSay('switch', t('iv_v_done', sum));
+      V.box = null; V.seen = []; V.expected = [];
+      if (!quiet) ivRender();
+    }
+
+    /* ---------------- v12.12: Bluetooth / USB scanner (keyboard wedge) ---------------- */
+    /* A scanner types the QR text very fast and presses Enter. Keys typed outside any field, less than 60 ms apart, are
+       one reading; a person typing is slower and is ignored here (the code field below works as before). */
+    const HID = {buf:'', at:0};
+    document.addEventListener('keydown', (e) => {
+      if (SC.view !== 'inv' || !IV.proj) return;
+      const tg = e.target, tag = tg && tg.tagName; if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (tg && tg.isContentEditable)) return;
+      const now = Date.now();
+      if (e.key === 'Enter'){
+        const v = HID.buf; HID.buf = '';
+        if (v.length >= 8 && now - HID.at < 200){ e.preventDefault(); ivHandle(v, 'phone-hid'); }
+        return;
+      }
+      if (e.key.length !== 1 || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (now - HID.at > 60) HID.buf = '';
+      HID.buf += e.key; HID.at = now;
+    }, true);
+
     /* ---------------- voice (Web Speech API) ---------------- */
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     let rec = null;
@@ -366,7 +544,7 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
     /* ---------------- camera + wake lock ---------------- */
     async function ivCamToggle(){
       if (IV.cam){ ivCamStop(); return ivRender(); }
-      const cam = new DMCamScanner({dedupeMs:4000, onCode:(txt) => (typeof onTagScanned === 'function' && onTagScanned(txt, 'qr')) || ivHandle(txt, 'phone-camera')});
+      const cam = new DMCamScanner({dedupeMs:IV.proj && IV.proj.inv.mode === 'station' ? 8000 : 4000, onCode:(txt) => (typeof onTagScanned === 'function' && onTagScanned(txt, 'qr')) || ivHandle(txt, 'phone-camera')});
       IV.cam = cam;
       try { await cam.start(); try { if (navigator.wakeLock) IV.wake = await navigator.wakeLock.request('screen'); } catch(e){} ivRender(); }
       catch(e){ IV.cam = null; try { cam.stop(); } catch(x){} IV.msg = {kind:'err', text:t('iv_cam_err', {m:e && e.message || e}), at:Date.now()}; ivRender(); }
@@ -390,9 +568,10 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       const x = IV.list.slice().reverse().find(y => !y.undone);
       if (!x || !IV.last) return '<section class="iv-last empty" id="iv-last"><small>' + esc(t('iv_none')) + '</small></section>';
       const b = ivRecent()[x.code] || IV.last, st = x.ai === 'run' ? 'ai' : !x.sent ? 'sending' : (b.inv && b.inv.st) || x.st;
-      return '<section class="iv-last" id="iv-last">' + (x.thumb ? '<img class="iv-thumb" src="' + esc(x.thumb) + '" alt="">' : '<div class="iv-thumb none">' + sic('qr') + '</div>') +
+      const page = IV.cam && !IV.verify ? '<button type="button" class="sc-btn iv-page" data-s="iv-page" id="iv-page">' + sic('cam') + esc(t('iv_page')) + '</button>' : '';
+      return '<section class="iv-last' + (x.lvl === 'doc' ? ' doc' : '') + '" id="iv-last">' + (x.thumb ? '<img class="iv-thumb" src="' + esc(x.thumb) + '" alt="">' : '<div class="iv-thumb none">' + sic('qr') + '</div>') +
         '<div class="iv-last-t"><b class="iv-code" id="iv-last-code">' + esc(x.num) + '</b><span class="iv-st st-' + esc(st) + '" id="iv-last-st">' + esc(t('iv_st_' + st)) + '</span>' +
-        '<div class="iv-last-f">' + esc([b.company_name, b.binder_title, b.ref_year, b.tags].filter(Boolean).join(' · ') || '—') + '</div></div>' +
+        '<div class="iv-last-f">' + esc([x.lvl === 'doc' ? t('iv_st_doc') + ' · ' + (b.inv && b.inv.folder || '') : '', b.company_name, b.binder_title, b.ref_year, b.tags].filter(Boolean).join(' · ') || '—') + '</div>' + page + '</div>' +
         (IV.undoTimer ? '<button type="button" class="iv-undo" data-s="iv-undo" id="iv-undo">' + sic('undo') + esc(t('iv_undo')) + '</button>' : '') + '</section>';
     }
     function ivYearsList(){
@@ -402,6 +581,35 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       const a = []; for (let y = hi; y >= lo; y--) a.push(y); return a;
     }
     function ivControlsHTML(){
+      const inv = IV.proj.inv;
+      const html = ivControlsInner();
+      // station and chain: the operator does not touch the phone; the controls stay one tap away
+      return inv.mode === 'station' || inv.mode === 'chain' ? '<details class="iv-more" id="iv-more"><summary>' + esc(t('iv_more')) + '</summary>' + html + '</details>' : html;
+    }
+    function ivFolderHTML(){
+      const inv = IV.proj.inv; if (!inv.doc) return '';
+      const n = IV.folder ? IV.list.filter(x => !x.undone && x.folder === IV.folder.id).length : 0;
+      const jolly = inv.batches.some(b => b.kind === 'any') ? '<div class="iv-jolly" id="iv-jolly"><small>' + esc(t('iv_jolly')) + '</small><div class="sc-seg">' + ['binder', 'doc'].map(k => '<button type="button" data-s="iv-jolly" data-v="' + k + '" class="' + (IV.jolly === k ? 'on' : '') + '" aria-pressed="' + (IV.jolly === k) + '">' + esc(t(k === 'doc' ? 'iv_j_doc' : 'iv_j_binder')) + '</button>').join('') + '</div></div>' : '';
+      return '<div class="iv-folder' + (IV.folder ? '' : ' none') + '" id="iv-folder">' + sic('inv') + '<div><b>' + esc(IV.folder ? IV.folder.code : t('iv_folder')) + '</b><small>' + esc(IV.folder ? (n === 1 ? t('iv_folder_1') : t('iv_folder_n', {n})) : t('iv_need_folder')) + '</small></div>' +
+        (IV.folder ? '<button type="button" class="sc-btn" data-s="iv-folder-close" id="iv-folder-close">' + esc(t('iv_folder_close')) + '</button>' : '') + '</div>' + jolly;
+    }
+    function ivVerifyHTML(){
+      const V = IV.verify, nm = (c) => { const m = V.map.get(c); const x = invParseCode(c); return (m && m.n) || (x ? invNumber(IV.proj.inv, 'binder', x.n) : c); };
+      if (V.loading) return '<section class="sc-card iv-verify" id="iv-verify"><p class="sc-muted">' + esc(t('iv_v_load')) + '</p></section>';
+      if (V.err) return '<section class="sc-card iv-verify" id="iv-verify"><div class="sc-msg err">' + esc(t('iv_v_err', {m:V.err})) + '</div><button type="button" class="sc-btn sc-block" data-s="iv-verify-exit">' + esc(t('iv_v_exit')) + '</button></section>';
+      const r = V.box ? ivVerifyResult() : {found:[], missing:[], misplaced:[], unknown:[]};
+      const k = (n, lab, cls) => '<div class="' + (cls || '') + '"><b>' + n + '</b><small>' + esc(t(lab)) + '</small></div>';
+      const mis = r.misplaced.map(x => '<li><span class="iv-l-code">' + esc(nm(x.c)) + '</span><span class="iv-l-t">' + esc(x.from) + '</span><button type="button" class="sc-btn" data-s="iv-v-move" data-c="' + esc(x.c) + '">' + esc(t('iv_v_move')) + '</button></li>').join('');
+      const unk = r.unknown.map(c => '<li><span class="iv-l-code">' + esc(nm(c)) + '</span><span class="iv-l-t">' + esc(t('iv_v_k_unknown')) + '</span><button type="button" class="sc-btn" data-s="iv-v-cap" data-c="' + esc(c) + '">' + esc(t('iv_v_cap')) + '</button></li>').join('');
+      return '<section class="sc-card iv-verify" id="iv-verify"><h2>' + sic('check') + esc(V.box ? t('iv_v_box', {c:V.box.code}) : t('iv_v_h')) + '</h2>' + (V.box ? '' : '<p class="sc-muted">' + esc(t('iv_v_p')) + '</p>') +
+        (V.box ? '<div class="iv-vk" id="iv-vk">' + k(r.found.length + ' / ' + V.expected.length, 'iv_v_k_found', 'ok') + k(r.missing.length, 'iv_v_k_missing', r.missing.length ? 'warn' : '') + k(r.misplaced.length, 'iv_v_k_mis', r.misplaced.length ? 'err' : '') + k(r.unknown.length, 'iv_v_k_unknown', r.unknown.length ? 'warn' : '') + '</div>' +
+          (mis ? '<ul class="iv-vl" id="iv-v-mis">' + mis + '</ul>' + (r.misplaced.length > 1 ? '<button type="button" class="sc-btn sc-block" data-s="iv-v-move-all">' + esc(t('iv_v_move_all', {n:r.misplaced.length})) + '</button>' : '') : '') +
+          (unk ? '<ul class="iv-vl" id="iv-v-unk">' + unk + '</ul>' : '') +
+          (r.missing.length ? '<details class="iv-more" id="iv-v-missing"><summary>' + esc(t('iv_v_missing')) + ' (' + r.missing.length + ')</summary><ul class="iv-vl">' + r.missing.map(c => '<li><span class="iv-l-code">' + esc(nm(c)) + '</span></li>').join('') + '</ul></details>' : '') +
+          '<button type="button" class="sc-btn sc-primary sc-block" data-s="iv-verify-close" id="iv-verify-close">' + sic('check') + esc(t('iv_v_close')) + '</button>' : '') +
+        '<button type="button" class="sc-btn sc-block" data-s="iv-verify-exit" id="iv-verify-exit">' + esc(t('iv_v_exit')) + '</button></section>';
+    }
+    function ivControlsInner(){
       const inv = IV.proj.inv;
       return '<section class="iv-ctl"><h2>' + sic('tag') + esc(t('iv_tags')) + '</h2><div class="iv-tags" id="iv-tags">' + inv.tags.map(tg => '<button type="button" class="iv-tag' + (IV.tags.has(tg) ? ' on' : '') + '" data-s="iv-tag" data-v="' + esc(tg) + '" aria-pressed="' + IV.tags.has(tg) + '">' + esc(tg) + '</button>').join('') + '</div>' +
         '<h2>' + esc(t('iv_years')) + '</h2><div class="iv-years" id="iv-years">' + ivYearsList().map(y => '<button type="button" class="iv-year' + (IV.years.includes(y) ? ' on' : '') + '" data-s="iv-year" data-v="' + y + '" aria-pressed="' + IV.years.includes(y) + '">' + y + '</button>').join('') + '</div>' +
@@ -414,18 +622,19 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       if (!L.length) return '';
       return '<section class="sc-card iv-list"><h2>' + esc(t('iv_session', {n:IV.list.filter(x => !x.undone).length})) + ' · ' + esc(t('iv_total', {n:ivTotal()})) + ivPaceHTML() + '</h2><ul id="iv-list">' +
         L.map(x => { const b = ivRecent()[x.code] || {}, st = x.ai === 'run' ? 'ai' : !x.sent ? 'sending' : (b.inv && b.inv.st) || x.st;
-          return '<li><span class="iv-l-code">' + esc(x.num) + '</span><span class="iv-l-t">' + esc(x.title || b.binder_title || x.box || '') + '</span><span class="iv-st st-' + esc(st) + '">' + esc(t('iv_st_' + st)) + '</span></li>'; }).join('') + '</ul></section>';
+          return '<li' + (x.lvl === 'doc' ? ' class="doc"' : '') + '><span class="iv-l-code">' + esc(x.num) + '</span><span class="iv-l-t">' + esc((x.lvl === 'doc' ? '↳ ' : '') + (x.title || b.binder_title || x.box || '')) + '</span><span class="iv-st st-' + esc(st) + '">' + esc(t('iv_st_' + st)) + '</span></li>'; }).join('') + '</ul></section>';
     }
     function ivHTML(){
       const P = IV.proj, inv = P.inv;
-      return '<main class="sc-main iv-main" id="iv-main"><div class="iv-head"><div><h1 id="iv-name">' + esc(P.name || inv.code) + '</h1><small>' + esc(inv.code) + (inv.client ? ' · ' + esc(inv.client) : '') + ' · ' + esc(t(inv.mode === 'capture' ? 'iv_mode_capture' : 'iv_mode_box')) + '</small></div>' +
-          '<button type="button" class="sc-btn" data-s="iv-done" id="iv-done">' + esc(t('iv_done')) + '</button></div>' +
-        ivQueueHTML() + (inv.ai ? '' : '<div class="iv-ai-off sc-muted">' + esc(t('iv_ai_off')) + '</div>') +
-        ivBoxHTML() + '<div class="iv-cam' + (IV.cam ? ' on' : '') + '" id="iv-video">' + (IV.cam ? '' : '<button type="button" class="sc-btn sc-primary sc-block" data-s="iv-cam" id="iv-cam">' + sic('cam') + esc(t('iv_cam_on')) + '</button>') + '</div>' +
-        ivMsgHTML() + ivLastHTML() + ivControlsHTML() +
+      const V = IV.verify, hint = !V && (inv.mode === 'station' || inv.mode === 'chain') ? '<div class="sc-msg ok iv-mode-hint" id="iv-mode-hint">' + esc(t(inv.mode === 'station' ? 'iv_station_hint' : 'iv_chain_hint')) + '</div>' : '';
+      return '<main class="sc-main iv-main' + (inv.mode === 'station' && !V ? ' iv-station' : '') + '" id="iv-main"><div class="iv-head"><div><h1 id="iv-name">' + esc(P.name || inv.code) + '</h1><small>' + esc(inv.code) + (inv.client ? ' · ' + esc(inv.client) : '') + ' · ' + esc(V ? t('iv_v_h') : t('iv_mode_' + inv.mode)) + '</small></div>' +
+          '<div class="iv-head-b">' + (V ? '' : '<button type="button" class="sc-btn" data-s="iv-verify" id="iv-verify-b">' + sic('check') + esc(t('iv_v_start')) + '</button>') + '<button type="button" class="sc-btn" data-s="iv-done" id="iv-done">' + esc(t('iv_done')) + '</button></div></div>' +
+        ivQueueHTML() + (inv.ai || V ? '' : '<div class="iv-ai-off sc-muted">' + esc(t('iv_ai_off')) + '</div>') + hint +
+        (V ? '' : ivBoxHTML() + ivFolderHTML()) + '<div class="iv-cam' + (IV.cam ? ' on' : '') + '" id="iv-video">' + (IV.cam ? '' : '<button type="button" class="sc-btn sc-primary sc-block" data-s="iv-cam" id="iv-cam">' + sic('cam') + esc(t('iv_cam_on')) + '</button>') + '</div>' +
+        ivMsgHTML() + (V ? ivVerifyHTML() : ivLastHTML() + ivControlsHTML()) +
         (IV.cam ? '<button type="button" class="sc-btn sc-block" data-s="iv-cam" id="iv-cam-off">' + sic('stop') + esc(t('iv_cam_off')) + '</button>' : '') +
         '<form class="sa-typed" data-s="iv-typed-form"><label class="sc-field"><span>' + esc(t('iv_typed')) + '</span><input id="iv-typed" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="' + esc(t('iv_typed_ph')) + '"></label></form>' +
-        ivListHTML() + '</main>';
+        (V ? '' : ivListHTML()) + '</main>';
     }
     function ivPickHTML(){
       const L = IV.projects || [];
@@ -436,7 +645,9 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
     function ivRenderLive(){
       if (SC.view !== 'inv'){ return; }
       const swap = (id, html) => { const el = document.getElementById(id); if (el) el.outerHTML = html; };
-      swap('iv-flash', ivMsgHTML()); swap('iv-box', ivBoxHTML()); swap('iv-last', ivLastHTML());
+      swap('iv-flash', ivMsgHTML());
+      if (IV.verify){ swap('iv-verify', ivVerifyHTML()); ivQueueStats(); return; }
+      swap('iv-box', ivBoxHTML()); swap('iv-last', ivLastHTML()); swap('iv-folder', ivFolderHTML());
       const l = document.querySelector('.iv-list'); if (l) l.outerHTML = ivListHTML(); else { const m = document.getElementById('iv-main'); if (m && IV.list.length) m.insertAdjacentHTML('beforeend', ivListHTML()); }
       ivQueueStats();
     }
@@ -495,6 +706,15 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       if (a === 'iv-pick' || a === 'iv-go') return ivGo(el.dataset.id);
       if (a === 'iv-cam') return ivCamToggle();
       if (a === 'iv-undo') return ivUndo();
+      if (a === 'iv-page') return ivPagePhoto();
+      if (a === 'iv-jolly'){ IV.jolly = el.dataset.v === 'doc' ? 'doc' : 'binder'; ivPrefsSave(); return ivRender(); }
+      if (a === 'iv-folder-close'){ IV.folder = null; ivPrefsSave(); return ivRender(); }
+      if (a === 'iv-verify') return ivVerifyStart();
+      if (a === 'iv-verify-close') return ivVerifyClose(false);
+      if (a === 'iv-verify-exit'){ if (IV.verify && IV.verify.box && IV.verify.seen.length) ivVerifyClose(true); IV.verify = null; return ivRender(); }
+      if (a === 'iv-v-move') return ivVerifyMove(el.dataset.c);
+      if (a === 'iv-v-move-all'){ const r = ivVerifyResult(); return r.misplaced.reduce((p, x) => p.then(() => ivVerifyMove(x.c)), Promise.resolve()); }
+      if (a === 'iv-v-cap') return ivVerifyCapture(el.dataset.c);
       if (a === 'iv-tag') return ivToggleTag(el.dataset.v);
       if (a === 'iv-year') return ivToggleYear(el.dataset.v);
       if (a === 'iv-mic'){ if (Date.now() - pttAt < 1500) return; if (IV.listening) ivVoiceStop(); else ivVoiceStart(); return; }   // pointer presses are handled below
@@ -524,6 +744,7 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
     document.addEventListener('visibilitychange', async () => { if (!document.hidden && IV.cam && !IV.wake && navigator.wakeLock) try { IV.wake = await navigator.wakeLock.request('screen'); } catch(e){} });
     // jobs left inflight by a closed page are retried
     try { const q = ivOutbox(); if (q.some(j => j.inflight)) ivOutboxSet(q.map(j => { delete j.inflight; return j; })); } catch(e){}
-    window.IV_API = {ivHandle, ivOpen, ivFlush, ivUndo, ivApplyVoice, ivToggleTag, ivToggleYear, ivOutbox, ivRecent, IV_OUTBOX_LS, IV_RECENT_LS};
+    window.IV_API = {ivHandle, ivOpen, ivFlush, ivUndo, ivApplyVoice, ivToggleTag, ivToggleYear, ivOutbox, ivRecent, IV_OUTBOX_LS, IV_RECENT_LS,
+      ivPagePhoto, ivVerifyStart, ivVerifyBox, ivVerifyScan, ivVerifyMove, ivVerifyCapture, ivVerifyClose, ivVerifyResult, ivLevelOf};
   })();
 }
