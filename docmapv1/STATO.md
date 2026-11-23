@@ -34,7 +34,7 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
 | Cosa | Comando | Durata | Ultimo esito |
 |---|---|---|---|
 | Verifica veloce (tutto tranne la suite completa) | `bash tools/verifica-veloce.sh` | ~4 min | vedi §3bis |
-| Suite completa app (Playwright) | `cd tests && NODE_PATH=$(npm root -g) node suite.js` | ~35 min | 1374/1374 (2026-11-22, app 26.12.8) |
+| Suite completa app (Playwright) | `cd tests && NODE_PATH=$(npm root -g) node suite.js` | ~35 min | 1376/1376 (2026-11-23, app 26.12.11) |
 | CI su GitHub | `ci/docmap-ci.yml` (attivo solo se copiato in `.github/workflows/`) | — | in attesa del sì di Dave |
 
 ### Esito 2026-11-23, app 26.12.11 (nuovo anno, scarto, dove lo metto, voce)
@@ -44,7 +44,8 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
   nuovi, niente doppioni, Annulla, opzioni, Oggi; scarto: regole, esclusi, verbale con impronta, firma richiesta,
   distruzione, codici mai riusati, Annulla, verbale annullato, backup, regole condivise, avviso annuale; microfono finto
   su Archivio e Ctrl+K; dati della 26.12.10). `tests/v1210e.js`: il menu Lavoro ora ha anche Nuovo anno e Scarto.
-- Esiti di verifica veloce e suite completa: vedi il commit del rilascio.
+- Verifica veloce: tutto OK (v1211 49/49). Suite completa 2026-11-23: **1376/1376** (errors: none) dopo aver aggiornato 2
+  controlli della suite (il menu ⚙ ha anche Nuovo anno e Scarto; README / INDICE / HANDOFF_PROMPT con 26.12.11).
 - Provato solo in Chromium con un riconoscimento vocale finto: **microfono vero, stampa vera del verbale e regole di
   conservazione con un consulente mai provati** (righe D19–D22 di `COLLAUDO-REALE.md`).
 
