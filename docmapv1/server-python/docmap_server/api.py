@@ -34,7 +34,7 @@ log = logging.getLogger("docmap")
 
 DM_API = "docmap-php"
 DM_API_VERSION = 1
-DM_APP_VERSION = "26.12.9"   # v12.9 (was v12.8): DocMap release these server files belong to (ping app_version; the app compares it with its own)
+DM_APP_VERSION = "26.12.10"   # v12.10 (was v12.9): DocMap release these server files belong to (ping app_version; the app compares it with its own)
 DM_TYPES = ("binder", "client", "location", "archive", "status_event")   # v11: + location · v12: + archive + status_event
 DM_ROLES = {"viewer": 1, "editor": 2, "admin": 3}
 DM_MOBILE_FIELDS = ("archive_state", "contents_items", "room_code", "cabinet_code", "shelf_code", "sector_code", "notes",
@@ -648,8 +648,31 @@ def jr_payload(ctx, it):
 
 # ---------------------------------------------------------------- routes
 def r_ping():
-    return {"ok": True, "api": DM_API, "version": DM_API_VERSION, "schema": DM_SCHEMA, "features": ["journal", "device_info", "locations", "archives", "access_log", "status_events", "inventory"],
+    return {"ok": True, "api": DM_API, "version": DM_API_VERSION, "schema": DM_SCHEMA, "features": ["journal", "device_info", "locations", "archives", "access_log", "status_events", "inventory", "finder"],
             "server_time": now_iso(), "php": PING_RUNTIME, "app_version": DM_APP_VERSION}
+
+
+def finder_str(v, mx):
+    """mb_substr(trim($v), 0, mx) for strings, '' otherwise (PHP trim characters only)."""
+    return v.strip(" \t\n\r\0\x0b")[:mx] if isinstance(v, str) else ""
+
+
+def r_finder(ctx):
+    """v12.10 lost-item QR: the PUBLIC contact a finder sees (no token, no binder data, never says whether the code exists)."""
+    code = ctx.req.get.get("c", "")
+    if not isinstance(code, str) or not re.fullmatch(r"[A-Za-z0-9._-]{1,40}", code):
+        code = ""
+    r = ctx.db.execute("SELECT json FROM settings_shared WHERE key = 'subset'").fetchone()
+    d = jdec(ctx.dec(r["json"], "settings/subset")) if r else None
+    f = d.get("finder") if isinstance(d, dict) and isinstance(d.get("finder"), dict) else None
+    if not f or f.get("on", False) is not True:
+        return {"ok": True, "on": False, "code": code}
+    o = {"ok": True, "on": True, "code": code, "name": finder_str(f.get("name", ""), 120), "phone": finder_str(f.get("phone", ""), 40),
+         "email": finder_str(f.get("email", ""), 120), "whatsapp": finder_str(f.get("whatsapp", ""), 40), "note": finder_str(f.get("note", ""), 400)}
+    if o["name"] == "":
+        sn = d.get("studioName", "")
+        o["name"] = finder_str(sn if isinstance(sn, str) else "", 120)
+    return o
 
 
 def r_pull(ctx, who=None):
@@ -1924,6 +1947,11 @@ def handle(req: Request, config_path: str) -> Response:
             cors(ctx, c)
             if method == "OPTIONS":
                 return ctx.empty(204)
+            if route == "finder":   # v12.10: public, read only, contact details only
+                if method != "GET":
+                    fail(405, "method", "use GET")
+                open_db(ctx)
+                return ctx.out(200, r_finder(ctx))
             if route not in READS and route not in WRITES:
                 fail(404, "no_route", "unknown route")
             if route in WRITES and method != "POST":

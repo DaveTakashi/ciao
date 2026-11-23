@@ -34,7 +34,8 @@
 
 | Rotta | Metodo | Ruolo | Richiesta | Risposta 200 |
 |---|---|---|---|---|
-| `ping` | GET | nessuno | – | `{"ok":true,"api":"docmap-php","version":1,"schema":3,"features":["journal","device_info","locations","archives","access_log","status_events","inventory"],"server_time":"…","php":"8.3","app_version":"26.12.8"}` (v12.4: `app_version` = versione di DocMap dei file del server, la confronta "Verifica dopo l'aggiornamento"; funziona anche senza `config.php`; serve all'avviso di orologio sfasato) |
+| `ping` | GET | nessuno | – | `{"ok":true,"api":"docmap-php","version":1,"schema":3,"features":["journal","device_info","locations","archives","access_log","status_events","inventory","finder"],"server_time":"…","php":"8.3","app_version":"26.12.10"}` (v12.4: `app_version` = versione di DocMap dei file del server, la confronta "Verifica dopo l'aggiornamento"; funziona anche senza `config.php`; serve all'avviso di orologio sfasato) |
+| `finder` | GET | nessuno | `c` (codice dell'etichetta, facoltativo) | v12.10 «faldone smarrito», **pubblica**: `{"ok":true,"on":false,"code":"…"}` oppure `{"ok":true,"on":true,"code":"…","name","phone","email","whatsapp","note"}` presi da `finder` delle impostazioni condivise (`name` vuoto → `studioName`; testi tagliati a 120/40/120/40/400 caratteri; `code` solo se `[A-Za-z0-9._-]{1,40}`, altrimenti `""`). Mai dati dei faldoni, mai se il codice esiste; POST → 405. |
 | `me` | GET | viewer | – | `{"user":"mario","role":"editor","token_id":"cfg:1","studio_name":"…","server_time":"…","remember_minutes":null}` (v12: `remember_minutes` di `config.php`, §11) |
 | `pull` | GET | viewer | `since=<seq>` (0 = tutto) · `log_since=<seq>` | vedi §3 |
 | `push` | POST | editor | vedi §4 | `{"applied":n,"same":n,"rejected":[…],"settings_applied":bool,"logged":n,"seq":n,"server_time":"…"}` |

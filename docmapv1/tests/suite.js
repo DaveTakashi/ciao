@@ -225,9 +225,16 @@ const sec = (n) => console.log('\n== ' + n);
   sec('safety');
   ok(await p.evaluate(() => { S.hasUnexportedChanges = true; const e = new Event('beforeunload', {cancelable:true}); window.dispatchEvent(e); return e.defaultPrevented; }), 'beforeunload guard active when dirty');
   await p.evaluate(() => { S.view = 'archive'; renderAll(); }); await p.waitForTimeout(200);
+  // v12.10: one binder goes at once with «Annulla» (undo restores it); «Chiedi sempre conferma» brings the question back
+  const nDel0 = await p.evaluate(() => S.binders.length);
   await p.click('[data-a="del"] >> nth=0'); await p.waitForTimeout(200);
-  ok((await p.innerText('.overlay')).includes('Sei sicuro?'), 'delete asks confirmation');
-  await p.keyboard.press('Escape');
+  ok(await p.evaluate((n) => S.binders.length === n - 1 && !topModal() && $$('.toast button').length > 0, nDel0), 'delete one binder: done at once, «Annulla» offered');
+  await p.evaluate(() => { const b0 = $$('.toast').filter(x => /Annulla/.test(x.textContent)).map(x => x.querySelector('button')).pop(); if (b0) b0.click(); }); await p.waitForTimeout(250);
+  ok(await p.evaluate((n) => S.binders.length === n, nDel0), 'undo brings the deleted binder back');
+  await p.evaluate(() => { S.settings.confirmDeletes = true; renderAll(); }); await p.waitForTimeout(150);
+  await p.click('[data-a="del"] >> nth=0'); await p.waitForTimeout(200);
+  ok((await p.innerText('.overlay')).includes('Sei sicuro?'), 'delete asks confirmation when «Chiedi sempre conferma» is on');
+  await p.keyboard.press('Escape'); await p.evaluate(() => { S.settings.confirmDeletes = false; persist(); });
   // XSS: names are escaped
   await p.evaluate(() => { S.binders.push(normalizeBinder({speaking_code:'XS1', company_name:'<img src=x onerror="window.__x=1">', short_code:newShortCode()})); renderAll(); S.view = 'print'; renderAll(); });
   await p.waitForTimeout(300);
@@ -489,7 +496,7 @@ const sec = (n) => console.log('\n== ' + n);
   sec('v8 A: navigation, Informazioni, QR reprint');
   // top bar: 3 main tabs, everything else in the "Funzioni avanzate" menu
   v = await p.evaluate(() => ({main:[...document.querySelectorAll('.nav .nav-main [data-a="nav"]')].map(b => b.dataset.v), adv:[...document.querySelectorAll('#nav-more [data-a="nav"]')].map(b => b.dataset.v).sort(), vis:[...document.querySelectorAll('.nav [data-a="nav"]')].filter(b => b.checkVisibility()).length}));
-  ok(v.main.join() === 'archive,inv,print,info' && v.vis === 4 && v.adv.join() === 'ai,database,export,import,log,settings,sync', 'top bar: exactly 4 main tabs (v12.8: Progetti), the rest in the "Funzioni avanzate" menu', v);
+  ok(v.main.join() === 'archive,inv,print,info' && v.vis === 4 && v.adv.join() === 'ai,database,export,import,insights,log,pick,reminders,settings,sync', 'top bar: exactly 4 main tabs (v12.8: Progetti), the rest in the "Funzioni avanzate" menu', v);
   for (const view of ['import', 'export', 'database', 'ai', 'settings']){
     await p.click('#nav-more summary'); await p.waitForTimeout(120);
     await p.click('#nav-more [data-v="' + view + '"]'); await p.waitForTimeout(200);
@@ -500,7 +507,7 @@ const sec = (n) => console.log('\n== ' + n);
   v = await p.evaluate(() => ({open:$('#nav-more').open, f:document.activeElement.dataset.v}));
   await p.keyboard.press('Escape'); await p.waitForTimeout(80);
   let vA2 = await p.evaluate(() => ({open:$('#nav-more').open, f:document.activeElement.tagName}));
-  ok(v.open && v.f === 'import' && !vA2.open && vA2.f === 'SUMMARY', 'menu works from the keyboard (Enter, arrows, Esc back to the button)', [v, vA2]);
+  ok(v.open && v.f === 'pick' && !vA2.open && vA2.f === 'SUMMARY', 'menu works from the keyboard (Enter, arrows to the first item = v12.10 Lavoro › Prelievi, Esc back to the button)', [v, vA2]);
   await p.click('#nav-more summary'); await p.waitForTimeout(80); await p.mouse.click(700, 600); await p.waitForTimeout(80);
   ok(!(await p.evaluate(() => $('#nav-more').open)), 'menu closes on an outside click');
   for (const w of [1180, 390]){
@@ -1152,7 +1159,7 @@ const sec = (n) => console.log('\n== ' + n);
   ok(Lv.op === 'Dave Test' && Lv.e.action === 'settings.operator' && Lv.e.who === 'Dave Test' && Lv.e.details.to === 'Dave Test' && Lv.e.details.from === '', 'log: operator name set in Settings is logged and used as "who"', Lv);
   // single delete (confirm), bulk delete, undo
   await p.evaluate(() => { S.view = 'archive'; renderAll(); ACTIONS['del']({dataset:{id:S.binders.find(x => x.speaking_code === 'LGT1').id}}); });
-  await p.click('.modal-f .btn-danger-solid'); await p.waitForTimeout(100);
+  await p.waitForTimeout(100);   // v12.10: no question, «Annulla» instead
   Lv = await p.evaluate(() => ({e:LOG.entries[LOG.entries.length - 1], gone:!S.binders.some(x => x.speaking_code === 'LGT1')}));
   ok(Lv.gone && Lv.e.action === 'binder.delete' && Lv.e.who === 'Dave Test' && Lv.e.target.code === 'LGT1', 'log: single delete by the operator', Lv);
   await p.evaluate(() => { S.binders.forEach(b => b.selected_for_print = false); ['LGB1','LGB2','LGB3'].forEach(c => S.binders.push(normalizeBinder({speaking_code:c, company_name:'Bulk Log', selected_for_print:true, short_code:newShortCode()}))); commit(); renderView(); ACTIONS['del-sel'](); });
@@ -3642,11 +3649,11 @@ const sec = (n) => console.log('\n== ' + n);
     const Dapi = Dread('server-php/api.php'), Dyaml = Dread('docs/python/openapi.yaml');
     const Dmap = (name) => { const m = Dapi.match(new RegExp('\\$' + name + " = \\[([^\\]]*)\\]")); const o = {}; for (const x of (m ? m[1] : '').matchAll(/'(\w+)' => '(\w+)'/g)) o[x[1]] = x[2]; return o; };
     const Dreads = Dmap('reads'), Dwrites = Dmap('writes');
-    const Dphp = Object.assign({ping:'none'}, Dreads, Dwrites);
+    const Dphp = Object.assign({ping:'none', finder:'none'}, Dreads, Dwrites);   // v12.10: finder is public like ping
     const Doa = {};
     Dyaml.split(/\n(?=  \/\w)/).slice(1).forEach(blk => { const r = blk.match(/^  \/(\w+):/); if (!r || !/^\s+x-docmap-route:/m.test(blk)) return; const role = blk.match(/x-docmap-role: (\w+)/); Doa[r[1]] = {role:role ? role[1] : 'none', post:/^    post:/m.test(blk), get:/^    get:/m.test(blk)}; });
     const Ddiff = Object.keys(Object.assign({}, Dphp, Doa)).filter(k => !Doa[k] || !Dphp[k] || Doa[k].role !== Dphp[k] || (k in Dwrites ? Doa[k].get || !Doa[k].post : !Doa[k].get));
-    ok(Object.keys(Dphp).length === 20 && !Ddiff.length, 'D: openapi.yaml has exactly the routes of api.php, with the same role (writes POST only, reads GET)', {php:Object.keys(Dphp), diff:Ddiff});
+    ok(Object.keys(Dphp).length === 21 && !Ddiff.length, 'D: openapi.yaml has exactly the routes of api.php, with the same role (writes POST only, reads GET)', {php:Object.keys(Dphp), diff:Ddiff});
     const Dping = (Dapi.match(/'features' => \[([^\]]*)\]/) || [, ''])[1].replace(/'/g, '"').replace(/\s/g, '');
     ok(Dping && Dread('docs/API-CONTRACT.md').includes('"features":[' + Dping + ']') && Dread('docs/HANDOFF_PROMPT.md').includes('"features":[' + Dping + ']'), 'D: API-CONTRACT and HANDOFF_PROMPT show the ping features of api.php', Dping);
   }
@@ -4184,7 +4191,7 @@ const sec = (n) => console.log('\n== ' + n);
         const Atables = Asql(ADATA, "SELECT name FROM sqlite_master WHERE type='table'").map(r => r[0]);
         Av2 = await Aq('ping');
         ok(Av.s === 200 && Av.j.records.length === 3 && Av.j.records.find(r => r.id === 'a-2').updated_at === '2026-10-10T09:00:00.000Z' && Asql(ADATA, "SELECT v FROM meta WHERE k='schema'")[0][0] === '3' && Atables.includes('access_log') && Atables.includes('sync_journal') &&
-          Av2.j.schema === 3 && JSON.stringify(Av2.j.features) === '["journal","device_info","locations","archives","access_log","status_events","inventory"]' && Asql(ADATA, 'SELECT COUNT(*) FROM access_log')[0][0] === 0, 'A server: the v12 api.php upgrades a v11 database in place (schema 2 → 3, table access_log), records and time stamps kept, ping features + access_log', {t:Atables, ping:Av2.j});
+          Av2.j.schema === 3 && JSON.stringify(Av2.j.features) === '["journal","device_info","locations","archives","access_log","status_events","inventory","finder"]' && Asql(ADATA, 'SELECT COUNT(*) FROM access_log')[0][0] === 0, 'A server: the v12 api.php upgrades a v11 database in place (schema 2 → 3, table access_log), records and time stamps kept, ping features + access_log', {t:Atables, ping:Av2.j});
         // a v10.1 database (schema 1) straight to v12 (2 and 3 in one go)
         fs.writeFileSync(Apath.join(ASP, 'config.php'), Acfg(ADATA10)); fs.writeFileSync(Apath.join(ASP, 'api.php'), Agit('68ae170'));
         Av = await Aq('push', {token:AT.mario, body:{records:Abase.slice(0, 2).map(x => ({type:'binder', id:x.id, updated_at:x.updated_at, data:x})), tombstones:[{type:'binder', id:'a-gone', code:'ZZG', deletedAt:'2026-10-05T10:00:00.000Z'}], deviceId:'dev-v101'}});
@@ -4558,8 +4565,7 @@ const sec = (n) => console.log('\n== ' + n);
     ok(Cv.back && Cv.b, 'C: undo brings the merged archive back with its binder', Cv);
     await p.evaluate(([tmp, st]) => { archMerge(tmp, st); commit(); const e = archCreate({name:'Vuoto'}); commit(); S.view = 'info'; S.infoTab = 'arch'; renderAll(); }, [CTMP, CST]);
     const CEMPTY = await p.evaluate(() => S.archives.find(a => a.name === 'Vuoto').id);
-    await p.click('#ar-grid [data-a="ar-del"][data-id="' + CEMPTY + '"]'); await p.waitForTimeout(100);
-    await p.click('.modal-f .btn-danger-solid'); await p.waitForTimeout(120);
+    await p.click('#ar-grid [data-a="ar-del"][data-id="' + CEMPTY + '"]'); await p.waitForTimeout(220);   // v12.10: empty archive goes at once, «Annulla» instead
     Cv = await p.evaluate((id) => ({gone:!archById(id), dflt:!document.querySelector('#ar-grid [data-a="ar-del"][data-id="' + ARCH_DEFAULT_ID + '"]') && !document.querySelector('#ar-grid [data-a="ar-merge"][data-id="' + ARCH_DEFAULT_ID + '"]'),
       log:LOG.entries.some(e => e.action === 'archive.delete' && e.target.id === id)}), CEMPTY);
     ok(Cv.gone && Cv.dflt && Cv.log, 'C: an empty archive can be deleted; the default archive can be neither merged away nor deleted', Cv);

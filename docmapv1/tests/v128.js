@@ -32,7 +32,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     p.on('dialog', d => d.accept());
     await p.goto(fileUrl('index.html')); await p.waitForTimeout(1300);
     await p.evaluate(() => { const m = document.querySelector('.modal-f [data-a="modal-btn"]'); if (m) m.click(); });
-    ok(await p.evaluate(() => APP_VERSION >= '26.12.8' && typeof viewInv === 'function' && typeof invLabelCode === 'function'), 'v12.8 loaded');
+    ok(await p.evaluate(() => APP_VERSION.split('.').map(Number)[2] >= 8 && typeof viewInv === 'function' && typeof invLabelCode === 'function'), 'v12.8 loaded');
 
     // ---- model (02f) ----
     const M = await p.evaluate(() => {
