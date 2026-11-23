@@ -36,7 +36,7 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
 | Verifica veloce (tutto tranne la suite completa) | `bash tools/verifica-veloce.sh` | ~4 min | tutto OK (2026-11-23) |
 | Lint JS / Python | `node tools/lint-js.js`, `python3 tools/lint-py.py` (dentro la verifica veloce) | 5 s | 0 problemi (2026-11-23) |
 | Test app tutti insieme (smoke, unit, aggiornamento, v12.6 … v12.11) | `cd tests && NODE_PATH=$(npm root -g) node run.js` | ~40 s | 13/13 file OK (2026-11-23) |
-| Suite completa app (Playwright) | `cd tests && NODE_PATH=$(npm root -g) node suite.js` | ~35 min | 1376/1376 (2026-11-23, app 26.12.11 + hub 0.12.0 uniti in main) |
+| Suite completa app (Playwright) | `cd tests && NODE_PATH=$(npm root -g) node suite.js` | ~35 min | 1376/1376 (2026-11-23, app 26.12.12 + hub 0.13.0, PR #15) |
 | CI su GitHub | `.github/workflows/docmap-ci.yml` (= `ci/docmap-ci.yml`), Ubuntu 24.04 | ~5 min | verde sulla PR #10 (2026-11-23); unica cartella fuori da `docmapv1/`, confermata da Dave (D20) |
 
 Come sono fatti i test e come aggiungerne: [`docs/TEST.md`](docs/TEST.md).
@@ -49,7 +49,8 @@ Come sono fatti i test e come aggiungerne: [`docs/TEST.md`](docs/TEST.md).
   (marchio rivenditore → cliente senza l'identità originale, deploy con il marchio, CLI, API, listino generato,
   preventivi, `plans.json` locale, pacchetti). Lint: regola `brand-literal` (JS e Python).
 - Verifica veloce: tutto OK (hub 191, server Python 36, installatore 76, parità PHP ⇄ Python, test app 14/14 file).
-  Suite completa: vedi la riga in tabella (aggiornati i controlli che citavano «DocMap 2026» nei PDF e i nomi dei file).
+  Suite completa: **1376/1376** (errors: none), dopo aver fatto seguire al marchio i controlli su metadati PDF, nomi dei
+  file scaricati e «Informazioni su …». Corretto anche il tipo «backup» nel Registro attività per i file `…_workspace_<data>`.
 - Non provato: nome nuovo su telefoni veri e app installata (righe G1–G5 di `COLLAUDO-REALE.md`).
 
 ### Esito 2026-11-23, qualità e CI (nessuna versione nuova dell'app)
