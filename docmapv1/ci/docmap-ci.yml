@@ -25,12 +25,12 @@ concurrency:
   group: docmap-ci-${{ github.ref }}
   cancel-in-progress: true
 env:
-  PLAYWRIGHT_VERSION: '1.55.0'
-  ESLINT_VERSION: '9.37.0'
+  PLAYWRIGHT_VERSION: '1.63.0'   # same as the agents' sandbox
+  ESLINT_VERSION: '10.1.0'
 jobs:
   fast:
     name: Verifica veloce
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04      # pinned: a new Ubuntu can be ahead of Playwright's browser builds
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -52,7 +52,7 @@ jobs:
   full:
     name: Suite completa
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.full)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04      # pinned: a new Ubuntu can be ahead of Playwright's browser builds
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
