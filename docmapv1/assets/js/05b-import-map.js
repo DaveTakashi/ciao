@@ -49,7 +49,7 @@ Object.assign(I18N.it, {
   imx_col:'Colonna {c}',
   imx_th_src:'Colonna nel file',
   imx_th_smp:'Esempi di valori',
-  imx_th_dst:'Campo DocMap',
+  imx_th_dst:('Campo ' + brandName()),
   imx_ignore:'— ignora —',
   imx_grp_main:'Campi del faldone',
   imx_grp_tech:'Campi tecnici',
@@ -71,10 +71,10 @@ Object.assign(I18N.it, {
   imx_reset:'Ripristina abbinamento automatico',
   imx_edit:'Modifica abbinamento colonne',
   imx_bar:'Origine: {src}',
-  imx_bar_std:'colonne standard DocMap',
+  imx_bar_std:('colonne standard ' + brandName()),
   imx_bar_map:'{m} colonne abbinate',
   imx_reading:'Lettura del file Excel…',
-  imx_xls:'Questo è un file Excel 97-2003 (.xls) o un file protetto da password, che DocMap non legge. Aprilo in Excel e usa File › Salva con nome › «Cartella di lavoro di Excel (.xlsx)» oppure «CSV (delimitato dal separatore di elenco)», poi importalo di nuovo.',
+  imx_xls:('Questo è un file Excel 97-2003 (.xls) o un file protetto da password, che ' + brandName() + ' non legge. Aprilo in Excel e usa File › Salva con nome › «Cartella di lavoro di Excel (.xlsx)» oppure «CSV (delimitato dal separatore di elenco)», poi importalo di nuovo.'),
   imx_ods:'Questo è un foglio OpenDocument/Numbers. Aprilo e salvalo come .xlsx (Excel) o come CSV, poi importalo di nuovo.',
   imx_xlsb:'Il formato Excel binario (.xlsb) non è supportato: salva come .xlsx o CSV, poi importalo di nuovo.',
   imx_bad:'Il file non è un Excel .xlsx leggibile ({e}). Salva come .xlsx o CSV e riprova.',
@@ -103,7 +103,7 @@ Object.assign(I18N.en, {
   imx_col:'Column {c}',
   imx_th_src:'Column in the file',
   imx_th_smp:'Sample values',
-  imx_th_dst:'DocMap field',
+  imx_th_dst:('' + brandName() + ' field'),
   imx_ignore:'— ignore —',
   imx_grp_main:'Binder fields',
   imx_grp_tech:'Technical fields',
@@ -125,10 +125,10 @@ Object.assign(I18N.en, {
   imx_reset:'Restore automatic mapping',
   imx_edit:'Edit column mapping',
   imx_bar:'Source: {src}',
-  imx_bar_std:'standard DocMap columns',
+  imx_bar_std:('standard ' + brandName() + ' columns'),
   imx_bar_map:'{m} columns mapped',
   imx_reading:'Reading the Excel file…',
-  imx_xls:'This is an Excel 97-2003 file (.xls) or a password-protected file, which DocMap cannot read. Open it in Excel and use File › Save As › “Excel Workbook (.xlsx)” or “CSV”, then import it again.',
+  imx_xls:('This is an Excel 97-2003 file (.xls) or a password-protected file, which ' + brandName() + ' cannot read. Open it in Excel and use File › Save As › “Excel Workbook (.xlsx)” or “CSV”, then import it again.'),
   imx_ods:'This is an OpenDocument/Numbers spreadsheet. Open it and save it as .xlsx (Excel) or CSV, then import it again.',
   imx_xlsb:'The binary Excel format (.xlsb) is not supported: save as .xlsx or CSV, then import it again.',
   imx_bad:'The file is not a readable Excel .xlsx ({e}). Save as .xlsx or CSV and try again.',
@@ -635,7 +635,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (typeof HELP_TOPICS === 'undefined' || HELP_TOPICS.some(x => x.id === 'excel')) return;
   HELP_TOPICS.push({ id:'excel', guide:null, tags:['import'], related:['import','clients'],
     title:{it:'Importare un file Excel (.xlsx) e abbinare le colonne', en:'Import an Excel file (.xlsx) and match the columns'},
-    body:{it:'<p>Trascina il file <b>.xlsx</b> in Importa (o in qualsiasi punto della pagina), oppure clicca il riquadro e sceglilo: non serve più esportarlo in CSV. Funziona offline, anche aprendo DocMap con doppio clic.</p><ul><li><b>Foglio</b>: se il file ha più fogli scegli quello giusto; di partenza c\'è il primo con dati.</li><li><b>Importa come</b>: <i>Faldoni</i> oppure <i>Anagrafica clienti</i>. DocMap lo capisce da solo dalle colonne (per esempio <span class="kbd">TIPO;Ditta;Ragione_soc;…</span> è un elenco clienti).</li><li><b>Abbinamento</b>: per ogni colonna del file vedi l\'intestazione, alcuni valori di esempio e il campo DocMap proposto. Correggi i menu se serve; <i>— ignora —</i> scarta la colonna. Le proposte arrivano dai nomi delle colonne (anche simili o con errori) e dai valori (codici dm26…, colori #RRGGBB, anni, CAP, sigle di provincia).</li><li><b>Riga di intestazione</b>: se sopra la tabella ci sono titoli o righe vuote DocMap trova da solo la riga giusta; puoi cambiarla o dire che il file non ha intestazione.</li><li><b>Conferma abbinamento</b> mostra la solita anteprima (NUOVO / AGGIORNA / ERRORE): niente viene salvato finché non confermi l\'importazione.</li><li>L\'abbinamento viene <b>ricordato</b>: reimportando un file con le stesse colonne basta un clic.</li></ul><p>Testo e caratteri speciali restano identici: apostrofi (LESIGNANO DE\' BAGNI), virgolette, punto e virgola, lettere accentate, zeri iniziali (007), a capo dentro la cella. Le date diventano <span class="kbd">AAAA-MM-GG</span>, i numeri restano come in Excel. Nella colonna Contenuti ogni riga (a capo) o ogni <span class="kbd">|</span> diventa una voce. Lo stesso abbinamento vale per i CSV e per il testo copiato da Excel e incollato. I vecchi file <b>.xls</b> vanno prima salvati come .xlsx o CSV.</p>',
-          en:'<p>Drop the <b>.xlsx</b> file on Import (or anywhere on the page), or click the box and choose it: no CSV export needed. Works offline, also when DocMap is opened with a double-click.</p><ul><li><b>Sheet</b>: with several sheets pick the right one; the first one with data is preselected.</li><li><b>Import as</b>: <i>Binders</i> or <i>Client register</i>. DocMap detects it from the columns.</li><li><b>Mapping</b>: for each file column you see the header, some sample values and the proposed DocMap field. Fix the menus if needed; <i>— ignore —</i> drops the column. Proposals come from column names (also similar or misspelt) and from values (dm26 codes, #RRGGBB colours, years, postcodes, province codes).</li><li><b>Header row</b>: titles or empty rows above the table are skipped automatically; you can change the row or say the file has no header.</li><li><b>Confirm mapping</b> shows the usual preview (NEW / UPDATE / ERROR): nothing is saved until you confirm the import.</li><li>The mapping is <b>remembered</b>: re-importing a file with the same columns takes one click.</li></ul><p>Text and special characters stay identical: apostrophes, quotes, semicolons, accents, leading zeros (007), line breaks in a cell. Dates become <span class="kbd">YYYY-MM-DD</span>, numbers stay as in Excel. In the Contents column each line or each <span class="kbd">|</span> becomes an item. The same mapping applies to CSV files and to text copied from Excel and pasted. Old <b>.xls</b> files must first be saved as .xlsx or CSV.</p>'} });
+    body:{it:('<p>Trascina il file <b>.xlsx</b> in Importa (o in qualsiasi punto della pagina), oppure clicca il riquadro e sceglilo: non serve più esportarlo in CSV. Funziona offline, anche aprendo ' + brandName() + ' con doppio clic.</p><ul><li><b>Foglio</b>: se il file ha più fogli scegli quello giusto; di partenza c\'è il primo con dati.</li><li><b>Importa come</b>: <i>Faldoni</i> oppure <i>Anagrafica clienti</i>. ' + brandName() + ' lo capisce da solo dalle colonne (per esempio <span class="kbd">TIPO;Ditta;Ragione_soc;…</span> è un elenco clienti).</li><li><b>Abbinamento</b>: per ogni colonna del file vedi l\'intestazione, alcuni valori di esempio e il campo ' + brandName() + ' proposto. Correggi i menu se serve; <i>— ignora —</i> scarta la colonna. Le proposte arrivano dai nomi delle colonne (anche simili o con errori) e dai valori (codici dm26…, colori #RRGGBB, anni, CAP, sigle di provincia).</li><li><b>Riga di intestazione</b>: se sopra la tabella ci sono titoli o righe vuote ' + brandName() + ' trova da solo la riga giusta; puoi cambiarla o dire che il file non ha intestazione.</li><li><b>Conferma abbinamento</b> mostra la solita anteprima (NUOVO / AGGIORNA / ERRORE): niente viene salvato finché non confermi l\'importazione.</li><li>L\'abbinamento viene <b>ricordato</b>: reimportando un file con le stesse colonne basta un clic.</li></ul><p>Testo e caratteri speciali restano identici: apostrofi (LESIGNANO DE\' BAGNI), virgolette, punto e virgola, lettere accentate, zeri iniziali (007), a capo dentro la cella. Le date diventano <span class="kbd">AAAA-MM-GG</span>, i numeri restano come in Excel. Nella colonna Contenuti ogni riga (a capo) o ogni <span class="kbd">|</span> diventa una voce. Lo stesso abbinamento vale per i CSV e per il testo copiato da Excel e incollato. I vecchi file <b>.xls</b> vanno prima salvati come .xlsx o CSV.</p>'),
+          en:('<p>Drop the <b>.xlsx</b> file on Import (or anywhere on the page), or click the box and choose it: no CSV export needed. Works offline, also when ' + brandName() + ' is opened with a double-click.</p><ul><li><b>Sheet</b>: with several sheets pick the right one; the first one with data is preselected.</li><li><b>Import as</b>: <i>Binders</i> or <i>Client register</i>. ' + brandName() + ' detects it from the columns.</li><li><b>Mapping</b>: for each file column you see the header, some sample values and the proposed ' + brandName() + ' field. Fix the menus if needed; <i>— ignore —</i> drops the column. Proposals come from column names (also similar or misspelt) and from values (dm26 codes, #RRGGBB colours, years, postcodes, province codes).</li><li><b>Header row</b>: titles or empty rows above the table are skipped automatically; you can change the row or say the file has no header.</li><li><b>Confirm mapping</b> shows the usual preview (NEW / UPDATE / ERROR): nothing is saved until you confirm the import.</li><li>The mapping is <b>remembered</b>: re-importing a file with the same columns takes one click.</li></ul><p>Text and special characters stay identical: apostrophes, quotes, semicolons, accents, leading zeros (007), line breaks in a cell. Dates become <span class="kbd">YYYY-MM-DD</span>, numbers stay as in Excel. In the Contents column each line or each <span class="kbd">|</span> becomes an item. The same mapping applies to CSV files and to text copied from Excel and pasted. Old <b>.xls</b> files must first be saved as .xlsx or CSV.</p>')} });
   const imp = HELP_TOPICS.find(x => x.id === 'import'); if (imp && !imp.related.includes('excel')) imp.related.unshift('excel');
 });

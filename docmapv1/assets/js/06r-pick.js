@@ -17,7 +17,7 @@
 
 Object.assign(I18N.it, {
   nav_pick:'Prelievi e consegne', nd_pick:'Prepara i faldoni per una verifica, un cliente, una pratica: percorso, firma, rientro', nm_work:'Lavoro',
-  pk_h:'Prelievi e consegne', pk_p:'Un elenco di faldoni da prendere per un motivo preciso: DocMap li mette nell\'ordine del giro tra gli scaffali, li segna come usciti, raccoglie la firma di chi li riceve e controlla il rientro.',
+  pk_h:'Prelievi e consegne', pk_p:('Un elenco di faldoni da prendere per un motivo preciso: ' + brandName() + ' li mette nell\'ordine del giro tra gli scaffali, li segna come usciti, raccoglie la firma di chi li riceve e controlla il rientro.'),
   pk_new:'Nuovo prelievo', pk_none:'Nessun prelievo ancora. Crea il primo: per esempio i faldoni 2021-2023 di un cliente per una verifica fiscale.',
   pk_open:'In corso', pk_closed:'Chiusi', pk_phone_only:'Consegne firmate dal telefono', pk_back_list:'Tutti i prelievi',
   pk_f_purpose:'Motivo', pk_f_title:'Titolo', pk_f_title_ph:'es. Verifica AdE Rossi Srl 2021-2023', pk_f_holder:'A chi vanno', pk_f_holder_ph:'es. Agenzia delle Entrate, Mario Rossi',
@@ -34,14 +34,14 @@ Object.assign(I18N.it, {
   pk_sign_pad:'Firma qui (mouse, dito o penna)', pk_sign_clear:'Cancella la firma', pk_sign_go:'Registra la consegna', pk_back_go:'Registra il rientro', pk_sign_nosig:'Senza firma (firma su carta)', pk_sign_need:'Scrivi il nome di chi riceve.',
   pk_sign_which:'Faldoni consegnati', pk_back_which:'Faldoni che rientrano', pk_sign_done:'Consegna registrata: {n} faldoni a {w}', pk_back_ok:'Rientro registrato: {n} faldoni', pk_receipt:'Ricevuta', pk_handovers:'Consegne e rientri',
   pk_phone_h:'Spunta col telefono', pk_phone_p:'Inquadra il QR col telefono (o apri il link): il telefono mostra il giro tra gli scaffali e spunta i faldoni man mano che scansioni le loro etichette. Alla fine registra l\'uscita e, se vuoi, la firma di chi li riceve.',
-  pk_phone_local:'Il link funziona quando DocMap è aperto dal sito o dalla sede (https): da un file aperto con doppio clic il telefono non lo può aprire.', pk_phone_copy:'Copia il link', pk_phone_copied:'Link copiato', pk_phone_cut:'Il link porta i primi {n} faldoni del percorso: gli altri il telefono li riconosce lo stesso quando li scansioni.',
+  pk_phone_local:('Il link funziona quando ' + brandName() + ' è aperto dal sito o dalla sede (https): da un file aperto con doppio clic il telefono non lo può aprire.'), pk_phone_copy:'Copia il link', pk_phone_copied:'Link copiato', pk_phone_cut:'Il link porta i primi {n} faldoni del percorso: gli altri il telefono li riconosce lo stesso quando li scansioni.',
   pk_fp_ok:'Firma e ricevuta integre', pk_fp_bad:'Attenzione: l\'impronta non corrisponde', pk_fp_nosig:'Firma non disponibile su questo PC',
   pk_csv_cols:'Tappa;Posizione;Codice;Cliente;Contenuto;Anni;Stato;Uscito;Rientrato', pk_log_new:'Creato il prelievo "{t}" ({n} faldoni)', pk_mine:'Creato da {u} il {d}',
   pk_need_status:'Il tipo di stato "{s}" non esiste più: scegline un altro in Motivo.', pk_from_sel:'Prelievo dai faldoni spuntati', pk_sheet_h:'Distinta di prelievo', pk_sheet_ok:'Preso', pk_sheet_back:'Rientrato',
 });
 Object.assign(I18N.en, {
   nav_pick:'Pick lists and hand-overs', nd_pick:'Prepare the binders for an audit, a client, a case: route, signature, return', nm_work:'Work',
-  pk_h:'Pick lists and hand-overs', pk_p:'A list of binders to take out for one need: DocMap orders them along the walk through the shelves, marks them as out, collects the signature of who receives them and checks they come back.',
+  pk_h:'Pick lists and hand-overs', pk_p:('A list of binders to take out for one need: ' + brandName() + ' orders them along the walk through the shelves, marks them as out, collects the signature of who receives them and checks they come back.'),
   pk_new:'New pick list', pk_none:'No pick list yet. Create the first one: for example a client\'s 2021-2023 binders for a tax audit.',
   pk_open:'Open', pk_closed:'Closed', pk_phone_only:'Hand-overs signed on a phone', pk_back_list:'All pick lists',
   pk_f_purpose:'Purpose', pk_f_title:'Title', pk_f_title_ph:'e.g. Tax audit Rossi Ltd 2021-2023', pk_f_holder:'Who gets them', pk_f_holder_ph:'e.g. Revenue agency, Mario Rossi',
@@ -58,7 +58,7 @@ Object.assign(I18N.en, {
   pk_sign_pad:'Sign here (mouse, finger or pen)', pk_sign_clear:'Clear the signature', pk_sign_go:'Record the hand-over', pk_back_go:'Record the return', pk_sign_nosig:'No signature (signed on paper)', pk_sign_need:'Write the name of who receives.',
   pk_sign_which:'Binders handed over', pk_back_which:'Binders coming back', pk_sign_done:'Hand-over recorded: {n} binders to {w}', pk_back_ok:'Return recorded: {n} binders', pk_receipt:'Receipt', pk_handovers:'Hand-overs and returns',
   pk_phone_h:'Tick off with the phone', pk_phone_p:'Scan the QR with the phone (or open the link): the phone shows the walk through the shelves and ticks the binders off as you scan their labels. At the end it records them as out and, if you want, the signature of who receives them.',
-  pk_phone_local:'The link works when DocMap is opened from the website or the office server (https): from a file opened with a double click the phone cannot open it.', pk_phone_copy:'Copy the link', pk_phone_copied:'Link copied', pk_phone_cut:'The link carries the first {n} binders of the route: the phone still recognises the others when you scan them.',
+  pk_phone_local:('The link works when ' + brandName() + ' is opened from the website or the office server (https): from a file opened with a double click the phone cannot open it.'), pk_phone_copy:'Copy the link', pk_phone_copied:'Link copied', pk_phone_cut:'The link carries the first {n} binders of the route: the phone still recognises the others when you scan them.',
   pk_fp_ok:'Signature and receipt intact', pk_fp_bad:'Warning: the fingerprint does not match', pk_fp_nosig:'Signature not available on this PC',
   pk_csv_cols:'Stop;Position;Code;Client;Contents;Years;Status;Out;Returned', pk_log_new:'Created the pick list "{t}" ({n} binders)', pk_mine:'Created by {u} on {d}',
   pk_need_status:'The status type "{s}" no longer exists: choose another Purpose.', pk_from_sel:'Pick list from the ticked binders', pk_sheet_h:'Pick sheet', pk_sheet_ok:'Taken', pk_sheet_back:'Returned',
@@ -362,7 +362,7 @@ function pkSheetHTML(p){
   let n = 0;
   const rows = (ids) => ids.map(id => { const b = byId.get(id); n++; return '<tr><td>' + n + '</td><td class="ck"></td><td class="mono"><b>' + esc(b.speaking_code) + '</b>' + (b.multi_code ? '<br><small>M ' + esc(b.multi_code) + '</small>' : '') + '</td><td>' + esc(b.company_name) + '<br><small>' + esc(b.binder_title || '') + '</small></td><td class="mono">' + esc(ys(b)) + '</td><td class="ck"></td></tr>'; }).join('');
   const block = (title, ids, i) => '<tr class="st"><td colspan="6"><b>' + (i != null ? esc(t('pk_stop', {n:i + 1})) + ' · ' : '') + esc(title) + '</b> <small>(' + ids.length + ')</small></td></tr>' + rows(ids);
-  return '<div class="pkr pks"><div class="pkr-h"><div><div class="pkr-k">DocMap · ' + esc(S.settings.studioName || '') + '</div><h1>' + esc(t('pk_sheet_h')) + '</h1><div class="pkr-t">' + esc(p.title) + '</div></div>' +
+  return ('<div class="pkr pks"><div class="pkr-h"><div><div class="pkr-k">' + brandName() + ' · ') + esc(S.settings.studioName || '') + '</div><h1>' + esc(t('pk_sheet_h')) + '</h1><div class="pkr-t">' + esc(p.title) + '</div></div>' +
     '<div class="pkr-id">' + esc(t('pkp_' + p.purpose)) + (p.holder ? '<br>' + esc(p.holder) : '') + (p.due_date ? '<br>' + esc(t('pk_due_on', {d:sqDayFmt(p.due_date)})) : '') + '<br>' + esc(fmtDate(nowISO(), true)) + '<br>' + esc(t('pk_route_sum', {s:route.stops.length, r:route.rooms, m:pkFmtMin(est)})) + '</div></div>' +
     '<table class="pkr-l"><thead><tr><th>#</th><th>' + esc(t('pk_sheet_ok')) + '</th><th>' + esc(t('pkr_code')) + '</th><th>' + esc(t('pkr_client')) + '</th><th>' + esc(t('pk_f_years')) + '</th><th>' + esc(t('pk_sheet_back')) + '</th></tr></thead><tbody>' +
     route.stops.map((s, i) => block(s.text, s.ids, i)).join('') + (route.noLoc.length ? block(t('pk_route_noloc'), route.noLoc, null) : '') + '</tbody></table></div>';
@@ -471,13 +471,13 @@ document.addEventListener('DOMContentLoaded', () => {
     body:{it:'<p>Menu <b>⚙ Funzioni avanzate › Prelievi e consegne › Nuovo prelievo</b> (o Ctrl+K, «prelievo»).</p><ol>' +
       '<li><b>Motivo</b>: verifica fiscale, richiesta del cliente, pratica interna, avvocato, revisione, digitalizzazione, trasloco, scarto… Sceglie da solo lo stato da registrare, a chi vanno e la data di rientro (puoi cambiarli).</li>' +
       '<li><b>Quali faldoni</b>: cliente, anni (dal–al), ricerca libera, categoria o tag, codici incollati da Excel, faldoni spuntati nell\'Archivio. L\'anteprima mostra quelli già fuori e quelli senza posizione; togli la spunta a quelli che non servono.</li>' +
-      '<li><b>Percorso</b>: DocMap mette i faldoni nell\'ordine del giro tra gli scaffali (stanza, armadio o corsia, ripiano, scatola), a serpentina, e stima il tempo. <b>Stampa la distinta</b> con le caselle da spuntare, o <b>Spunta col telefono</b>: il telefono legge i QR e spunta da solo.</li>' +
+      ('<li><b>Percorso</b>: ' + brandName() + ' mette i faldoni nell\'ordine del giro tra gli scaffali (stanza, armadio o corsia, ripiano, scatola), a serpentina, e stima il tempo. <b>Stampa la distinta</b> con le caselle da spuntare, o <b>Spunta col telefono</b>: il telefono legge i QR e spunta da solo.</li>') +
       '<li><b>Segna come prelevati</b> registra l\'uscita; <b>Consegna con firma</b> fa firmare chi li riceve (mouse, dito o penna) e stampa la ricevuta con l\'impronta SHA-256; <b>Rientro</b> li fa tornare «in archivio», anche con firma.</li></ol>' +
       '<p>Tutto resta nella storia di ogni faldone (Stato), anche se elimini l\'elenco. La firma e la ricevuta sono una prova interna dello studio, non una firma digitale qualificata.</p>',
       en:'<p>Menu <b>⚙ Advanced tools › Pick lists and hand-overs › New pick list</b> (or Ctrl+K, "pick").</p><ol>' +
       '<li><b>Purpose</b>: tax audit, client request, internal case, lawyer, audit, digitisation, move, disposal… It picks the status to record, who gets them and the return date (you can change them).</li>' +
       '<li><b>Which binders</b>: client, years (from–to), free search, category or tag, codes pasted from Excel, binders ticked in the Archive. The preview shows those already out and those without a position; untick what you do not need.</li>' +
-      '<li><b>Route</b>: DocMap orders the binders along the walk through the shelves (room, cabinet or aisle, shelf, box), serpentine, and estimates the time. <b>Print the pick sheet</b> with tick boxes, or <b>Tick off with the phone</b>: the phone reads the QR codes and ticks them itself.</li>' +
+      ('<li><b>Route</b>: ' + brandName() + ' orders the binders along the walk through the shelves (room, cabinet or aisle, shelf, box), serpentine, and estimates the time. <b>Print the pick sheet</b> with tick boxes, or <b>Tick off with the phone</b>: the phone reads the QR codes and ticks them itself.</li>') +
       '<li><b>Mark as taken</b> records them as out; <b>Hand over with signature</b> has the receiver sign (mouse, finger or pen) and prints the receipt with its SHA-256 fingerprint; <b>Return</b> brings them back "in the archive", with a signature too.</li></ol>' +
       '<p>Everything stays in each binder\'s history (Status), even if you delete the list. The signature and the receipt are internal evidence of the office, not a qualified electronic signature.</p>'} });
 });

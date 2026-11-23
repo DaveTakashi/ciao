@@ -1,8 +1,11 @@
-// DocMap full regression suite — run: node suite.js
+// Full regression suite (white label: product name from brand.js) — run: node suite.js
 const {chromium} = require('playwright');
 const fs = require('fs'), {PNG} = require('pngjs'), jsQR = require('jsqr');
 const URL_ = 'file://' + require('path').resolve(__dirname, '..', 'index.html').replace(/\\/g, '/');
 fs.mkdirSync('shots', {recursive:true});
+const BRAND_ = (() => { const x = fs.readFileSync(require('path').resolve(__dirname, '..', 'brand.js'), 'utf8'); return JSON.parse(x.slice(x.indexOf('{', x.indexOf('DOCMAP_BRAND')), x.lastIndexOf('}') + 1)); })();
+const BN_ = BRAND_.product_name, U16_ = (s) => '<FEFF' + [...s].map(c => c.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')).join('') + '>';
+const RX_ = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 let fails = 0, passes = 0;
 const ok = (cond, name, extra) => { if (cond){ passes++; } else { fails++; console.log('  ✗ FAIL', name, extra !== undefined ? JSON.stringify(extra).slice(0, 300) : ''); } };
 const sec = (n) => console.log('\n== ' + n);
@@ -1075,7 +1078,7 @@ const sec = (n) => console.log('\n== ' + n);
       await pSetup(pr, m, off); await p.evaluate((u) => { S.usedSlots = u; renderAll(); }, used);
       const lay = await pLayout();
       const name = await pDownload('shots/p_' + pr + '.pdf');
-      ok(/^DocMap_etichette_[A-Za-z0-9_-]+_\d{4}-\d{2}-\d{2}\.pdf$/.test(name) && name.includes(pr), `PDF ${pr}: file name ${name}`);
+      ok(new RegExp('^' + RX_(BRAND_.file_prefix) + '_etichette_[A-Za-z0-9_-]+_\\d{4}-\\d{2}-\\d{2}\\.pdf$').test(name) && name.includes(pr), `PDF ${pr}: file name ${name}`);
       const after = await p.evaluate(() => ({modal:!!(topModal() && topModal().textContent.includes(t('pdf_after_t'))), toast:[...document.querySelectorAll('.toast')].some(x => x.textContent.includes('100%')), last:PDF.last}));
       ok(after.modal && after.toast, `PDF ${pr}: toast "stampa al 100%" + question about used slots`, after);
       await p.evaluate(() => closeModal(true));
@@ -1096,7 +1099,7 @@ const sec = (n) => console.log('\n== ' + n);
         ok(txt.includes('Contabilità') && /α/.test(txt) && /β/.test(txt) && txt.includes('Barbieri Luigi S.r.l.'), 'PDF text is real, extractable text (accents, Greek shelf letters, company names)', txt.slice(0, 200));
         ok(!lay.pages[0].some(s => s.s === 0 || s.s === 1), 'PDF skips the used slots of the partial sheet like the print does');
         const raw = fs.readFileSync('shots/p_' + pr + '.pdf').toString('latin1');
-        ok(/\/FontFile2/.test(raw) && /\/ToUnicode/.test(raw) && /\/CIDFontType2/.test(raw) && /\/Identity-H/.test(raw) && /\/Producer \(DocMap 2026\)/.test(raw) && /\/CreationDate \(D:\d{14}/.test(raw) && /\/FlateDecode/.test(raw), 'PDF embeds subset TrueType fonts (Identity-H + ToUnicode), metadata and compressed streams');
+        ok(/\/FontFile2/.test(raw) && /\/ToUnicode/.test(raw) && /\/CIDFontType2/.test(raw) && /\/Identity-H/.test(raw) && raw.toString('latin1').includes('/Producer ' + U16_(BN_)) && /\/CreationDate \(D:\d{14}/.test(raw) && /\/FlateDecode/.test(raw), 'PDF embeds subset TrueType fonts (Identity-H + ToUnicode), metadata and compressed streams');
         ok(after.last.bytes < 200000, `PDF size for one MRINK143 sheet: ${after.last.bytes} bytes`);
         try { cp.execSync('qpdf --check shots/p_' + pr + '.pdf', {stdio:'pipe'}); ok(true, 'qpdf --check'); } catch(e){ if (e.status === 127 || /not found|ENOENT/.test(String(e.message))) console.log('  (qpdf not installed: skipped)'); else ok(false, 'qpdf --check', String(e.stdout || e.message).slice(0, 300)); }
       }
@@ -1183,7 +1186,7 @@ const sec = (n) => console.log('\n== ' + n);
   await p.evaluate(() => { S.view = 'export'; renderAll(); });
   await dl('[data-a="ex-csv"]');
   Lv = await p.evaluate(() => LOG.entries[LOG.entries.length - 1]);
-  ok(Lv.action === 'export.csv' && Lv.details.file === 'docmap_full_backup.csv', 'log: export logged with file name', Lv);
+  ok(Lv.action === 'export.csv' && Lv.details.file === BRAND_.file_prefix + '_full_backup.csv', 'log: export logged with file name', Lv);
   Lv = await p.evaluate(async () => { await dbPersist(); const d2 = new DB.SQL.Database(DB.db.export()); const ver = dbScalar("SELECT value FROM meta WHERE key='schema_version'", null, d2); const n = dbScalar('SELECT COUNT(*) FROM activity_log', null, d2); const r = dbQuery("SELECT * FROM activity_log WHERE action = 'binder.edit' ORDER BY at DESC LIMIT 1", null, d2)[0]; d2.close();
     const d3 = new DB.SQL.Database(); d3.exec('CREATE TABLE binders(id TEXT PRIMARY KEY, speaking_code TEXT); CREATE TABLE contents_items(id INTEGER PRIMARY KEY, binder_id TEXT)'); dbMigrate(d3); const has = dbQuery("SELECT name FROM sqlite_master WHERE name='activity_log'", null, d3).length; d3.close();
     return {ver, n, mem:LOG.entries.length, pend:LOG.pending.length, code:r && r.target_code, det:r && JSON.parse(r.details_json).changed.room_code[1], who:r && r.who, has}; });
@@ -1245,7 +1248,7 @@ const sec = (n) => console.log('\n== ' + n);
   ok(Lv.open, 'log view: clicking a binder entry opens that binder', Lv);
   const LcsvF = await dl('[data-a="log-csv"]');
   const Lcsv = fs.readFileSync(LcsvF, 'utf8');
-  ok(/^docmap_registro_attivita_\d{8}_\d{4}\.csv$/.test(require('path').basename(LcsvF)) && Lcsv.split('\r\n').length > 6 && Lcsv.includes(';binder.delete_bulk;'), 'log view: CSV download', LcsvF);
+  ok(new RegExp('^' + RX_(BRAND_.file_prefix) + '_registro_attivita_\\d{8}_\\d{4}\\.csv$').test(require('path').basename(LcsvF)) && Lcsv.split('\r\n').length > 6 && Lcsv.includes(';binder.delete_bulk;'), 'log view: CSV download', LcsvF);
   await p.evaluate(() => { S.lang = 'en'; renderAll(); });
   Lv = await p.evaluate(() => ({h:document.querySelector('.page-h h1').textContent, th:document.querySelector('#lg-results thead').textContent, menu:document.querySelector('#nav-more [data-v="log"]').textContent, help:!!helpTopic('log'), lbl:VIEW_LABEL.log, se:I18N.en.lg_operator}));
   ok(/Activity log/.test(Lv.h) && /When/.test(Lv.th) && /Activity log/.test(Lv.menu) && Lv.help && Lv.lbl === 'nav_log' && !!Lv.se, 'log view: English UI + help topic "log"', Lv);
@@ -1771,7 +1774,7 @@ const sec = (n) => console.log('\n== ' + n);
         ok(!/\/ObjStm|\/Type\s*\/XRef/.test(s), 'PDF: no object streams / xref streams');
         ok(/trailer\n<< \/Size \d+ \/Root \d+ 0 R \/Info \d+ 0 R \/ID \[<[0-9a-f]{32}> <[0-9a-f]{32}>\] >>/.test(s), 'PDF: trailer with /ID and /Info');
         ok(/\/ViewerPreferences << \/PrintScaling \/None/.test(s), 'PDF: /PrintScaling /None (Acrobat defaults to 100%)');
-        ok(/\/Type \/Metadata \/Subtype \/XML/.test(s) && s.includes('<x:xmpmeta') && s.includes('<pdf:Producer>DocMap 2026</pdf:Producer>') && /\/ModDate \(D:\d{14}/.test(s), 'PDF: XMP metadata + /Info dates');
+        ok(/\/Type \/Metadata \/Subtype \/XML/.test(s) && s.includes('<x:xmpmeta') && s.includes('<pdf:Producer>' + BN_ + '</pdf:Producer>') && /\/ModDate \(D:\d{14}/.test(s), 'PDF: XMP metadata + /Info dates');
         ok(!/\/SMask|\/Group|\/BM\s|\/Annots|\/AcroForm|\/JavaScript|\/ExtGState/.test(s) && !/\/(ca|CA)\s+0?\.\d/.test(s), 'PDF: no transparency (SMask/Group/ca/CA), no annotations, forms or scripts');
         const nT0 = (s.match(/\/Subtype \/Type0/g) || []).length, nFF = (s.match(/\/FontFile2 \d+ 0 R/g) || []).length, nCid = (s.match(/\/CIDToGIDMap \/Identity/g) || []).length, nTU = (s.match(/\/ToUnicode \d+ 0 R/g) || []).length, nSet = (s.match(/\/CIDSet \d+ 0 R/g) || []).length;
         ok(nT0 > 0 && nT0 === nFF && nT0 === nCid && nT0 === nTU && nT0 === nSet && /\/W \[/.test(s) && /\/BaseFont \/[A-Z]{6}\+Inter-/.test(s) && !/\/Type3/.test(s), `PDF: all ${nT0} fonts embedded (FontFile2 + CIDToGIDMap + W + CIDSet + ToUnicode, subset tags)`, [nT0, nFF, nCid, nTU, nSet]);
@@ -1815,7 +1818,7 @@ const sec = (n) => console.log('\n== ' + n);
       const texts = cont.match(/BT \/F\d+ 1 Tf [^\n]*? Tm/g) || [];
       ok(rk.last.pages >= 1 && cont.length > 1000 && !/\s(rg|RG)\s/.test(cont), 'CMYK PDF: no DeviceRGB operators left', (cont.match(/[^\n]{0,30} rg\s/) || [''])[0]);
       ok(texts.length > 10 && texts.filter(x => / 0 0 0 1 k /.test(x)).length >= texts.length * 0.6 && /0 0 0 1 k \d+ \d+ \d+ \d+ re/.test(cont), 'CMYK PDF: black text and QR modules are K-only 0/0/0/100', texts.slice(0, 3));
-      ok(/<pdf:Keywords>DocMap, DM26, CMYK<\/pdf:Keywords>/.test(s), 'CMYK PDF: tagged CMYK in the metadata');
+      ok(s.includes('<pdf:Keywords>' + BN_ + ', CMYK</pdf:Keywords>'), 'CMYK PDF: tagged CMYK in the metadata');
       rInfo('shots/r_cmyk.pdf', 'shots/r_cmyk', 300);
       const q = rDecode(PNG.sync.read(fs.readFileSync('shots/r_cmyk_0.png')), rLayK.pages[0], rLayK.w, rLayK.h);
       ok(q.every((x, i) => x.data === rLayK.pages[0][i].url), 'CMYK PDF: every QR decodes', q.map(x => x.data));
@@ -2095,7 +2098,7 @@ const sec = (n) => console.log('\n== ' + n);
   const SdlF = await dl('[data-a="sy-export"]');
   Sv = await p.evaluate(() => ({pass:document.querySelector('#sy-pass').value, e:LOG.entries[LOG.entries.length - 1], hist:document.querySelectorAll('#sy-hist tbody tr').length, peers:document.querySelectorAll('#sy-peers tbody tr').length, pending:document.querySelector('#sy-pending').textContent}));
   const SdlJ = JSON.parse(fs.readFileSync(SdlF, 'utf8'));
-  ok(/^docmap-sync-pc-studio-\d{8}-\d{6}\.json$/.test(require('path').basename(SdlF)) && SdlJ.format === 'docmap-sync-enc' && Sv.pass === '' && Sv.e.action === 'sync.export' && Sv.e.details.encrypted && Sv.e.source === 'sync', 'sync export button: downloads docmap-sync-<slug>-<timestamp>.json, encrypted, passphrase field cleared, logged', [require('path').basename(SdlF), Sv.e]);
+  ok(new RegExp('^' + RX_(BRAND_.file_prefix) + '_sync-pc-studio-\\d{8}-\\d{6}\\.json$').test(require('path').basename(SdlF)) && SdlJ.format === 'docmap-sync-enc' && Sv.pass === '' && Sv.e.action === 'sync.export' && Sv.e.details.encrypted && Sv.e.source === 'sync', 'sync export button: downloads docmap-sync-<slug>-<timestamp>.json, encrypted, passphrase field cleared, logged', [require('path').basename(SdlF), Sv.e]);
   ok(Sv.hist >= 3 && Sv.peers === 1 && Sv.pending === '0', 'sync queue panel: peers, history, local changes not yet exported', Sv);
   await p.evaluate(() => { const b = __sB('SYA4'); b.notes = 'pending'; commit(); renderView(); });
   Sv = await p.evaluate(() => ({pending:document.querySelector('#sy-pending').textContent, menu:!!document.querySelector('#nav-more [data-v="sync"]'), w:[document.documentElement.scrollWidth, innerWidth], lbl:VIEW_LABEL.sync, help:!!helpTopic('sync'), ex:document.querySelector('[data-a="sy-export"]').closest('.card').querySelector('h2').textContent}));
@@ -2323,7 +2326,7 @@ const sec = (n) => console.log('\n== ' + n);
   await Mp.goto(Murl); await Mp.waitForTimeout(500);
   const Mnoscroll = async (name) => { const w = await Mp.evaluate(() => [document.documentElement.scrollWidth, innerWidth]); ok(w[0] <= w[1] + 1, 'scan: no horizontal scroll at 390×844 — ' + name, w); };
   let Mv = await Mp.evaluate(() => ({txt:document.body.innerText, html:document.getElementById('app').innerHTML, form:!!document.querySelector('form[data-s="login-form"]'), view:SC.view}));
-  ok(Mv.view === 'nousers' && /Nessun utente configurato: crea un utente in DocMap › Impostazioni › Utenti e accesso/.test(Mv.txt) && !Mv.form, 'scan: no users → setup message, no login form', Mv.view);
+  ok(Mv.view === 'nousers' && Mv.txt.includes("Nessun utente configurato: crea un utente in " + BN_ + " › Impostazioni › Utenti e accesso") && !Mv.form, 'scan: no users → setup message, no login form', Mv.view);
   ok(!/MT1|Mobiletest|M-99001|Zeta/.test(Mv.html), 'scan: no users → no binder data in the DOM');
   ok(/Studio Demo/.test(Mv.txt), 'scan: studio name shown logged out');
   // desktop: Impostazioni › Utenti e accesso
@@ -3562,7 +3565,7 @@ const sec = (n) => console.log('\n== ' + n);
       'H about: Impostazioni › Informazioni su DocMap shows version, local DB schema, server state, device name / id', Hv);
     await p.click('#hx-about-btn'); await p.waitForTimeout(150);
     Hv = await p.evaluate(() => ({path:($('#hx-m-path') || {}).textContent || '', docs:$('#hx-about-body').textContent.includes('docs/AGGIORNAMENTI.md'), ping:!!$('#hx-ping'), title:topModal() && topModal().querySelector('.modal-h h2').textContent}));
-    ok(/index\.html$/.test(Hv.path) && Hv.docs && !Hv.ping && Hv.title === 'Informazioni su DocMap', 'H about: details modal (program path, upgrade guides; no server check without a server)', Hv);
+    ok(/index\.html$/.test(Hv.path) && Hv.docs && !Hv.ping && Hv.title === 'Informazioni su ' + BN_, 'H about: details modal (program path, upgrade guides; no server check without a server)', Hv);
     await p.evaluate(() => { while (topModal()) closeModal(true); });
     // server configured (fake address + secret token) and a stubbed ping: schema shown, warning for an old server, token never copied
     Hv = await p.evaluate(async () => {
@@ -3611,7 +3614,7 @@ const sec = (n) => console.log('\n== ' + n);
     ok(Object.values(Hv).every(x => x <= 1), 'H layout: no horizontal scroll at 390×844 in Impostazioni, Stampa, Sincronizzazione, Archivio, Ubicazioni', Hv);
     // ---- English
     Hv = await p.evaluate(() => { S.lang = 'en'; S.view = 'settings'; renderAll(); const o = {h:$('#hx-about-h').textContent, t:L(helpTopic('troubleshoot').title), tag:helpTagLabel('online')}; S.lang = 'it'; S.view = 'archive'; renderAll(); return o; });
-    ok(/^About DocMap/.test(Hv.h) && /^Troubleshooting/.test(Hv.t) && Hv.tag === 'Online & sync', 'H English: about panel, topics and tags', Hv);
+    ok(Hv.h.startsWith('About ' + BN_) && /^Troubleshooting/.test(Hv.t) && Hv.tag === 'Online & sync', 'H English: about panel, topics and tags', Hv);
   }
   // @@STREAM-D@@
   sec('D: documentation consistent with the code (v11.1)');
@@ -4486,8 +4489,8 @@ const sec = (n) => console.log('\n== ' + n);
     Cv = await p.evaluate(([id, ids]) => {
       const got = {}; const orig = window.download; window.download = (n, txt) => { got[n] = String(txt); };
       try { S.view = 'export'; renderAll(); const box = !!document.getElementById('ar-ex');
-        AR.exArch = ''; exportFullCSV(); const csvAll = got['docmap_full_backup.csv'];
-        AR.exArch = id; exportFullCSV(); exportManifest(); const csvSt = got['docmap_full_backup.csv']; AR.exArch = '';
+        AR.exArch = ''; exportFullCSV(); const csvAll = got[brandFile('full_backup', 'csv')];
+        AR.exArch = id; exportFullCSV(); exportManifest(); const csvSt = got[brandFile('full_backup', 'csv')]; AR.exArch = '';
         const lines = (t) => t.replace(/^﻿/, '').trim().split(/\r?\n/);
         const man = lines(got['manifest_qr7_dm26.csv']);
         return {box, st:lines(csvSt).length - 1, all:lines(csvAll).length - 1, col:lines(csvSt)[1].split(';').pop(), man:man.length - 1, manLoc:man.filter(l => /dm26L/.test(l)).length};
@@ -4902,7 +4905,7 @@ const sec = (n) => console.log('\n== ' + n);
       r.fix = [srvErrFix(E('unauthorized', 401, 'token_invalid')), srvErrFix(E('forbidden', 403, '')), srvErrFix(E('forbidden', 403, 'forbidden'))].join();
       return r;
     });
-    ok(!Vt.overlap && Vt.sw && /non ha ancora un codice/.test(Vt.msgs[0]) && /non riconosce il codice/.test(Vt.msgs[1]) && /non basta/.test(Vt.msgs[2]) && /dal sito, non da DocMap \(HTTP 403\)/.test(Vt.msgs[3]) && Vt.fix === 'tok,host,role',
+    ok(!Vt.overlap && Vt.sw && /non ha ancora un codice/.test(Vt.msgs[0]) && /non riconosce il codice/.test(Vt.msgs[1]) && /non basta/.test(Vt.msgs[2]) && new RegExp("dal sito, non da " + RX_(BN_) + " \\(HTTP 403\\)").test(Vt.msgs[3]) && Vt.fix === 'tok,host,role',
       'v12.1: a long status pill never overlaps the navigation (it moves to its own row); "Accesso negato" says why (no code, wrong code, role, blocked by the website) and what to do', Vt);
     const Vq = await p.evaluate(async () => {
       while (topModal()) closeModal(true);

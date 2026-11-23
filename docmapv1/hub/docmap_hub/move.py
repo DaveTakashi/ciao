@@ -40,6 +40,7 @@ from . import hosting as H
 from . import sitesetup as SS
 from .registry import RegistryError
 from .vault import Vault, VaultKey
+from .branding import brand_name as _bn
 
 PREFIX = "move."
 NOTE_LABEL = "sito-precedente"
@@ -162,9 +163,9 @@ def redirect_htaccess(old_url: str, new_url: str, current: bytes | None) -> byte
     # may live in sub-folders of an old site at the root of a domain. A catch-all rule would send the new site to
     # itself in a loop (…/2026/2026/…) or hijack the other sites.
     own = r"(?:(?:index|scan|404)\.html|docmap\.config\.js|(?:q|assets|vendor|server-php)/.*)?"
-    rules = (f"# DocMap: sito spostato il {stamp} su {new_url}\n"
-             f"# Il file di prima è in {HTACCESS_KEEP}. Ogni indirizzo di DocMap va allo stesso percorso del sito\n"
-             "# nuovo (anche i QR: .../q/<codice>); le sottocartelle che non sono di DocMap restano come sono.\n"
+    rules = (f"# {_bn()}: sito spostato il {stamp} su {new_url}\n"
+             f"# Il file di prima è in {HTACCESS_KEEP}. Ogni indirizzo di {_bn()} va allo stesso percorso del sito\n"
+             f"# nuovo (anche i QR: .../q/<codice>); le sottocartelle che non sono di {_bn()} restano come sono.\n"
              f"RedirectMatch 301 ^{re.escape(path)}({own})$ {new_url}$1\n")
     return rules.encode("utf-8")
 
@@ -248,12 +249,12 @@ def move_site(hub, vk: VaultKey, env_id: str, new_url: str, *, ftp_mode: str = "
         try:
             dry = D.deploy(hub, vk, env["instance_id"], env["name"], dry_run=True, build=build, log=log)
             if dry.get("remote_version") or dry.get("remote_file_count"):
-                raise MoveError(f"La cartella del nuovo indirizzo non è vuota ({dry.get('remote_file_count') or 'DocMap'}"
+                raise MoveError(f"La cartella del nuovo indirizzo non è vuota ({dry.get('remote_file_count') or '{_bn()}'}"
                                 " file): scegli una cartella vuota.")
             D.deploy(hub, vk, env["instance_id"], env["name"], build=build, log=log)
         finally:
             build.cleanup()
-    step("deploy", "Pubblico DocMap al nuovo indirizzo", do_deploy)
+    step("deploy", f"Pubblico {_bn()} al nuovo indirizzo", do_deploy)
     res = {"configs": {}, "people": {}}
 
     def do_setup():
@@ -327,7 +328,7 @@ def cancel(hub, vk: VaultKey, env_id: str) -> dict:
 
 
 BRIDGE_BAT = ("@echo off\r\n"
-              "rem DocMap - il ponte del server in sede passa al NUOVO indirizzo del sito (da eseguire sul PC server).\r\n"
+              f"rem {_bn()} - il ponte del server in sede passa al NUOVO indirizzo del sito (da eseguire sul PC server).\r\n"
               "setlocal\r\ncd /d \"%~dp0\"\r\n"
               "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"C:\\DocMap\\strumenti\\configura-sync.ps1\" "
               "-Modello \"%~dp0sync-profile.template.json\" -TokenFile \"%~dp0token-ponte.txt\"\r\n"

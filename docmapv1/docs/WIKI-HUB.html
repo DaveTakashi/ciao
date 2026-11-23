@@ -1,1203 +1,819 @@
-<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Wiki DocMap Hub</title><style>
-:root{--fg:#1d232b;--mut:#5b6672;--line:#d9dee4;--bg:#fff;--box:#f4f6f8;--acc:#0b6bcb}
+<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Wiki Doc Location Hub</title><style>:root{--fg:#1d232b;--mut:#5b6672;--line:#d9dee4;--bg:#fff;--box:#f4f6f8;--acc:#0b6bcb}
 @media (prefers-color-scheme:dark){:root{--fg:#e6e9ed;--mut:#9aa5b1;--line:#333b45;--bg:#14181d;--box:#1e242b;--acc:#5aa7f0}}
-body{margin:0;font:16px/1.55 system-ui,"Segoe UI",Arial,sans-serif;color:var(--fg);background:var(--bg)}
-.wrap{display:grid;grid-template-columns:280px 1fr;max-width:1300px;margin:0 auto}
-nav{position:sticky;top:0;height:100vh;overflow:auto;padding:20px 16px;border-right:1px solid var(--line);font-size:.9rem}
-nav ul{list-style:none;padding-left:12px;margin:4px 0} nav>div>ul{padding-left:0} nav a{color:var(--fg);text-decoration:none} nav a:hover{color:var(--acc)}
-main{padding:24px 32px 80px;min-width:0} h1{font-size:1.8rem} h2{margin-top:2.2em;border-bottom:2px solid var(--line);padding-bottom:4px} h3{margin-top:1.6em}
-table{border-collapse:collapse;width:100%;margin:12px 0;font-size:.93rem;display:block;overflow-x:auto} th,td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top} th{background:var(--box)}
+body{margin:0 auto;max-width:960px;padding:24px 16px 80px;font:16px/1.55 system-ui,"Segoe UI",Arial,sans-serif;color:var(--fg);background:var(--bg)}
+h1{font-size:1.8rem}h2{margin-top:2em;border-bottom:2px solid var(--line);padding-bottom:4px}h3{margin-top:1.5em}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:.94rem;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top}th{background:var(--box)}
 code{font-family:Consolas,"Cascadia Mono",monospace;font-size:.88em;background:var(--box);padding:1px 4px;border-radius:3px}
-pre{background:var(--box);padding:10px 12px;border-radius:6px;overflow-x:auto} pre code{padding:0;background:none} a{color:var(--acc)}
-@media (max-width:820px){.wrap{display:block} nav{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line)} main{padding:16px}}
-@media print{nav{display:none} .wrap{display:block}}
-</style></head><body><div class="wrap"><nav><b>Wiki DocMap Hub</b><div class="toc">
-<ul>
-<li><a href="#wiki-di-docmap-hub">Wiki di DocMap Hub</a><ul>
-<li><a href="#indice">Indice</a></li>
-<li><a href="#1-cose-il-hub-e-dove-stanno-le-cose">1. Cos'è il hub e dove stanno le cose</a><ul>
-<li><a href="#programma-e-dati-sono-in-due-posti-diversi">Programma e dati sono in due posti diversi</a></li>
-</ul>
-</li>
-<li><a href="#2-prima-installazione">2. Prima installazione</a></li>
-<li><a href="#3-aggiornare-il-hub-senza-perdere-chiavi-e-cassaforte">3. Aggiornare il hub senza perdere chiavi e cassaforte</a></li>
-<li><a href="#4-accesso-automatico-una-sola-passphrase-mai-piu-richieste">4. Accesso automatico: una sola passphrase, mai più richieste</a></li>
-<li><a href="#5-le-parole-del-hub">5. Le parole del hub</a></li>
-<li><a href="#6-ricette-passo-per-passo">6. Ricette passo per passo</a><ul>
-<li><a href="#6000-cliente-nuovo-da-un-modello-in-5-clic-consigliato-dalla-010">6.000 Cliente nuovo da un modello, in 5 clic (consigliato, dalla 0.10)</a></li>
-<li><a href="#600-nuovo-cliente-e-percorso-del-cliente-dalla-09">6.00 Nuovo cliente e Percorso del cliente (dalla 0.9)</a></li>
-<li><a href="#60-crea-progetto-con-ai-dalla-05-utile-se-hai-gia-i-dati-in-un-documento-o-in-una-chat">6.0 Crea progetto con AI (dalla 0.5; utile se hai già i dati in un documento o in una chat)</a></li>
-<li><a href="#61-cliente-nuovo-con-sede-e-online-il-caso-del-pilota">6.1 Cliente nuovo con sede e online (il caso del pilota)</a></li>
-<li><a href="#62-solo-sede-o-solo-online">6.2 Solo sede o solo online</a></li>
-<li><a href="#63-correggere-i-dati-ftp-di-un-ambiente">6.3 Correggere i dati FTP di un ambiente</a></li>
-<li><a href="#64-pubblicare-il-sito-deploy">6.4 Pubblicare il sito (deploy)</a></li>
-<li><a href="#65-staging-e-promozione">6.5 Staging e promozione</a></li>
-<li><a href="#66-token-del-ponte-sincronizzazione-sede-online">6.6 Token del ponte (sincronizzazione sede ⇄ online)</a></li>
-<li><a href="#67-rinnovare-una-licenza-o-cambiare-piano">6.7 Rinnovare una licenza o cambiare piano</a></li>
-<li><a href="#68-altre-installazioni-dello-stesso-cliente">6.8 Altre installazioni dello stesso cliente</a></li>
-<li><a href="#69-rivenditore">6.9 Rivenditore</a></li>
-<li><a href="#610-demo-a-scadenza-e-ambienti-locali-sul-tuo-pc">6.10 Demo a scadenza e ambienti locali sul tuo PC</a></li>
-<li><a href="#611-controllare-tutto">6.11 Controllare tutto</a></li>
-<li><a href="#612-nuova-versione-di-docmap-a-tutti-i-clienti">6.12 Nuova versione di DocMap a tutti i clienti</a></li>
-<li><a href="#613-backup-del-hub">6.13 Backup del hub</a></li>
-<li><a href="#614-controllo-delle-licenze-a-distanza-07">6.14 Controllo delle licenze a distanza (0.7)</a></li>
-<li><a href="#615-eliminare-un-cliente-011">6.15 Eliminare un cliente (0.11)</a></li>
-<li><a href="#616-piu-pc-e-sito-online-pacchetto-della-sede-pronto-011">6.16 Più PC e sito online; pacchetto della sede pronto (0.11)</a></li>
-<li><a href="#617-spostare-il-sito-su-un-altro-dominio-o-unaltra-cartella-011">6.17 Spostare il sito su un altro dominio o un'altra cartella (0.11)</a></li>
-<li><a href="#618-controllo-dellhub-e-situazione-dei-clienti-012">6.18 Controllo dell'hub e situazione dei clienti (0.12)</a></li>
-</ul>
-</li>
-<li><a href="#7-la-pagina-web-del-hub-il-gestionale">7. La pagina web del hub (il gestionale)</a></li>
-<li><a href="#8-tutti-i-comandi">8. Tutti i comandi</a></li>
-<li><a href="#9-per-lagente-ai-regole-operative">9. Per l'agente AI: regole operative</a></li>
-<li><a href="#10-problemi-comuni">10. Problemi comuni</a><ul>
-<li><a href="#101-il-deploy-dice-26125-e-sul-server-0-file-ma-il-sito-esiste">10.1 Il deploy dice "? → 26.12.5" e "Sul server: 0 file" ma il sito esiste</a></li>
-<li><a href="#102-ftp-accesso-rifiutato-server-non-raggiungibile">10.2 "FTP: accesso rifiutato" / "server non raggiungibile"</a></li>
-<li><a href="#103-dopo-il-caricamento-il-server-non-risponde-con-la-versione-ritorno-indietro">10.3 "Dopo il caricamento il server non risponde con la versione …" (ritorno indietro)</a></li>
-<li><a href="#104-il-deploy-ha-caricato-in-una-cartella-sbagliata">10.4 Il deploy ha caricato in una cartella sbagliata</a></li>
-<li><a href="#105-licenza-non-valida-in-sede">10.5 Licenza "NON VALIDA" in sede</a></li>
-<li><a href="#106-la-pagina-del-hub-chiede-ancora-la-passphrase">10.6 La pagina del hub chiede ancora la passphrase</a></li>
-<li><a href="#107-porta-occupata">10.7 Porta occupata</a></li>
-</ul>
-</li>
-<li><a href="#11-cosa-non-e-ancora-provato">11. Cosa non è ancora provato</a></li>
-</ul>
-</li>
-</ul>
-</div>
-</nav>
-<main><h1 id="wiki-di-docmap-hub">Wiki di DocMap Hub</h1>
-<p>Vale per <strong>hub 0.12.0</strong>, <strong>DocMap 26.12.11 (app v12.11)</strong> e <strong>strumenti di installazione 1.2.0</strong>. Data: 23 novembre 2026.</p>
-<blockquote>
-<p><strong>Novità 0.12.</strong> Aggiornare e riparare senza paura: <strong>backup automatico al primo avvio di ogni versione nuova</strong>, ogni backup <strong>controllato</strong> (pulsante «Verifica»), <strong>ripristino sicuro</strong> con <code>hub\RIPRISTINA-BACKUP.bat</code> (i dati di adesso vanno da parte, mai cancellati), <strong>Controllo dell'hub</strong> in Impostazioni (<code>controllo</code>), <strong>Clienti › Situazione (Excel)</strong>. Capitoli 3, 6.13, 6.18. Aggiornamento: <code>AGGIORNAMENTO-HUB-0.12.0.md</code>.</p>
-<p><strong>Novità 0.11.</strong> <strong>Elimina cliente</strong> (backup prima, per ripartire da zero; capitolo 6.15), <strong>pacchetto della sede
-pronto</strong> con <code>INSTALLA-SENZA-DOMANDE.bat</code> e il codice del ponte già dentro (6.16), <strong>più PC con il sito online come
-riferimento</strong>: le postazioni aprono il sito online e il PC della sede può essere spento (6.16), <strong>Sposta il sito</strong> su un
-altro dominio o un'altra cartella, dati copiati e vecchio indirizzo che rimanda al nuovo (6.17). Aggiornamento:
-<code>AGGIORNAMENTO-HUB-0.11.md</code>.</p>
-<p><strong>Novità 0.10.</strong> <strong>Modelli cliente</strong> (10 pronti, si creano e si cambiano dalle maschere), <strong>Hosting predefinito</strong>
-(dominio e FTP scritti una volta), <strong>Attiva tutto</strong> (pubblica e configura demo e sito in fila) e <strong>Kit di consegna</strong>
-(un solo zip con lettere di benvenuto, codici e copie di <code>config.php</code>): un cliente online in <strong>5 clic</strong> (capitolo
-6.000). Aggiornamento: <code>AGGIORNAMENTO-HUB-0.10.md</code>; perché: <code>AUTOCRITICA-HUB-0.10.md</code>.</p>
-<p><strong>Novità 0.9.</strong> <strong>Nuovo cliente</strong> guidato senza AI e <strong>Percorso del cliente</strong> con il prossimo passo e il suo pulsante;
-<strong>Configura il sito</strong> (l'hub lancia <code>setup.php</code> e mette i codici in cassaforte, niente copia-incolla); licenza
-<strong>inviata subito</strong> ai siti online dopo ogni cambio; <strong>Siti da aggiornare</strong> tutti in fila con stop al primo errore;
-<code>setup.php</code> propone una cartella dati <strong>per ogni sito</strong> (capitolo 6.00). Aggiornamento: <code>AGGIORNAMENTO-HUB-0.9.md</code>;
-perché: <code>AUTOCRITICA-HUB-0.9.md</code>.</p>
-<p><strong>Novità 0.8.</strong> I siti online costruiti dal hub portano chiave pubblica e licenza: il server PHP controlla la licenza.</p>
-<p><strong>Novità 0.7.</strong> Controllo delle licenze a distanza: <strong>sospendi</strong>, <strong>riattiva</strong>, <strong>revoca</strong>, <strong>modifica</strong> limiti e funzioni, <strong>rinnovo automatico</strong> con licenze brevi; <strong>canale delle licenze</strong> da cui i server Python scaricano da soli la licenza nuova; <strong>esportazione cifrata</strong> di tutto l'hub (capitolo 6.14). Aggiornamento: <code>AGGIORNAMENTO-HUB-0.7.md</code>.</p>
-<p><strong>Novità 0.6.</strong> Si pubblica tutto dal gestionale: <strong>deploy</strong> di staging e produzione e <strong>promozione</strong> con prova, piano, conferma, avanzamento e ripristino automatico; <strong>cassaforte</strong> aperta dalla barra laterale e accessi salvati dalla scheda del sito; <strong>Aggiungi sito o server</strong> dal progetto; <strong>backup automatici</strong> dell'hub con seconda cartella (capitolo 6.13). Aggiornamento: <code>AGGIORNAMENTO-HUB-0.6.md</code>.</p>
-<p><strong>Novità 0.5 (il nuovo gestionale).</strong> La pagina dell'hub è ora un'applicazione organizzata per <strong>cliente</strong>: Panoramica, Clienti → scheda del cliente (progetto, siti, postazioni, licenze, accessi, storico), Istanze, Licenze, Deploy, ricerca <strong>Ctrl+K</strong>. <strong>Crea progetto con AI</strong> (capitolo 6.0) crea cliente, progetto, ambienti, licenza e postazioni da un JSON preparato con qualsiasi AI. La passphrase si scrive <strong>solo nel browser</strong>, una volta, e con <strong>Ricorda su questo PC</strong> non viene più chiesta. Aggiornamento dalla 0.3: <code>AGGIORNAMENTO-HUB-0.3-0.5.md</code>.</p>
-</blockquote>
-<p>È scritta per due lettori:</p>
-<ul>
-<li><strong>Dave</strong>: ogni capitolo dice cosa fare, in che ordine e cosa aspettarsi.</li>
-<li><strong>Il suo agente AI</strong>: tutti i comandi sono scritti per intero, con gli ingressi e le uscite attese; le regole operative
-  sono al capitolo 9 (e, in breve, in <code>hub/AGENTE-OPERATIVO.md</code>).</li>
-</ul>
-<p>Per il percorso del primo cliente c'è anche <code>GUIDA-NUOVO-CLIENTE.md</code>. Questa wiki la completa con tutte le
-funzioni del hub.</p>
-<hr />
-<h2 id="indice">Indice</h2>
-<ol>
-<li><a href="#1-cose-il-hub-e-dove-stanno-le-cose">Cos'è il hub e dove stanno le cose</a></li>
-<li><a href="#2-prima-installazione">Prima installazione</a></li>
-<li><a href="#3-aggiornare-il-hub-senza-perdere-chiavi-e-cassaforte">Aggiornare il hub senza perdere chiavi e cassaforte</a></li>
-<li><a href="#4-accesso-automatico-una-sola-passphrase-mai-piu-richieste">Accesso automatico: una sola passphrase, mai più richieste</a></li>
-<li><a href="#5-le-parole-del-hub">Le parole del hub</a></li>
-<li><a href="#6-ricette-passo-per-passo">Ricette passo per passo</a></li>
-<li><a href="#7-la-pagina-web-del-hub">La pagina web del hub</a></li>
-<li><a href="#8-tutti-i-comandi">Tutti i comandi</a></li>
-<li><a href="#9-per-lagente-ai-regole-operative">Per l'agente AI: regole operative</a></li>
-<li><a href="#10-problemi-comuni">Problemi comuni</a></li>
-<li><a href="#11-cosa-non-e-ancora-provato">Cosa non è ancora provato</a></li>
-</ol>
-<hr />
-<h2 id="1-cose-il-hub-e-dove-stanno-le-cose">1. Cos'è il hub e dove stanno le cose</h2>
-<p>Il hub è il programma, sul <strong>tuo</strong> PC, che:</p>
-<ul>
-<li>emette e rinnova le <strong>licenze</strong> firmate dei clienti;</li>
-<li>tiene il <strong>registro</strong> di clienti, installazioni, ambienti (production, staging, demo) e rivenditori;</li>
-<li>custodisce nella <strong>cassaforte</strong> cifrata password FTP, token e (solo con consenso) le chiavi dei database;</li>
-<li>prepara per ogni cliente il <strong>pacchetto di installazione</strong> per il suo PC e il <strong>sito</strong> per l'hosting;</li>
-<li><strong>pubblica</strong> il sito via FTPS/SFTP (con prova, backup, controllo e ritorno indietro automatico);</li>
-<li>controlla lo <strong>stato</strong> di tutte le installazioni.</li>
-</ul>
-<p>I server dei clienti <strong>non dipendono</strong> dal hub: le licenze si verificano offline. Se il tuo PC è spento, i clienti
-lavorano lo stesso.</p>
-<h3 id="programma-e-dati-sono-in-due-posti-diversi">Programma e dati sono in due posti diversi</h3>
-<table>
-<thead>
-<tr>
-<th>Cosa</th>
-<th>Dove</th>
-<th>Negli aggiornamenti</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Programma</strong></td>
-<td>la cartella dove hai estratto lo zip, es. <code>C:\DocMapHub\</code> (sottocartelle <code>hub\</code>, <code>installer-windows\</code>, <code>server-python\</code>, <code>server-php\</code>, <code>assets\</code>, <code>tools\</code>, …)</td>
-<td>si sostituisce</td>
-</tr>
-<tr>
-<td><strong>Dati</strong></td>
-<td><code>%APPDATA%\DocMapHub\</code> (sul tuo utente Windows; scrivi <code>%APPDATA%\DocMapHub</code> nella barra di Esplora file)</td>
-<td><strong>non si tocca mai</strong></td>
-</tr>
-</tbody>
-</table>
-<p>Dentro i dati:</p>
-<table>
-<thead>
-<tr>
-<th>Percorso</th>
-<th>Contenuto</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>keys\</code></td>
-<td>la chiave di firma (privata, cifrata con la passphrase) e le chiavi pubbliche</td>
-</tr>
-<tr>
-<td><code>registry.sqlite3</code></td>
-<td>registro: clienti, installazioni, ambienti, licenze emesse, cassaforte (cifrata), registro operazioni</td>
-</tr>
-<tr>
-<td><code>issued\</code></td>
-<td>i file di licenza emessi</td>
-</tr>
-<tr>
-<td><code>clienti\&lt;nome&gt;\</code></td>
-<td>quello che prepara <code>cliente nuovo</code>: pacchetti, siti, scheda cliente</td>
-</tr>
-<tr>
-<td><code>deploy-backups\</code></td>
-<td>copie di ciò che c'era sul server prima di ogni deploy</td>
-</tr>
-<tr>
-<td><code>backups\</code></td>
-<td>gli zip di <code>backup</code></td>
-</tr>
-<tr>
-<td><code>accesso-automatico.json</code></td>
-<td>solo se attivi l'accesso automatico (capitolo 4)</td>
-</tr>
-</tbody>
-</table>
-<p>Il comando <code>run_windows.bat info</code> ti mostra in ogni momento le due cartelle, la versione e la chiave attiva.</p>
-<hr />
-<h2 id="2-prima-installazione">2. Prima installazione</h2>
-<ol>
-<li>Installa <strong>Python 3.11 o più recente</strong> da <a href="https://www.python.org/downloads/">https://www.python.org/downloads/</a>, spuntando <strong>"Add python.exe to PATH"</strong>.</li>
-<li>Estrai lo zip in <code>C:\DocMapHub\</code> (o dove vuoi). Non spostare le sottocartelle: il hub le usa per costruire pacchetti e siti.</li>
-<li>Apri <code>C:\DocMapHub\hub\</code>, scrivi <code>cmd</code> nella barra dell'indirizzo, Invio. Poi:</li>
-</ol>
-<pre><code class="language-bat">run_windows.bat init
+pre{background:var(--box);padding:10px 12px;border-radius:6px;overflow-x:auto}pre code{padding:0;background:none}
+blockquote{margin:14px 0;padding:8px 14px;border-left:4px solid var(--acc);background:var(--box);border-radius:4px}
+a{color:var(--acc)}.top{font-size:.9rem;color:var(--mut)}@media print{body{max-width:none}}</style></head><body><pre># Wiki di Doc Location Hub
+
+Vale per **hub 0.13.0**, **Doc Location 26.12.12 (app v12.12)** e **strumenti di installazione 1.2.0**. Data: 23 novembre 2026.
+
+&gt; **Novità 0.13.** Nuovo nome **Doc Location** e **white label**: il nome viene da `brand.js`; ogni rivenditore e ogni cliente può avere nome, sigla, logo, colore e contatti suoi (scheda del cliente › **Marchio e prezzo**, `marchio imposta`), scritti dall&#x27;hub in ogni sito e pacchetto. **Listino unico** `plans.json` (`listino`) e **preventivo per cliente** (`cliente preventivo`). Guida: `MARCHIO.md`. Aggiornamento: `AGGIORNAMENTO-HUB-0.13.0.md`.
+&gt;
+&gt; **Novità 0.12.** Aggiornare e riparare senza paura: **backup automatico al primo avvio di ogni versione nuova**, ogni backup **controllato** (pulsante «Verifica»), **ripristino sicuro** con `hub\RIPRISTINA-BACKUP.bat` (i dati di adesso vanno da parte, mai cancellati), **Controllo dell&#x27;hub** in Impostazioni (`controllo`), **Clienti › Situazione (Excel)**. Capitoli 3, 6.13, 6.18. Aggiornamento: `AGGIORNAMENTO-HUB-0.12.0.md`.
+&gt;
+&gt; **Novità 0.11.** **Elimina cliente** (backup prima, per ripartire da zero; capitolo 6.15), **pacchetto della sede
+&gt; pronto** con `INSTALLA-SENZA-DOMANDE.bat` e il codice del ponte già dentro (6.16), **più PC con il sito online come
+&gt; riferimento**: le postazioni aprono il sito online e il PC della sede può essere spento (6.16), **Sposta il sito** su un
+&gt; altro dominio o un&#x27;altra cartella, dati copiati e vecchio indirizzo che rimanda al nuovo (6.17). Aggiornamento:
+&gt; `AGGIORNAMENTO-HUB-0.11.md`.
+
+&gt; **Novità 0.10.** **Modelli cliente** (10 pronti, si creano e si cambiano dalle maschere), **Hosting predefinito**
+&gt; (dominio e FTP scritti una volta), **Attiva tutto** (pubblica e configura demo e sito in fila) e **Kit di consegna**
+&gt; (un solo zip con lettere di benvenuto, codici e copie di `config.php`): un cliente online in **5 clic** (capitolo
+&gt; 6.000). Aggiornamento: `AGGIORNAMENTO-HUB-0.10.md`; perché: `AUTOCRITICA-HUB-0.10.md`.
+
+&gt; **Novità 0.9.** **Nuovo cliente** guidato senza AI e **Percorso del cliente** con il prossimo passo e il suo pulsante;
+&gt; **Configura il sito** (l&#x27;hub lancia `setup.php` e mette i codici in cassaforte, niente copia-incolla); licenza
+&gt; **inviata subito** ai siti online dopo ogni cambio; **Siti da aggiornare** tutti in fila con stop al primo errore;
+&gt; `setup.php` propone una cartella dati **per ogni sito** (capitolo 6.00). Aggiornamento: `AGGIORNAMENTO-HUB-0.9.md`;
+&gt; perché: `AUTOCRITICA-HUB-0.9.md`.
+
+&gt; **Novità 0.8.** I siti online costruiti dal hub portano chiave pubblica e licenza: il server PHP controlla la licenza.
+
+&gt; **Novità 0.7.** Controllo delle licenze a distanza: **sospendi**, **riattiva**, **revoca**, **modifica** limiti e funzioni, **rinnovo automatico** con licenze brevi; **canale delle licenze** da cui i server Python scaricano da soli la licenza nuova; **esportazione cifrata** di tutto l&#x27;hub (capitolo 6.14). Aggiornamento: `AGGIORNAMENTO-HUB-0.7.md`.
+
+&gt; **Novità 0.6.** Si pubblica tutto dal gestionale: **deploy** di staging e produzione e **promozione** con prova, piano, conferma, avanzamento e ripristino automatico; **cassaforte** aperta dalla barra laterale e accessi salvati dalla scheda del sito; **Aggiungi sito o server** dal progetto; **backup automatici** dell&#x27;hub con seconda cartella (capitolo 6.13). Aggiornamento: `AGGIORNAMENTO-HUB-0.6.md`.
+
+&gt; **Novità 0.5 (il nuovo gestionale).** La pagina dell&#x27;hub è ora un&#x27;applicazione organizzata per **cliente**: Panoramica, Clienti → scheda del cliente (progetto, siti, postazioni, licenze, accessi, storico), Istanze, Licenze, Deploy, ricerca **Ctrl+K**. **Crea progetto con AI** (capitolo 6.0) crea cliente, progetto, ambienti, licenza e postazioni da un JSON preparato con qualsiasi AI. La passphrase si scrive **solo nel browser**, una volta, e con **Ricorda su questo PC** non viene più chiesta. Aggiornamento dalla 0.3: `AGGIORNAMENTO-HUB-0.3-0.5.md`.
+
+È scritta per due lettori:
+
+- **Dave**: ogni capitolo dice cosa fare, in che ordine e cosa aspettarsi.
+- **Il suo agente AI**: tutti i comandi sono scritti per intero, con gli ingressi e le uscite attese; le regole operative
+  sono al capitolo 9 (e, in breve, in `hub/AGENTE-OPERATIVO.md`).
+
+Per il percorso del primo cliente c&#x27;è anche `GUIDA-NUOVO-CLIENTE.md`. Questa wiki la completa con tutte le
+funzioni del hub.
+
+---
+
+## Indice
+
+1. [Cos&#x27;è il hub e dove stanno le cose](#1-cose-il-hub-e-dove-stanno-le-cose)
+2. [Prima installazione](#2-prima-installazione)
+3. [Aggiornare il hub senza perdere chiavi e cassaforte](#3-aggiornare-il-hub-senza-perdere-chiavi-e-cassaforte)
+4. [Accesso automatico: una sola passphrase, mai più richieste](#4-accesso-automatico-una-sola-passphrase-mai-piu-richieste)
+5. [Le parole del hub](#5-le-parole-del-hub)
+6. [Ricette passo per passo](#6-ricette-passo-per-passo)
+7. [La pagina web del hub](#7-la-pagina-web-del-hub)
+8. [Tutti i comandi](#8-tutti-i-comandi)
+9. [Per l&#x27;agente AI: regole operative](#9-per-lagente-ai-regole-operative)
+10. [Problemi comuni](#10-problemi-comuni)
+11. [Cosa non è ancora provato](#11-cosa-non-e-ancora-provato)
+
+---
+
+## 1. Cos&#x27;è il hub e dove stanno le cose
+
+Il hub è il programma, sul **tuo** PC, che:
+
+- emette e rinnova le **licenze** firmate dei clienti;
+- tiene il **registro** di clienti, installazioni, ambienti (production, staging, demo) e rivenditori;
+- custodisce nella **cassaforte** cifrata password FTP, token e (solo con consenso) le chiavi dei database;
+- prepara per ogni cliente il **pacchetto di installazione** per il suo PC e il **sito** per l&#x27;hosting;
+- **pubblica** il sito via FTPS/SFTP (con prova, backup, controllo e ritorno indietro automatico);
+- controlla lo **stato** di tutte le installazioni.
+
+I server dei clienti **non dipendono** dal hub: le licenze si verificano offline. Se il tuo PC è spento, i clienti
+lavorano lo stesso.
+
+### Programma e dati sono in due posti diversi
+
+| Cosa | Dove | Negli aggiornamenti |
+|---|---|---|
+| **Programma** | la cartella dove hai estratto lo zip, es. `C:\DocMapHub\` (sottocartelle `hub\`, `installer-windows\`, `server-python\`, `server-php\`, `assets\`, `tools\`, …) | si sostituisce |
+| **Dati** | `%APPDATA%\DocMapHub\` (sul tuo utente Windows; scrivi `%APPDATA%\DocMapHub` nella barra di Esplora file) | **non si tocca mai** |
+
+Dentro i dati:
+
+| Percorso | Contenuto |
+|---|---|
+| `keys\` | la chiave di firma (privata, cifrata con la passphrase) e le chiavi pubbliche |
+| `registry.sqlite3` | registro: clienti, installazioni, ambienti, licenze emesse, cassaforte (cifrata), registro operazioni |
+| `issued\` | i file di licenza emessi |
+| `clienti\&lt;nome&gt;\` | quello che prepara `cliente nuovo`: pacchetti, siti, scheda cliente |
+| `deploy-backups\` | copie di ciò che c&#x27;era sul server prima di ogni deploy |
+| `backups\` | gli zip di `backup` |
+| `accesso-automatico.json` | solo se attivi l&#x27;accesso automatico (capitolo 4) |
+
+Il comando `run_windows.bat info` ti mostra in ogni momento le due cartelle, la versione e la chiave attiva.
+
+---
+
+## 2. Prima installazione
+
+1. Installa **Python 3.11 o più recente** da &lt;https://www.python.org/downloads/&gt;, spuntando **&quot;Add python.exe to PATH&quot;**.
+2. Estrai lo zip in `C:\DocMapHub\` (o dove vuoi). Non spostare le sottocartelle: il hub le usa per costruire pacchetti e siti.
+3. Apri `C:\DocMapHub\hub\`, scrivi `cmd` nella barra dell&#x27;indirizzo, Invio. Poi:
+
+```bat
+run_windows.bat init
 run_windows.bat keygen
 run_windows.bat vault init
 run_windows.bat accesso-automatico attiva
 run_windows.bat export-public-key --out chiave-pubblica.json
 run_windows.bat backup
-</code></pre>
-<ul>
-<li>La prima volta <code>run_windows.bat</code> crea l'ambiente Python in <code>hub\.venv</code> (serve Internet, un minuto).</li>
-<li><code>keygen</code> chiede la passphrase della chiave di firma (almeno 10 caratteri). <strong>Scrivila su carta.</strong></li>
-<li><code>vault init</code> chiede la passphrase della cassaforte: <strong>usa la stessa</strong> (così ne hai una sola).</li>
-<li><code>accesso-automatico attiva</code> (facoltativo, capitolo 4): da qui in poi nessun comando chiede più la passphrase.</li>
-<li><code>backup</code> crea uno zip in <code>%APPDATA%\DocMapHub\backups\</code>: <strong>copialo su una chiavetta USB</strong>.</li>
-</ul>
-<p>Uscita attesa di <code>keygen</code>: <code>Chiave creata: &lt;key_id&gt;</code>. Di <code>backup</code>: il percorso dello zip.</p>
-<hr />
-<h2 id="3-aggiornare-il-hub-senza-perdere-chiavi-e-cassaforte">3. Aggiornare il hub senza perdere chiavi e cassaforte</h2>
-<p>Le chiavi, la cassaforte e i clienti sono in <code>%APPDATA%\DocMapHub\</code>, <strong>non</strong> nella cartella del programma. Per questo
-aggiornare è sicuro: sostituire la cartella del programma non tocca mai i dati.</p>
-<p><strong>Ogni volta che ricevi un hub nuovo (es. da 0.3.2 a 0.5):</strong></p>
-<p>(Per la 0.5 c'è una guida dedicata: <code>AGGIORNAMENTO-HUB-0.3-0.5.md</code>. Al primo avvio l'hub copia da solo il registro in <code>backups\</code> prima di aggiornarlo.)</p>
-<ol>
-<li>Chiudi la pagina del hub (finestra nera: Ctrl+C) e ogni comando in corso.</li>
-<li><code>run_windows.bat backup</code> e copia lo zip sulla chiavetta (per scrupolo). Dalla <strong>0.12</strong> l'hub fa anche da solo un
-   backup al primo avvio della versione nuova (<code>docmap-hub-prima-della-&lt;versione&gt;-….zip</code>) e lo scrive in Panoramica.</li>
-<li>Estrai il nuovo zip in una cartella temporanea, apri la cartella <code>DocMap-hub-&lt;versione&gt;\</code> (es. <code>DocMap-hub-0.7\</code>) e <strong>copia tutto il suo
-   contenuto dentro <code>C:\DocMapHub\</code></strong>, scegliendo <strong>«Sostituisci i file nella destinazione»</strong>.</li>
-<li>Non cancellare <code>C:\DocMapHub\hub\.venv\</code> (l'ambiente Python: se lo cancelli si ricrea da solo, serve Internet).</li>
-<li>Il file <code>chiave-pubblica.json</code> che avevi esportato può restare: non è segreto.</li>
-<li>Controlla: <code>run_windows.bat info</code> → deve dire la versione nuova (es. <code>DocMap Hub 0.7.0</code>) e mostrare la stessa chiave attiva di prima.</li>
-<li>Se <code>info</code> segnala un'impostazione che punta a una cartella che non esiste più (<code>installer_dir</code>, <code>docmap_dir</code>,
-   <code>server_python_dir</code>), toglila: <code>run_windows.bat settings set installer_dir ""</code>.</li>
-</ol>
-<p>In alternativa puoi estrarre la versione nuova in una cartella nuova (es. <code>C:\DocMapHub-0.7\</code>) e usare quella: i dati
-sono gli stessi perché stanno in <code>%APPDATA%</code>. La prima volta ricrea <code>.venv</code>.</p>
-<p><strong>Cosa non fare mai:</strong> cancellare <code>%APPDATA%\DocMapHub\</code>, oppure lanciare <code>keygen --rotate</code> "per sicurezza" (crea una
-chiave nuova: le licenze vecchie restano valide, ma i pacchetti nuovi avranno una chiave pubblica diversa).</p>
-<p><strong>Ripristino da backup</strong> (PC nuovo o rotto; dalla 0.12): installa il hub (capitolo 2, solo i punti 1–2), copia lo zip di
-backup in <code>%APPDATA%\DocMapHub\backups\</code> (crea le cartelle se non ci sono), poi doppio clic su
-<code>hub\RIPRISTINA-BACKUP.bat</code> e scegli il numero (oppure <code>run_windows.bat ripristina-backup C:\percorso\backup.zip</code>). Le cartelle <code>clienti\</code> non
-sono nel backup: si rifanno con <code>cliente nuovo … --rigenera</code>.</p>
-<hr />
-<h2 id="4-accesso-automatico-una-sola-passphrase-mai-piu-richieste">4. Accesso automatico: una sola passphrase, mai più richieste</h2>
-<p><strong>Dalla 0.5 il modo più semplice è nella pagina:</strong> all'accesso spunta <strong>Ricorda su questo PC</strong> (oppure <em>Impostazioni →
-Accesso su questo PC → Ricorda</em>). La finestra nera non chiede più niente: la passphrase si scrive solo nel browser, una
-volta, e apre sia la chiave di firma sia la cassaforte. Per toglierla: <em>Impostazioni → Non ricordare più</em>. È lo stesso
-meccanismo descritto qui sotto (stesso file, stessa protezione DPAPI), quindi vale anche per i comandi e per il tuo agente.</p>
-<p>Di base il hub chiede la passphrase a ogni comando che firma una licenza o apre la cassaforte. Con l'<strong>accesso
-automatico</strong> la chiedi <strong>una volta</strong> e il hub se la ricorda su questo PC. Vale per te, per la pagina web e per il tuo
-agente.</p>
-<pre><code class="language-bat">run_windows.bat accesso-automatico attiva
+```
+
+- La prima volta `run_windows.bat` crea l&#x27;ambiente Python in `hub\.venv` (serve Internet, un minuto).
+- `keygen` chiede la passphrase della chiave di firma (almeno 10 caratteri). **Scrivila su carta.**
+- `vault init` chiede la passphrase della cassaforte: **usa la stessa** (così ne hai una sola).
+- `accesso-automatico attiva` (facoltativo, capitolo 4): da qui in poi nessun comando chiede più la passphrase.
+- `backup` crea uno zip in `%APPDATA%\DocMapHub\backups\`: **copialo su una chiavetta USB**.
+
+Uscita attesa di `keygen`: `Chiave creata: &lt;key_id&gt;`. Di `backup`: il percorso dello zip.
+
+---
+
+## 3. Aggiornare il hub senza perdere chiavi e cassaforte
+
+Le chiavi, la cassaforte e i clienti sono in `%APPDATA%\DocMapHub\`, **non** nella cartella del programma. Per questo
+aggiornare è sicuro: sostituire la cartella del programma non tocca mai i dati.
+
+**Ogni volta che ricevi un hub nuovo (es. da 0.3.2 a 0.5):**
+
+(Per la 0.5 c&#x27;è una guida dedicata: `AGGIORNAMENTO-HUB-0.3-0.5.md`. Al primo avvio l&#x27;hub copia da solo il registro in `backups\` prima di aggiornarlo.)
+
+1. Chiudi la pagina del hub (finestra nera: Ctrl+C) e ogni comando in corso.
+2. `run_windows.bat backup` e copia lo zip sulla chiavetta (per scrupolo). Dalla **0.12** l&#x27;hub fa anche da solo un
+   backup al primo avvio della versione nuova (`docmap-hub-prima-della-&lt;versione&gt;-….zip`) e lo scrive in Panoramica.
+3. Estrai il nuovo zip in una cartella temporanea, apri la cartella `DocMap-hub-&lt;versione&gt;\` (es. `DocMap-hub-0.7\`) e **copia tutto il suo
+   contenuto dentro `C:\DocMapHub\`**, scegliendo **«Sostituisci i file nella destinazione»**.
+   - Non cancellare `C:\DocMapHub\hub\.venv\` (l&#x27;ambiente Python: se lo cancelli si ricrea da solo, serve Internet).
+   - Il file `chiave-pubblica.json` che avevi esportato può restare: non è segreto.
+4. Controlla: `run_windows.bat info` → deve dire la versione nuova (es. `DocMap Hub 0.7.0`) e mostrare la stessa chiave attiva di prima.
+5. Se `info` segnala un&#x27;impostazione che punta a una cartella che non esiste più (`installer_dir`, `docmap_dir`,
+   `server_python_dir`), toglila: `run_windows.bat settings set installer_dir &quot;&quot;`.
+
+In alternativa puoi estrarre la versione nuova in una cartella nuova (es. `C:\DocMapHub-0.7\`) e usare quella: i dati
+sono gli stessi perché stanno in `%APPDATA%`. La prima volta ricrea `.venv`.
+
+**Cosa non fare mai:** cancellare `%APPDATA%\DocMapHub\`, oppure lanciare `keygen --rotate` &quot;per sicurezza&quot; (crea una
+chiave nuova: le licenze vecchie restano valide, ma i pacchetti nuovi avranno una chiave pubblica diversa).
+
+**Ripristino da backup** (PC nuovo o rotto; dalla 0.12): installa il hub (capitolo 2, solo i punti 1–2), copia lo zip di
+backup in `%APPDATA%\DocMapHub\backups\` (crea le cartelle se non ci sono), poi doppio clic su
+`hub\RIPRISTINA-BACKUP.bat` e scegli il numero (oppure `run_windows.bat ripristina-backup C:\percorso\backup.zip`). Le cartelle `clienti\` non
+sono nel backup: si rifanno con `cliente nuovo … --rigenera`.
+
+---
+
+## 4. Accesso automatico: una sola passphrase, mai più richieste
+
+**Dalla 0.5 il modo più semplice è nella pagina:** all&#x27;accesso spunta **Ricorda su questo PC** (oppure *Impostazioni →
+Accesso su questo PC → Ricorda*). La finestra nera non chiede più niente: la passphrase si scrive solo nel browser, una
+volta, e apre sia la chiave di firma sia la cassaforte. Per toglierla: *Impostazioni → Non ricordare più*. È lo stesso
+meccanismo descritto qui sotto (stesso file, stessa protezione DPAPI), quindi vale anche per i comandi e per il tuo agente.
+
+Di base il hub chiede la passphrase a ogni comando che firma una licenza o apre la cassaforte. Con l&#x27;**accesso
+automatico** la chiedi **una volta** e il hub se la ricorda su questo PC. Vale per te, per la pagina web e per il tuo
+agente.
+
+```bat
+run_windows.bat accesso-automatico attiva
 run_windows.bat accesso-automatico stato
 run_windows.bat accesso-automatico disattiva
-</code></pre>
-<ul>
-<li><code>attiva</code> chiede la passphrase della chiave di firma e la controlla. Se la cassaforte ha una passphrase diversa,
-  chiede anche quella (una volta sola).</li>
-<li>Dove la salva: <code>%APPDATA%\DocMapHub\accesso-automatico.json</code>, <strong>cifrata con Windows (DPAPI)</strong> per il tuo utente: il
-  file non serve a niente copiato su un altro PC o letto da un altro utente Windows.</li>
-<li>La pagina web si apre già dentro, senza schermata della passphrase.</li>
-<li>Le variabili d'ambiente <code>DOCMAP_HUB_PASSPHRASE</code> / <code>DOCMAP_HUB_VAULT_PASSPHRASE</code> e <code>--passphrase-file</code>, se presenti,
-  hanno la precedenza.</li>
-</ul>
-<p><strong>Due passphrase → una sola.</strong> Se all'inizio ne hai scelte due diverse:</p>
-<pre><code class="language-bat">run_windows.bat vault change-passphrase
-</code></pre>
-<p>Come nuova passphrase scrivi quella della chiave di firma. L'accesso automatico si aggiorna da solo.</p>
-<p><strong>Il rischio, in chiaro.</strong> Chiunque usi il tuo account Windows (o un programma che gira come te, compreso il tuo
+```
+
+- `attiva` chiede la passphrase della chiave di firma e la controlla. Se la cassaforte ha una passphrase diversa,
+  chiede anche quella (una volta sola).
+- Dove la salva: `%APPDATA%\DocMapHub\accesso-automatico.json`, **cifrata con Windows (DPAPI)** per il tuo utente: il
+  file non serve a niente copiato su un altro PC o letto da un altro utente Windows.
+- La pagina web si apre già dentro, senza schermata della passphrase.
+- Le variabili d&#x27;ambiente `DOCMAP_HUB_PASSPHRASE` / `DOCMAP_HUB_VAULT_PASSPHRASE` e `--passphrase-file`, se presenti,
+  hanno la precedenza.
+
+**Due passphrase → una sola.** Se all&#x27;inizio ne hai scelte due diverse:
+
+```bat
+run_windows.bat vault change-passphrase
+```
+
+Come nuova passphrase scrivi quella della chiave di firma. L&#x27;accesso automatico si aggiorna da solo.
+
+**Il rischio, in chiaro.** Chiunque usi il tuo account Windows (o un programma che gira come te, compreso il tuo
 agente) può firmare licenze e leggere la cassaforte senza scrivere niente. Le chiavi restano cifrate sul disco e nei
-backup; spegnendo l'accesso automatico il file viene eliminato. Va bene su un PC tuo, con password di Windows e disco
-cifrato (BitLocker). Non attivarlo su un PC condiviso.</p>
-<p>L'unica cosa che chiede ancora la conferma è <strong>mostrare</strong> un segreto nella pagina web (pulsante «mostra»), e solo lì.</p>
-<hr />
-<h2 id="5-le-parole-del-hub">5. Le parole del hub</h2>
-<table>
-<thead>
-<tr>
-<th>Parola</th>
-<th>Significato</th>
-<th>Esempio</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>cliente</strong></td>
-<td>lo studio o l'azienda che paga</td>
-<td>STUDIO ERMETE DALL'ASTA</td>
-</tr>
-<tr>
-<td><strong>installazione</strong> (instance)</td>
-<td>un server DocMap del cliente; ha un codice <code>instance_id</code> e una licenza</td>
-<td>"STUDIO ERMETE DALL'ASTA — sede", "… — online"</td>
-</tr>
-<tr>
-<td><strong>sede</strong></td>
-<td>installazione sul PC del cliente (server Python, <code>C:\DocMap</code>)</td>
-<td></td>
-</tr>
-<tr>
-<td><strong>online</strong></td>
-<td>installazione sul web (sito PHP sull'hosting)</td>
-<td><code>https://docmap.pr-it.it/studio-de/</code></td>
-</tr>
-<tr>
-<td><strong>ambiente</strong></td>
-<td>una copia di un'installazione: <code>production</code> (quella vera), <code>staging</code> (prova), <code>demo-…</code> (a scadenza)</td>
-<td></td>
-</tr>
-<tr>
-<td><strong>tipo di ambiente</strong></td>
-<td><code>web-php</code> (sito con deploy FTP), <code>studio-python</code> (server in sede, solo controllo), <code>local-python</code> (server avviato sul tuo PC dal hub)</td>
-<td></td>
-</tr>
-<tr>
-<td><strong>licenza</strong></td>
-<td>file <code>.docmap-licence</code> firmato: cliente, piano, scadenza, limiti, funzioni, rivenditore, marchio</td>
-<td></td>
-</tr>
-<tr>
-<td><strong>piano</strong></td>
-<td>modello di licenza: <code>trial</code>, <code>studio</code>, <code>studio_pro</code> (Pro), <code>conto_terzi</code>, <code>appliance</code>, <code>reseller</code> (<code>plans</code> li mostra)</td>
-<td></td>
-</tr>
-<tr>
-<td><strong>tolleranza</strong></td>
-<td>giorni dopo la scadenza in cui tutto funziona ancora (30); poi <strong>sola lettura</strong>, mai dati bloccati</td>
-<td></td>
-</tr>
-<tr>
-<td><strong>cassaforte</strong> (vault)</td>
-<td>segreti cifrati: <code>ftp</code>, <code>admin_token</code>, <code>superadmin</code>, <code>basic_auth</code>, <code>db_config</code>, <code>note</code></td>
-<td></td>
-</tr>
-<tr>
-<td><strong>custodia della chiave</strong></td>
-<td>il hub tiene anche la chiave del database del cliente; spenta di base, solo con consenso scritto</td>
-<td></td>
-</tr>
-<tr>
-<td><strong>token del ponte</strong></td>
-<td>codice dell'utente <code>ponte-sync</code> che sincronizza sede ⇄ online</td>
-<td></td>
-</tr>
-<tr>
-<td><strong>rivenditore</strong></td>
-<td>chi rivende DocMap con il suo marchio</td>
-<td></td>
-</tr>
-</tbody>
-</table>
-<p>Piani (valori predefiniti):</p>
-<table>
-<thead>
-<tr>
-<th>Piano</th>
-<th>Mesi</th>
-<th>Utenti</th>
-<th>Faldoni</th>
-<th>Archivi</th>
-<th>Funzioni</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>trial</code></td>
-<td>1</td>
-<td>2</td>
-<td>300</td>
-<td>1</td>
-<td>mobile_scan</td>
-</tr>
-<tr>
-<td><code>studio</code></td>
-<td>12</td>
-<td>5</td>
-<td>5.000</td>
-<td>3</td>
-<td>mobile_scan</td>
-</tr>
-<tr>
-<td><code>studio_pro</code></td>
-<td>12</td>
-<td>15</td>
-<td>20.000</td>
-<td>10</td>
-<td>mobile_scan, sync_server, status_events, ai_credits</td>
-</tr>
-<tr>
-<td><code>conto_terzi</code></td>
-<td>12</td>
-<td>30</td>
-<td>100.000</td>
-<td>50</td>
-<td>come Pro</td>
-</tr>
-<tr>
-<td><code>appliance</code></td>
-<td>12</td>
-<td>10</td>
-<td>20.000</td>
-<td>5</td>
-<td>mobile_scan, sync_server, status_events</td>
-</tr>
-<tr>
-<td><code>reseller</code></td>
-<td>12</td>
-<td>50</td>
-<td>illimitati</td>
-<td>illimitati</td>
-<td>come Pro + white_label</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2 id="6-ricette-passo-per-passo">6. Ricette passo per passo</h2>
-<p>Tutti i comandi si lanciano da <code>C:\DocMapHub\hub\</code> come <code>run_windows.bat &lt;comando&gt;</code>. Un agente può usare anche
-<code>.venv\Scripts\python.exe -m docmap_hub &lt;comando&gt;</code> (stesso risultato). I nomi con spazi vanno tra virgolette.
-Dove serve <code>--instance</code> puoi scrivere il nome completo (es. <code>"STUDIO ERMETE DALL'ASTA — online"</code>, con il trattino lungo)
-<strong>oppure le prime cifre del codice</strong> mostrato da <code>instance list</code> (es. <code>--instance a2a6383d</code>): per un agente è più sicuro
-il codice.</p>
-<h3 id="6000-cliente-nuovo-da-un-modello-in-5-clic-consigliato-dalla-010">6.000 Cliente nuovo da un modello, in 5 clic (consigliato, dalla 0.10)</h3>
-<p><strong>Una volta sola:</strong> Impostazioni → <strong>Hosting predefinito</strong> → dominio (<code>https://docmap.pr-it.it/</code>), server e utente FTP,
-password (va in cassaforte), cartella base come la vede l'account FTP (di solito <code>/</code>), suffisso della demo (<code>-demo</code>).</p>
-<p><strong>Per ogni cliente:</strong></p>
-<ol>
-<li><strong>Nuovo cliente</strong> → ragione sociale e P.IVA → scegli il <strong>modello</strong> (quello proposto è già scelto) → <strong>Crea il
-   cliente</strong>. L'indirizzo viene dal nome: «Studio Neri S.r.l.» → <code>https://docmap.pr-it.it/studio-neri/</code> (e
-   <code>studio-neri-demo/</code> se il modello ha la demo). Se il nome è già usato da un altro cliente l'hub prende
-   <code>studio-neri-2</code>: due clienti non hanno mai lo stesso sito.</li>
-<li>Nella stessa finestra: l'elenco dei passi e <strong>Attiva tutto</strong> (è la conferma). In fila: pubblica la demo →
-   configura la demo → pubblica in produzione la versione provata → configura → controlla. Pubblica <strong>solo su cartelle
-   vuote</strong> (se c'è DocMap o un altro sito si ferma); ogni deploy ha backup e ritorno automatico; al primo errore si ferma e dice dove.</li>
-<li><strong>Scarica il kit di consegna</strong>: un solo zip con <code>1-lettere-di-benvenuto.html</code> (una pagina per persona: indirizzo,
-   codice, primo accesso), <code>2-scheda-tecnica.html</code> (tutti i codici, anche <code>admin</code> e <code>ponte-sync</code>), la scheda cliente e
-   <code>config/…-config.php</code> (chiave del database, se non c'è la custodia). L'hub non lo salva: consegnalo e cancella la
-   copia. Lo rifai quando vuoi dalla scheda del cliente (<strong>Kit di consegna</strong>): le copie di config.php si riprendono dai
-   siti via FTP (0.10.1), quindi perdere il kit non fa perdere la chiave.</li>
-</ol>
-<p><strong>Modelli.</strong> Dieci pronti: commercialista solo online, online con demo, sede + online, solo sede; studio grande; conto
+backup; spegnendo l&#x27;accesso automatico il file viene eliminato. Va bene su un PC tuo, con password di Windows e disco
+cifrato (BitLocker). Non attivarlo su un PC condiviso.
+
+L&#x27;unica cosa che chiede ancora la conferma è **mostrare** un segreto nella pagina web (pulsante «mostra»), e solo lì.
+
+---
+
+## 5. Le parole del hub
+
+| Parola | Significato | Esempio |
+|---|---|---|
+| **cliente** | lo studio o l&#x27;azienda che paga | STUDIO ERMETE DALL&#x27;ASTA |
+| **installazione** (instance) | un server Doc Location del cliente; ha un codice `instance_id` e una licenza | &quot;STUDIO ERMETE DALL&#x27;ASTA — sede&quot;, &quot;… — online&quot; |
+| **sede** | installazione sul PC del cliente (server Python, `C:\DocMap`) | |
+| **online** | installazione sul web (sito PHP sull&#x27;hosting) | `https://docmap.pr-it.it/studio-de/` |
+| **ambiente** | una copia di un&#x27;installazione: `production` (quella vera), `staging` (prova), `demo-…` (a scadenza) | |
+| **tipo di ambiente** | `web-php` (sito con deploy FTP), `studio-python` (server in sede, solo controllo), `local-python` (server avviato sul tuo PC dal hub) | |
+| **licenza** | file `.docmap-licence` firmato: cliente, piano, scadenza, limiti, funzioni, rivenditore, marchio | |
+| **piano** | modello di licenza: `trial`, `studio`, `studio_pro` (Pro), `conto_terzi`, `appliance`, `reseller` (`plans` li mostra) | |
+| **tolleranza** | giorni dopo la scadenza in cui tutto funziona ancora (30); poi **sola lettura**, mai dati bloccati | |
+| **cassaforte** (vault) | segreti cifrati: `ftp`, `admin_token`, `superadmin`, `basic_auth`, `db_config`, `note` | |
+| **custodia della chiave** | il hub tiene anche la chiave del database del cliente; spenta di base, solo con consenso scritto | |
+| **token del ponte** | codice dell&#x27;utente `ponte-sync` che sincronizza sede ⇄ online | |
+| **rivenditore** | chi rivende Doc Location con il suo marchio | |
+
+Piani (valori predefiniti):
+
+| Piano | Mesi | Utenti | Faldoni | Archivi | Funzioni |
+|---|---|---|---|---|---|
+| `trial` | 1 | 2 | 300 | 1 | mobile_scan |
+| `studio` | 12 | 5 | 5.000 | 3 | mobile_scan |
+| `studio_pro` | 12 | 15 | 20.000 | 10 | mobile_scan, sync_server, status_events, ai_credits |
+| `conto_terzi` | 12 | 30 | 100.000 | 50 | come Pro |
+| `appliance` | 12 | 10 | 20.000 | 5 | mobile_scan, sync_server, status_events |
+| `reseller` | 12 | 50 | illimitati | illimitati | come Pro + white_label |
+
+---
+
+## 6. Ricette passo per passo
+
+Tutti i comandi si lanciano da `C:\DocMapHub\hub\` come `run_windows.bat &lt;comando&gt;`. Un agente può usare anche
+`.venv\Scripts\python.exe -m docmap_hub &lt;comando&gt;` (stesso risultato). I nomi con spazi vanno tra virgolette.
+Dove serve `--instance` puoi scrivere il nome completo (es. `&quot;STUDIO ERMETE DALL&#x27;ASTA — online&quot;`, con il trattino lungo)
+**oppure le prime cifre del codice** mostrato da `instance list` (es. `--instance a2a6383d`): per un agente è più sicuro
+il codice.
+
+### 6.000 Cliente nuovo da un modello, in 5 clic (consigliato, dalla 0.10)
+
+**Una volta sola:** Impostazioni → **Hosting predefinito** → dominio (`https://docmap.pr-it.it/`), server e utente FTP,
+password (va in cassaforte), cartella base come la vede l&#x27;account FTP (di solito `/`), suffisso della demo (`-demo`).
+
+**Per ogni cliente:**
+
+1. **Nuovo cliente** → ragione sociale e P.IVA → scegli il **modello** (quello proposto è già scelto) → **Crea il
+   cliente**. L&#x27;indirizzo viene dal nome: «Studio Neri S.r.l.» → `https://docmap.pr-it.it/studio-neri/` (e
+   `studio-neri-demo/` se il modello ha la demo). Se il nome è già usato da un altro cliente l&#x27;hub prende
+   `studio-neri-2`: due clienti non hanno mai lo stesso sito.
+2. Nella stessa finestra: l&#x27;elenco dei passi e **Attiva tutto** (è la conferma). In fila: pubblica la demo →
+   configura la demo → pubblica in produzione la versione provata → configura → controlla. Pubblica **solo su cartelle
+   vuote** (se c&#x27;è Doc Location o un altro sito si ferma); ogni deploy ha backup e ritorno automatico; al primo errore si ferma e dice dove.
+3. **Scarica il kit di consegna**: un solo zip con `1-lettere-di-benvenuto.html` (una pagina per persona: indirizzo,
+   codice, primo accesso), `2-scheda-tecnica.html` (tutti i codici, anche `admin` e `ponte-sync`), la scheda cliente e
+   `config/…-config.php` (chiave del database, se non c&#x27;è la custodia). L&#x27;hub non lo salva: consegnalo e cancella la
+   copia. Lo rifai quando vuoi dalla scheda del cliente (**Kit di consegna**): le copie di config.php si riprendono dai
+   siti via FTP (0.10.1), quindi perdere il kit non fa perdere la chiave.
+
+**Modelli.** Dieci pronti: commercialista solo online, online con demo, sede + online, solo sede; studio grande; conto
 terzi online e sede + online; prova gratuita 30 giorni; cliente di un rivenditore; appliance. Per cambiarne uno:
-Nuovo cliente → scegli il modello → <strong>Rivedi i passi prima di creare</strong> → modifica (piano, demo, persone, archivi,
-etichette…) → <strong>Salva nel modello</strong> oppure <strong>Salva come nuovo modello</strong>. Impostazioni → Modelli cliente: rinomina,
+Nuovo cliente → scegli il modello → **Rivedi i passi prima di creare** → modifica (piano, demo, persone, archivi,
+etichette…) → **Salva nel modello** oppure **Salva come nuovo modello**. Impostazioni → Modelli cliente: rinomina,
 elimina, «Proponi per primo», «Ripristina i predefiniti». Nome, P.IVA e contatti del cliente non entrano mai in un
-modello; cambiare un modello non tocca i clienti già creati.</p>
-<p><strong>Eccezioni.</strong> Nel passo «Online» delle maschere: <strong>Sul tuo hosting</strong> (predefinito), <strong>FTP del cliente</strong> (suo hosting:
-host, utente, cartella; la password nel Riepilogo), <strong>Nessun FTP</strong> (autoinstall a mano). Spunta <strong>Sito demo</strong> per
-aggiungerla (indirizzo e cartella si compilano da soli) e <strong>La demo usa un altro account FTP</strong> se serve.</p>
-<p><strong>Riga di comando (tutto in un comando):</strong></p>
-<pre><code class="language-bat">run_windows.bat hosting --dominio https://docmap.pr-it.it/ --host ftp.pr-it.it --utente docmap@pr-it.it --cartella / --password
+modello; cambiare un modello non tocca i clienti già creati.
+
+**Eccezioni.** Nel passo «Online» delle maschere: **Sul tuo hosting** (predefinito), **FTP del cliente** (suo hosting:
+host, utente, cartella; la password nel Riepilogo), **Nessun FTP** (autoinstall a mano). Spunta **Sito demo** per
+aggiungerla (indirizzo e cartella si compilano da soli) e **La demo usa un altro account FTP** se serve.
+
+**Riga di comando (tutto in un comando):**
+
+```bat
+run_windows.bat hosting --dominio https://docmap.pr-it.it/ --host ftp.pr-it.it --utente docmap@pr-it.it --cartella / --password
 run_windows.bat modelli
 run_windows.bat cliente da-modello --nome &quot;Studio Neri S.r.l.&quot; --piva 01234567890 --modello &quot;Commercialista · online con demo&quot; --attiva --kit-out E:\
 run_windows.bat cliente attiva --cliente &quot;Studio Neri S.r.l.&quot; --kit-out E:\
 run_windows.bat cliente kit --cliente &quot;Studio Neri S.r.l.&quot; --out E:\
-</code></pre>
-<h3 id="600-nuovo-cliente-e-percorso-del-cliente-dalla-09">6.00 Nuovo cliente e Percorso del cliente (dalla 0.9)</h3>
-<ol>
-<li><strong>Nuovo cliente</strong> (Panoramica o Clienti): ragione sociale, P.IVA, spunta <strong>Sito online</strong> e/o <strong>Server in sede</strong> →
-   <strong>Avanti: percorso guidato</strong>. Si aprono le stesse 6 maschere del capitolo 6.0, ma vuote: <strong>nessuna AI serve</strong>.
-   Riempi, scrivi la password FTP nel Riepilogo e premi <strong>Conferma e crea il progetto</strong>.</li>
-<li>Nella scheda del cliente, in alto, c'è il <strong>Percorso del cliente</strong>: una barra «3 di 6», il <strong>prossimo passo</strong> con
-   il suo pulsante e l'elenco di tutti i passi. Basta seguire il pulsante:</li>
-<li><strong>Pubblica</strong> (sito di prova o di produzione): il solito deploy, prova → conferma, con backup e ritorno automatico;</li>
-<li><strong>Configura il sito</strong>: l'hub lancia <code>setup.php</code> del sito e mette in cassaforte i codici di <code>admin</code>, di
-     <code>ponte-sync</code> (solo se c'è la sede) e delle persone del progetto (più quelle che scrivi nel riquadro). Il database
-     va in una cartella tutta sua fuori dal sito. Alla fine <strong>scarica config.php</strong> e consegnalo al cliente (l'hub lo
-     tiene solo con la custodia autorizzata). Si fa <strong>una volta</strong> per sito;</li>
-<li><strong>Pubblica in produzione</strong>: la promozione della versione già provata sullo staging;</li>
-<li><strong>Controlla adesso</strong>: ping di tutti i siti;</li>
-<li>sede: pacchetto → <code>installa.bat</code> sul PC del cliente → scrivi l'indirizzo del server (<code>https://IP:8443/</code>) → ponte.</li>
-<li>In <strong>Panoramica → Da fare</strong> c'è una riga per ogni cliente ancora a metà percorso («Studio Rossi: sito di produzione
-   configurato»): un clic apre la sua scheda.</li>
-</ol>
-<p>Lo stesso dalla riga di comando: <code>cliente percorso --cliente "Studio Rossi"</code> (passi fatti e prossimo passo),
-<code>configura-sito --instance "Studio Rossi — online" --env staging --config-out E:\config-prova.php</code>.</p>
-<p><strong>Licenze ai siti, subito.</strong> Da Licenze → una licenza: <em>Sospendi</em>, <em>Riattiva</em>, <em>Rinnova</em>, <em>Modifica</em> caricano da soli
-la licenza nuova su ogni sito online dell'installazione (serve la cassaforte aperta e l'accesso FTP) e l'hub ti dice
-cosa risponde il sito («sola lettura», «valida»). Pulsante <strong>Invia ai siti</strong> per rifarlo a mano;
-<code>licence push "&lt;installazione&gt;"</code> dalla riga di comando. Il server in sede la riceve come prima (canale o file).</p>
-<p><strong>Tutti i siti a una versione nuova.</strong> Deploy → <strong>Siti da aggiornare</strong>: l'elenco dei siti di produzione più vecchi della
-versione del hub; scegli e premi <strong>Aggiorna i siti scelti</strong>. Uno dopo l'altro, con backup e ritorno automatico; al
-primo errore si ferma e gli altri restano come sono. Riga di comando: <code>aggiorna-siti</code> (<code>--yes</code>, <code>--anche-staging</code>).
-Prima prova la versione su uno staging.</p>
-<h3 id="60-crea-progetto-con-ai-dalla-05-utile-se-hai-gia-i-dati-in-un-documento-o-in-una-chat">6.0 Crea progetto con AI (dalla 0.5; utile se hai già i dati in un documento o in una chat)</h3>
-<ol>
-<li>Nella pagina premi <strong>Crea progetto con AI</strong> (in alto a sinistra).</li>
-<li><strong>Copia prompt per l'AI</strong> e incollalo in una chat nuova di qualsiasi AI (Claude, ChatGPT, Gemini, un modello locale,
-   o il tuo agente con accesso ai file). Il prompt contiene il contesto di DocMap, le regole, i piani, il <strong>modello JSON
-   completo</strong> e un esempio. L'AI ti fa le domande e alla fine ti dà un unico blocco JSON (formato <code>docmap-progetto/1</code>).
-   Il modello vuoto si scarica anche con <strong>Modello JSON</strong>.</li>
-<li>Incolla la risposta nel riquadro di destra (anche tutto il messaggio: il JSON lo trova l'hub) e premi <strong>Genera bozza</strong>.</li>
-<li>Controlla le 6 maschere: Cliente → Progetto e licenza → Online e FTP → Sede e postazioni → Utenti e archivi →
+```
+
+### 6.00 Nuovo cliente e Percorso del cliente (dalla 0.9)
+
+1. **Nuovo cliente** (Panoramica o Clienti): ragione sociale, P.IVA, spunta **Sito online** e/o **Server in sede** →
+   **Avanti: percorso guidato**. Si aprono le stesse 6 maschere del capitolo 6.0, ma vuote: **nessuna AI serve**.
+   Riempi, scrivi la password FTP nel Riepilogo e premi **Conferma e crea il progetto**.
+2. Nella scheda del cliente, in alto, c&#x27;è il **Percorso del cliente**: una barra «3 di 6», il **prossimo passo** con
+   il suo pulsante e l&#x27;elenco di tutti i passi. Basta seguire il pulsante:
+   - **Pubblica** (sito di prova o di produzione): il solito deploy, prova → conferma, con backup e ritorno automatico;
+   - **Configura il sito**: l&#x27;hub lancia `setup.php` del sito e mette in cassaforte i codici di `admin`, di
+     `ponte-sync` (solo se c&#x27;è la sede) e delle persone del progetto (più quelle che scrivi nel riquadro). Il database
+     va in una cartella tutta sua fuori dal sito. Alla fine **scarica config.php** e consegnalo al cliente (l&#x27;hub lo
+     tiene solo con la custodia autorizzata). Si fa **una volta** per sito;
+   - **Pubblica in produzione**: la promozione della versione già provata sullo staging;
+   - **Controlla adesso**: ping di tutti i siti;
+   - sede: pacchetto → `installa.bat` sul PC del cliente → scrivi l&#x27;indirizzo del server (`https://IP:8443/`) → ponte.
+3. In **Panoramica → Da fare** c&#x27;è una riga per ogni cliente ancora a metà percorso («Studio Rossi: sito di produzione
+   configurato»): un clic apre la sua scheda.
+
+Lo stesso dalla riga di comando: `cliente percorso --cliente &quot;Studio Rossi&quot;` (passi fatti e prossimo passo),
+`configura-sito --instance &quot;Studio Rossi — online&quot; --env staging --config-out E:\config-prova.php`.
+
+**Licenze ai siti, subito.** Da Licenze → una licenza: *Sospendi*, *Riattiva*, *Rinnova*, *Modifica* caricano da soli
+la licenza nuova su ogni sito online dell&#x27;installazione (serve la cassaforte aperta e l&#x27;accesso FTP) e l&#x27;hub ti dice
+cosa risponde il sito («sola lettura», «valida»). Pulsante **Invia ai siti** per rifarlo a mano;
+`licence push &quot;&lt;installazione&gt;&quot;` dalla riga di comando. Il server in sede la riceve come prima (canale o file).
+
+**Tutti i siti a una versione nuova.** Deploy → **Siti da aggiornare**: l&#x27;elenco dei siti di produzione più vecchi della
+versione del hub; scegli e premi **Aggiorna i siti scelti**. Uno dopo l&#x27;altro, con backup e ritorno automatico; al
+primo errore si ferma e gli altri restano come sono. Riga di comando: `aggiorna-siti` (`--yes`, `--anche-staging`).
+Prima prova la versione su uno staging.
+
+### 6.0 Crea progetto con AI (dalla 0.5; utile se hai già i dati in un documento o in una chat)
+
+1. Nella pagina premi **Crea progetto con AI** (in alto a sinistra).
+2. **Copia prompt per l&#x27;AI** e incollalo in una chat nuova di qualsiasi AI (Claude, ChatGPT, Gemini, un modello locale,
+   o il tuo agente con accesso ai file). Il prompt contiene il contesto di Doc Location, le regole, i piani, il **modello JSON
+   completo** e un esempio. L&#x27;AI ti fa le domande e alla fine ti dà un unico blocco JSON (formato `docmap-progetto/1`).
+   Il modello vuoto si scarica anche con **Modello JSON**.
+3. Incolla la risposta nel riquadro di destra (anche tutto il messaggio: il JSON lo trova l&#x27;hub) e premi **Genera bozza**.
+4. Controlla le 6 maschere: Cliente → Progetto e licenza → Online e FTP → Sede e postazioni → Utenti e archivi →
    Riepilogo. A sinistra vedi in verde/arancio/rosso cosa è a posto. Ogni modifica si salva da sola; puoi chiudere e
-   riprendere la bozza dalla Panoramica.</li>
-<li>Nel <strong>Riepilogo</strong> scrivi la <strong>password FTP</strong> (va in cassaforte, non resta nella bozza), lascia spuntato <strong>Prepara
-   subito i pacchetti</strong> se vuoi già installer e sito, e premi <strong>Conferma e crea il progetto</strong>.</li>
-<li>Si apre la scheda del cliente: <strong>Postazioni</strong> (installer del server di sede + un client per ogni PC),
-   <strong>Pubblica</strong> (deploy staging/produzione, autoinstall web), <strong>Licenze</strong>.</li>
-</ol>
-<p>Regole: l'hub <strong>non chiama nessuna AI</strong> e le password <strong>non passano mai dall'AI</strong> (nel JSON c'è <code>{{PASSWORD_FTP}}</code>; se
-l'AI ci mette una password vera l'hub la scarta e ti avvisa). Se la P.IVA o il nome corrispondono a un cliente esistente,
+   riprendere la bozza dalla Panoramica.
+5. Nel **Riepilogo** scrivi la **password FTP** (va in cassaforte, non resta nella bozza), lascia spuntato **Prepara
+   subito i pacchetti** se vuoi già installer e sito, e premi **Conferma e crea il progetto**.
+6. Si apre la scheda del cliente: **Postazioni** (installer del server di sede + un client per ogni PC),
+   **Pubblica** (deploy staging/produzione, autoinstall web), **Licenze**.
+
+Regole: l&#x27;hub **non chiama nessuna AI** e le password **non passano mai dall&#x27;AI** (nel JSON c&#x27;è `{{PASSWORD_FTP}}`; se
+l&#x27;AI ci mette una password vera l&#x27;hub la scarta e ti avvisa). Se la P.IVA o il nome corrispondono a un cliente esistente,
 la conferma aggiunge a quel cliente (avviso nella maschera Cliente). Confermare di nuovo la stessa bozza non è permesso;
-la stessa onboarding rilanciata non crea doppioni.</p>
-<p><strong>Postazioni.</strong> Ogni postazione ha un nome e un'etichetta. <strong>Genera e scarica client</strong> produce uno zip
-<code>DocMap-&lt;cliente&gt;-&lt;postazione&gt;.zip</code> con <code>collega-questo-pc.bat</code>: sul PC dello studio installa il certificato dello studio
-per l'utente Windows (lo scarica da <code>http://&lt;server&gt;:8080/</code>), crea il collegamento <strong>DocMap</strong> sul desktop (Edge in modalità
+la stessa onboarding rilanciata non crea doppioni.
+
+**Postazioni.** Ogni postazione ha un nome e un&#x27;etichetta. **Genera e scarica client** produce uno zip
+`DocMap-&lt;cliente&gt;-&lt;postazione&gt;.zip` con `collega-questo-pc.bat`: sul PC dello studio installa il certificato dello studio
+per l&#x27;utente Windows (lo scarica da `http://&lt;server&gt;:8080/`), crea il collegamento **Doc Location** sul desktop (Edge in modalità
 app) e registra il nome della postazione. Non servono diritti di amministratore e lo zip non contiene dati né segreti.
-Revoca una postazione dismessa con la matita → <strong>Revoca</strong>.</p>
-<p><strong>Autoinstall web.</strong> Per un sito senza FTP: <em>Pubblica → Prepara autoinstall → Autoinstall</em>. Lo zip contiene il sito e
-<code>LEGGIMI-AUTOINSTALL.txt</code> (carica nella cartella dal File Manager dell'hosting, estrai, apri <code>server-php/setup.php</code>).</p>
-<h3 id="61-cliente-nuovo-con-sede-e-online-il-caso-del-pilota">6.1 Cliente nuovo con sede e online (il caso del pilota)</h3>
-<pre><code class="language-bat">run_windows.bat cliente nuovo --nome &quot;STUDIO ERMETE DALL'ASTA&quot; --piva IT01234567890 --email info@esempio.it ^
+Revoca una postazione dismessa con la matita → **Revoca**.
+
+**Autoinstall web.** Per un sito senza FTP: *Pubblica → Prepara autoinstall → Autoinstall*. Lo zip contiene il sito e
+`LEGGIMI-AUTOINSTALL.txt` (carica nella cartella dal File Manager dell&#x27;hosting, estrai, apri `server-php/setup.php`).
+
+### 6.1 Cliente nuovo con sede e online (il caso del pilota)
+
+```bat
+run_windows.bat cliente nuovo --nome &quot;STUDIO ERMETE DALL&#x27;ASTA&quot; --piva IT01234567890 --email info@esempio.it ^
   --piano studio_pro --installazioni entrambe ^
   --url-online https://docmap.pr-it.it/studio-de/ ^
   --ftp-protocollo ftps --ftp-host gnldm1123.siteground.biz --ftp-utente docmap@pr-it.it ^
   --ftp-cartella /studio-de/
-</code></pre>
-<ul>
-<li>La password FTP viene chiesta senza mostrarla (un agente la passa con la variabile <code>DOCMAP_HUB_FTP_PASSWORD</code>).</li>
-<li><code>--url-staging … --ftp-cartella-staging …</code> aggiunge l'ambiente di prova. <strong>Lo staging deve avere una cartella sua</strong>
-  (es. <code>/studio-de-prova/</code>), mai la stessa di production.</li>
-<li>La cartella FTP si scrive <strong>come la vede l'account FTP</strong>: se in SiteGround l'account ha "Percorso Home"
-  <code>/docmap.pr-it.it/public_html/</code>, la cartella <code>public_html/studio-de</code> per lui è <code>/studio-de/</code>.</li>
-</ul>
-<p>Uscita: elenco di cosa è stato creato e i percorsi in <code>%APPDATA%\DocMapHub\clienti\studio-ermete-dall-asta\</code>:</p>
-<table>
-<thead>
-<tr>
-<th>File</th>
-<th>A cosa serve</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>sede\DocMap-&lt;slug&gt;-sede.zip</code></td>
-<td>pacchetto per il PC del cliente (licenza e chiave pubblica dentro, niente segreti)</td>
-</tr>
-<tr>
-<td><code>online\production\…zip</code> e cartella <code>sito\</code></td>
-<td>il sito da caricare</td>
-</tr>
-<tr>
-<td><code>scheda-cliente.html</code></td>
-<td>scheda da stampare (niente segreti)</td>
-</tr>
-<tr>
-<td><code>licenze\</code></td>
-<td>copie dei file di licenza</td>
-</tr>
-<tr>
-<td><code>sync-modello.json</code>, <code>cliente.json</code>, <code>chiave-pubblica.json</code></td>
-<td>usati da pacchetti e hub</td>
-</tr>
-</tbody>
-</table>
-<p>Rilanciare lo stesso comando <strong>non crea doppioni</strong> (ritrova il cliente dalla P.IVA). <code>--rigenera</code> rifà pacchetti e siti
-(i vecchi vanno in <code>_trash\</code>). Poi segui 6.4 (deploy), 6.6 (token del ponte) e la guida di installazione in sede.</p>
-<h3 id="62-solo-sede-o-solo-online">6.2 Solo sede o solo online</h3>
-<ul>
-<li>Solo sede: <code>cliente nuovo --nome … --piano … --installazioni sede</code> (niente URL né FTP).</li>
-<li>Solo online: <code>cliente nuovo --nome … --piano … --installazioni online --url-online … --ftp-…</code>.</li>
-</ul>
-<h3 id="63-correggere-i-dati-ftp-di-un-ambiente">6.3 Correggere i dati FTP di un ambiente</h3>
-<p>Un segreto si <strong>sostituisce</strong> riscrivendolo per intero:</p>
-<pre><code class="language-bat">run_windows.bat vault set --instance &quot;STUDIO ERMETE DALL'ASTA — online&quot; --env production --kind ftp ^
+```
+
+- La password FTP viene chiesta senza mostrarla (un agente la passa con la variabile `DOCMAP_HUB_FTP_PASSWORD`).
+- `--url-staging … --ftp-cartella-staging …` aggiunge l&#x27;ambiente di prova. **Lo staging deve avere una cartella sua**
+  (es. `/studio-de-prova/`), mai la stessa di production.
+- La cartella FTP si scrive **come la vede l&#x27;account FTP**: se in SiteGround l&#x27;account ha &quot;Percorso Home&quot;
+  `/docmap.pr-it.it/public_html/`, la cartella `public_html/studio-de` per lui è `/studio-de/`.
+
+Uscita: elenco di cosa è stato creato e i percorsi in `%APPDATA%\DocMapHub\clienti\studio-ermete-dall-asta\`:
+
+| File | A cosa serve |
+|---|---|
+| `sede\DocMap-&lt;slug&gt;-sede.zip` | pacchetto per il PC del cliente (licenza e chiave pubblica dentro, niente segreti) |
+| `online\production\…zip` e cartella `sito\` | il sito da caricare |
+| `scheda-cliente.html` | scheda da stampare (niente segreti) |
+| `licenze\` | copie dei file di licenza |
+| `sync-modello.json`, `cliente.json`, `chiave-pubblica.json` | usati da pacchetti e hub |
+
+Rilanciare lo stesso comando **non crea doppioni** (ritrova il cliente dalla P.IVA). `--rigenera` rifà pacchetti e siti
+(i vecchi vanno in `_trash\`). Poi segui 6.4 (deploy), 6.6 (token del ponte) e la guida di installazione in sede.
+
+### 6.2 Solo sede o solo online
+
+- Solo sede: `cliente nuovo --nome … --piano … --installazioni sede` (niente URL né FTP).
+- Solo online: `cliente nuovo --nome … --piano … --installazioni online --url-online … --ftp-…`.
+
+### 6.3 Correggere i dati FTP di un ambiente
+
+Un segreto si **sostituisce** riscrivendolo per intero:
+
+```bat
+run_windows.bat vault set --instance &quot;STUDIO ERMETE DALL&#x27;ASTA — online&quot; --env production --kind ftp ^
   --field protocol=ftps --field host=gnldm1123.siteground.biz --field port=21 ^
   --field user=docmap@pr-it.it --field password=? --field remote_path=/studio-de/
-</code></pre>
-<p><code>password=?</code> la chiede senza mostrarla. Controllo: <code>run_windows.bat vault list</code>. Dalla pagina web: scheda
-<strong>Cassaforte</strong> › «Salva un segreto».</p>
-<h3 id="64-pubblicare-il-sito-deploy">6.4 Pubblicare il sito (deploy)</h3>
-<p>Sempre in due tempi: <strong>prova</strong>, poi <strong>esecuzione</strong>.</p>
-<pre><code class="language-bat">run_windows.bat deploy --instance &quot;STUDIO ERMETE DALL'ASTA — online&quot; --env production --dry-run
-run_windows.bat deploy --instance &quot;STUDIO ERMETE DALL'ASTA — online&quot; --env production --yes
-</code></pre>
-<p>Cosa leggere nella prova:</p>
-<ul>
-<li><code>Sul server: N file, versione X</code>: se N è 0 e la versione è "sconosciuta" ma il sito esiste, <strong>la cartella FTP è
-  sbagliata</strong> (vedi 10.1). Il hub prova da solo a correggerla e lo scrive con "ATTENZIONE".</li>
-<li><code>Da caricare / invariati / protetti / obsoleti (non cancellati)</code>.</li>
-</ul>
-<p>Cosa fa l'esecuzione: backup dei file che sostituisce e di <code>server-php/data/</code> in <code>deploy-backups\</code>; caricamento con
-file temporanei e rinomina; controllo <code>api.php?r=ping</code> con la versione nuova; se il controllo fallisce rimette i file
-di prima. <strong>Non cancella mai niente</strong> sul server, <strong>non tocca</strong> <code>config.php</code>, i dati e i <code>.htaccess</code> modificati a mano
-(salvo <code>--overwrite-htaccess</code>).</p>
-<p>Dopo il primo deploy di un sito nuovo: apri <code>…/server-php/setup.php</code> (capitolo 6.6).</p>
-<h3 id="65-staging-e-promozione">6.5 Staging e promozione</h3>
-<pre><code class="language-bat">run_windows.bat deploy --instance &quot;&lt;installazione online&gt;&quot; --env staging --dry-run
+```
+
+`password=?` la chiede senza mostrarla. Controllo: `run_windows.bat vault list`. Dalla pagina web: scheda
+**Cassaforte** › «Salva un segreto».
+
+### 6.4 Pubblicare il sito (deploy)
+
+Sempre in due tempi: **prova**, poi **esecuzione**.
+
+```bat
+run_windows.bat deploy --instance &quot;STUDIO ERMETE DALL&#x27;ASTA — online&quot; --env production --dry-run
+run_windows.bat deploy --instance &quot;STUDIO ERMETE DALL&#x27;ASTA — online&quot; --env production --yes
+```
+
+Cosa leggere nella prova:
+
+- `Sul server: N file, versione X`: se N è 0 e la versione è &quot;sconosciuta&quot; ma il sito esiste, **la cartella FTP è
+  sbagliata** (vedi 10.1). Il hub prova da solo a correggerla e lo scrive con &quot;ATTENZIONE&quot;.
+- `Da caricare / invariati / protetti / obsoleti (non cancellati)`.
+
+Cosa fa l&#x27;esecuzione: backup dei file che sostituisce e di `server-php/data/` in `deploy-backups\`; caricamento con
+file temporanei e rinomina; controllo `api.php?r=ping` con la versione nuova; se il controllo fallisce rimette i file
+di prima. **Non cancella mai niente** sul server, **non tocca** `config.php`, i dati e i `.htaccess` modificati a mano
+(salvo `--overwrite-htaccess`).
+
+Dopo il primo deploy di un sito nuovo: apri `…/server-php/setup.php` (capitolo 6.6).
+
+### 6.5 Staging e promozione
+
+```bat
+run_windows.bat deploy --instance &quot;&lt;installazione online&gt;&quot; --env staging --dry-run
 run_windows.bat deploy --instance &quot;&lt;installazione online&gt;&quot; --env staging --yes
 rem prova il sito di staging nel browser, poi:
 run_windows.bat promote --instance &quot;&lt;installazione online&gt;&quot; --dry-run
 run_windows.bat promote --instance &quot;&lt;installazione online&gt;&quot; --yes
-</code></pre>
-<p><code>promote</code> pubblica in production <strong>esattamente</strong> il codice verificato su staging (se nel frattempo è cambiato, si
-rifiuta). Staging e production sono due database diversi: <code>setup.php</code> va fatto su tutti e due.</p>
-<h3 id="66-token-del-ponte-sincronizzazione-sede-online">6.6 Token del ponte (sincronizzazione sede ⇄ online)</h3>
-<p>Il token del ponte lo crea <strong>il sito online</strong>:</p>
-<ul>
-<li><strong>sito nuovo</strong>: in <code>setup.php</code>, nell'elenco persone, aggiungi la riga <code>ponte-sync,editor</code>; setup.php mostra una volta
-  il token di ogni persona;</li>
-<li><strong>sito già configurato</strong> (config.php presente): nell'app online, da amministratore, ⚙ › Sincronizzazione ›
-  Server online › Codici di accesso → nuovo codice, nome <code>ponte-sync</code>, ruolo editor.</li>
-</ul>
-<p>Poi:</p>
-<pre><code class="language-bat">run_windows.bat cliente token-ponte --cliente &quot;STUDIO ERMETE DALL'ASTA&quot; --salva
-run_windows.bat cliente token-ponte --cliente &quot;STUDIO ERMETE DALL'ASTA&quot; --esporta E:\token-ponte.txt
-</code></pre>
-<p><code>--salva</code> lo chiede (o lo legge da <code>DOCMAP_HUB_BRIDGE_TOKEN</code>) e lo mette in cassaforte; <code>--esporta</code> lo scrive su
-chiavetta per l'installazione in sede (<code>installa.bat</code> lo legge e poi il file va cancellato). Il token del lato sede lo
-crea l'installer da solo. Da lì la sincronizzazione gira ogni 10 minuti.</p>
-<h3 id="67-rinnovare-una-licenza-o-cambiare-piano">6.7 Rinnovare una licenza o cambiare piano</h3>
-<pre><code class="language-bat">run_windows.bat licence list
+```
+
+`promote` pubblica in production **esattamente** il codice verificato su staging (se nel frattempo è cambiato, si
+rifiuta). Staging e production sono due database diversi: `setup.php` va fatto su tutti e due.
+
+### 6.6 Token del ponte (sincronizzazione sede ⇄ online)
+
+Il token del ponte lo crea **il sito online**:
+
+- **sito nuovo**: in `setup.php`, nell&#x27;elenco persone, aggiungi la riga `ponte-sync,editor`; setup.php mostra una volta
+  il token di ogni persona;
+- **sito già configurato** (config.php presente): nell&#x27;app online, da amministratore, ⚙ › Sincronizzazione ›
+  Server online › Codici di accesso → nuovo codice, nome `ponte-sync`, ruolo editor.
+
+Poi:
+
+```bat
+run_windows.bat cliente token-ponte --cliente &quot;STUDIO ERMETE DALL&#x27;ASTA&quot; --salva
+run_windows.bat cliente token-ponte --cliente &quot;STUDIO ERMETE DALL&#x27;ASTA&quot; --esporta E:\token-ponte.txt
+```
+
+`--salva` lo chiede (o lo legge da `DOCMAP_HUB_BRIDGE_TOKEN`) e lo mette in cassaforte; `--esporta` lo scrive su
+chiavetta per l&#x27;installazione in sede (`installa.bat` lo legge e poi il file va cancellato). Il token del lato sede lo
+crea l&#x27;installer da solo. Da lì la sincronizzazione gira ogni 10 minuti.
+
+### 6.7 Rinnovare una licenza o cambiare piano
+
+```bat
+run_windows.bat licence list
 run_windows.bat licence renew &lt;id-installazione-o-licenza&gt;
 run_windows.bat licence renew &lt;id-installazione-o-licenza&gt; --plan conto_terzi --months 24
-</code></pre>
-<p>Il file nuovo è in <code>%APPDATA%\DocMapHub\issued\</code>. Al cliente: in sede
-<code>C:\DocMap\strumenti\licenza.ps1 -File &lt;file&gt;</code> (il server lo vede subito). Emissione libera con limiti su misura:</p>
-<pre><code class="language-bat">run_windows.bat licence issue --instance &quot;&lt;installazione&gt;&quot; --plan studio_pro --users 20 --feature white_label
-</code></pre>
-<p>Controllo di un file: <code>licence show &lt;file&gt;</code> / <code>licence verify &lt;file&gt;</code> (uscita 0 = valida, 1 = tolleranza,
-2 = sola lettura, 3 = non valida).</p>
-<h3 id="68-altre-installazioni-dello-stesso-cliente">6.8 Altre installazioni dello stesso cliente</h3>
-<ul>
-<li>Altro PC o telefono <strong>dello stesso ufficio</strong>: nessuna installazione nuova, usa il server della sede con il suo token.</li>
-<li><strong>Seconda sede</strong> con un suo server:</li>
-</ul>
-<pre><code class="language-bat">run_windows.bat instance add --customer &quot;STUDIO ERMETE DALL'ASTA&quot; --label &quot;STUDIO ERMETE DALL'ASTA — Milano&quot;
-run_windows.bat licence issue --instance &quot;STUDIO ERMETE DALL'ASTA — Milano&quot; --plan studio_pro --out C:\temp\milano.docmap-licence
-</code></pre>
-<p>poi il pacchetto: <code>python ..\installer-windows\docmap_tools.py pacchetto --out C:\temp\DocMap-milano --zip
---chiave-pubblica chiave-pubblica.json --licenza C:\temp\milano.docmap-licence --nome-studio "…"</code>.</p>
-<h3 id="69-rivenditore">6.9 Rivenditore</h3>
-<pre><code class="language-bat">run_windows.bat reseller add --name &quot;Archivi Srl&quot; --product-name &quot;ArchiviSmart&quot; --primary-color #0a5c8a --support-email help@archivi.it
+```
+
+Il file nuovo è in `%APPDATA%\DocMapHub\issued\`. Al cliente: in sede
+`C:\DocMap\strumenti\licenza.ps1 -File &lt;file&gt;` (il server lo vede subito). Emissione libera con limiti su misura:
+
+```bat
+run_windows.bat licence issue --instance &quot;&lt;installazione&gt;&quot; --plan studio_pro --users 20 --feature white_label
+```
+
+Controllo di un file: `licence show &lt;file&gt;` / `licence verify &lt;file&gt;` (uscita 0 = valida, 1 = tolleranza,
+2 = sola lettura, 3 = non valida).
+
+### 6.8 Altre installazioni dello stesso cliente
+
+- Altro PC o telefono **dello stesso ufficio**: nessuna installazione nuova, usa il server della sede con il suo token.
+- **Seconda sede** con un suo server:
+
+```bat
+run_windows.bat instance add --customer &quot;STUDIO ERMETE DALL&#x27;ASTA&quot; --label &quot;STUDIO ERMETE DALL&#x27;ASTA — Milano&quot;
+run_windows.bat licence issue --instance &quot;STUDIO ERMETE DALL&#x27;ASTA — Milano&quot; --plan studio_pro --out C:\temp\milano.docmap-licence
+```
+
+poi il pacchetto: `python ..\installer-windows\docmap_tools.py pacchetto --out C:\temp\DocMap-milano --zip
+--chiave-pubblica chiave-pubblica.json --licenza C:\temp\milano.docmap-licence --nome-studio &quot;…&quot;`.
+
+### 6.9 Rivenditore
+
+```bat
+run_windows.bat reseller add --name &quot;Archivi Srl&quot; --product-name &quot;ArchiviSmart&quot; --primary-color #0a5c8a --support-email help@archivi.it
 run_windows.bat cliente nuovo --nome &quot;Cliente del rivenditore&quot; --piano studio --installazioni sede --rivenditore &quot;Archivi Srl&quot;
-</code></pre>
-<p>La licenza porta nome prodotto e colori del rivenditore.</p>
-<h3 id="610-demo-a-scadenza-e-ambienti-locali-sul-tuo-pc">6.10 Demo a scadenza e ambienti locali sul tuo PC</h3>
-<pre><code class="language-bat">run_windows.bat server-check
+```
+
+La licenza porta nome prodotto e colori del rivenditore.
+
+### 6.10 Demo a scadenza e ambienti locali sul tuo PC
+
+```bat
+run_windows.bat server-check
 run_windows.bat env create-local --instance &quot;&lt;installazione&gt;&quot; --name staging
 run_windows.bat env start --instance &quot;&lt;installazione&gt;&quot; --name staging
 run_windows.bat env demo create --instance &quot;&lt;installazione&gt;&quot; --days 14 --from staging
 run_windows.bat env purge-expired
-</code></pre>
-<p>Le porte si assegnano da sole nell'intervallo 18400–18999 (mai due uguali; se una è occupata il hub sposta l'ambiente
-su un'altra): <code>ports list</code>, <code>ports check 18400</code>, <code>ports set-range 18400 18999</code>.</p>
-<h3 id="611-controllare-tutto">6.11 Controllare tutto</h3>
-<pre><code class="language-bat">run_windows.bat status
+```
+
+Le porte si assegnano da sole nell&#x27;intervallo 18400–18999 (mai due uguali; se una è occupata il hub sposta l&#x27;ambiente
+su un&#x27;altra): `ports list`, `ports check 18400`, `ports set-range 18400 18999`.
+
+### 6.11 Controllare tutto
+
+```bat
+run_windows.bat status
 run_windows.bat check-all
 run_windows.bat log --limit 50
 run_windows.bat cliente elenco
-</code></pre>
-<p><code>status</code> mostra per ogni ambiente: stato, raggiungibile, versione, scadenza licenza, ultimo backup.</p>
-<h3 id="612-nuova-versione-di-docmap-a-tutti-i-clienti">6.12 Nuova versione di DocMap a tutti i clienti</h3>
-<ol>
-<li>Aggiorna il hub (capitolo 3): la nuova app è dentro.</li>
-<li>Siti: dalla scheda del cliente → <strong>Pubblica</strong> → <strong>Deploy staging</strong>, leggi il piano, <strong>Conferma e pubblica</strong>, prova lo
-   staging, poi <strong>Prepara la promozione</strong> (oppure da riga di comando <code>deploy --dry-run</code>, poi <code>--yes</code>, e <code>promote</code>).</li>
-<li>Sedi: <code>cliente nuovo … --rigenera</code> (stessi dati) per un pacchetto nuovo, poi sul PC del cliente
-   <code>C:\DocMap\strumenti\aggiorna.ps1 -Pacchetto &lt;zip&gt;</code> (backup, sostituzione, controllo, ritorno automatico se non va).</li>
-</ol>
-<h3 id="613-backup-del-hub">6.13 Backup del hub</h3>
-<p><strong>Automatici (0.6).</strong> Mentre l'hub è aperto fa da solo un backup ogni 24 ore (il primo 20 secondi dopo l'avvio) e tiene
-gli ultimi 14. Da <strong>Impostazioni → Backup dell'hub</strong> vedi l'elenco, scarichi un backup, ne fai uno subito e scegli una
-<strong>seconda cartella</strong> (chiavetta, NAS, OneDrive) dove l'hub mette una copia di ogni backup: se la chiavetta non c'è, il
-backup resta comunque sul PC. Se un backup non riesce o i backup sono spenti, compare un avviso in <strong>Panoramica</strong>.</p>
-<p><strong>A mano.</strong> <code>run_windows.bat backup</code> (o «Fai un backup adesso») dopo ogni cliente nuovo o rinnovo. I backup a mano non
-vengono mai cancellati dall'hub.</p>
-<p>Contiene chiavi (cifrate), registro, licenze emesse, cassaforte (cifrata). Non contiene <code>clienti\</code> (si rigenera) né
-l'accesso automatico.</p>
-<p><strong>Controllati (0.12).</strong> Ogni backup viene controllato appena scritto: zip integro, registro integro, chiave di firma
-presente. Se un backup automatico non passa, compare un avviso rosso in Panoramica. Il pulsante <strong>Verifica</strong> accanto a
-ogni backup (o <code>run_windows.bat verifica-backup --tutti</code>) ricontrolla un file in qualsiasi momento.</p>
-<p><strong>Ripristino (0.12).</strong> Chiudi la pagina dell'hub, poi doppio clic su <code>hub\RIPRISTINA-BACKUP.bat</code>: fa il Controllo,
-mostra i backup (il più recente per primo), scegli il numero e scrivi <code>SI</code>. Cosa succede:</p>
-<ol>
-<li>il backup viene controllato: se è rovinato si ferma e non tocca niente;</li>
-<li>se la pagina dell'hub è ancora aperta si ferma;</li>
-<li>registro, chiavi e licenze di adesso vengono <strong>spostati</strong> (non cancellati) in <code>backups\prima-del-ripristino-&lt;ora&gt;\</code>;</li>
-<li>il backup viene rimesso; <code>clienti\</code>, l'accesso automatico e gli altri backup restano come sono.</li>
-</ol>
-<p>Per annullare un ripristino: rimetti a mano i file di <code>prima-del-ripristino-&lt;ora&gt;\</code> nella cartella dati.
-Si possono ripristinare anche le copie del solo registro <code>registro-prima-dello-schema-….sqlite3</code> (le chiavi restano
-quelle di adesso).</p>
-<h3 id="614-controllo-delle-licenze-a-distanza-07">6.14 Controllo delle licenze a distanza (0.7)</h3>
-<p><strong>Dal pannello della licenza</strong> (Licenze → clic, oppure scheda del cliente → Licenze):</p>
-<table>
-<thead>
-<tr>
-<th>Pulsante</th>
-<th>Cosa succede</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Sospendi</strong></td>
-<td>nuova licenza «sospesa»: l'installazione va in <strong>sola lettura</strong> (dati consultabili, stampabili, esportabili)</td>
-</tr>
-<tr>
-<td><strong>Riattiva</strong></td>
-<td>torna valida con la scadenza di prima (se è passata: «mesi in più»)</td>
-</tr>
-<tr>
-<td><strong>Revoca</strong></td>
-<td>fine del contratto: sola lettura, rinnovo automatico spento, rinnovi bloccati fino a «Riattiva»</td>
-</tr>
-<tr>
-<td><strong>Modifica</strong></td>
-<td>utenti, faldoni, archivi, funzioni, scadenza, tolleranza (vuoto = illimitato)</td>
-</tr>
-<tr>
-<td><strong>Rinnovo automatico</strong></td>
-<td>licenze brevi (es. 35 giorni) rinnovate dall'hub quando ne mancano N, eventualmente «fino al»</td>
-</tr>
-</tbody>
-</table>
-<p>Ogni azione emette una <strong>nuova licenza firmata</strong> che sostituisce la precedente (la storia resta nel pannello).</p>
-<p><strong>Come arriva al cliente.</strong> Con il <strong>canale delle licenze</strong> (Impostazioni → Canale delle licenze) l'hub pubblica ogni
-licenza nella cartella <code>licenze/</code> di un tuo sito, a un indirizzo casuale scritto dentro la licenza firmata. Il server
-Python del cliente la scarica da solo ogni 6 ore (o subito con <code>python -m docmap_server licence update</code>) e la installa
-solo se è <strong>più recente</strong> di quella che ha. Senza canale, o per un server vecchio: «Scarica» nel pannello e
-<code>python -m docmap_server licence install FILE</code>. Dalla app 26.12.6 anche il server PHP online controlla la licenza: il sito costruito dal hub (0.8) porta la chiave pubblica e la licenza corrente, e ogni deploy consegna anche sospensioni e rinnovi; inoltre il PHP legge il canale delle licenze al massimo ogni 6 ore.</p>
-<p><strong>Riga di comando</strong> (stesse operazioni): <code>run_windows.bat licence suspend &lt;installazione&gt; --reason "…"</code>,
-<code>licence revoke …</code>, <code>licence reactivate … [--months N]</code>, <code>licence publish [--instance …]</code>.</p>
-<p><strong>Esportare tutto l'hub</strong> in un file cifrato: Impostazioni → Backup dell'hub → <strong>Esporta tutto l'hub (cifrato)</strong>, oppure
-<code>run_windows.bat esporta-hub --out E:\</code>. Su un PC nuovo: installa l'hub, poi <code>run_windows.bat importa-hub FILE</code>
-(solo in una cartella dati vuota) ed entra con la passphrase di sempre.</p>
-<h3 id="615-eliminare-un-cliente-011">6.15 Eliminare un cliente (0.11)</h3>
-<p>Scheda del cliente → <strong>Elimina</strong> (in alto a destra). La finestra elenca cosa sparisce dal hub (progetti, installazioni,
-siti e server, postazioni, licenze, codici in cassaforte) e cosa <strong>resta fuori</strong>: siti online già pubblicati e server in
-sede <strong>non si toccano</strong> e le licenze già consegnate valgono fino alla scadenza (se serve, <strong>revocale prima</strong>). Per
-confermare scrivi il nome esatto del cliente.</p>
-<p>Prima di eliminare l'hub fa <strong>un backup completo</strong> (il nome compare alla fine): per tornare indietro ripristini quel
-backup (6.13). I server locali del cliente sul tuo PC si fermano e i loro dati, come la cartella <code>clienti\&lt;nome&gt;</code>, vanno
-in <code>_trash</code> (non si cancella niente dal disco). Nel registro resta l'evento <code>customer.delete</code>.</p>
-<p>Riga di comando: <code>run_windows.bat cliente elimina --cliente "Studio Rossi"</code> (chiede il nome; <code>--conferma "Studio Rossi"</code>
-per gli script).</p>
-<h3 id="616-piu-pc-e-sito-online-pacchetto-della-sede-pronto-011">6.16 Più PC e sito online; pacchetto della sede pronto (0.11)</h3>
-<p><strong>Modello consigliato con il sito online.</strong> Il <strong>riferimento è il sito online</strong>: ogni PC dello studio (2, 3 o più) e ogni
-telefono apre l'indirizzo online ed entra con il proprio codice. Il <strong>PC della sede</strong> (se c'è) tiene una copia locale
+```
+
+`status` mostra per ogni ambiente: stato, raggiungibile, versione, scadenza licenza, ultimo backup.
+
+### 6.12 Nuova versione di Doc Location a tutti i clienti
+
+1. Aggiorna il hub (capitolo 3): la nuova app è dentro.
+2. Siti: dalla scheda del cliente → **Pubblica** → **Deploy staging**, leggi il piano, **Conferma e pubblica**, prova lo
+   staging, poi **Prepara la promozione** (oppure da riga di comando `deploy --dry-run`, poi `--yes`, e `promote`).
+3. Sedi: `cliente nuovo … --rigenera` (stessi dati) per un pacchetto nuovo, poi sul PC del cliente
+   `C:\DocMap\strumenti\aggiorna.ps1 -Pacchetto &lt;zip&gt;` (backup, sostituzione, controllo, ritorno automatico se non va).
+
+### 6.13 Backup del hub
+
+**Automatici (0.6).** Mentre l&#x27;hub è aperto fa da solo un backup ogni 24 ore (il primo 20 secondi dopo l&#x27;avvio) e tiene
+gli ultimi 14. Da **Impostazioni → Backup dell&#x27;hub** vedi l&#x27;elenco, scarichi un backup, ne fai uno subito e scegli una
+**seconda cartella** (chiavetta, NAS, OneDrive) dove l&#x27;hub mette una copia di ogni backup: se la chiavetta non c&#x27;è, il
+backup resta comunque sul PC. Se un backup non riesce o i backup sono spenti, compare un avviso in **Panoramica**.
+
+**A mano.** `run_windows.bat backup` (o «Fai un backup adesso») dopo ogni cliente nuovo o rinnovo. I backup a mano non
+vengono mai cancellati dall&#x27;hub.
+
+Contiene chiavi (cifrate), registro, licenze emesse, cassaforte (cifrata). Non contiene `clienti\` (si rigenera) né
+l&#x27;accesso automatico.
+
+**Controllati (0.12).** Ogni backup viene controllato appena scritto: zip integro, registro integro, chiave di firma
+presente. Se un backup automatico non passa, compare un avviso rosso in Panoramica. Il pulsante **Verifica** accanto a
+ogni backup (o `run_windows.bat verifica-backup --tutti`) ricontrolla un file in qualsiasi momento.
+
+**Ripristino (0.12).** Chiudi la pagina dell&#x27;hub, poi doppio clic su `hub\RIPRISTINA-BACKUP.bat`: fa il Controllo,
+mostra i backup (il più recente per primo), scegli il numero e scrivi `SI`. Cosa succede:
+
+1. il backup viene controllato: se è rovinato si ferma e non tocca niente;
+2. se la pagina dell&#x27;hub è ancora aperta si ferma;
+3. registro, chiavi e licenze di adesso vengono **spostati** (non cancellati) in `backups\prima-del-ripristino-&lt;ora&gt;\`;
+4. il backup viene rimesso; `clienti\`, l&#x27;accesso automatico e gli altri backup restano come sono.
+
+Per annullare un ripristino: rimetti a mano i file di `prima-del-ripristino-&lt;ora&gt;\` nella cartella dati.
+Si possono ripristinare anche le copie del solo registro `registro-prima-dello-schema-….sqlite3` (le chiavi restano
+quelle di adesso).
+
+### 6.14 Controllo delle licenze a distanza (0.7)
+
+**Dal pannello della licenza** (Licenze → clic, oppure scheda del cliente → Licenze):
+
+| Pulsante | Cosa succede |
+|---|---|
+| **Sospendi** | nuova licenza «sospesa»: l&#x27;installazione va in **sola lettura** (dati consultabili, stampabili, esportabili) |
+| **Riattiva** | torna valida con la scadenza di prima (se è passata: «mesi in più») |
+| **Revoca** | fine del contratto: sola lettura, rinnovo automatico spento, rinnovi bloccati fino a «Riattiva» |
+| **Modifica** | utenti, faldoni, archivi, funzioni, scadenza, tolleranza (vuoto = illimitato) |
+| **Rinnovo automatico** | licenze brevi (es. 35 giorni) rinnovate dall&#x27;hub quando ne mancano N, eventualmente «fino al» |
+
+Ogni azione emette una **nuova licenza firmata** che sostituisce la precedente (la storia resta nel pannello).
+
+**Come arriva al cliente.** Con il **canale delle licenze** (Impostazioni → Canale delle licenze) l&#x27;hub pubblica ogni
+licenza nella cartella `licenze/` di un tuo sito, a un indirizzo casuale scritto dentro la licenza firmata. Il server
+Python del cliente la scarica da solo ogni 6 ore (o subito con `python -m docmap_server licence update`) e la installa
+solo se è **più recente** di quella che ha. Senza canale, o per un server vecchio: «Scarica» nel pannello e
+`python -m docmap_server licence install FILE`. Dalla app 26.12.6 anche il server PHP online controlla la licenza: il sito costruito dal hub (0.8) porta la chiave pubblica e la licenza corrente, e ogni deploy consegna anche sospensioni e rinnovi; inoltre il PHP legge il canale delle licenze al massimo ogni 6 ore.
+
+**Riga di comando** (stesse operazioni): `run_windows.bat licence suspend &lt;installazione&gt; --reason &quot;…&quot;`,
+`licence revoke …`, `licence reactivate … [--months N]`, `licence publish [--instance …]`.
+
+**Esportare tutto l&#x27;hub** in un file cifrato: Impostazioni → Backup dell&#x27;hub → **Esporta tutto l&#x27;hub (cifrato)**, oppure
+`run_windows.bat esporta-hub --out E:\`. Su un PC nuovo: installa l&#x27;hub, poi `run_windows.bat importa-hub FILE`
+(solo in una cartella dati vuota) ed entra con la passphrase di sempre.
+
+### 6.15 Eliminare un cliente (0.11)
+
+Scheda del cliente → **Elimina** (in alto a destra). La finestra elenca cosa sparisce dal hub (progetti, installazioni,
+siti e server, postazioni, licenze, codici in cassaforte) e cosa **resta fuori**: siti online già pubblicati e server in
+sede **non si toccano** e le licenze già consegnate valgono fino alla scadenza (se serve, **revocale prima**). Per
+confermare scrivi il nome esatto del cliente.
+
+Prima di eliminare l&#x27;hub fa **un backup completo** (il nome compare alla fine): per tornare indietro ripristini quel
+backup (6.13). I server locali del cliente sul tuo PC si fermano e i loro dati, come la cartella `clienti\&lt;nome&gt;`, vanno
+in `_trash` (non si cancella niente dal disco). Nel registro resta l&#x27;evento `customer.delete`.
+
+Riga di comando: `run_windows.bat cliente elimina --cliente &quot;Studio Rossi&quot;` (chiede il nome; `--conferma &quot;Studio Rossi&quot;`
+per gli script).
+
+### 6.16 Più PC e sito online; pacchetto della sede pronto (0.11)
+
+**Modello consigliato con il sito online.** Il **riferimento è il sito online**: ogni PC dello studio (2, 3 o più) e ogni
+telefono apre l&#x27;indirizzo online ed entra con il proprio codice. Il **PC della sede** (se c&#x27;è) tiene una copia locale
 aggiornata dal ponte ogni pochi minuti: se è spento non succede niente, gli altri lavorano online e alla riaccensione si
-riallinea. Deve restare acceso in orario d'ufficio <strong>solo</strong> nel modello «solo sede» (niente sito online).</p>
-<p><strong>Postazioni</strong> (scheda del cliente → Postazioni → pacchetto della postazione): se il cliente ha il sito online,
-<code>collega-questo-pc.bat</code> crea il collegamento <strong>«DocMap - <studio>»</strong> che apre il sito online (niente certificato da
-installare); se c'è anche la sede aggiunge <strong>«DocMap (ufficio) - <studio>»</strong> per lavorare in rete locale.</p>
-<p><strong>Pacchetto della sede pronto.</strong> Scheda del cliente → Postazioni → <strong>Scarica il pacchetto della sede</strong>: lo zip contiene
-già licenza, modello del ponte e, se il cliente ha il sito, il <strong>codice del ponte</strong> (<code>cliente\token-ponte.txt</code>, messo
+riallinea. Deve restare acceso in orario d&#x27;ufficio **solo** nel modello «solo sede» (niente sito online).
+
+**Postazioni** (scheda del cliente → Postazioni → pacchetto della postazione): se il cliente ha il sito online,
+`collega-questo-pc.bat` crea il collegamento **«Doc Location - &lt;studio&gt;»** che apre il sito online (niente certificato da
+installare); se c&#x27;è anche la sede aggiunge **«Doc Location (ufficio) - &lt;studio&gt;»** per lavorare in rete locale.
+
+**Pacchetto della sede pronto.** Scheda del cliente → Postazioni → **Scarica il pacchetto della sede**: lo zip contiene
+già licenza, modello del ponte e, se il cliente ha il sito, il **codice del ponte** (`cliente\token-ponte.txt`, messo
 solo nello zip scaricato, mai salvato sul disco del hub). Sul PC della sede: estrai tutto, doppio clic su
-<strong><code>INSTALLA-SENZA-DOMANDE.bat</code></strong> › Sì. Nome dello studio dal pacchetto, amministratore <code>admin</code>, porta standard, ponte
-configurato e codice del ponte <strong>cancellato dal PC</strong> subito dopo. Restano da fare: copiare il codice amministratore e
-stampare il Kit di emergenza. <code>installa.bat</code> (con le domande) resta valido.</p>
-<h3 id="617-spostare-il-sito-su-un-altro-dominio-o-unaltra-cartella-011">6.17 Spostare il sito su un altro dominio o un'altra cartella (0.11)</h3>
-<p>Quando: compri <code>docmap.it</code>, il cliente vuole il sito sul <strong>suo</strong> dominio, oppure vuoi una cartella diversa, anche a più
-livelli (<code>https://www.studio.it/archivio/docmap/</code>).</p>
-<p><strong>Dal gestionale</strong>: clic sul sito (scheda del cliente o Istanze) → <strong>Sposta il sito</strong>. Scrivi il nuovo indirizzo e scegli
-dove caricarlo:</p>
-<table>
-<thead>
-<tr>
-<th>Scelta</th>
-<th>Quando</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Hosting predefinito</strong></td>
-<td>il nuovo indirizzo è sul dominio dell'hosting predefinito (la cartella si calcola da sola)</td>
-</tr>
-<tr>
-<td><strong>Stesso FTP, altra cartella</strong></td>
-<td>stesso spazio SiteGround, altro dominio collegato o altra cartella: scrivi la cartella come la vede l'FTP</td>
-</tr>
-<tr>
-<td><strong>Un altro FTP</strong></td>
-<td>lo spazio del cliente o un hosting nuovo: server, utente, password, protocollo e cartella</td>
-</tr>
-</tbody>
-</table>
-<p>Cosa fa, in fila e con stop al primo errore: <strong>backup</strong> del hub; pubblica il programma nella cartella nuova (solo se è
-<strong>vuota</strong>); <strong>configura</strong> il sito nuovo (database nuovo, chiave nuova, <strong>codici nuovi</strong> per tutte le persone); <strong>copia
-tutti i dati</strong> dal sito vecchio al nuovo con il ponte; mette sul vecchio indirizzo un <strong>reindirizzamento</strong> (il
-<code>.htaccess</code> di prima resta come <code>.htaccess.prima-dello-spostamento</code>), così link salvati e collegamenti dei PC portano al
-nuovo. Dalla 0.11.1 il reindirizzamento vale <strong>solo per le pagine di DocMap</strong> (pagine, <code>/q/&lt;codice&gt;</code>, programma, API):
-il sito nuovo può stare anche <strong>dentro</strong> la cartella del vecchio (<code>…/studio-de/2026/</code>) e le altre sottocartelle non si
-toccano. <strong>Il sito vecchio non si cancella</strong> (lo togli tu via FTP quando vuoi). Le <strong>etichette stampate</strong> puntano a
-<code>qr7.it</code> e non cambiano: aggiorna solo la destinazione su QR7 se la usi.</p>
-<p>Alla fine scarichi il <strong>kit di consegna</strong> con i codici nuovi (e le copie di <code>config.php</code> se non c'è la custodia). Se il
-cliente ha la <strong>sede</strong>, nel kit c'è la cartella <code>aggiorna-ponte</code>: copiala sul PC della sede e lancia
-<strong><code>AGGIORNA-PONTE.bat</code></strong> (il ponte passa al nuovo indirizzo con il nuovo codice).</p>
-<p><strong>Se si ferma</strong>: riapri «Sposta il sito», compare lo spostamento a metà: <strong>Riprendi</strong> riparte dal passo fermo; prima
-della copia dei dati puoi anche <strong>annullarlo</strong> (il hub torna al sito di prima con i codici di prima).</p>
-<p>Riga di comando:</p>
-<pre><code>run_windows.bat cliente sposta-sito --cliente &quot;Studio Rossi&quot; --url https://docmap.it/studio-rossi/ --ftp stesso --cartella /docmap.it/studio-rossi/ --kit-out E:\
+**`INSTALLA-SENZA-DOMANDE.bat`** › Sì. Nome dello studio dal pacchetto, amministratore `admin`, porta standard, ponte
+configurato e codice del ponte **cancellato dal PC** subito dopo. Restano da fare: copiare il codice amministratore e
+stampare il Kit di emergenza. `installa.bat` (con le domande) resta valido.
+
+### 6.17 Spostare il sito su un altro dominio o un&#x27;altra cartella (0.11)
+
+Quando: compri `docmap.it`, il cliente vuole il sito sul **suo** dominio, oppure vuoi una cartella diversa, anche a più
+livelli (`https://www.studio.it/archivio/docmap/`).
+
+**Dal gestionale**: clic sul sito (scheda del cliente o Istanze) → **Sposta il sito**. Scrivi il nuovo indirizzo e scegli
+dove caricarlo:
+
+| Scelta | Quando |
+|---|---|
+| **Hosting predefinito** | il nuovo indirizzo è sul dominio dell&#x27;hosting predefinito (la cartella si calcola da sola) |
+| **Stesso FTP, altra cartella** | stesso spazio SiteGround, altro dominio collegato o altra cartella: scrivi la cartella come la vede l&#x27;FTP |
+| **Un altro FTP** | lo spazio del cliente o un hosting nuovo: server, utente, password, protocollo e cartella |
+
+Cosa fa, in fila e con stop al primo errore: **backup** del hub; pubblica il programma nella cartella nuova (solo se è
+**vuota**); **configura** il sito nuovo (database nuovo, chiave nuova, **codici nuovi** per tutte le persone); **copia
+tutti i dati** dal sito vecchio al nuovo con il ponte; mette sul vecchio indirizzo un **reindirizzamento** (il
+`.htaccess` di prima resta come `.htaccess.prima-dello-spostamento`), così link salvati e collegamenti dei PC portano al
+nuovo. Dalla 0.11.1 il reindirizzamento vale **solo per le pagine di Doc Location** (pagine, `/q/&lt;codice&gt;`, programma, API):
+il sito nuovo può stare anche **dentro** la cartella del vecchio (`…/studio-de/2026/`) e le altre sottocartelle non si
+toccano. **Il sito vecchio non si cancella** (lo togli tu via FTP quando vuoi). Le **etichette stampate** puntano a
+`qr7.it` e non cambiano: aggiorna solo la destinazione su QR7 se la usi.
+
+Alla fine scarichi il **kit di consegna** con i codici nuovi (e le copie di `config.php` se non c&#x27;è la custodia). Se il
+cliente ha la **sede**, nel kit c&#x27;è la cartella `aggiorna-ponte`: copiala sul PC della sede e lancia
+**`AGGIORNA-PONTE.bat`** (il ponte passa al nuovo indirizzo con il nuovo codice).
+
+**Se si ferma**: riapri «Sposta il sito», compare lo spostamento a metà: **Riprendi** riparte dal passo fermo; prima
+della copia dei dati puoi anche **annullarlo** (il hub torna al sito di prima con i codici di prima).
+
+Riga di comando:
+
+```
+run_windows.bat cliente sposta-sito --cliente &quot;Studio Rossi&quot; --url https://docmap.it/studio-rossi/ --ftp stesso --cartella /docmap.it/studio-rossi/ --kit-out E:\
 run_windows.bat cliente sposta-sito --cliente &quot;Studio Rossi&quot; --annulla
-</code></pre>
-<p><code>--ftp dominio|stesso|cliente</code> (con <code>cliente</code>: <code>--ftp-host --ftp-utente [--ftp-porta --ftp-protocollo]</code>, la password
-la chiede), <code>--env staging</code> per la demo/staging, <code>--senza-reindirizzo</code> per non toccare il vecchio sito.</p>
-<hr />
-<h3 id="618-controllo-dellhub-e-situazione-dei-clienti-012">6.18 Controllo dell'hub e situazione dei clienti (0.12)</h3>
-<p><strong>Controllo dell'hub</strong>: Impostazioni › «Controlla adesso», oppure <code>run_windows.bat controllo</code>. Non cambia niente e non
+```
+
+`--ftp dominio|stesso|cliente` (con `cliente`: `--ftp-host --ftp-utente [--ftp-porta --ftp-protocollo]`, la password
+la chiede), `--env staging` per la demo/staging, `--senza-reindirizzo` per non toccare il vecchio sito.
+
+---
+
+### 6.18 Controllo dell&#x27;hub e situazione dei clienti (0.12)
+
+**Controllo dell&#x27;hub**: Impostazioni › «Controlla adesso», oppure `run_windows.bat controllo`. Non cambia niente e non
 chiede passphrase. Guarda: Python e libreria cryptography, cartella dati scrivibile e spazio libero, registro integro e
-schema, versione dell'hub rispetto ai dati, chiave di firma, ultimo backup (controllato davvero), backup automatici e
-seconda cartella, programma DocMap completo accanto all'hub (con la versione dell'app), impostazioni che puntano a
-cartelle sparite. Ogni riga gialla o rossa dice <strong>cosa fare</strong>. Funziona anche quando l'hub non parte (registro
-rovinato): è il primo comando da lanciare se qualcosa non va, ed è dentro <code>RACCOGLI-INFO.bat</code>.</p>
-<p><strong>Situazione dei clienti (Excel)</strong>: Clienti › «Situazione (Excel)», oppure
-<code>run_windows.bat cliente situazione --csv C:\Users\Dave\Desktop\clienti.csv</code>. Una riga per ogni sito o server di ogni
-cliente: tipo, indirizzo, versione dell'app, «aggiornato» (rispetto alla versione che l'hub pubblicherebbe),
+schema, versione dell&#x27;hub rispetto ai dati, chiave di firma, ultimo backup (controllato davvero), backup automatici e
+seconda cartella, programma Doc Location completo accanto all&#x27;hub (con la versione dell&#x27;app), impostazioni che puntano a
+cartelle sparite. Ogni riga gialla o rossa dice **cosa fare**. Funziona anche quando l&#x27;hub non parte (registro
+rovinato): è il primo comando da lanciare se qualcosa non va, ed è dentro `RACCOGLI-INFO.bat`.
+
+**Situazione dei clienti (Excel)**: Clienti › «Situazione (Excel)», oppure
+`run_windows.bat cliente situazione --csv C:\Users\Dave\Desktop\clienti.csv`. Una riga per ogni sito o server di ogni
+cliente: tipo, indirizzo, versione dell&#x27;app, «aggiornato» (rispetto alla versione che l&#x27;hub pubblicherebbe),
 «risponde» (ultimo controllo), ultimo deploy, piano, scadenza e stato della licenza (attiva, in scadenza entro 30
-giorni, scaduta, sospesa, revocata). Separatore <code>;</code>, si apre con un doppio clic in Excel. Nessuna password o codice.</p>
-<h2 id="7-la-pagina-web-del-hub-il-gestionale">7. La pagina web del hub (il gestionale)</h2>
-<p>Doppio clic su <code>C:\DocMapHub\hub\run_windows.bat</code> → si apre il browser sulla pagina del hub (solo da questo PC). La
-finestra nera non chiede niente: la passphrase la scrivi <strong>nella pagina</strong> (una volta; con <strong>Ricorda su questo PC</strong> entri
-direttamente le volte successive). Su un hub nuovo, senza chiavi, la pagina propone la <strong>prima configurazione</strong>: scegli la
-passphrase e l'hub crea chiave di firma e cassaforte.</p>
-<p><strong>Come è fatta.</strong> A sinistra il menu, in alto la ricerca (<strong>Ctrl+K</strong>: scrivi un pezzo di nome, P.IVA, indirizzo, nome di
-una postazione o di un piano) e <strong>Controlla tutto</strong> (verifica che siti e server rispondano).</p>
-<table>
-<thead>
-<tr>
-<th>Voce</th>
-<th>Cosa trovi</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Crea progetto con AI</strong></td>
-<td>la pipeline del capitolo 6.0 e le bozze in corso</td>
-</tr>
-<tr>
-<td><strong>Panoramica</strong></td>
-<td>numeri chiave e <strong>Da fare</strong>: licenze in scadenza, siti non raggiungibili, ambienti mai controllati, bozze da confermare</td>
-</tr>
-<tr>
-<td><strong>Clienti</strong></td>
-<td>elenco con semaforo, filtri (con problemi, in scadenza, trattative), <strong>Nuovo cliente</strong></td>
-</tr>
-<tr>
-<td>scheda del <strong>cliente</strong></td>
-<td><em>Riepilogo</em> (mappa del progetto: produzione, staging, sede, postazioni), <em>Postazioni</em>, <em>Pubblica</em>, <em>Licenze</em>, <em>Accessi</em> (cosa c'è in cassaforte, mai i valori), <em>Storico</em>, <em>Dati</em> (anagrafica modificabile)</td>
-</tr>
-<tr>
-<td><strong>Istanze</strong></td>
-<td>tutti i siti, staging e server, con filtri; clic = pannello con stato, versione, licenza, deploy, azioni</td>
-</tr>
-<tr>
-<td><strong>Licenze</strong></td>
-<td>tutte le licenze (filtri: in vigore, da rinnovare, scadute, sospese); clic = dettagli, firma, consegna al server, storia, <strong>Rinnova</strong>, <strong>Modifica</strong>, <strong>Sospendi / Riattiva</strong>, <strong>Revoca</strong>, <strong>Rinnovo automatico</strong></td>
-</tr>
-<tr>
-<td><strong>Deploy</strong></td>
-<td>storico di tutte le pubblicazioni</td>
-</tr>
-<tr>
-<td><strong>Attività</strong></td>
-<td>tutto ciò che è successo, con i nomi</td>
-</tr>
-<tr>
-<td><strong>Impostazioni</strong></td>
-<td>Ricorda su questo PC, cassaforte (apri/chiudi), <strong>canale delle licenze</strong>, <strong>backup dell'hub</strong> ed <strong>esportazione cifrata</strong>, tema chiaro/scuro, strumenti classici, cartella dati</td>
-</tr>
-</tbody>
-</table>
-<p>Ogni oggetto porta agli altri: dalla licenza al cliente, dal sito alla sua licenza e ai deploy, dalla Panoramica al
-problema. Le pagine della 0.3 restano in <strong>Strumenti classici</strong> (Licenze classico, Nuovo cliente guidato, Istanze &amp;
+giorni, scaduta, sospesa, revocata). Separatore `;`, si apre con un doppio clic in Excel. Nessuna password o codice.
+
+## 7. La pagina web del hub (il gestionale)
+
+Doppio clic su `C:\DocMapHub\hub\run_windows.bat` → si apre il browser sulla pagina del hub (solo da questo PC). La
+finestra nera non chiede niente: la passphrase la scrivi **nella pagina** (una volta; con **Ricorda su questo PC** entri
+direttamente le volte successive). Su un hub nuovo, senza chiavi, la pagina propone la **prima configurazione**: scegli la
+passphrase e l&#x27;hub crea chiave di firma e cassaforte.
+
+**Come è fatta.** A sinistra il menu, in alto la ricerca (**Ctrl+K**: scrivi un pezzo di nome, P.IVA, indirizzo, nome di
+una postazione o di un piano) e **Controlla tutto** (verifica che siti e server rispondano).
+
+| Voce | Cosa trovi |
+|---|---|
+| **Crea progetto con AI** | la pipeline del capitolo 6.0 e le bozze in corso |
+| **Panoramica** | numeri chiave e **Da fare**: licenze in scadenza, siti non raggiungibili, ambienti mai controllati, bozze da confermare |
+| **Clienti** | elenco con semaforo, filtri (con problemi, in scadenza, trattative), **Nuovo cliente** |
+| scheda del **cliente** | *Riepilogo* (mappa del progetto: produzione, staging, sede, postazioni), *Postazioni*, *Pubblica*, *Licenze*, *Accessi* (cosa c&#x27;è in cassaforte, mai i valori), *Storico*, *Dati* (anagrafica modificabile) |
+| **Istanze** | tutti i siti, staging e server, con filtri; clic = pannello con stato, versione, licenza, deploy, azioni |
+| **Licenze** | tutte le licenze (filtri: in vigore, da rinnovare, scadute, sospese); clic = dettagli, firma, consegna al server, storia, **Rinnova**, **Modifica**, **Sospendi / Riattiva**, **Revoca**, **Rinnovo automatico** |
+| **Deploy** | storico di tutte le pubblicazioni |
+| **Attività** | tutto ciò che è successo, con i nomi |
+| **Impostazioni** | Ricorda su questo PC, cassaforte (apri/chiudi), **canale delle licenze**, **backup dell&#x27;hub** ed **esportazione cifrata**, tema chiaro/scuro, strumenti classici, cartella dati |
+
+Ogni oggetto porta agli altri: dalla licenza al cliente, dal sito alla sua licenza e ai deploy, dalla Panoramica al
+problema. Le pagine della 0.3 restano in **Strumenti classici** (Licenze classico, Nuovo cliente guidato, Istanze &amp;
 ambienti, Cassaforte per cambio passphrase ed export, Deploy, Porte, Stato), ma dalla 0.6 non servono più per il lavoro
-di tutti i giorni.</p>
-<p><strong>Pubblicare (0.6).</strong> Scheda del cliente → <strong>Pubblica</strong> (o clic su un sito → <strong>Deploy</strong>):</p>
-<ol>
-<li><strong>Prova</strong>: l'hub costruisce il sito e legge il server, senza cambiare niente;</li>
-<li><strong>Piano</strong>: versione sul server → versione nuova, file da caricare, protetti (dati, <code>config.php</code>, <code>.htaccess</code> fatti a
-   mano), vecchi (mai cancellati);</li>
-<li>spunta «Ho letto il piano» e <strong>Conferma e pubblica</strong> entro 30 minuti;</li>
-<li><strong>backup del server → caricamento → controllo</strong>, con i passi che si colorano; se il sito non risponde con la versione
-   nuova l'hub <strong>rimette da solo i file di prima</strong> e lo scrive in rosso.</li>
-</ol>
-<p><strong>Prepara la promozione</strong> porta in produzione esattamente il codice provato sullo staging. Il deploy aggiorna solo il
-programma: i dati del cliente sul server non si toccano mai.</p>
-<p><strong>Cassaforte e accessi (0.6).</strong> La cassaforte si apre dalla barra laterale (in basso a sinistra) o la prima volta che
-serve. Nella scheda di un sito, sezione <strong>Accessi in cassaforte</strong>: <strong>Aggiungi</strong> (FTP, protezione della cartella, token,
-note), <strong>Mostra</strong> (chiede di nuovo la passphrase e resta nello storico), sostituisci, elimina. La scheda <strong>Accessi</strong> del
-cliente mostra cosa c'è per ogni sito e avvisa se manca l'FTP.</p>
-<p><strong>Siti e server (0.6).</strong> Nella mappa del progetto o in <strong>Pubblica</strong>: <strong>Aggiungi sito o server</strong> → sito online (PHP),
-server nello studio del cliente, o ambiente di prova su questo PC (con avvio e arresto dalla sua scheda). <strong>Indirizzi</strong>
-nella scheda del sito corregge indirizzo e indirizzo dell'API.</p>
-<p><strong>Porta della pagina.</strong> Il hub usa una porta poco comune, <strong>47823</strong>, che nessun altro programma usa di solito. Se è
-occupata prova da solo la 47824, poi la 47825 e così via, poi una porta a caso tra 47000 e 48999, e <strong>la ricorda</strong>.
-L'indirizzo della pagina aperta è anche in <code>%APPDATA%\DocMapHub\pagina-hub.txt</code>, e <code>run_windows.bat info</code> lo mostra.
-Per fissare una porta: <code>run_windows.bat settings set web.port 47900</code>; per una volta sola: <code>run_windows.bat web --port 47900</code>.</p>
-<p>La prova del deploy <strong>non cambia niente</strong> sul server: il caricamento parte solo con «Conferma e pubblica», entro 30
-minuti dalla prova, e un piano si conferma una volta sola.</p>
-<hr />
-<h2 id="8-tutti-i-comandi">8. Tutti i comandi</h2>
-<p>Forma: <code>run_windows.bat [--dir CARTELLA] [--passphrase-file FILE] &lt;comando&gt; [opzioni]</code>.
-Codici di uscita: <code>0</code> riuscito, <code>1</code> errore (messaggio su stderr che inizia con "Errore:"), <code>2</code> comando incompleto.</p>
-<table>
-<thead>
-<tr>
-<th>Comando</th>
-<th>Cosa fa</th>
-<th>Opzioni principali</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>init</code></td>
-<td>crea cartella dati e registro</td>
-<td></td>
-</tr>
-<tr>
-<td><code>info</code></td>
-<td>versione, cartelle programma/dati, chiave attiva, impostazioni rotte</td>
-<td></td>
-</tr>
-<tr>
-<td><code>accesso-automatico attiva\|disattiva\|stato</code></td>
-<td>ricorda/dimentica le passphrase su questo PC</td>
-<td></td>
-</tr>
-<tr>
-<td><code>keygen</code></td>
-<td>crea la chiave di firma</td>
-<td><code>--rotate</code></td>
-</tr>
-<tr>
-<td><code>keys list</code></td>
-<td>elenca le chiavi</td>
-<td></td>
-</tr>
-<tr>
-<td><code>export-public-key</code></td>
-<td>chiave pubblica per i server</td>
-<td><code>--out</code>, <code>--format json\|base64\|pem</code></td>
-</tr>
-<tr>
-<td><code>plans</code></td>
-<td>piani e valori</td>
-<td></td>
-</tr>
-<tr>
-<td><code>reseller add\|list</code></td>
-<td>rivenditori</td>
-<td><code>--name</code>, <code>--product-name</code>, <code>--primary-color</code>, <code>--logo-url</code>, <code>--support-email</code></td>
-</tr>
-<tr>
-<td><code>customer add\|list\|set</code></td>
-<td>clienti</td>
-<td><code>--name</code>, <code>--vat</code>, <code>--email</code>, <code>--reseller</code>; <code>set --key-escrow on\|off [--purge]</code></td>
-</tr>
-<tr>
-<td><code>instance add\|list</code></td>
-<td>installazioni</td>
-<td><code>--customer</code>, <code>--label</code>, <code>--kind onprem\|cloud\|appliance</code>, <code>--id</code></td>
-</tr>
-<tr>
-<td><code>licence issue</code></td>
-<td>emette</td>
-<td><code>--instance</code>, <code>--plan</code>, <code>--months</code>/<code>--expires</code>, <code>--users/--binders/--archives</code>, <code>--feature</code>, <code>--no-feature</code>, <code>--out</code></td>
-</tr>
-<tr>
-<td><code>licence renew</code></td>
-<td>rinnova</td>
-<td><code>&lt;installazione o licenza&gt;</code>, <code>--months</code>, <code>--plan</code>, <code>--out</code></td>
-</tr>
-<tr>
-<td><code>licence list\|show\|verify</code></td>
-<td>elenco / contenuto / verifica</td>
-<td><code>--instance</code>, <code>--json</code></td>
-</tr>
-<tr>
-<td><code>cliente nuovo</code></td>
-<td>cliente in un passo</td>
-<td>vedi 6.1; <code>--rigenera</code>, <code>--senza-pacchetti</code>, <code>--con-segreti</code>, <code>--url-sede</code>, <code>--nome-studio</code>, <code>--custodia-chiave</code></td>
-</tr>
-<tr>
-<td><code>cliente scheda</code></td>
-<td>rifà la scheda</td>
-<td><code>--cliente</code>, <code>--con-segreti</code></td>
-</tr>
-<tr>
-<td><code>cliente token-ponte</code></td>
-<td>token del ponte</td>
-<td><code>--cliente</code>, <code>--salva</code>, <code>--esporta FILE</code></td>
-</tr>
-<tr>
-<td><code>cliente elenco</code></td>
-<td>clienti e cartelle</td>
-<td></td>
-</tr>
-<tr>
-<td><code>cliente percorso</code></td>
-<td>passi fatti e prossimo passo (0.9)</td>
-<td><code>--cliente</code></td>
-</tr>
-<tr>
-<td><code>cliente da-modello</code></td>
-<td>cliente nuovo da un modello; con <code>--attiva</code> anche pubblicato, configurato e kit (0.10)</td>
-<td><code>--nome</code>, <code>--piva</code>, <code>--modello</code>, <code>--attiva</code>, <code>--kit-out FILE\|CARTELLA</code>, <code>--senza-pacchetti</code></td>
-</tr>
-<tr>
-<td><code>cliente attiva</code></td>
-<td>«Attiva tutto»: i passi online che mancano, stop al primo errore (0.10)</td>
-<td><code>--cliente</code>, <code>--kit-out</code></td>
-</tr>
-<tr>
-<td><code>cliente elimina</code></td>
-<td>elimina un cliente dal hub, backup prima (0.11)</td>
-<td><code>--cliente</code>, <code>--conferma "&lt;nome&gt;"</code></td>
-</tr>
-<tr>
-<td><code>cliente sposta-sito</code></td>
-<td>sposta il sito online su un altro dominio o cartella (0.11)</td>
-<td><code>--cliente --url</code>, <code>--ftp dominio\|stesso\|cliente</code>, <code>--cartella</code>, <code>--ftp-host --ftp-utente</code>, <code>--env</code>, <code>--senza-reindirizzo</code>, <code>--kit-out</code>, <code>--annulla</code></td>
-</tr>
-<tr>
-<td><code>cliente kit</code></td>
-<td>kit di consegna (lettere, scheda tecnica, scheda cliente) (0.10)</td>
-<td><code>--cliente</code>, <code>--out</code></td>
-</tr>
-<tr>
-<td><code>modelli</code></td>
-<td>elenco dei modelli cliente (0.10)</td>
-<td><code>mostra &lt;modello&gt;</code>, <code>importa --nome --file</code>, <code>elimina</code>, <code>predefinito</code>, <code>ripristina</code></td>
-</tr>
-<tr>
-<td><code>hosting</code></td>
-<td>hosting predefinito: dominio e FTP comuni (0.10)</td>
-<td><code>--dominio --host --utente --cartella --protocollo --porta --suffisso-demo --password</code>, <code>--togli</code></td>
-</tr>
-<tr>
-<td><code>configura-sito</code></td>
-<td>lancia <code>setup.php</code> del sito, codici in cassaforte (0.9)</td>
-<td><code>--instance --env</code>, <code>--persone "mario,editor;…"</code>, <code>--config-out FILE</code></td>
-</tr>
-<tr>
-<td><code>licence push</code></td>
-<td>carica subito la licenza sui siti online (0.9)</td>
-<td><code>&lt;installazione&gt;</code></td>
-</tr>
-<tr>
-<td><code>licence suspend\|revoke\|reactivate\|publish</code></td>
-<td>controllo a distanza (0.7)</td>
-<td><code>&lt;installazione&gt;</code>, <code>--reason</code>, <code>--months</code></td>
-</tr>
-<tr>
-<td><code>aggiorna-siti</code></td>
-<td>tutti i siti di produzione alla versione del hub, stop al primo errore (0.9)</td>
-<td><code>--yes</code>, <code>--anche-staging</code></td>
-</tr>
-<tr>
-<td><code>vault init\|status\|list</code></td>
-<td>cassaforte</td>
-<td><code>list --instance</code></td>
-</tr>
-<tr>
-<td><code>vault set</code></td>
-<td>salva/sostituisce un segreto</td>
-<td><code>--instance --env --kind</code>, <code>--label</code>, <code>--field nome=valore</code>, <code>--json-file</code>, <code>--content-file</code></td>
-</tr>
-<tr>
-<td><code>vault reveal</code></td>
-<td>mostra un segreto (registrato)</td>
-<td><code>--instance --env --kind --label --reason</code></td>
-</tr>
-<tr>
-<td><code>vault delete</code></td>
-<td>elimina</td>
-<td><code>--yes</code></td>
-</tr>
-<tr>
-<td><code>vault change-passphrase</code></td>
-<td>nuova passphrase</td>
-<td><code>DOCMAP_HUB_VAULT_NEW_PASSPHRASE</code></td>
-</tr>
-<tr>
-<td><code>vault export\|import</code></td>
-<td>copia cifrata</td>
-<td><code>--out</code> / <code>file --overwrite</code></td>
-</tr>
-<tr>
-<td><code>env list\|add\|set</code></td>
-<td>ambienti</td>
-<td><code>--instance --name --kind web-php\|studio-python --url --api-url --studio-name</code></td>
-</tr>
-<tr>
-<td><code>env create-local\|start\|stop\|status</code></td>
-<td>ambienti sul PC del hub</td>
-<td><code>--instance --name</code></td>
-</tr>
-<tr>
-<td><code>env clone-data</code></td>
-<td>copia dati verso un ambiente locale</td>
-<td><code>--from --to --dry-run</code></td>
-</tr>
-<tr>
-<td><code>env demo create</code></td>
-<td>demo a scadenza</td>
-<td><code>--days --from --label</code></td>
-</tr>
-<tr>
-<td><code>env purge-expired</code></td>
-<td>ferma le demo scadute (dati in <code>_trash</code>)</td>
-<td></td>
-</tr>
-<tr>
-<td><code>env delete</code></td>
-<td>elimina un ambiente (il sito remoto non si tocca)</td>
-<td><code>--yes</code>, per production <code>--production --confirm "&lt;nome&gt;"</code></td>
-</tr>
-<tr>
-<td><code>ports list\|check\|set-range</code></td>
-<td>porte</td>
-<td></td>
-</tr>
-<tr>
-<td><code>deploy</code></td>
-<td>pubblica un sito</td>
-<td><code>--instance --env</code>, <code>--dry-run</code>, <code>--yes</code>, <code>--overwrite-htaccess</code>, <code>--trust-host-key</code> (SFTP)</td>
-</tr>
-<tr>
-<td><code>promote</code></td>
-<td>staging → production</td>
-<td><code>--instance</code>, <code>--dry-run</code>, <code>--yes</code></td>
-</tr>
-<tr>
-<td><code>status</code></td>
-<td>stato di tutto</td>
-<td><code>--json</code></td>
-</tr>
-<tr>
-<td><code>check-all</code></td>
-<td>ping di tutti gli ambienti</td>
-<td><code>--timeout</code>, <code>--no-secrets</code></td>
-</tr>
-<tr>
-<td><code>settings show\|set</code></td>
-<td>impostazioni</td>
-<td><code>installer_dir</code>, <code>docmap_dir</code>, <code>server_python_dir</code>, <code>server_python_exe</code>, <code>ports.range</code>, <code>web.port</code></td>
-</tr>
-<tr>
-<td><code>server-check</code></td>
-<td>server-python pronto?</td>
-<td></td>
-</tr>
-<tr>
-<td><code>log</code></td>
-<td>registro operazioni</td>
-<td><code>--limit</code></td>
-</tr>
-<tr>
-<td><code>backup</code></td>
-<td>zip di sicurezza (controllato subito dalla 0.12)</td>
-<td><code>--out</code></td>
-</tr>
-<tr>
-<td><code>controllo</code></td>
-<td>Controllo dell'hub: cosa va e cosa fare; uscita 1 se c'è un errore (0.12)</td>
-<td><code>--json</code></td>
-</tr>
-<tr>
-<td><code>verifica-backup</code></td>
-<td>un backup si può ripristinare? (predefinito: l'ultimo) (0.12)</td>
-<td><code>[nome]</code>, <code>--tutti</code></td>
-</tr>
-<tr>
-<td><code>ripristina-backup</code></td>
-<td>rimette un backup, pagina chiusa; i dati di adesso vanno da parte (0.12)</td>
-<td><code>[nome o percorso]</code>, <code>--ultimo</code>, <code>--si</code></td>
-</tr>
-<tr>
-<td><code>cliente situazione</code></td>
-<td>una riga per sito/server: versione, controllo, licenza (0.12)</td>
-<td><code>--csv FILE</code></td>
-</tr>
-<tr>
-<td><code>web</code></td>
-<td>pagina locale (porta 47823 o la successiva libera, ricordata)</td>
-<td><code>--port</code>, <code>--no-browser</code></td>
-</tr>
-</tbody>
-</table>
-<p>Variabili d'ambiente utili: <code>DOCMAP_HUB_DIR</code> (cartella dati), <code>DOCMAP_HUB_PASSPHRASE</code>, <code>DOCMAP_HUB_VAULT_PASSPHRASE</code>,
-<code>DOCMAP_HUB_FTP_PASSWORD</code>, <code>DOCMAP_HUB_BRIDGE_TOKEN</code>, <code>DOCMAP_HUB_VAULT_NEW_PASSPHRASE</code>, <code>DOCMAP_HUB_NO_AUTO=1</code>
-(ignora l'accesso automatico).</p>
-<hr />
-<h2 id="9-per-lagente-ai-regole-operative">9. Per l'agente AI: regole operative</h2>
-<p>Un agente (Claude Code o simile) che lavora sul PC di Dave può fare <strong>tutto</strong> quello che fa Dave con il hub, purché:</p>
-<ol>
-<li><strong>Accesso automatico attivo</strong> (<code>accesso-automatico stato</code> → ATTIVO). Se è spento, chiedi a Dave di attivarlo: non
-   chiedergli la passphrase in chat e non scriverla in file.</li>
-<li>Lavora da <code>C:\DocMapHub\hub\</code> con <code>run_windows.bat &lt;comando&gt;</code> (o <code>.venv\Scripts\python.exe -m docmap_hub</code>).
-   Nessun comando deve restare in attesa di input: usa <code>--yes</code> dove previsto, <code>DOCMAP_HUB_FTP_PASSWORD</code> e
-   <code>DOCMAP_HUB_BRIDGE_TOKEN</code> per i segreti nuovi, e mai <code>password=?</code> (chiede da tastiera).</li>
-<li><strong>Prima la prova</strong>: <code>deploy</code> e <code>promote</code> sempre con <code>--dry-run</code> prima; leggi <code>Sul server: N file, versione X</code> e
-   procedi con <code>--yes</code> solo se il piano è sensato (N &gt; 0 per un sito esistente, nessun "ATTENZIONE").</li>
-<li><strong>Mai cancellare</strong>: niente <code>vault delete</code>, <code>env delete</code>, <code>keygen --rotate</code>, <code>customer set --purge</code> senza richiesta
-   esplicita di Dave. Niente operazioni su <code>%APPDATA%\DocMapHub\</code> a mano.</li>
-<li><strong>Mai mostrare segreti</strong> in chat o nei log: niente <code>vault reveal</code>, <code>cliente scheda --con-segreti</code> se Dave non lo chiede.</li>
-<li>Dopo ogni cliente nuovo, rinnovo o modifica alla cassaforte: <code>run_windows.bat backup</code> e dillo a Dave (va copiato su USB).</li>
-<li>Controlla l'esito con il codice di uscita (0 = ok) e rileggi lo stato con <code>status</code> / <code>cliente elenco</code> / <code>licence list</code>.</li>
-<li>Le cose fuori dal hub non le fa il hub: creare cartelle, SSL e account FTP su SiteGround, lanciare <code>setup.php</code>,
-   installare in sede (<code>installa.bat</code> sul PC del cliente). Spiegale a Dave passo per passo.</li>
-</ol>
-<p><strong>Flusso tipo "nuovo cliente con sede e online" per l'agente:</strong></p>
-<pre><code class="language-bat">run_windows.bat accesso-automatico stato
+di tutti i giorni.
+
+**Pubblicare (0.6).** Scheda del cliente → **Pubblica** (o clic su un sito → **Deploy**):
+
+1. **Prova**: l&#x27;hub costruisce il sito e legge il server, senza cambiare niente;
+2. **Piano**: versione sul server → versione nuova, file da caricare, protetti (dati, `config.php`, `.htaccess` fatti a
+   mano), vecchi (mai cancellati);
+3. spunta «Ho letto il piano» e **Conferma e pubblica** entro 30 minuti;
+4. **backup del server → caricamento → controllo**, con i passi che si colorano; se il sito non risponde con la versione
+   nuova l&#x27;hub **rimette da solo i file di prima** e lo scrive in rosso.
+
+**Prepara la promozione** porta in produzione esattamente il codice provato sullo staging. Il deploy aggiorna solo il
+programma: i dati del cliente sul server non si toccano mai.
+
+**Cassaforte e accessi (0.6).** La cassaforte si apre dalla barra laterale (in basso a sinistra) o la prima volta che
+serve. Nella scheda di un sito, sezione **Accessi in cassaforte**: **Aggiungi** (FTP, protezione della cartella, token,
+note), **Mostra** (chiede di nuovo la passphrase e resta nello storico), sostituisci, elimina. La scheda **Accessi** del
+cliente mostra cosa c&#x27;è per ogni sito e avvisa se manca l&#x27;FTP.
+
+**Siti e server (0.6).** Nella mappa del progetto o in **Pubblica**: **Aggiungi sito o server** → sito online (PHP),
+server nello studio del cliente, o ambiente di prova su questo PC (con avvio e arresto dalla sua scheda). **Indirizzi**
+nella scheda del sito corregge indirizzo e indirizzo dell&#x27;API.
+
+**Porta della pagina.** Il hub usa una porta poco comune, **47823**, che nessun altro programma usa di solito. Se è
+occupata prova da solo la 47824, poi la 47825 e così via, poi una porta a caso tra 47000 e 48999, e **la ricorda**.
+L&#x27;indirizzo della pagina aperta è anche in `%APPDATA%\DocMapHub\pagina-hub.txt`, e `run_windows.bat info` lo mostra.
+Per fissare una porta: `run_windows.bat settings set web.port 47900`; per una volta sola: `run_windows.bat web --port 47900`.
+
+La prova del deploy **non cambia niente** sul server: il caricamento parte solo con «Conferma e pubblica», entro 30
+minuti dalla prova, e un piano si conferma una volta sola.
+
+---
+
+## 8. Tutti i comandi
+
+Forma: `run_windows.bat [--dir CARTELLA] [--passphrase-file FILE] &lt;comando&gt; [opzioni]`.
+Codici di uscita: `0` riuscito, `1` errore (messaggio su stderr che inizia con &quot;Errore:&quot;), `2` comando incompleto.
+
+| Comando | Cosa fa | Opzioni principali |
+|---|---|---|
+| `init` | crea cartella dati e registro | |
+| `info` | versione, cartelle programma/dati, chiave attiva, impostazioni rotte | |
+| `accesso-automatico attiva\|disattiva\|stato` | ricorda/dimentica le passphrase su questo PC | |
+| `keygen` | crea la chiave di firma | `--rotate` |
+| `keys list` | elenca le chiavi | |
+| `export-public-key` | chiave pubblica per i server | `--out`, `--format json\|base64\|pem` |
+| `plans` | piani e valori | |
+| `reseller add\|list` | rivenditori | `--name`, `--product-name`, `--primary-color`, `--logo-url`, `--support-email` |
+| `customer add\|list\|set` | clienti | `--name`, `--vat`, `--email`, `--reseller`; `set --key-escrow on\|off [--purge]` |
+| `instance add\|list` | installazioni | `--customer`, `--label`, `--kind onprem\|cloud\|appliance`, `--id` |
+| `licence issue` | emette | `--instance`, `--plan`, `--months`/`--expires`, `--users/--binders/--archives`, `--feature`, `--no-feature`, `--out` |
+| `licence renew` | rinnova | `&lt;installazione o licenza&gt;`, `--months`, `--plan`, `--out` |
+| `licence list\|show\|verify` | elenco / contenuto / verifica | `--instance`, `--json` |
+| `cliente nuovo` | cliente in un passo | vedi 6.1; `--rigenera`, `--senza-pacchetti`, `--con-segreti`, `--url-sede`, `--nome-studio`, `--custodia-chiave` |
+| `cliente scheda` | rifà la scheda | `--cliente`, `--con-segreti` |
+| `cliente token-ponte` | token del ponte | `--cliente`, `--salva`, `--esporta FILE` |
+| `cliente elenco` | clienti e cartelle | |
+| `cliente percorso` | passi fatti e prossimo passo (0.9) | `--cliente` |
+| `cliente da-modello` | cliente nuovo da un modello; con `--attiva` anche pubblicato, configurato e kit (0.10) | `--nome`, `--piva`, `--modello`, `--attiva`, `--kit-out FILE\|CARTELLA`, `--senza-pacchetti` |
+| `cliente attiva` | «Attiva tutto»: i passi online che mancano, stop al primo errore (0.10) | `--cliente`, `--kit-out` |
+| `cliente elimina` | elimina un cliente dal hub, backup prima (0.11) | `--cliente`, `--conferma &quot;&lt;nome&gt;&quot;` |
+| `cliente sposta-sito` | sposta il sito online su un altro dominio o cartella (0.11) | `--cliente --url`, `--ftp dominio\|stesso\|cliente`, `--cartella`, `--ftp-host --ftp-utente`, `--env`, `--senza-reindirizzo`, `--kit-out`, `--annulla` |
+| `cliente kit` | kit di consegna (lettere, scheda tecnica, scheda cliente) (0.10) | `--cliente`, `--out` |
+| `modelli` | elenco dei modelli cliente (0.10) | `mostra &lt;modello&gt;`, `importa --nome --file`, `elimina`, `predefinito`, `ripristina` |
+| `hosting` | hosting predefinito: dominio e FTP comuni (0.10) | `--dominio --host --utente --cartella --protocollo --porta --suffisso-demo --password`, `--togli` |
+| `configura-sito` | lancia `setup.php` del sito, codici in cassaforte (0.9) | `--instance --env`, `--persone &quot;mario,editor;…&quot;`, `--config-out FILE` |
+| `licence push` | carica subito la licenza sui siti online (0.9) | `&lt;installazione&gt;` |
+| `licence suspend\|revoke\|reactivate\|publish` | controllo a distanza (0.7) | `&lt;installazione&gt;`, `--reason`, `--months` |
+| `aggiorna-siti` | tutti i siti di produzione alla versione del hub, stop al primo errore (0.9) | `--yes`, `--anche-staging` |
+| `vault init\|status\|list` | cassaforte | `list --instance` |
+| `vault set` | salva/sostituisce un segreto | `--instance --env --kind`, `--label`, `--field nome=valore`, `--json-file`, `--content-file` |
+| `vault reveal` | mostra un segreto (registrato) | `--instance --env --kind --label --reason` |
+| `vault delete` | elimina | `--yes` |
+| `vault change-passphrase` | nuova passphrase | `DOCMAP_HUB_VAULT_NEW_PASSPHRASE` |
+| `vault export\|import` | copia cifrata | `--out` / `file --overwrite` |
+| `env list\|add\|set` | ambienti | `--instance --name --kind web-php\|studio-python --url --api-url --studio-name` |
+| `env create-local\|start\|stop\|status` | ambienti sul PC del hub | `--instance --name` |
+| `env clone-data` | copia dati verso un ambiente locale | `--from --to --dry-run` |
+| `env demo create` | demo a scadenza | `--days --from --label` |
+| `env purge-expired` | ferma le demo scadute (dati in `_trash`) | |
+| `env delete` | elimina un ambiente (il sito remoto non si tocca) | `--yes`, per production `--production --confirm &quot;&lt;nome&gt;&quot;` |
+| `ports list\|check\|set-range` | porte | |
+| `deploy` | pubblica un sito | `--instance --env`, `--dry-run`, `--yes`, `--overwrite-htaccess`, `--trust-host-key` (SFTP) |
+| `promote` | staging → production | `--instance`, `--dry-run`, `--yes` |
+| `status` | stato di tutto | `--json` |
+| `check-all` | ping di tutti gli ambienti | `--timeout`, `--no-secrets` |
+| `settings show\|set` | impostazioni | `installer_dir`, `docmap_dir`, `server_python_dir`, `server_python_exe`, `ports.range`, `web.port` |
+| `server-check` | server-python pronto? | |
+| `log` | registro operazioni | `--limit` |
+| `backup` | zip di sicurezza (controllato subito dalla 0.12) | `--out` |
+| `controllo` | Controllo dell&#x27;hub: cosa va e cosa fare; uscita 1 se c&#x27;è un errore (0.12) | `--json` |
+| `verifica-backup` | un backup si può ripristinare? (predefinito: l&#x27;ultimo) (0.12) | `[nome]`, `--tutti` |
+| `ripristina-backup` | rimette un backup, pagina chiusa; i dati di adesso vanno da parte (0.12) | `[nome o percorso]`, `--ultimo`, `--si` |
+| `cliente situazione` | una riga per sito/server: versione, controllo, licenza (0.12) | `--csv FILE` |
+| `web` | pagina locale (porta 47823 o la successiva libera, ricordata) | `--port`, `--no-browser` |
+
+Variabili d&#x27;ambiente utili: `DOCMAP_HUB_DIR` (cartella dati), `DOCMAP_HUB_PASSPHRASE`, `DOCMAP_HUB_VAULT_PASSPHRASE`,
+`DOCMAP_HUB_FTP_PASSWORD`, `DOCMAP_HUB_BRIDGE_TOKEN`, `DOCMAP_HUB_VAULT_NEW_PASSPHRASE`, `DOCMAP_HUB_NO_AUTO=1`
+(ignora l&#x27;accesso automatico).
+
+---
+
+## 9. Per l&#x27;agente AI: regole operative
+
+Un agente (Claude Code o simile) che lavora sul PC di Dave può fare **tutto** quello che fa Dave con il hub, purché:
+
+1. **Accesso automatico attivo** (`accesso-automatico stato` → ATTIVO). Se è spento, chiedi a Dave di attivarlo: non
+   chiedergli la passphrase in chat e non scriverla in file.
+2. Lavora da `C:\DocMapHub\hub\` con `run_windows.bat &lt;comando&gt;` (o `.venv\Scripts\python.exe -m docmap_hub`).
+   Nessun comando deve restare in attesa di input: usa `--yes` dove previsto, `DOCMAP_HUB_FTP_PASSWORD` e
+   `DOCMAP_HUB_BRIDGE_TOKEN` per i segreti nuovi, e mai `password=?` (chiede da tastiera).
+3. **Prima la prova**: `deploy` e `promote` sempre con `--dry-run` prima; leggi `Sul server: N file, versione X` e
+   procedi con `--yes` solo se il piano è sensato (N &gt; 0 per un sito esistente, nessun &quot;ATTENZIONE&quot;).
+4. **Mai cancellare**: niente `vault delete`, `env delete`, `keygen --rotate`, `customer set --purge` senza richiesta
+   esplicita di Dave. Niente operazioni su `%APPDATA%\DocMapHub\` a mano.
+5. **Mai mostrare segreti** in chat o nei log: niente `vault reveal`, `cliente scheda --con-segreti` se Dave non lo chiede.
+6. Dopo ogni cliente nuovo, rinnovo o modifica alla cassaforte: `run_windows.bat backup` e dillo a Dave (va copiato su USB).
+7. Controlla l&#x27;esito con il codice di uscita (0 = ok) e rileggi lo stato con `status` / `cliente elenco` / `licence list`.
+8. Le cose fuori dal hub non le fa il hub: creare cartelle, SSL e account FTP su SiteGround, lanciare `setup.php`,
+   installare in sede (`installa.bat` sul PC del cliente). Spiegale a Dave passo per passo.
+
+**Flusso tipo &quot;nuovo cliente con sede e online&quot; per l&#x27;agente:**
+
+```bat
+run_windows.bat accesso-automatico stato
 run_windows.bat plans
 set DOCMAP_HUB_FTP_PASSWORD=&lt;password fornita da Dave&gt;
 run_windows.bat cliente nuovo --nome &quot;&lt;Nome&gt;&quot; --piva &lt;PIVA&gt; --piano studio_pro --installazioni entrambe --url-online https://docmap.pr-it.it/&lt;slug&gt;/ --ftp-protocollo ftps --ftp-host gnldm1123.siteground.biz --ftp-utente &lt;utente&gt; --ftp-cartella /&lt;slug&gt;/
@@ -1210,43 +826,64 @@ run_windows.bat cliente token-ponte --cliente &quot;&lt;Nome&gt;&quot; --salva
 run_windows.bat cliente token-ponte --cliente &quot;&lt;Nome&gt;&quot; --esporta E:\token-ponte.txt
 set DOCMAP_HUB_BRIDGE_TOKEN=
 run_windows.bat backup
-</code></pre>
-<p>Poi consegna a Dave: percorso di <code>sede\…-sede.zip</code>, <code>scheda-cliente.html</code>, e i passi in sede.</p>
-<hr />
-<h2 id="10-problemi-comuni">10. Problemi comuni</h2>
-<p>Prima di tutto: <code>hub\RACCOGLI-INFO.bat</code> (file sul Desktop per l'assistenza, senza password né codici) e
-<code>DOMANDE-FREQUENTI.md</code> (download, SmartScreen, zip non estratto, Python, <code>build_deploy.py</code>, passphrase, «Attiva tutto»
-fermo, sincronizzazione). Nello zip le stesse guide sono in HTML nella cartella <code>guide\</code>, con <code>INIZIA-QUI.html</code> in cima.</p>
-<h3 id="101-il-deploy-dice-26125-e-sul-server-0-file-ma-il-sito-esiste">10.1 Il deploy dice "? → 26.12.5" e "Sul server: 0 file" ma il sito esiste</h3>
-<p>La cartella FTP è scritta come la vede il pannello, non come la vede l'account FTP. In SiteGround guarda
-"Gestisci account FTP" › "Percorso Home": se è <code>/docmap.pr-it.it/public_html/</code>, la cartella del sito per quell'account
-è <code>/studio-de/</code>. Dalla 0.3.1 il hub se ne accorge e usa da solo il percorso giusto (riga "ATTENZIONE"), ma correggi
-la cassaforte (6.3).</p>
-<h3 id="102-ftp-accesso-rifiutato-server-non-raggiungibile">10.2 "FTP: accesso rifiutato" / "server non raggiungibile"</h3>
-<p>Utente o password sbagliati, o porta/protocollo: SiteGround usa FTPS esplicito sulla porta 21. Ricontrolla con
-FileZilla ("Richiede FTP esplicito su TLS").</p>
-<h3 id="103-dopo-il-caricamento-il-server-non-risponde-con-la-versione-ritorno-indietro">10.3 "Dopo il caricamento il server non risponde con la versione …" (ritorno indietro)</h3>
-<p>L'indirizzo dell'ambiente (<code>api_url</code>) non corrisponde alla cartella caricata, oppure PHP dà errore. Apri
-<code>&lt;url&gt;server-php/api.php?r=ping</code> nel browser. Correggi con <code>env set --instance … --name production --url …</code>.</p>
-<h3 id="104-il-deploy-ha-caricato-in-una-cartella-sbagliata">10.4 Il deploy ha caricato in una cartella sbagliata</h3>
-<p>Il hub non cancella mai: elimina tu la cartella sbagliata dal File Manager dell'hosting.</p>
-<h3 id="105-licenza-non-valida-in-sede">10.5 Licenza "NON VALIDA" in sede</h3>
-<p>Il pacchetto non aveva la chiave pubblica (pacchetto generico) o la licenza è per un'altra installazione. Usa il
-pacchetto personale di <code>cliente nuovo</code>, oppure <code>licence show &lt;file&gt; --instance-id &lt;id&gt;</code>.</p>
-<h3 id="106-la-pagina-del-hub-chiede-ancora-la-passphrase">10.6 La pagina del hub chiede ancora la passphrase</h3>
-<p>Ricorda su questo PC spento o file illeggibile (creato da un altro utente Windows): entra con la passphrase spuntando
-<strong>Ricorda su questo PC</strong>, oppure <code>accesso-automatico attiva</code>.</p>
-<h3 id="107-porta-occupata">10.7 Porta occupata</h3>
-<p>Pagina del hub: sceglie da sola la porta libera successiva (capitolo 7). Ambienti locali: <code>ports list</code> mostra chi la
-usa; <code>env start</code> sposta da solo l'ambiente su una porta libera.</p>
-<hr />
-<h2 id="11-cosa-non-e-ancora-provato">11. Cosa non è ancora provato</h2>
-<p>Provato con test automatici su Linux (hub 97 test, compresi FTP e FTPS reali su un server di prova) e nel browser
-(Chromium) per il gestionale. <strong>Non ancora</strong> su: Windows reale (accesso automatico e «Ricorda su questo PC» con DPAPI,
-pagina del hub, client delle postazioni <code>collega-questo-pc.bat</code>, <code>installa.bat</code>, sincronizzazione automatica),
+```
+
+Poi consegna a Dave: percorso di `sede\…-sede.zip`, `scheda-cliente.html`, e i passi in sede.
+
+---
+
+## 10. Problemi comuni
+
+Prima di tutto: `hub\RACCOGLI-INFO.bat` (file sul Desktop per l&#x27;assistenza, senza password né codici) e
+`DOMANDE-FREQUENTI.md` (download, SmartScreen, zip non estratto, Python, `build_deploy.py`, passphrase, «Attiva tutto»
+fermo, sincronizzazione). Nello zip le stesse guide sono in HTML nella cartella `guide\`, con `INIZIA-QUI.html` in cima.
+
+### 10.1 Il deploy dice &quot;? → 26.12.5&quot; e &quot;Sul server: 0 file&quot; ma il sito esiste
+
+La cartella FTP è scritta come la vede il pannello, non come la vede l&#x27;account FTP. In SiteGround guarda
+&quot;Gestisci account FTP&quot; › &quot;Percorso Home&quot;: se è `/docmap.pr-it.it/public_html/`, la cartella del sito per quell&#x27;account
+è `/studio-de/`. Dalla 0.3.1 il hub se ne accorge e usa da solo il percorso giusto (riga &quot;ATTENZIONE&quot;), ma correggi
+la cassaforte (6.3).
+
+### 10.2 &quot;FTP: accesso rifiutato&quot; / &quot;server non raggiungibile&quot;
+
+Utente o password sbagliati, o porta/protocollo: SiteGround usa FTPS esplicito sulla porta 21. Ricontrolla con
+FileZilla (&quot;Richiede FTP esplicito su TLS&quot;).
+
+### 10.3 &quot;Dopo il caricamento il server non risponde con la versione …&quot; (ritorno indietro)
+
+L&#x27;indirizzo dell&#x27;ambiente (`api_url`) non corrisponde alla cartella caricata, oppure PHP dà errore. Apri
+`&lt;url&gt;server-php/api.php?r=ping` nel browser. Correggi con `env set --instance … --name production --url …`.
+
+### 10.4 Il deploy ha caricato in una cartella sbagliata
+
+Il hub non cancella mai: elimina tu la cartella sbagliata dal File Manager dell&#x27;hosting.
+
+### 10.5 Licenza &quot;NON VALIDA&quot; in sede
+
+Il pacchetto non aveva la chiave pubblica (pacchetto generico) o la licenza è per un&#x27;altra installazione. Usa il
+pacchetto personale di `cliente nuovo`, oppure `licence show &lt;file&gt; --instance-id &lt;id&gt;`.
+
+### 10.6 La pagina del hub chiede ancora la passphrase
+
+Ricorda su questo PC spento o file illeggibile (creato da un altro utente Windows): entra con la passphrase spuntando
+**Ricorda su questo PC**, oppure `accesso-automatico attiva`.
+
+### 10.7 Porta occupata
+
+Pagina del hub: sceglie da sola la porta libera successiva (capitolo 7). Ambienti locali: `ports list` mostra chi la
+usa; `env start` sposta da solo l&#x27;ambiente su una porta libera.
+
+---
+
+## 11. Cosa non è ancora provato
+
+Provato con test automatici su Linux (hub 97 test, compresi FTP e FTPS reali su un server di prova) e nel browser
+(Chromium) per il gestionale. **Non ancora** su: Windows reale (accesso automatico e «Ricorda su questo PC» con DPAPI,
+pagina del hub, client delle postazioni `collega-questo-pc.bat`, `installa.bat`, sincronizzazione automatica),
 deploy FTPS verso SiteGround, telefoni con il certificato dello studio. Dalla app 26.12.6 il server PHP online
 controlla la licenza (sito costruito dal hub 0.8): da provare su SiteGround. Dalla 0.11, provati solo in simulazione (PHP
-reale con <code>php -S</code>, ponte reale, FTP simulato): <strong>Sposta il sito</strong> (il reindirizzamento <code>.htaccess</code> va provato su
-SiteGround), <code>INSTALLA-SENZA-DOMANDE.bat</code> e il codice del ponte nel pacchetto (Windows reale), il doppio collegamento
-online/ufficio delle postazioni.</p>
-</main></div></body></html>
+reale con `php -S`, ponte reale, FTP simulato): **Sposta il sito** (il reindirizzamento `.htaccess` va provato su
+SiteGround), `INSTALLA-SENZA-DOMANDE.bat` e il codice del ponte nel pacchetto (Windows reale), il doppio collegamento
+online/ufficio delle postazioni.
+</pre></body></html>

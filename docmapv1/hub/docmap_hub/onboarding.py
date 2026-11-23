@@ -47,8 +47,10 @@ from urllib.parse import urlsplit
 
 from . import licence as L
 from .registry import RegistryError
+from .branding import customer_override, override_for_env
 from .runner import docmap_roots, run_build_deploy
 from .vault import Vault, VaultKey, validate as validate_secret
+from .branding import brand_name as _bn
 
 INSTALLS = ("sede", "online")
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,47}$")
@@ -394,11 +396,15 @@ class Onboarding:
                                         "instance_id": rep["instances"]["sede"],
                                         "instance_id_online": rep["instances"].get("online"),
                                         "piano": self.reg.get_licence(rep["licences"]["sede"])["plan"],
-                                        "preparato_da": "DocMap Hub"}, ensure_ascii=False), "utf-8")
+                                        "preparato_da": f"{_bn()} Hub"}, ensure_ascii=False), "utf-8")
             cmd = [sys.executable, str(tools), "pacchetto", "--out", str(out), "--zip", "--chiave-pubblica", str(pk),
                    "--licenza", str(lic), "--nome-studio", studio_name, "--cliente-json", str(info)]
             if sync_model:
                 cmd += ["--sync-modello", str(sync_model)]
+            over = customer_override(self.reg, cust)   # reseller / customer brand → app/brand.js of the package
+            if over:
+                (Path(td) / "marchio.json").write_text(json.dumps(over, ensure_ascii=False), "utf-8")
+                cmd += ["--marchio", str(Path(td) / "marchio.json")]
             r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600,
                                env=dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUTF8="1"))
         if r.returncode != 0:
@@ -422,7 +428,7 @@ class Onboarding:
                 tk, lic = site_licence_files(self.hub, e, d)
                 res = run_build_deploy(site, base_path=s.get("base_path") or "/", slug=s.get("slug") or "studio",
                                        domain=s.get("domain") or "https://example.invalid", studio_name=s.get("studio_name") or "",
-                                       reg=self.reg, trusted_keys=tk, licence=lic)
+                                       reg=self.reg, trusted_keys=tk, licence=lic, brand=override_for_env(self.reg, e))
                 with zipfile.ZipFile(zp, "w", zipfile.ZIP_DEFLATED) as z:
                     for f in sorted(site.rglob("*")):
                         if f.is_file():
@@ -508,8 +514,8 @@ def scheda_html(hub, customer: str, secrets: dict | None = None) -> str:
     out = [f"<!doctype html><html lang='it'><head><meta charset='utf-8'><meta name='viewport' "
            f"content='width=device-width,initial-scale=1'><title>Scheda cliente · {_e(cust['name'])}</title>"
            f"<style>{SHEET_CSS}</style></head><body><main>",
-           f"<h1>DocMap — Scheda cliente: {_e(cust['name'])}</h1>",
-           f"<div class='mut'>Preparata dal DocMap Hub il {now.strftime('%d/%m/%Y %H:%M')} UTC. "
+           f"<h1>{_bn()} — Scheda cliente: {_e(cust['name'])}</h1>",
+           f"<div class='mut'>Preparata dal {_bn()} Hub il {now.strftime('%d/%m/%Y %H:%M')} UTC. "
            "Questa scheda <b>non contiene codici segreti</b>: dice dove sono custoditi.</div>"]
     if secrets is not None:
         out.append("<div class='warn'><b>ATTENZIONE: questa copia CONTIENE CODICI SEGRETI</b> (chiesta con la passphrase "
@@ -565,7 +571,7 @@ def scheda_html(hub, customer: str, secrets: dict | None = None) -> str:
                             (f" oppure carica a mano <code>{_e(Path(z).name)}</code>" if z else "") +
                             ", poi apri <code>server-php/setup.php</code> una volta.", raw=True))
     if insts["sede"] and insts["online"]:
-        out.append(_row("Sincronizzazione web ⇄ sede", "sul PC del cliente, ogni 10 minuti (attività “DocMap Sync Web-Locale”, "
+        out.append(_row("Sincronizzazione web ⇄ sede", "sul PC del cliente, ogni 10 minuti (attività “DocMap Sync Web-Locale”, "   # brand: keep (Windows task name)
                         "creata da installa.bat o da <code>configura-sync.ps1</code>).", raw=True))
     out.append("</table>")
 

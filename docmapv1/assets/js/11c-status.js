@@ -25,10 +25,10 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
     Object.assign(I18N.it, {
       sqp_cap:'Stato', sqp_more:'Altro…', sqp_undo:'Annulla', sqp_done:'{s}: {c}', sqp_undone:'Annullato', sqp_ro:'Solo consultazione: lo stato lo cambia chi ha un utente di modifica.',
       sqp_offline:'Senza rete: lo stato è salvato sul telefono e parte appena torna la connessione.', sqp_wait:'{n} stati in attesa di invio', sqp_err:'Stato non salvato: {m}',
-      sqp_old:'Il server va aggiornato a DocMap v12 per mostrare gli stati sui telefoni (quelli registrati arrivano comunque al PC col registro attività).',
+      sqp_old:('Il server va aggiornato a ' + brandName() + ' v12 per mostrare gli stati sui telefoni (quelli registrati arrivano comunque al PC col registro attività).'),
       sqp_docs_tip:'Tocca un documento per segnarne lo stato.', sqp_doc:'Documento', sqp_cancel:'Chiudi', sqp_confirm:'Conferma', sqp_back:'Indietro', sqp_pick:'Scegli lo stato',
       sqp_box_cap:'Stato della scatola', sqp_box_all:'Applica a tutta la scatola', sqp_box_n:'la scatola e i {n} faldoni che contiene', sqp_box_nn:'la scatola e i {n} faldoni che contiene, compresi quelli nelle scatole interne', sqp_verify:'Verifica rientro',
-      sqp_vf_h:'Verifica rientro', sqp_vf_p:'Scansiona il QR di ogni faldone tornato nella scatola. Alla fine DocMap segna i trovati come rientrati e ti dice cosa manca.',
+      sqp_vf_h:'Verifica rientro', sqp_vf_p:('Scansiona il QR di ogni faldone tornato nella scatola. Alla fine ' + brandName() + ' segna i trovati come rientrati e ti dice cosa manca.'),
       sqp_vf_found:'Trovati', sqp_vf_missing:'Mancano', sqp_vf_extra:'In più', sqp_vf_cam:'Usa la fotocamera', sqp_vf_cam_off:'Spegni la fotocamera', sqp_vf_typed:'Oppure scrivi il codice', sqp_vf_typed_ph:'es. BL12 o dm26…',
       sqp_vf_ok:'{c} trovato', sqp_vf_dup:'{c} già contato', sqp_vf_unexp:'{c} non era atteso in questa scatola', sqp_vf_unknown:'QR non riconosciuto: {c}', sqp_vf_loc:'È il QR di una scatola: scansiona i faldoni.',
       sqp_vf_finish:'Fine verifica', sqp_vf_abort:'Annulla verifica', sqp_vf_mark:'Segna i {n} mancanti come "{s}"', sqp_vf_mark1:'Segna il mancante come "{s}"', sqp_vf_go:'Salva la verifica', sqp_vf_none:'Nessun faldone atteso in questa scatola.',
@@ -38,10 +38,10 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
     Object.assign(I18N.en, {
       sqp_cap:'Status', sqp_more:'More…', sqp_undo:'Undo', sqp_done:'{s}: {c}', sqp_undone:'Undone', sqp_ro:'Read only: the status is changed by users who can edit.',
       sqp_offline:'No network: the status is saved on the phone and sent as soon as the connection is back.', sqp_wait:'{n} statuses waiting to be sent', sqp_err:'Status not saved: {m}',
-      sqp_old:'The server must be updated to DocMap v12 to show statuses on phones (recorded ones still reach the PC with the activity log).',
+      sqp_old:('The server must be updated to ' + brandName() + ' v12 to show statuses on phones (recorded ones still reach the PC with the activity log).'),
       sqp_docs_tip:'Tap a document to set its status.', sqp_doc:'Document', sqp_cancel:'Close', sqp_confirm:'Confirm', sqp_back:'Back', sqp_pick:'Pick the status',
       sqp_box_cap:'Status of the box', sqp_box_all:'Apply to the whole box', sqp_box_n:'the box and the {n} binders in it', sqp_box_nn:'the box and the {n} binders in it, those in the nested boxes included', sqp_verify:'Return check',
-      sqp_vf_h:'Return check', sqp_vf_p:'Scan the QR of every binder that came back into the box. At the end DocMap marks the found ones as returned and tells you what is missing.',
+      sqp_vf_h:'Return check', sqp_vf_p:('Scan the QR of every binder that came back into the box. At the end ' + brandName() + ' marks the found ones as returned and tells you what is missing.'),
       sqp_vf_found:'Found', sqp_vf_missing:'Missing', sqp_vf_extra:'Extra', sqp_vf_cam:'Use the camera', sqp_vf_cam_off:'Turn the camera off', sqp_vf_typed:'Or type the code', sqp_vf_typed_ph:'e.g. BL12 or dm26…',
       sqp_vf_ok:'{c} found', sqp_vf_dup:'{c} already counted', sqp_vf_unexp:'{c} was not expected in this box', sqp_vf_unknown:'Unknown QR: {c}', sqp_vf_loc:'That is a box QR: scan the binders.',
       sqp_vf_finish:'Finish check', sqp_vf_abort:'Cancel check', sqp_vf_mark:'Mark the {n} missing ones as "{s}"', sqp_vf_mark1:'Mark the missing one as "{s}"', sqp_vf_go:'Save the check', sqp_vf_none:'No binder expected in this box.',
@@ -480,7 +480,7 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       if (a === 'sqp-vf-cam') return sqpCamToggle();
       if (a === 'sqp-vf-finish') return sqpVfFinish();
       if (a === 'sqp-vf-abort'){ sqpCamStop(); sqpVfClear(); SQP.vfMsg = null; SC.view = SC.loc ? 'location' : SC.rec ? 'card' : 'noqr'; return scRender(); }
-      if (a === 'sqp-vf-csv'){ const D = SQP.vfDone; if (D) sqpDownload('docmap_verifica_' + String(D.box.code || 'scatola').replace(/[^A-Za-z0-9_-]+/g, '-') + '_' + sqToday() + '.csv', sqVerifyCsv(D)); return; }
+      if (a === 'sqp-vf-csv'){ const D = SQP.vfDone; if (D) sqpDownload(brandFile('verifica_') + String(D.box.code || 'scatola').replace(/[^A-Za-z0-9_-]+/g, '-') + '_' + sqToday() + '.csv', sqVerifyCsv(D)); return; }
       if (a === 'sqp-vf-close'){ SQP.vfDone = null; SC.view = SC.loc ? 'location' : SC.rec ? 'card' : 'noqr'; return scRoute(); }
     }
     document.addEventListener('click', (e) => {

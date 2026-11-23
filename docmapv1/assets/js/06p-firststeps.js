@@ -10,7 +10,7 @@
    ===================================================================== */
 Object.assign(I18N.it, {
   fs_h:'Primi passi', fs_p:'{d} di {n} fatti. Ogni passo ha la sua guida: clicca e segui le frecce.', fs_hide:'Nascondi', fs_show:'Mostra i primi passi', fs_go:'Guidami', fs_open:'Apri', fs_done:'Fatto',
-  fs_all:'Tutti i primi passi sono fatti: DocMap è pronto. Puoi nascondere questo riquadro.',
+  fs_all:('Tutti i primi passi sono fatti: ' + brandName() + ' è pronto. Puoi nascondere questo riquadro.'),
   fs_s_studio:'Scrivi il nome dello studio', fs_s_studio_d:'Impostazioni › nome dello studio: compare sulle etichette e nei PDF.',
   fs_s_clients:'Importa l\'elenco dei clienti', fs_s_clients_d:'Un file CSV o Excel: crea i clienti (e, se vuoi, un faldone ciascuno).',
   fs_s_binder:'Crea il primo faldone vero', fs_s_binder_d:'I faldoni di esempio (tag demo) non contano e non si stampano.',
@@ -21,7 +21,7 @@ Object.assign(I18N.it, {
 });
 Object.assign(I18N.en, {
   fs_h:'First steps', fs_p:'{d} of {n} done. Each step has its own guide: click and follow the arrows.', fs_hide:'Hide', fs_show:'Show the first steps', fs_go:'Guide me', fs_open:'Open', fs_done:'Done',
-  fs_all:'All first steps are done: DocMap is ready. You can hide this box.',
+  fs_all:('All first steps are done: ' + brandName() + ' is ready. You can hide this box.'),
   fs_s_studio:'Write the studio name', fs_s_studio_d:'Settings › studio name: shown on labels and PDFs.',
   fs_s_clients:'Import the client list', fs_s_clients_d:'A CSV or Excel file: creates the clients (and, if you want, one binder each).',
   fs_s_binder:'Create the first real binder', fs_s_binder_d:'Sample binders (tag demo) do not count and are never printed.',
@@ -72,8 +72,8 @@ const FS_ACTIONS = {
   'fs-hide': () => { S.settings.firstStepsHidden = true; savePrefs(); renderView(); toast(t('fs_show') + ': ' + t('nav_settings_hint_fs'), 'ok', 5000); },
   'fs-show': () => { S.settings.firstStepsHidden = false; savePrefs(); S.view = 'archive'; renderAll(); }
 };
-Object.assign(I18N.it, {nav_settings_hint_fs:'Impostazioni › Dati e sicurezza › Informazioni su DocMap'});
-Object.assign(I18N.en, {nav_settings_hint_fs:'Settings › Data & security › About DocMap'});
+Object.assign(I18N.it, {nav_settings_hint_fs:('Impostazioni › Dati e sicurezza › Informazioni su ' + brandName())});
+Object.assign(I18N.en, {nav_settings_hint_fs:('Settings › Data & security › About ' + brandName())});
 if (typeof ACTIONS === 'object') Object.assign(ACTIONS, FS_ACTIONS);
 else document.addEventListener('DOMContentLoaded', () => { if (typeof ACTIONS === 'object') Object.assign(ACTIONS, FS_ACTIONS); });
 
@@ -102,6 +102,6 @@ document.addEventListener('DOMContentLoaded', () => {
   HELP_TOPICS.push({ id:'first-steps', guide:null, tags:['start'], related:['first-run', 'import', 'calib', 'backup', 'upgrade'],
     kw:{it:'primi passi inizio checklist cosa fare prima installazione aggiornatore aggiorna-docmap', en:'first steps start checklist what to do first install updater'},
     title:{it:'Primi passi: il riquadro nell\'Archivio e l\'aggiornamento con un doppio clic', en:'First steps: the box in the Archive and the double-click update'},
-    body:{it:'<p>In cima all\'<b>Archivio</b> il riquadro <b>Primi passi</b> elenca 7 cose da fare all\'inizio: nome dello studio, elenco clienti, primo faldone vero, foglio di prova, prime etichette, primo backup e (facoltativo) server online. Ogni passo si spunta da solo quando DocMap vede che è fatto; <b>Guidami</b> avvia la guida con le frecce. <b>Nascondi</b> lo toglie; lo ritrovi in <b>Impostazioni › Dati e sicurezza › Informazioni su DocMap</b>.</p><p><b>Aggiornare il programma sul PC</b>: scarica lo zip nuovo, poi doppio clic su ' + HX_K('AGGIORNA-DOCMAP.bat') + ' nella cartella di DocMap (oppure trascina lo zip sopra). Lo script ti ricorda il backup, copia la versione attuale in ' + HX_K('DocMap-copie') + ', mette i file nuovi <b>nella stessa cartella</b> (i dati restano nel browser) e riapre DocMap. Per tornare indietro: ' + HX_K('AGGIORNA-DOCMAP.bat ripristina') + '.</p>',
-          en:'<p>At the top of the <b>Archive</b> the <b>First steps</b> box lists 7 things to do at the start: studio name, client list, first real binder, test sheet, first labels, first backup and (optional) online server. Each step ticks itself when DocMap sees it is done; <b>Guide me</b> starts the tour with arrows. <b>Hide</b> removes it; find it again in <b>Settings › Data &amp; security › About DocMap</b>.</p><p><b>Updating the program on the PC</b>: download the new zip, then double-click ' + HX_K('AGGIORNA-DOCMAP.bat') + ' in the DocMap folder (or drop the zip on it). The script reminds you of the backup, copies the current version to ' + HX_K('DocMap-copie') + ', puts the new files <b>in the same folder</b> (data stays in the browser) and reopens DocMap. To go back: ' + HX_K('AGGIORNA-DOCMAP.bat ripristina') + '.</p>'} });
+    body:{it:('<p>In cima all\'<b>Archivio</b> il riquadro <b>Primi passi</b> elenca 7 cose da fare all\'inizio: nome dello studio, elenco clienti, primo faldone vero, foglio di prova, prime etichette, primo backup e (facoltativo) server online. Ogni passo si spunta da solo quando ' + brandName() + ' vede che è fatto; <b>Guidami</b> avvia la guida con le frecce. <b>Nascondi</b> lo toglie; lo ritrovi in <b>Impostazioni › Dati e sicurezza › Informazioni su ' + brandName() + '</b>.</p><p><b>Aggiornare il programma sul PC</b>: scarica lo zip nuovo, poi doppio clic su ') + HX_K('AGGIORNA-DOCMAP.bat') + (' nella cartella di ' + brandName() + ' (oppure trascina lo zip sopra). Lo script ti ricorda il backup, copia la versione attuale in ') + HX_K('DocMap-copie') + (', mette i file nuovi <b>nella stessa cartella</b> (i dati restano nel browser) e riapre ' + brandName() + '. Per tornare indietro: ') + HX_K('AGGIORNA-DOCMAP.bat ripristina') + '.</p>',
+          en:('<p>At the top of the <b>Archive</b> the <b>First steps</b> box lists 7 things to do at the start: studio name, client list, first real binder, test sheet, first labels, first backup and (optional) online server. Each step ticks itself when ' + brandName() + ' sees it is done; <b>Guide me</b> starts the tour with arrows. <b>Hide</b> removes it; find it again in <b>Settings › Data &amp; security › About ' + brandName() + '</b>.</p><p><b>Updating the program on the PC</b>: download the new zip, then double-click ') + HX_K('AGGIORNA-DOCMAP.bat') + (' in the ' + brandName() + ' folder (or drop the zip on it). The script reminds you of the backup, copies the current version to ') + HX_K('DocMap-copie') + (', puts the new files <b>in the same folder</b> (data stays in the browser) and reopens ' + brandName() + '. To go back: ') + HX_K('AGGIORNA-DOCMAP.bat ripristina') + '.</p>'} });
 });

@@ -1,6 +1,6 @@
-# DocMap · Inizia qui
+# Inizia qui
 
-Questo zip contiene **tutto DocMap**: il programma per il tuo PC (l'**hub**), l'app, il sito per l'hosting, il server
+Questo zip contiene **tutto Doc Location**: il programma per il tuo PC (l'**hub**), l'app, il sito per l'hosting, il server
 per il PC dell'ufficio del cliente (la **sede**), l'installatore per Windows e tutte le guide. Non serve scaricare
 nient'altro.
 
@@ -52,7 +52,7 @@ l'ambiente Python (qualche minuto), poi si apre il browser sulla pagina dell'hub
 | [`GUIDA-NUOVO-CLIENTE.html`](GUIDA-NUOVO-CLIENTE.md) | il percorso completo di un cliente (hub, sito, sede, telefoni) |
 | [`GUIDA-INSTALLAZIONE-SEDE.html`](../installer-windows/GUIDA-INSTALLAZIONE.md) | installazione sul PC dell'ufficio del cliente |
 | [`GUIDA-SYNC-WEB-LOCALE.html`](../server-python/GUIDA-SYNC-WEB-LOCALE.md) | come il sito e il server dell'ufficio restano allineati |
-| [`MANUALE-UTENTE.html`](MANUALE-UTENTE.md) | l'app DocMap per chi la usa in studio |
+| [`MANUALE-UTENTE.html`](MANUALE-UTENTE.md) | l'app Doc Location per chi la usa in studio |
 | [`COLLAUDO-REALE.html`](COLLAUDO-REALE.md) | la scheda delle prove sui dispositivi veri |
 | `AGGIORNAMENTO-HUB.html` | cosa cambia in questa versione e come aggiornare |
 

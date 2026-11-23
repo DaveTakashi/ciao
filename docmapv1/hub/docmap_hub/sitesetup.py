@@ -24,6 +24,7 @@ import urllib.request
 
 from .registry import RegistryError
 from .vault import VaultKey
+from .branding import brand_name as _bn
 
 HUB_ADMIN = "admin"
 BRIDGE_USER = "ponte-sync"
@@ -79,7 +80,7 @@ def http_json(url: str, data: dict | None = None, *, timeout: float = 30.0, cafi
             raise SetupError("Il sito chiede una password (cartella protetta): togli la protezione o salva "
                              "l'accesso «basic_auth» in cassaforte.")
         raise SetupError(f"Risposta inattesa da {url} (HTTP {status}): {snippet or 'vuota'}. "
-                         "Il sito ha una versione di DocMap precedente alla 26.12.7? Ripubblicalo (deploy).")
+                         f"Il sito ha una versione di {_bn()} precedente alla 26.12.7? Ripubblicalo (deploy).")
 
 
 # ---------------------------------------------------------------------------
@@ -169,7 +170,7 @@ def setup_site(hub, vk: VaultKey, env_ref: str, env_name: str | None = None, *, 
         raise SetupError("Il sito è già configurato (config.php esiste). Se i codici non sono in cassaforte, "
                          "salvali da «Accessi» oppure crea nuovi codici dall'app (amministratore).")
     if st == 409 or state == "existing_db":
-        raise SetupError("Sul server c'è già un database DocMap in quella cartella: l'hub non crea una chiave nuova. "
+        raise SetupError(f"Sul server c'è già un database {_bn()} in quella cartella: l'hub non crea una chiave nuova. "
                          "Rimetti la copia di config.php (guida AGGIORNARE-IL-SERVER.md).")
     if not j.get("ok"):
         raise SetupError(j.get("error") or f"setup.php ha risposto HTTP {st}.")

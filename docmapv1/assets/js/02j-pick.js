@@ -241,7 +241,7 @@ Object.assign(I18N.en, {
 function pkReceiptHTML(r, studio){
   const back = r.kind === 'back', when = (() => { try { return new Date(r.at).toLocaleString(S.lang === 'en' ? 'en-GB' : 'it-IT', {dateStyle:'medium', timeStyle:'short'}); } catch(e){ return r.at; } })();
   const row = (k, v) => v ? '<tr><th>' + esc(k) + '</th><td>' + esc(v) + '</td></tr>' : '';
-  return '<div class="pkr"><div class="pkr-h"><div><div class="pkr-k">DocMap · ' + esc(studio || '') + '</div><h1>' + esc(t(back ? 'pkr_h_back' : 'pkr_h_out')) + '</h1>' + (r.title ? '<div class="pkr-t">' + esc(r.title) + '</div>' : '') + '</div>' +
+  return ('<div class="pkr"><div class="pkr-h"><div><div class="pkr-k">' + brandName() + ' · ') + esc(studio || '') + '</div><h1>' + esc(t(back ? 'pkr_h_back' : 'pkr_h_out')) + '</h1>' + (r.title ? '<div class="pkr-t">' + esc(r.title) + '</div>' : '') + '</div>' +
     '<div class="pkr-id mono">' + esc(r.id) + '</div></div>' +
     '<table class="pkr-m">' + row(t('pkr_when'), when) + row(t(back ? 'pkr_from' : 'pkr_to'), r.recipient) + row(t('pkr_doc'), r.doc) + row(t('pkr_by'), r.operator) +
       row(t('pkr_for'), r.purpose ? t('pkp_' + r.purpose) : '') + (r.due_date && !back ? row(t('pkr_due_k'), r.due_date) : '') + '</table>' +

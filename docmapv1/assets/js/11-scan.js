@@ -22,11 +22,11 @@
 'use strict';
 
 Object.assign(I18N.it, {
-  sc_title:'DocMap — Faldone', sc_brand:'DocMap', sc_login_h:'Accedi', sc_login_p:'Accedi per vedere il faldone di questo QR.',
+  sc_title:('' + brandName() + ' — Faldone'), sc_brand:('' + brandName()), sc_login_h:'Accedi', sc_login_p:'Accedi per vedere il faldone di questo QR.',
   sc_user:'Nome utente', sc_secret:'PIN o password', sc_show:'Mostra', sc_hide:'Nascondi', sc_enter:'Entra', sc_checking:'Verifica…',
   sc_bad:'Nome utente o PIN non corretti.', sc_bad_left:'Nome utente o PIN non corretti. Ancora {n} tentativi prima dell\'attesa.', sc_locked:'Troppi tentativi: riprova tra {s} secondi.',
-  sc_nousers_h:'Nessun utente configurato', sc_nousers:'Nessun utente configurato: crea un utente in DocMap › Impostazioni › Utenti e accesso.',
-  sc_nocrypto:'Questo browser non permette il login sicuro (WebCrypto non disponibile).', sc_storage:'Impossibile leggere i dati di DocMap in questo browser.',
+  sc_nousers_h:'Nessun utente configurato', sc_nousers:('Nessun utente configurato: crea un utente in ' + brandName() + ' › Impostazioni › Utenti e accesso.'),
+  sc_nocrypto:'Questo browser non permette il login sicuro (WebCrypto non disponibile).', sc_storage:('Impossibile leggere i dati di ' + brandName() + ' in questo browser.'),
   sc_logout:'Esci', sc_hello:'Ciao {n}', sc_role_viewer:'sola lettura', sc_role_editor:'può modificare', sc_role_admin:'amministratore', sc_full_app:'Gestione completa',
   sc_nf_h:'Faldone non trovato', sc_nf_p:'Questo QR non corrisponde a nessun faldone dell\'archivio. Forse è stato eliminato o l\'etichetta è di un altro archivio.',
   sc_noqr_h:'Scansiona un QR', sc_noqr_p:'Inquadra con la fotocamera il QR sull\'etichetta di un faldone, oppure cerca il codice.',
@@ -42,7 +42,7 @@ Object.assign(I18N.it, {
   sc_conflict_fields:'Campi cambiati dall\'altra parte: {f}', sc_reload:'Ricarica (perdo le mie modifiche)', sc_force:'Salva comunque le mie modifiche',
   sc_offline:'Nessuna rete: modifica salvata sul telefono, verrà inviata appena torna la connessione.', sc_err:'Errore: {m}', sc_gone:'Il faldone non esiste più.',
   sc_stale:'Questo faldone è appena cambiato su un altro dispositivo: al salvataggio ti verrà chiesto cosa fare.', sc_expired:'Sessione scaduta: accedi di nuovo per salvare.',
-  sc_back:'Indietro', sc_lang:'Lingua', sc_local:'Dati letti da questo browser (DocMap sul PC).', sc_f_state:'stato', sc_f_items:'documenti', sc_f_pos:'posizione', sc_f_notes:'note', sc_f_tags:'tag',
+  sc_back:'Indietro', sc_lang:'Lingua', sc_local:('Dati letti da questo browser (' + brandName() + ' sul PC).'), sc_f_state:'stato', sc_f_items:'documenti', sc_f_pos:'posizione', sc_f_notes:'note', sc_f_tags:'tag',
   cis_archive:'In archivio', cis_in_use:'In uso', cis_client:'Al cliente', cis_label:'Stato del documento',   // same keys as 04b (desktop), not loaded here
   sc_setup_h:'Primo accesso su questo telefono', sc_setup_p:'Scegli un nome utente e un PIN per questo telefono e inserisci il codice di accesso che ti ha dato l\'amministratore. Lo inserisci una volta sola.',
   sc_secret2:'Ripeti PIN o password', sc_token:'Codice di accesso al server', sc_e_match:'I due PIN non coincidono.', sc_e_secret:'Il PIN deve avere almeno 4 caratteri.', sc_e_user:'Nome utente: 2-40 caratteri tra lettere, numeri e . _ - @',
@@ -51,11 +51,11 @@ Object.assign(I18N.it, {
   sc_server:'Dati dal database online dello studio.', sc_srv_off:'Server non raggiungibile. Riprova tra poco.'
 });
 Object.assign(I18N.en, {
-  sc_title:'DocMap — Binder', sc_brand:'DocMap', sc_login_h:'Sign in', sc_login_p:'Sign in to see the binder of this QR.',
+  sc_title:('' + brandName() + ' — Binder'), sc_brand:('' + brandName()), sc_login_h:'Sign in', sc_login_p:'Sign in to see the binder of this QR.',
   sc_user:'Username', sc_secret:'PIN or password', sc_show:'Show', sc_hide:'Hide', sc_enter:'Sign in', sc_checking:'Checking…',
   sc_bad:'Wrong username or PIN.', sc_bad_left:'Wrong username or PIN. {n} more attempts before a wait.', sc_locked:'Too many attempts: try again in {s} seconds.',
-  sc_nousers_h:'No users configured', sc_nousers:'No users configured: create a user in DocMap › Settings › Users & access.',
-  sc_nocrypto:'This browser does not allow a secure login (WebCrypto not available).', sc_storage:'Cannot read DocMap data in this browser.',
+  sc_nousers_h:'No users configured', sc_nousers:('No users configured: create a user in ' + brandName() + ' › Settings › Users & access.'),
+  sc_nocrypto:'This browser does not allow a secure login (WebCrypto not available).', sc_storage:('Cannot read ' + brandName() + ' data in this browser.'),
   sc_logout:'Sign out', sc_hello:'Hi {n}', sc_role_viewer:'read only', sc_role_editor:'can edit', sc_role_admin:'administrator', sc_full_app:'Full management',
   sc_nf_h:'Binder not found', sc_nf_p:'This QR does not match any binder in the archive. It may have been deleted, or the label belongs to another archive.',
   sc_noqr_h:'Scan a QR', sc_noqr_p:'Point the camera at the QR on a binder label, or search the code.',
@@ -71,7 +71,7 @@ Object.assign(I18N.en, {
   sc_conflict_fields:'Fields changed elsewhere: {f}', sc_reload:'Reload (lose my changes)', sc_force:'Save my changes anyway',
   sc_offline:'No network: change saved on the phone, it will be sent as soon as the connection is back.', sc_err:'Error: {m}', sc_gone:'The binder no longer exists.',
   sc_stale:'This binder has just changed on another device: you will be asked what to do when saving.', sc_expired:'Session expired: sign in again to save.',
-  sc_back:'Back', sc_lang:'Language', sc_local:'Data read from this browser (DocMap on the PC).', sc_f_state:'state', sc_f_items:'documents', sc_f_pos:'location', sc_f_notes:'notes', sc_f_tags:'tags',
+  sc_back:'Back', sc_lang:'Language', sc_local:('Data read from this browser (' + brandName() + ' on the PC).'), sc_f_state:'state', sc_f_items:'documents', sc_f_pos:'location', sc_f_notes:'notes', sc_f_tags:'tags',
   cis_archive:'In archive', cis_in_use:'In use', cis_client:'At client', cis_label:'Document status',
   sc_setup_h:'First sign-in on this phone', sc_setup_p:'Choose a username and a PIN for this phone and enter the access code your administrator gave you. You enter it only once.',
   sc_secret2:'Repeat PIN or password', sc_token:'Server access code', sc_e_match:'The two PINs do not match.', sc_e_secret:'The PIN needs at least 4 characters.', sc_e_user:'Username: 2-40 characters among letters, digits and . _ - @',
@@ -109,10 +109,10 @@ async function scBoot(){
   S = {lang:'it', settings:{}}; window.S = S;   // light S: only what t() and fmtDate() need (no binders here)
   try { SC.P = dmProviders(); } catch(e){ SC.view = 'error'; SC.msg = {kind:'err', text:String(e.message || e)}; return scRender(); }
   try { SC.ctx = await SC.P.data.context(); } catch(e){ SC.ctx = {studioName:''}; }
-  let lang = ['it', 'en'].includes(SC.params.lang) ? SC.params.lang : '';
+  let lang = BRAND.languages.includes(SC.params.lang) ? SC.params.lang : '';
   if (!lang) try { lang = localStorage.getItem(SC_LANG_LS) || ''; } catch(e){}
-  if (!lang) lang = SC.ctx.lang || ((navigator.language || 'it').toLowerCase().startsWith('it') ? 'it' : 'en');
-  S.lang = ['it', 'en'].includes(lang) ? lang : 'it';
+  if (!lang) lang = SC.ctx.lang || (BRAND.languages.find(l => (navigator.language || '').toLowerCase().startsWith(l)) || BRAND.default_language);
+  S.lang = BRAND.languages.includes(lang) ? lang : BRAND.default_language;
   SC.P.auth.onChange(() => { SC.user = SC.P.auth.currentUser(); });
   if (DocMapVault.isActive()) await DocMapVault.resume();   // web mode: re-open the vault of this tab's session
   await scRoute();
@@ -187,8 +187,8 @@ function scCiChip(st){ return '<span class="sc-ci st-' + esc(st) + '">' + esc(t(
 /* ---------------- render ---------------- */
 function scHeader(){
   const studio = SC.ctx.studioName || '';
-  return '<header class="sc-top"><div class="sc-brand"><span class="sc-mark" aria-hidden="true">DM</span><div class="sc-brand-t"><b>' + esc(t('sc_brand')) + '</b>' + (studio ? '<span>' + esc(studio) + '</span>' : '') + '</div></div>' +
-    '<div class="sc-top-r"><div class="sc-lang" role="group" aria-label="' + esc(t('sc_lang')) + '"><button type="button" data-s="lang" data-l="it" aria-pressed="' + (S.lang === 'it') + '">IT</button><button type="button" data-s="lang" data-l="en" aria-pressed="' + (S.lang === 'en') + '">EN</button></div>' +
+  return '<header class="sc-top"><div class="sc-brand">' + brandMarkHtml('sc-mark') + '<div class="sc-brand-t"><b>' + esc(t('sc_brand')) + '</b>' + (studio ? '<span>' + esc(studio) + '</span>' : '') + '</div></div>' +
+    '<div class="sc-top-r">' + (BRAND.languages.length > 1 ? '<div class="sc-lang" role="group" aria-label="' + esc(t('sc_lang')) + '">' + BRAND.languages.map(l => '<button type="button" data-s="lang" data-l="' + l + '" aria-pressed="' + (S.lang === l) + '">' + l.toUpperCase() + '</button>').join('') + '</div>' : '') +
     (SC.user ? '<button type="button" class="sc-out" data-s="logout" aria-label="' + esc(t('sc_logout')) + '">' + sic('out') + '<span>' + esc(t('sc_logout')) + '</span></button>' : '') + '</div></header>';
 }
 function scMsgHTML(){ return SC.msg ? '<div class="sc-msg ' + esc(SC.msg.kind || 'ok') + '" role="status">' + sic(SC.msg.kind === 'ok' ? 'check' : 'alert') + '<span>' + esc(SC.msg.text) + '</span></div>' : ''; }

@@ -109,8 +109,8 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     // offline: the app still opens, also from a QR route; data requests are not answered from the cache
     await wctx.setOffline(true);
     await w.reload(); await w.waitForTimeout(800);
-    const Off1 = await w.evaluate(() => ({app:typeof APP_VERSION !== 'undefined' && APP_VERSION, title:document.title}));
-    ok(Off1.app === APP_V && /DocMap/.test(Off1.title), 'offline: index.html opens from the cache', Off1);
+    const Off1 = await w.evaluate(() => ({app:typeof APP_VERSION !== 'undefined' && APP_VERSION, title:document.title, brand:typeof BRAND !== 'undefined' && BRAND.product_name}));
+    ok(Off1.app === APP_V && Off1.title.startsWith(Off1.brand) && !!Off1.brand, 'offline: index.html opens from the cache', Off1);
     await w.goto(O + 'q/dm26AbCdEfGh'); await w.waitForTimeout(800);
     const Off2 = await w.evaluate(async () => ({scan:typeof scBoot === 'function', man:(document.querySelector('link[rel="manifest"]') || {}).getAttribute ? document.querySelector('link[rel="manifest"]').getAttribute('href') : '',
       api:await fetch('server-php/api.php?r=ping').then(() => 'answered', () => 'failed')}));

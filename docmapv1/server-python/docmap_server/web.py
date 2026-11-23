@@ -21,6 +21,7 @@ from starlette.responses import Response as SResponse
 from .api import Request, handle, parse_query
 from .phpcompat import php_int
 from .phpconfig import read_config_file
+from .branding import brand_name as _bn
 
 DEFAULT_API_PATHS = ("/studio-de/server-php/api.php", "/api")
 ALL_METHODS = ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"]
@@ -143,7 +144,7 @@ def php_layout_config(root: str, path: str):
 
 
 def create_app(config_path: str, root: str | None = None, api_paths=DEFAULT_API_PATHS, php_layout: bool = False) -> FastAPI:
-    app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, title="DocMap server (Python)")
+    app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, title=f"{_bn()} server (Python)")
     paths = {p if p.startswith("/") else "/" + p for p in api_paths}
 
     @app.api_route("/{full_path:path}", methods=ALL_METHODS, include_in_schema=False)

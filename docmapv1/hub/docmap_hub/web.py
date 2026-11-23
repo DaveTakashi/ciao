@@ -34,6 +34,7 @@ from . import web_ops as W
 from .keys import KeyError_
 from .registry import RegistryError
 from .service import Hub
+from .branding import brand_name as _bn
 
 COOKIE = "dmhub_session"
 UI_DIR = Path(__file__).with_name("ui")
@@ -249,7 +250,7 @@ def make_handler(app: HubWebApp):
             hidden = f"<input type='hidden' name='csrf' value='{_e(sess['csrf'])}'>"
             with app.lock:
                 body = render(app, hidden, *extra)
-            self._page(f"{title} · DocMap Hub", W.nav(path, hidden) + f"<h1>{_e(title)}</h1>"
+            self._page(f"{title} · {_bn()} Hub", W.nav(path, hidden) + f"<h1>{_e(title)}</h1>"
                        + W.msgs(q.get("ok"), q.get("err")) + body)
 
         # -- routes --------------------------------------------------------
@@ -530,13 +531,13 @@ def make_handler(app: HubWebApp):
 
         # -- pages ---------------------------------------------------------
         def _login_page(self, err: str | None = None, code=200):
-            body = ("<h1>DocMap Hub</h1>"
+            body = (f"<h1>{_bn()} Hub</h1>"
                     + (f"<div class='msg err'>{_e(err)}</div>" if err else "")
                     + "<section><form method='post' action='/login'>"
                       "<label for='p'>Passphrase della chiave di firma</label>"
                       "<input id='p' type='password' name='passphrase' autofocus autocomplete='current-password'>"
                       "<button>Entra</button></form></section>")
-            self._page("DocMap Hub", body, code)
+            self._page(f"{_bn()} Hub", body, code)
 
         def _dashboard(self, sess, ok, err, new):
             reg, hub = app.hub.registry, app.hub
@@ -623,7 +624,7 @@ def make_handler(app: HubWebApp):
                 "<label>Colore principale</label><input name='primary_color' placeholder='#0a5c8a'>"
                 "<label>Email assistenza</label><input name='support_email' type='email'>"
                 "<button>Aggiungi rivenditore</button></form></section></div>")
-            self._page("DocMap Hub", "".join(parts))
+            self._page(f"{_bn()} Hub", "".join(parts))
 
     return Handler
 
@@ -712,6 +713,8 @@ def _api_routes():
         ("POST", r(r"/api/customers/([\w-]+)/activate"), A.customer_activate),
         ("POST", r(r"/api/customers/([\w-]+)/kit"), A.customer_kit),
         ("GET", r(r"/api/customers/([\w-]+)/delete"), A.customer_delete_preview),
+        ("GET", r(r"/api/customers/([\w-]+)/commerciale"), A.customer_commercial),     # 0.13 brand + quote
+        ("POST", r(r"/api/customers/([\w-]+)/commerciale"), A.set_customer_commercial),
         ("POST", r(r"/api/customers/([\w-]+)/delete"), A.customer_delete),
     ]
 

@@ -24,6 +24,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from docmap_hub.branding import brand_name  # noqa: E402
 from docmap_hub import activate as AC
 from docmap_hub import api as A
 from docmap_hub import hosting as H
@@ -253,7 +254,7 @@ class FakeDeploy:
         sp = self._folder(env) / "server-php"
         sp.mkdir(parents=True, exist_ok=True)
         docmap = Path(__file__).resolve().parents[2]
-        for f in ("setup.php", "api.php"):
+        for f in ("setup.php", "api.php", "brand.php"):
             shutil.copy(docmap / "server-php" / f, sp / f)
         fields = {"deployed_version": "26.12.7", "app_version": "26.12.7", "status": "running"}
         if env_name == "staging":
@@ -349,7 +350,7 @@ class TestActivateAndKit(Case):
         self._point_to_php(rep)
         fake = FakeDeploy(self.hub, self.vk, existing={"production"})
         r = AC.activate_customer(self.hub, self.vk, rep["customer_id"], deploy_mod=fake, check_fn=lambda env_id: {})
-        self.assertIn("già DocMap", r["failed"]["error"])
+        self.assertIn(f"già {brand_name()}", r["failed"]["error"])
         self.assertEqual(fake.calls, [])
         self.assertEqual(r["done"], [])
 
@@ -384,7 +385,7 @@ class TestActivateAndKit(Case):
         fake2.deploy = deploy2
         r2 = AC.activate_customer(self.hub, self.vk, rep2["customer_id"], deploy_mod=fake2,
                                   check_fn=lambda env_id: {})
-        self.assertIn("già DocMap", r2["failed"]["error"])
+        self.assertIn(f"già {brand_name()}", r2["failed"]["error"])
         self.assertEqual(fake2.calls, [])
 
     def test_never_writes_into_a_folder_with_other_files(self):

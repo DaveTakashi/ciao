@@ -1,4 +1,4 @@
-# DocMap · Domande frequenti e problemi
+# Doc Location · Domande frequenti e problemi
 
 Raccolta dei problemi incontrati davvero (installazioni di prova e prima installazione di Dave) con la soluzione.
 Prima di tutto, per qualsiasi problema: **`hub\RACCOGLI-INFO.bat`** (vedi l'ultima sezione).
@@ -71,8 +71,8 @@ lavoro **solo** nel modello «solo sede» (senza sito online).
 
 **Come collego un secondo o terzo PC?**
 Scheda del cliente › Postazioni › aggiungi una postazione per ogni PC › scarica il suo pacchetto. Sul PC: estrai e
-doppio clic su `collega-questo-pc.bat` (non servono permessi di amministratore). Compare il collegamento «DocMap -
-<studio>» al sito online; se c'è la sede anche «DocMap (ufficio)».
+doppio clic su `collega-questo-pc.bat` (non servono permessi di amministratore). Compare il collegamento «Doc Location -
+<studio>» al sito online; se c'è la sede anche «Doc Location (ufficio)».
 
 **La sincronizzazione sede ⇄ sito non va.**
 Sul PC della sede apri `C:\DocMap\sync\ultimo-esito.txt`. Per rifare il collegamento:

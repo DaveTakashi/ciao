@@ -25,11 +25,11 @@ const IN_Z80 = 1.2816;
 
 Object.assign(I18N.it, {
   nav_insights:'Andamento e previsioni', nd_insights:'Tempo risparmiato, attività, previsioni e suggerimenti dai vostri dati',
-  in_h:'Andamento e previsioni', in_p:'Quanto tempo vi fa risparmiare DocMap, come cambia il lavoro sull\'archivio, cosa aspettarsi nelle prossime settimane e cosa conviene fare. Tutto calcolato su questo PC dai dati che ci sono già.',
+  in_h:'Andamento e previsioni', in_p:('Quanto tempo vi fa risparmiare ' + brandName() + ', come cambia il lavoro sull\'archivio, cosa aspettarsi nelle prossime settimane e cosa conviene fare. Tutto calcolato su questo PC dai dati che ci sono già.'),
   in_saved_h:'Tempo risparmiato', in_saved_month:'questo mese', in_saved_year:'ultimi 12 mesi', in_saved_all:'da sempre', in_saved_next:'prossimi 3 mesi (previsione)',
-  in_value:'circa {v} €', in_h_unit:'{h} h', in_how:'Come è calcolato', in_how_p:'Ogni consultazione fa risparmiare {f} min (cercarlo senza DocMap) meno il tempo misurato con DocMap ({m}); ogni faldone catalogato {c} min meno {k}. Consultazioni: {n} · faldoni catalogati: {b}. Cambia i valori sotto con i vostri.',
+  in_value:'circa {v} €', in_h_unit:'{h} h', in_how:'Come è calcolato', in_how_p:('Ogni consultazione fa risparmiare {f} min (cercarlo senza ' + brandName() + ') meno il tempo misurato con ' + brandName() + ' ({m}); ogni faldone catalogato {c} min meno {k}. Consultazioni: {n} · faldoni catalogati: {b}. Cambia i valori sotto con i vostri.'),
   in_meas:'{s} s misurati', in_unmeas:'1 min (non ancora misurato)',
-  in_f_find:'Minuti per trovare un faldone senza DocMap', in_f_cat:'Minuti per registrare un faldone a mano', in_f_hourly:'Costo orario (€)', in_f_cap:'Capienza dell\'archivio (faldoni, 0 = non so)',
+  in_f_find:('Minuti per trovare un faldone senza ' + brandName()), in_f_cat:'Minuti per registrare un faldone a mano', in_f_hourly:'Costo orario (€)', in_f_cap:'Capienza dell\'archivio (faldoni, 0 = non so)',
   in_act_h:'Attività per settimana', in_s_finds:'Consultazioni', in_s_outs:'Uscite', in_s_new:'Nuovi faldoni', in_s_size:'Faldoni in archivio (per mese)',
   in_fc_h:'Previsioni', in_fc_next:'Prossime {w} settimane: circa {v} ({lo}–{hi})', in_fc_model:'Modello: {m} · errore medio ±{e} a settimana · {k}', in_fc_skill:'{p}% meglio del metodo più semplice', in_fc_noskill:'non migliore del metodo più semplice',
   in_fc_few:'Servono almeno {n} settimane di dati per una previsione: per ora {k}.', in_fc_table:'Vedi i numeri', in_week:'Settimana', in_real:'Reale', in_fcst:'Previsto', in_band:'Intervallo 80%',
@@ -42,20 +42,20 @@ Object.assign(I18N.it, {
   in_sg_noloc:'{n} faldoni non hanno una posizione', in_sg_noloc_d:'Senza posizione il percorso dei prelievi li mette in fondo e cercarli richiede più tempo.',
   in_sg_hot:'I {n} faldoni più richiesti degli ultimi 90 giorni', in_sg_hot_d:'Tienili a portata di mano (ripiani all\'altezza degli occhi, vicino all\'ingresso): {l}.',
   in_sg_cold:'{n} faldoni non sono stati toccati da più di un anno', in_sg_cold_d:'Sono candidati per un archivio di deposito: liberano {p}% dello spazio a portata di mano.',
-  in_sg_keep:'{n} faldoni riguardano anni chiusi da più di 10 anni ({y})', in_sg_keep_d:'Da VERIFICARE prima di qualsiasi scarto: obblighi di legge, contenziosi o accertamenti aperti, accordi col cliente. DocMap non decide lo scarto.',
+  in_sg_keep:'{n} faldoni riguardano anni chiusi da più di 10 anni ({y})', in_sg_keep_d:('Da VERIFICARE prima di qualsiasi scarto: obblighi di legge, contenziosi o accertamenti aperti, accordi col cliente. ' + brandName() + ' non decide lo scarto.'),
   in_sg_slow:'Trovare un faldone richiede {s} s (obiettivo {g} s)', in_sg_slow_d:'Stampa le etichette di posizione sugli scaffali e completa le posizioni mancanti: è la causa più comune.',
-  in_sg_backup:'Ultimo salvataggio di sicurezza {d}', in_sg_backup_d:'Fai un backup (Esporta) almeno una volta alla settimana.', in_sg_backup_never:'Nessun salvataggio di sicurezza fatto finora', in_nodata:'Nessun dato ancora: si riempie da solo man mano che usate DocMap.', in_full_wait:'Servono almeno 6 mesi di nuovi faldoni per stimare quando l\'archivio sarà pieno.',
+  in_sg_backup:'Ultimo salvataggio di sicurezza {d}', in_sg_backup_d:'Fai un backup (Esporta) almeno una volta alla settimana.', in_sg_backup_never:'Nessun salvataggio di sicurezza fatto finora', in_nodata:('Nessun dato ancora: si riempie da solo man mano che usate ' + brandName() + '.'), in_full_wait:'Servono almeno 6 mesi di nuovi faldoni per stimare quando l\'archivio sarà pieno.',
   in_sg_peak:'Nelle prossime 4 settimane sono previste circa {v} uscite ({p}% più del solito)', in_sg_peak_d:'Organizza i turni e prepara i prelievi in anticipo.',
   in_sg_full:'L\'archivio si riempie entro {m} mesi', in_sg_full_d:'Pianifica ora un deposito o lo scarto (da verificare) dei faldoni più vecchi.',
   in_data_note:'I tempi misurati restano su questo PC; le consultazioni dei telefoni arrivano con la sincronizzazione.'
 });
 Object.assign(I18N.en, {
   nav_insights:'Trends and forecasts', nd_insights:'Time saved, activity, forecasts and suggestions from your data',
-  in_h:'Trends and forecasts', in_p:'How much time DocMap saves you, how the archive work changes, what to expect in the coming weeks and what to do. All computed on this PC from data it already has.',
+  in_h:'Trends and forecasts', in_p:('How much time ' + brandName() + ' saves you, how the archive work changes, what to expect in the coming weeks and what to do. All computed on this PC from data it already has.'),
   in_saved_h:'Time saved', in_saved_month:'this month', in_saved_year:'last 12 months', in_saved_all:'all time', in_saved_next:'next 3 months (forecast)',
-  in_value:'about € {v}', in_h_unit:'{h} h', in_how:'How it is computed', in_how_p:'Each consultation saves {f} min (finding it without DocMap) minus the time measured with DocMap ({m}); each binder catalogued {c} min minus {k}. Consultations: {n} · binders catalogued: {b}. Change the values below to yours.',
+  in_value:'about € {v}', in_h_unit:'{h} h', in_how:'How it is computed', in_how_p:('Each consultation saves {f} min (finding it without ' + brandName() + ') minus the time measured with ' + brandName() + ' ({m}); each binder catalogued {c} min minus {k}. Consultations: {n} · binders catalogued: {b}. Change the values below to yours.'),
   in_meas:'{s} s measured', in_unmeas:'1 min (not measured yet)',
-  in_f_find:'Minutes to find a binder without DocMap', in_f_cat:'Minutes to register a binder by hand', in_f_hourly:'Hourly cost (€)', in_f_cap:'Archive capacity (binders, 0 = unknown)',
+  in_f_find:('Minutes to find a binder without ' + brandName()), in_f_cat:'Minutes to register a binder by hand', in_f_hourly:'Hourly cost (€)', in_f_cap:'Archive capacity (binders, 0 = unknown)',
   in_act_h:'Activity per week', in_s_finds:'Consultations', in_s_outs:'Taken out', in_s_new:'New binders', in_s_size:'Binders in the archive (per month)',
   in_fc_h:'Forecasts', in_fc_next:'Next {w} weeks: about {v} ({lo}–{hi})', in_fc_model:'Model: {m} · mean error ±{e} per week · {k}', in_fc_skill:'{p}% better than the simplest method', in_fc_noskill:'not better than the simplest method',
   in_fc_few:'At least {n} weeks of data are needed for a forecast: {k} so far.', in_fc_table:'See the numbers', in_week:'Week', in_real:'Actual', in_fcst:'Forecast', in_band:'80% range',
@@ -68,9 +68,9 @@ Object.assign(I18N.en, {
   in_sg_noloc:'{n} binders have no position', in_sg_noloc_d:'Without a position the pick route puts them last and finding them takes longer.',
   in_sg_hot:'The {n} most requested binders of the last 90 days', in_sg_hot_d:'Keep them at hand (eye-level shelves, near the door): {l}.',
   in_sg_cold:'{n} binders have not been touched for more than a year', in_sg_cold_d:'Candidates for a deposit archive: they free {p}% of the space at hand.',
-  in_sg_keep:'{n} binders concern years closed more than 10 years ago ({y})', in_sg_keep_d:'To CHECK before any disposal: legal duties, open disputes or audits, client agreements. DocMap does not decide disposal.',
+  in_sg_keep:'{n} binders concern years closed more than 10 years ago ({y})', in_sg_keep_d:('To CHECK before any disposal: legal duties, open disputes or audits, client agreements. ' + brandName() + ' does not decide disposal.'),
   in_sg_slow:'Finding a binder takes {s} s (goal {g} s)', in_sg_slow_d:'Print location labels for the shelves and complete the missing positions: the most common cause.',
-  in_sg_backup:'Last backup {d}', in_sg_backup_d:'Make a backup (Export) at least once a week.', in_sg_backup_never:'No backup made so far', in_nodata:'No data yet: it fills in by itself as you use DocMap.', in_full_wait:'At least 6 months of new binders are needed to estimate when the archive will be full.',
+  in_sg_backup:'Last backup {d}', in_sg_backup_d:'Make a backup (Export) at least once a week.', in_sg_backup_never:'No backup made so far', in_nodata:('No data yet: it fills in by itself as you use ' + brandName() + '.'), in_full_wait:'At least 6 months of new binders are needed to estimate when the archive will be full.',
   in_sg_peak:'About {v} binders are expected to go out in the next 4 weeks ({p}% more than usual)', in_sg_peak_d:'Plan the staff and prepare the pick lists ahead.',
   in_sg_full:'The archive fills up within {m} months', in_sg_full_d:'Plan a deposit now, or the (to be checked) disposal of the oldest binders.',
   in_data_note:'Measured times stay on this PC; phone consultations arrive with the sync.'
@@ -372,13 +372,13 @@ document.addEventListener('DOMContentLoaded', () => {
   if (typeof HELP_TOPICS === 'undefined' || HELP_TOPICS.some(x => x.id === 'insights')) return;
   HELP_TOPICS.push({ id:'insights', guide:null, tags:['archive'], pop:45, related:['pick', 'status', 'app-install'],
     kw:{it:'tempo risparmiato risparmio ore costo valore statistiche andamento grafico previsioni previsione forecasting tendenza stagionalità carico lavoro capienza pieno suggerimenti consigli scarto deposito più richiesti', en:'time saved hours cost value statistics trend chart forecast forecasting seasonality workload capacity full suggestions advice disposal deposit most requested'},
-    title:{it:'Quanto tempo ci fa risparmiare DocMap e cosa succederà nelle prossime settimane?', en:'How much time does DocMap save us and what will happen in the coming weeks?'},
+    title:{it:('Quanto tempo ci fa risparmiare ' + brandName() + ' e cosa succederà nelle prossime settimane?'), en:('How much time does ' + brandName() + ' save us and what will happen in the coming weeks?')},
     body:{it:'<p>Menu <b>⚙ Funzioni avanzate › Lavoro › Andamento e previsioni</b>.</p><ul>' +
-      '<li><b>Tempo risparmiato</b>: ogni consultazione (scheda del faldone aperta sul PC o sul telefono, uscita o rientro) vale i minuti che servivano per cercarlo senza DocMap meno il tempo misurato dal cronometro; ogni faldone catalogato idem. Metti i vostri minuti e il costo orario in «Come è calcolato».</li>' +
-      '<li><b>Previsioni</b>: per consultazioni, uscite e nuovi faldoni DocMap prova più modelli (settimana scorsa, media, tendenza, livellamento esponenziale, Holt, stagionalità mensile, trimestrale o annuale) e usa quello che ha sbagliato meno sulle ultime settimane; la fascia chiara è l\'intervallo in cui il valore cade 8 volte su 10. Con meno di 8 settimane di dati non prevede nulla.</li>' +
-      '<li><b>Capienza</b>: scrivi quanti faldoni entrano nell\'archivio e DocMap stima il mese in cui sarà pieno.</li>' +
-      '<li><b>Suggerimenti</b>: faldoni in ritardo o fuori da tanto, senza posizione, i più richiesti da tenere a portata di mano, quelli fermi da un anno (deposito), gli anni oltre i 10 anni di conservazione (<b>da verificare</b> prima di qualsiasi scarto: DocMap non decide lo scarto), backup, picchi di lavoro previsti.</li></ul>' +
+      ('<li><b>Tempo risparmiato</b>: ogni consultazione (scheda del faldone aperta sul PC o sul telefono, uscita o rientro) vale i minuti che servivano per cercarlo senza ' + brandName() + ' meno il tempo misurato dal cronometro; ogni faldone catalogato idem. Metti i vostri minuti e il costo orario in «Come è calcolato».</li>') +
+      ('<li><b>Previsioni</b>: per consultazioni, uscite e nuovi faldoni ' + brandName() + ' prova più modelli (settimana scorsa, media, tendenza, livellamento esponenziale, Holt, stagionalità mensile, trimestrale o annuale) e usa quello che ha sbagliato meno sulle ultime settimane; la fascia chiara è l\'intervallo in cui il valore cade 8 volte su 10. Con meno di 8 settimane di dati non prevede nulla.</li>') +
+      ('<li><b>Capienza</b>: scrivi quanti faldoni entrano nell\'archivio e ' + brandName() + ' stima il mese in cui sarà pieno.</li>') +
+      ('<li><b>Suggerimenti</b>: faldoni in ritardo o fuori da tanto, senza posizione, i più richiesti da tenere a portata di mano, quelli fermi da un anno (deposito), gli anni oltre i 10 anni di conservazione (<b>da verificare</b> prima di qualsiasi scarto: ' + brandName() + ' non decide lo scarto), backup, picchi di lavoro previsti.</li></ul>') +
       '<p>Tutto è calcolato su questo PC; le consultazioni dei telefoni arrivano con la sincronizzazione.</p>',
-      en:'<p>Menu <b>⚙ Advanced › Work › Trends and forecasts</b>: time saved (your minutes and hourly cost), weekly activity, forecasts from the best of several models (backtested), capacity date and data-based suggestions. Disposal candidates are only to be checked: DocMap never decides disposal.</p>'}
+      en:('<p>Menu <b>⚙ Advanced › Work › Trends and forecasts</b>: time saved (your minutes and hourly cost), weekly activity, forecasts from the best of several models (backtested), capacity date and data-based suggestions. Disposal candidates are only to be checked: ' + brandName() + ' never decides disposal.</p>')}
   });
 });

@@ -9,11 +9,11 @@
 
 Object.assign(I18N.it, {
   vs_mic:'Cerca a voce', vs_listen:'Ti ascolto… dimmi cosa cerchi (es. «fatture di Rossi del 2023 fuori archivio»)', vs_heard:'Ho capito «{s}» → cerco: {q}', vs_none:'Non ho sentito niente: riprova.',
-  vs_note:'La dettatura usa il riconoscimento vocale del browser (Chrome / Edge possono inviare l\'audio al loro servizio). DocMap riceve solo il testo.'
+  vs_note:('La dettatura usa il riconoscimento vocale del browser (Chrome / Edge possono inviare l\'audio al loro servizio). ' + brandName() + ' riceve solo il testo.')
 });
 Object.assign(I18N.en, {
   vs_mic:'Search by voice', vs_listen:'Listening… say what you are looking for (e.g. «Rossi invoices 2023 checked out»)', vs_heard:'Heard «{s}» → searching: {q}', vs_none:'Nothing heard: try again.',
-  vs_note:'Dictation uses the browser\'s speech recognition (Chrome / Edge may send the audio to their service). DocMap only gets the text.'
+  vs_note:('Dictation uses the browser\'s speech recognition (Chrome / Edge may send the audio to their service). ' + brandName() + ' only gets the text.')
 });
 if (typeof ICONS === 'object' && !ICONS.mic) ICONS.mic = '<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v4"/>';
 
@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
     body:{it:'<p>Premi il <b>microfono</b> nella ricerca dell\'Archivio, in <b>Cerca ovunque</b> (Ctrl+K) o nella ricerca del telefono e di\' cosa cerchi, come lo diresti a un collega:</p><ul>' +
       '<li>«trovami le <b>fatture di Rossi del 2023</b>» → <code>fatture rossi anno:2023</code></li><li>«i faldoni <b>fuori archivio</b> di Bianchi» → <code>bianchi stato:fuori</code></li>' +
       '<li>«paghe <b>dal 2019 al 2021</b>» → <code>paghe anno:2019..2021</code>; «<b>prima del</b> 2015», «<b>dopo il</b> 2020»</li><li>«<b>codice</b> B L tre» → <code>bl3</code>; «<b>tag</b> iva», «<b>categoria</b> APS», «<b>stanza</b> B»</li></ul>' +
-      '<p>DocMap scrive sotto cosa ha capito e cosa cerca; puoi correggere il testo a mano. Gli anni si possono dire anche in parole (duemilaventitré). Il microfono compare solo dove il browser sa riconoscere la voce (Chrome, Edge, Safari): il riconoscimento è del browser, che può inviare l\'audio al proprio servizio; DocMap riceve solo il testo.</p>',
-      en:'<p>Press the <b>microphone</b> in the Archive search, in Ctrl+K or on the phone search and say what you need: «Rossi invoices 2023 checked out» → <code>rossi invoices anno:2023 stato:fuori</code>; ranges («from 2019 to 2021»), «before» / «after», spelled codes («code B L 3»), «tag», «category». The browser does the recognition; DocMap only gets the text.</p>'}
+      ('<p>' + brandName() + ' scrive sotto cosa ha capito e cosa cerca; puoi correggere il testo a mano. Gli anni si possono dire anche in parole (duemilaventitré). Il microfono compare solo dove il browser sa riconoscere la voce (Chrome, Edge, Safari): il riconoscimento è del browser, che può inviare l\'audio al proprio servizio; ' + brandName() + ' riceve solo il testo.</p>'),
+      en:('<p>Press the <b>microphone</b> in the Archive search, in Ctrl+K or on the phone search and say what you need: «Rossi invoices 2023 checked out» → <code>rossi invoices anno:2023 stato:fuori</code>; ranges («from 2019 to 2021»), «before» / «after», spelled codes («code B L 3»), «tag», «category». The browser does the recognition; ' + brandName() + ' only gets the text.</p>')}
   });
 });

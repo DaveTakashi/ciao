@@ -1,47 +1,203 @@
 {
-  "_note": "Piani predefiniti per 'licence issue'. limits: null = illimitato. Le opzioni della riga di comando possono sovrascrivere ogni valore. Modificabile: una copia in <cartella dati>/plans.json ha la precedenza su questo file.",
+  "_note": "UNICA FONTE dei piani: limiti e funzioni (licenze) e PREZZI DI LISTINO (bozza da validare). limits: null = illimitato. Prezzi in euro, IVA esclusa. La riga di comando può sovrascrivere i limiti; una copia in <cartella dati>/plans.json ha la precedenza (i piani senza 'price' prendono il prezzo da questo file). I prezzi personalizzati di un cliente NON vanno qui: sono il suo preventivo (hub: cliente preventivo). docs/commerciale/LISTINO.md si rigenera da qui: python -m docmap_hub listino --md ../docs/commerciale/LISTINO.md",
+  "listino": {
+    "updated": "2026-11-23",
+    "status": "bozza da validare con i primi 3-5 clienti",
+    "currency": "EUR",
+    "vat_note": "Prezzi IVA esclusa.",
+    "yearly_note": "Pagando l'anno anticipato: 10 mesi invece di 12.",
+    "order": [
+      "trial",
+      "studio",
+      "studio_pro",
+      "conto_terzi",
+      "appliance",
+      "reseller"
+    ]
+  },
   "plans": {
     "trial": {
       "label": "Prova gratuita",
       "duration_months": 1,
       "grace_days": 7,
-      "limits": {"users": 2, "binders": 300, "archives": 1},
-      "features": ["mobile_scan"]
+      "limits": {
+        "users": 2,
+        "binders": 300,
+        "archives": 1
+      },
+      "features": [
+        "mobile_scan"
+      ],
+      "price": {
+        "monthly_eur": 0,
+        "yearly_eur": 0,
+        "for": "chi vuole provare con i propri faldoni",
+        "included": "1 archivio, fino a 300 faldoni, 2 utenti, telefoni, etichette"
+      }
     },
     "studio": {
       "label": "Studio",
       "duration_months": 12,
       "grace_days": 30,
-      "limits": {"users": 5, "binders": 5000, "archives": 3},
-      "features": ["mobile_scan"]
+      "limits": {
+        "users": 5,
+        "binders": 5000,
+        "archives": 3
+      },
+      "features": [
+        "mobile_scan"
+      ],
+      "price": {
+        "monthly_eur": 39,
+        "yearly_eur": 390,
+        "for": "studio fino a 5 persone",
+        "included": "3 archivi, fino a 5.000 faldoni, 5 utenti, telefoni, etichette, backup"
+      }
     },
     "studio_pro": {
       "label": "Studio Pro",
       "duration_months": 12,
       "grace_days": 30,
-      "limits": {"users": 15, "binders": 20000, "archives": 10},
-      "features": ["mobile_scan", "sync_server", "status_events", "ai_credits"]
+      "limits": {
+        "users": 15,
+        "binders": 20000,
+        "archives": 10
+      },
+      "features": [
+        "mobile_scan",
+        "sync_server",
+        "status_events",
+        "ai_credits"
+      ],
+      "price": {
+        "monthly_eur": 89,
+        "yearly_eur": 890,
+        "for": "studio grande o più sedi",
+        "included": "10 archivi, fino a 20.000 faldoni, 15 utenti, sincronizzazione sede ⇄ online, stati e registro, crediti AI"
+      }
     },
     "conto_terzi": {
       "label": "Archiviazione conto terzi",
       "duration_months": 12,
       "grace_days": 30,
-      "limits": {"users": 30, "binders": 100000, "archives": 50},
-      "features": ["mobile_scan", "sync_server", "status_events", "ai_credits"]
+      "limits": {
+        "users": 30,
+        "binders": 100000,
+        "archives": 50
+      },
+      "features": [
+        "mobile_scan",
+        "sync_server",
+        "status_events",
+        "ai_credits"
+      ],
+      "price": {
+        "monthly_eur": 190,
+        "yearly_eur": 1900,
+        "for": "società di archiviazione per conto terzi",
+        "included": "50 archivi, fino a 100.000 faldoni, 30 utenti, prelievi e consegne, crediti AI"
+      }
     },
     "appliance": {
       "label": "Appliance (PC dedicato)",
       "duration_months": 12,
       "grace_days": 30,
-      "limits": {"users": 10, "binders": 20000, "archives": 5},
-      "features": ["mobile_scan", "sync_server", "status_events"]
+      "limits": {
+        "users": 10,
+        "binders": 20000,
+        "archives": 5
+      },
+      "features": [
+        "mobile_scan",
+        "sync_server",
+        "status_events"
+      ],
+      "price": {
+        "monthly_eur": 99,
+        "yearly_eur": 990,
+        "setup_eur": 600,
+        "for": "studio che vuole tutto in sede (mini-PC preconfigurato)",
+        "included": "come Studio Pro con 10 utenti, tutto in sede; il mini-PC preconfigurato con backup cifrato si paga a parte"
+      }
     },
     "reseller": {
       "label": "Rivenditore (istanza propria)",
       "duration_months": 12,
       "grace_days": 30,
-      "limits": {"users": 50, "binders": null, "archives": null},
-      "features": ["mobile_scan", "sync_server", "status_events", "ai_credits", "white_label"]
+      "limits": {
+        "users": 50,
+        "binders": null,
+        "archives": null
+      },
+      "features": [
+        "mobile_scan",
+        "sync_server",
+        "status_events",
+        "ai_credits",
+        "white_label"
+      ],
+      "price": {
+        "monthly_eur": 290,
+        "yearly_eur": 2900,
+        "for": "rivenditore con il proprio marchio (white label)",
+        "included": "marchio proprio su app, sito, pacchetti e lettere ai clienti",
+        "tiers": [
+          {
+            "up_to_instances": 10,
+            "monthly_eur": 290
+          },
+          {
+            "up_to_instances": 30,
+            "monthly_eur": 590
+          }
+        ],
+        "extra_instance_monthly_eur": 19
+      }
     }
-  }
+  },
+  "modules": {
+    "retention": {
+      "label": "Conservazione e scarto (verbale firmato)",
+      "monthly_eur": 9,
+      "yearly_eur": 90
+    },
+    "handover": {
+      "label": "Consegna e ritiro con firma sul telefono",
+      "monthly_eur": 9,
+      "yearly_eur": 90
+    },
+    "hosting": {
+      "label": "Spazio online gestito (UE)",
+      "monthly_eur": 10,
+      "yearly_eur": 100,
+      "note": "incluso in Studio Pro, Conto terzi e Rivenditore"
+    },
+    "ai": {
+      "label": "Lettura AI delle coste e compilazione dei campi",
+      "note": "crediti prepagati: costo del fornitore AI × 2,5"
+    }
+  },
+  "services": {
+    "setup": {
+      "label": "Avvio: installazione, import dell'elenco clienti, prova di stampa, 1 ora di formazione",
+      "from_eur": 300,
+      "to_eur": 1500
+    },
+    "labelling_day": {
+      "label": "Giornata di etichettatura in studio",
+      "from_eur": 450,
+      "note": "più trasferta"
+    },
+    "training_hour": {
+      "label": "Ora di formazione in più (anche online)",
+      "from_eur": 60
+    }
+  },
+  "rules": [
+    "Rinnovo automatico salvo disdetta 30 giorni prima della scadenza.",
+    "I limiti (faldoni, utenti, archivi) sono scritti nella licenza: superarli non cancella né nasconde nulla, chiede solo di passare al piano superiore.",
+    "Licenza scaduta: i giorni di tolleranza del piano, poi sola lettura (mai blocco dei dati, sempre esportabili).",
+    "Rivenditore: incassa dal cliente finale al prezzo che sceglie; paga il canone del piano Rivenditore più le istanze oltre la soglia.",
+    "Fattura elettronica (SDI). Pagamento con bonifico o link di pagamento."
+  ]
 }

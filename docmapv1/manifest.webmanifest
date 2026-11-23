@@ -1,7 +1,7 @@
 {
   "id": "./index.html",
-  "name": "DocMap — archivio",
-  "short_name": "DocMap",
+  "name": "Doc Location — archivio",
+  "short_name": "Doc Location",
   "description": "Archivio fisico: faldoni, scaffali, etichette e QR.",
   "lang": "it",
   "dir": "ltr",

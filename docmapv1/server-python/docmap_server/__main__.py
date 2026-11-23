@@ -12,6 +12,7 @@ import os
 import sys
 
 from .phpconfig import default_config_path
+from .branding import brand_name as _bn
 
 
 def _config_path(arg):
@@ -22,7 +23,7 @@ def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     if not argv or argv[0] not in ("serve", "setup", "licence", "sync-remote"):
         argv.insert(0, "serve")
-    ap = argparse.ArgumentParser(prog="python -m docmap_server", description="DocMap shared online database (Python port of server-php/api.php)")
+    ap = argparse.ArgumentParser(prog="python -m docmap_server", description=f"{_bn()} shared online database (Python port of server-php/api.php)")
     sub = ap.add_subparsers(dest="cmd")
     s = sub.add_parser("serve", help="start the API server (default)")
     s.add_argument("--config", help="config.php or config.json (default: $DOCMAP_CONFIG, else ./config.json, else ./config.php)")
@@ -51,7 +52,7 @@ def main(argv=None):
     lup.add_argument("--config", default=None)
     lst = lsub.add_parser("status", help="show the installed licence")
     lst.add_argument("--config", default=None)
-    sr = sub.add_parser("sync-remote", help="sync two DocMap servers (web <-> local) through their API")
+    sr = sub.add_parser("sync-remote", help=f"sync two {_bn()} servers (web <-> local) through their API")
     sr.add_argument("profile", help="JSON profile with sides a and b (url, token, ...); state and sync-log/ are kept next to it")
     sr.add_argument("--dry-run", action="store_true", help="only compute and print the plan: nothing is written on either side")
     sr.add_argument("--json", action="store_true", help="print the report as JSON instead of the Italian summary")
@@ -73,7 +74,7 @@ def main(argv=None):
     from .web import DEFAULT_API_PATHS, create_app
     cfg = _config_path(a.config)
     app = create_app(cfg, a.root, a.api_path or DEFAULT_API_PATHS, php_layout=a.php_layout and bool(a.root))
-    print("DocMap server (Python) — config %s — http://%s:%d%s" % (cfg, a.host, a.port, (a.api_path or DEFAULT_API_PATHS)[0]), flush=True)
+    print(f"{_bn()} server (Python) — config %s — http://%s:%d%s" % (cfg, a.host, a.port, (a.api_path or DEFAULT_API_PATHS)[0]), flush=True)
     from .licence import start_updater
     start_updater(cfg)   # licence channel: only acts when the configuration has "licence_required": true
     uvicorn.run(app, host=a.host, port=a.port, log_level=a.log_level.lower(), server_header=False, access_log=a.log_level.lower() == "debug")

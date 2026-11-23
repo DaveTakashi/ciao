@@ -35,7 +35,7 @@ AUTORENEW_PREFIX = "licence.autorenew."
 REVOKED_PREFIX = "licence.revoked."
 AUTORENEW_DEFAULT = {"days": 35, "renew_before": 10, "until": None}
 CHECK_EVERY = 30 * 60
-INDEX_HTML = b"<!doctype html><title>DocMap</title>\n"
+INDEX_HTML = b"<!doctype html><title>Licenze</title>\n"
 HTACCESS = (b"Options -Indexes\n<IfModule mod_mime.c>\nAddType application/json .docmap-licence\n</IfModule>\n"
             b"<IfModule mod_headers.c>\nHeader set Cache-Control \"no-store\"\nHeader set X-Robots-Tag \"noindex\"\n"
             b"</IfModule>\n")

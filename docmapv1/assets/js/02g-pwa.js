@@ -20,7 +20,7 @@ async function dmPwaRegister(){
   if (!dmPwaAllowed()) return null;
   const url = dmPwaUrl();
   try { return await navigator.serviceWorker.register(url, {scope:new URL('./', url).href}); }
-  catch(e){ console.warn('DocMap: app installabile non attiva (' + (e && e.message || e) + ')'); return null; }
+  catch(e){ console.warn(('' + brandName() + ': app installabile non attiva (') + (e && e.message || e) + ')'); return null; }
 }
 /** Page of the phone (scan.html, also as /q/<code>) or of the PC (index.html). */
 function dmPwaIsPhonePage(path){ return /(^|\/)scan\.html$|\/q\/[A-Za-z0-9_-]{1,40}\/?$/.test(path || location.pathname); }

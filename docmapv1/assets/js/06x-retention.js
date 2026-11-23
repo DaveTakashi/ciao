@@ -36,19 +36,19 @@ const RT_TOAST_LS = 'docmap_disposal_toast_year';
 
 Object.assign(I18N.it, {
   nav_rt:'Scarto', nd_rt:'Proposta annuale di scarto con le regole di conservazione e il verbale da firmare',
-  rt_h:'Scarto proposto', rt_p:'Ogni anno DocMap propone i faldoni che hanno superato il tempo di conservazione, secondo le regole dello studio. È una proposta da verificare: la decisione è di chi firma il verbale. Lo scarto non è «conservazione a norma».',
+  rt_h:'Scarto proposto', rt_p:('Ogni anno ' + brandName() + ' propone i faldoni che hanno superato il tempo di conservazione, secondo le regole dello studio. È una proposta da verificare: la decisione è di chi firma il verbale. Lo scarto non è «conservazione a norma».'),
   rt_warn:'Prima di scartare verifica: accertamenti o contenziosi aperti, obblighi di legge del tipo di documento, accordi con il cliente. Per un ente pubblico serve l\'autorizzazione della Soprintendenza archivistica (art. 21 D.Lgs. 42/2004).',
   rt_year:'Proposta per l\'anno', rt_k_prop:'proposti', rt_k_keep:'da tenere ancora', rt_k_noyear:'senza anno', rt_k_blocked:'bloccati o fuori',
   rt_s_prop:'Faldoni proposti per lo scarto', rt_s_none:'Nessun faldone da proporre per lo scarto nel {y}.', rt_rule:'Regola', rt_kept_until:'conservato fino al {y}', rt_years:'Anni', rt_loc:'Posizione',
   rt_r_def:'Regola generale ({n} anni)', rt_r_keep:'si tiene sempre', rt_r_years:'{n} anni',
-  rt_noyear_h:'Faldoni senza anno ({n})', rt_noyear_p:'Senza un anno (nel titolo, nell\'anno di riferimento o nel contenuto) DocMap non può proporli: aggiungilo nella scheda.', rt_open_arch:'Mostrali nell\'archivio',
+  rt_noyear_h:'Faldoni senza anno ({n})', rt_noyear_p:('Senza un anno (nel titolo, nell\'anno di riferimento o nel contenuto) ' + brandName() + ' non può proporli: aggiungilo nella scheda.'), rt_open_arch:'Mostrali nell\'archivio',
   rt_blk_h:'Esclusi ({n})', rt_why_hold:'bloccato (tag «{t}»)', rt_why_out:'fuori archivio: aspetta il rientro', rt_why_inv:'già nel verbale {v}',
   rt_all:'Tutti', rt_nothing:'Nessuno', rt_make:'Prepara il verbale ({n} faldoni)', rt_make_h:'Verbale di scarto {y}', rt_approver:'Chi approva lo scarto (nome e cognome)', rt_role:'Ruolo (es. titolare dello studio, responsabile archivio)',
   rt_auth:'Autorizzazione della Soprintendenza: numero', rt_auth_d:'del (data)', rt_note:'Note (facoltative)', rt_need_approver:'Scrivi chi approva lo scarto.', rt_need_auth:'Per un ente pubblico serve il numero dell\'autorizzazione.',
   rt_made:'Verbale {v} preparato: stampalo e fallo firmare. Dopo la distruzione premi «Segna come distrutti».',
   rt_v_h:'Verbali di scarto', rt_v_none:'Nessun verbale.', rt_v_n:'Verbale {v}', rt_v_st_approved:'da eseguire', rt_v_st_executed:'eseguito il {d}', rt_v_st_cancelled:'annullato',
   rt_v_print:'Stampa il verbale', rt_v_csv:'CSV', rt_v_exec:'Segna come distrutti', rt_v_cancel:'Annulla il verbale', rt_v_items:'{n} faldoni',
-  rt_x_h:'Distruzione eseguita — verbale {v}', rt_x_p:'Fallo solo dopo la distruzione fisica (o la consegna alla ditta). I {n} faldoni escono dall\'archivio di DocMap; restano descritti nel verbale. Si può annullare subito con «Annulla».',
+  rt_x_h:'Distruzione eseguita — verbale {v}', rt_x_p:('Fallo solo dopo la distruzione fisica (o la consegna alla ditta). I {n} faldoni escono dall\'archivio di ' + brandName() + '; restano descritti nel verbale. Si può annullare subito con «Annulla».'),
   rt_x_who:'Ditta o persona che ha distrutto', rt_x_cert:'Numero del certificato di distruzione (facoltativo)', rt_x_date:'Data della distruzione', rt_x_ok:'Segna come distrutti',
   rt_x_done:'{n} faldoni segnati come distrutti (verbale {v}).', rt_x_gone:'{n} faldoni del verbale non c\'erano più nell\'archivio.',
   rt_c_t:'Annullare il verbale {v}?', rt_c_d:'I faldoni tornano a essere proposti. Il verbale resta nell\'elenco come annullato.', rt_c_done:'Verbale {v} annullato',
@@ -60,25 +60,25 @@ Object.assign(I18N.it, {
   rt_pr_title:'Verbale di scarto', rt_pr_intro:'Si dà atto che i documenti elencati hanno superato il tempo di conservazione previsto dalle regole dello studio riportate sotto e che, verificata l\'assenza di accertamenti, contenziosi o altri motivi per conservarli, se ne dispone lo scarto.',
   rt_pr_rules:'Regole applicate', rt_pr_list:'Elenco dei faldoni', rt_pr_tot:'Totale: {n} faldoni', rt_pr_sign_a:'Approvato da', rt_pr_sign_x:'Distruzione eseguita da', rt_pr_date:'Data', rt_pr_cert:'Certificato n.',
   rt_pr_auth:'Autorizzazione della Soprintendenza archivistica n. {n} del {d} (art. 21 D.Lgs. 42/2004)', rt_pr_auth_blank:'Autorizzazione della Soprintendenza archivistica n. ________ del ________ (art. 21 D.Lgs. 42/2004)',
-  rt_pr_note:'Proposta generata da DocMap con le regole impostate dallo studio: la verifica degli obblighi di legge e la decisione spettano a chi firma. Non è conservazione a norma.',
+  rt_pr_note:('Proposta generata da ' + brandName() + ' con le regole impostate dallo studio: la verifica degli obblighi di legge e la decisione spettano a chi firma. Non è conservazione a norma.'),
   rt_pr_fp:'Impronta del verbale (SHA-256)', rt_pr_ok:'Verbale integro: impronta verificata', rt_pr_bad:'Attenzione: il verbale è stato modificato dopo la preparazione (impronta diversa)',
   rt_c_n:'N.', rt_c_code:'Codice', rt_c_client:'Cliente', rt_c_title:'Titolo', rt_c_years:'Anni', rt_c_loc:'Posizione', rt_c_rule:'Regola', rt_c_until:'Fino al'
 });
 Object.assign(I18N.en, {
   nav_rt:'Disposal', nd_rt:'Yearly disposal proposal from the retention rules, with the record to sign',
-  rt_h:'Disposal proposal', rt_p:'Every year DocMap proposes the binders past their retention time, using the studio\'s rules. It is a proposal to check: whoever signs the record decides. Disposal is not legally compliant digital preservation.',
+  rt_h:'Disposal proposal', rt_p:('Every year ' + brandName() + ' proposes the binders past their retention time, using the studio\'s rules. It is a proposal to check: whoever signs the record decides. Disposal is not legally compliant digital preservation.'),
   rt_warn:'Before disposing check: open audits or disputes, legal duties for the kind of document, agreements with the client. A public body needs the archival authority\'s permission.',
   rt_year:'Proposal for year', rt_k_prop:'proposed', rt_k_keep:'to keep for now', rt_k_noyear:'no year', rt_k_blocked:'on hold or out',
   rt_s_prop:'Binders proposed for disposal', rt_s_none:'No binder to propose for disposal in {y}.', rt_rule:'Rule', rt_kept_until:'kept until {y}', rt_years:'Years', rt_loc:'Location',
   rt_r_def:'General rule ({n} years)', rt_r_keep:'always kept', rt_r_years:'{n} years',
-  rt_noyear_h:'Binders with no year ({n})', rt_noyear_p:'Without a year (title, reference year or contents) DocMap cannot propose them: add it in the form.', rt_open_arch:'Show them in the archive',
+  rt_noyear_h:'Binders with no year ({n})', rt_noyear_p:('Without a year (title, reference year or contents) ' + brandName() + ' cannot propose them: add it in the form.'), rt_open_arch:'Show them in the archive',
   rt_blk_h:'Left out ({n})', rt_why_hold:'on hold (tag «{t}»)', rt_why_out:'checked out: wait for the return', rt_why_inv:'already in record {v}',
   rt_all:'All', rt_nothing:'None', rt_make:'Prepare the record ({n} binders)', rt_make_h:'Disposal record {y}', rt_approver:'Who approves the disposal (full name)', rt_role:'Role (e.g. studio owner, archive manager)',
   rt_auth:'Archival authority permission: number', rt_auth_d:'dated', rt_note:'Notes (optional)', rt_need_approver:'Write who approves the disposal.', rt_need_auth:'A public body needs the permission number.',
   rt_made:'Record {v} prepared: print it and have it signed. After the destruction press «Mark as destroyed».',
   rt_v_h:'Disposal records', rt_v_none:'No record.', rt_v_n:'Record {v}', rt_v_st_approved:'to carry out', rt_v_st_executed:'carried out on {d}', rt_v_st_cancelled:'cancelled',
   rt_v_print:'Print the record', rt_v_csv:'CSV', rt_v_exec:'Mark as destroyed', rt_v_cancel:'Cancel the record', rt_v_items:'{n} binders',
-  rt_x_h:'Destruction carried out — record {v}', rt_x_p:'Only after the physical destruction (or hand-over to the shredding company). The {n} binders leave the DocMap archive; they stay described in the record. Undo is available right after.',
+  rt_x_h:'Destruction carried out — record {v}', rt_x_p:('Only after the physical destruction (or hand-over to the shredding company). The {n} binders leave the ' + brandName() + ' archive; they stay described in the record. Undo is available right after.'),
   rt_x_who:'Company or person who destroyed them', rt_x_cert:'Destruction certificate number (optional)', rt_x_date:'Date of destruction', rt_x_ok:'Mark as destroyed',
   rt_x_done:'{n} binders marked as destroyed (record {v}).', rt_x_gone:'{n} binders of the record were no longer in the archive.',
   rt_c_t:'Cancel record {v}?', rt_c_d:'The binders are proposed again. The record stays in the list as cancelled.', rt_c_done:'Record {v} cancelled',
@@ -90,7 +90,7 @@ Object.assign(I18N.en, {
   rt_pr_title:'Disposal record', rt_pr_intro:'The documents listed have passed the retention time set by the studio\'s rules below; having checked that no audit, dispute or other reason requires keeping them, their disposal is ordered.',
   rt_pr_rules:'Rules applied', rt_pr_list:'Binders', rt_pr_tot:'Total: {n} binders', rt_pr_sign_a:'Approved by', rt_pr_sign_x:'Destruction carried out by', rt_pr_date:'Date', rt_pr_cert:'Certificate no.',
   rt_pr_auth:'Archival authority permission no. {n} dated {d}', rt_pr_auth_blank:'Archival authority permission no. ________ dated ________',
-  rt_pr_note:'Proposal generated by DocMap with the rules set by the studio: checking legal duties and deciding is up to the signer. Not legally compliant preservation.',
+  rt_pr_note:('Proposal generated by ' + brandName() + ' with the rules set by the studio: checking legal duties and deciding is up to the signer. Not legally compliant preservation.'),
   rt_pr_fp:'Record fingerprint (SHA-256)', rt_pr_ok:'Record intact: fingerprint verified', rt_pr_bad:'Warning: the record was changed after it was prepared (different fingerprint)',
   rt_c_n:'No.', rt_c_code:'Code', rt_c_client:'Client', rt_c_title:'Title', rt_c_years:'Years', rt_c_loc:'Location', rt_c_rule:'Rule', rt_c_until:'Until'
 });
@@ -408,11 +408,11 @@ document.addEventListener('DOMContentLoaded', () => {
   HELP_TOPICS.push({ id:'disposal', guide:null, tags:['archive', 'safety'], pop:48, related:['newyear', 'insights', 'log'],
     kw:{it:'scarto scartare distruzione distruggere macero conservazione anni regole verbale eliminare vecchi faldoni gennaio soprintendenza ente pubblico 2220 dieci anni', en:'disposal dispose destroy destruction shredding retention years rules record old binders january public body'},
     title:{it:'Come faccio lo scarto dei faldoni vecchi (proposta annuale e verbale)?', en:'How do I dispose of old binders (yearly proposal and record)?'},
-    body:{it:'<p>Menu <b>⚙ Funzioni avanzate › Lavoro › Scarto</b>. Ogni anno (di serie a gennaio) DocMap propone i faldoni che hanno superato il tempo di conservazione, secondo le <b>Regole</b>: di serie 10 anni dall\'ultimo anno del faldone (scritture contabili, art. 2220 c.c.), atti e libri sociali da tenere sempre; puoi cambiarle o aggiungerne per categoria o per parole del titolo.</p>' +
+    body:{it:('<p>Menu <b>⚙ Funzioni avanzate › Lavoro › Scarto</b>. Ogni anno (di serie a gennaio) ' + brandName() + ' propone i faldoni che hanno superato il tempo di conservazione, secondo le <b>Regole</b>: di serie 10 anni dall\'ultimo anno del faldone (scritture contabili, art. 2220 c.c.), atti e libri sociali da tenere sempre; puoi cambiarle o aggiungerne per categoria o per parole del titolo.</p>') +
       '<p><b>Non vengono proposti</b>: i faldoni senza anno (li vedi a parte per sistemarli), quelli con il tag <b>non-scartare</b> (es. un accertamento in corso), quelli fuori archivio, quelli già in un verbale.</p><ol>' +
       '<li>Controlla la proposta e togli la spunta a quelli da tenere.</li><li><b>Prepara il verbale</b>: scrivi chi approva (per un ente pubblico anche il numero dell\'autorizzazione della Soprintendenza). Il verbale ha un\'impronta SHA-256: se qualcuno lo cambia, la stampa lo dice.</li>' +
       '<li><b>Stampa il verbale</b> e fallo firmare; consegna i faldoni alla ditta di distruzione.</li><li>Dopo la distruzione, <b>Segna come distrutti</b>: i faldoni escono dall\'archivio (anche dal server), restano descritti nel verbale e i loro codici e QR non vengono mai riusati.</li></ol>' +
-      '<p><b>Importante</b>: è una proposta da verificare (accertamenti, contenziosi, obblighi di legge, accordi con il cliente). DocMap non decide lo scarto e non è «conservazione a norma». Ogni passo si annulla subito con <b>Annulla</b> ed è scritto nel Registro attività.</p>',
+      ('<p><b>Importante</b>: è una proposta da verificare (accertamenti, contenziosi, obblighi di legge, accordi con il cliente). ' + brandName() + ' non decide lo scarto e non è «conservazione a norma». Ogni passo si annulla subito con <b>Annulla</b> ed è scritto nel Registro attività.</p>'),
       en:'<p>Menu <b>⚙ Advanced › Work › Disposal</b>: every year (January by default) the binders past their retention time by the studio\'s <b>Rules</b> (default 10 years from the last year; corporate records always kept) are proposed. Binders with no year, the hold tag, checked out or already in a record are left out. Untick, <b>Prepare the record</b> (who approves; SHA-256 fingerprint), print and sign it, then <b>Mark as destroyed</b> after the physical destruction: the binders leave the archive, their codes are never reused. It is a proposal to check, not legal advice.</p>'}
   });
 });

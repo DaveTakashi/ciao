@@ -37,6 +37,7 @@ import uuid
 from datetime import datetime, timezone
 
 from .phpcompat import canon, jenc, ts_ms
+from .branding import brand_name as _bn
 
 BRIDGE_APP = "docmap-bridge/1"
 TYPE_ORDER = ("archive", "location", "client", "binder", "status_event")   # archives before locations before binders (06g)
@@ -280,7 +281,7 @@ class Side:
             elif status == 404:
                 msg = "%s: indirizzo dell'API non trovato (404). Controlla l'url nel profilo (es. …/server-php/api.php oppure https://…:8443/api)." % L
             else:
-                msg = "%s: risposta non valida (HTTP %s, non è JSON di DocMap). Controlla l'indirizzo." % (L, status)
+                msg = f"%s: risposta non valida (HTTP %s, non è JSON di {_bn()}). Controlla l'indirizzo." % (L, status)
             return SideError(self.key, "json", msg, status)
         if code in ("token_missing", "token_invalid"):
             msg = "%s ha rifiutato il token (401 %s): controlla il codice di accesso nel profilo o creane uno nuovo (ruolo editor)." % (L, code)
@@ -330,7 +331,7 @@ class Bridge:
         self.do_settings = self.profile.get("sync_settings", True) is not False
         self.do_log = self.profile.get("sync_activity_log", True) is not False
         self.state = self._load_state()
-        name = str(self.profile.get("name") or "Ponte DocMap")
+        name = str(self.profile.get("name") or f"Ponte {_bn()}")
         self.device = {"id": self.state["device_id"], "name": ("bridge " + name)[:80]}
         self.operator = ("bridge " + name)[:80]
         base_dir = os.path.dirname(self.paths["profile"])
@@ -825,7 +826,7 @@ class Bridge:
         r = self.report
         A, B = self.sides["a"].label, self.sides["b"].label
         L = []
-        L.append("DocMap · sincronizzazione %s ⇄ %s%s" % (A, B, "  [PROVA: nessuna modifica]" if r.get("dry_run") else ""))
+        L.append(f"{_bn()} · sincronizzazione %s ⇄ %s%s" % (A, B, "  [PROVA: nessuna modifica]" if r.get("dry_run") else ""))
         L.append("Direzione: %s" % {"both": "entrambe", "a-to-b": "solo %s → %s" % (A, B), "b-to-a": "solo %s → %s" % (B, A)}[r["direction"]])
         for k in ("a", "b"):
             s = r["sides"].get(k, {})
@@ -870,7 +871,7 @@ class Bridge:
             for c in oc[:50]:
                 L.append("   - %s %s %s · %s: %s%s · %s: %s%s" % (c["type"], c.get("code") or "", c["id"], A, c.get("a_updated_at"),
                          " (eliminato)" if c.get("a_deleted") else "", B, c.get("b_updated_at"), " (eliminato)" if c.get("b_deleted") else ""))
-            L.append("   Per risolvere: apri il record in DocMap sul lato giusto e salvalo di nuovo: diventa il più recente e passa dall'altra parte.")
+            L.append(f"   Per risolvere: apri il record in {_bn()} sul lato giusto e salvalo di nuovo: diventa il più recente e passa dall'altra parte.")
         for x in r.get("rejected") or []:
             L.append("Rifiutato da %s: %s %s %s (%s)" % (self.sides[x["to"]].label, x["type"], x.get("code") or "", x["id"], x.get("reason")))
         for e in r["errors"]:

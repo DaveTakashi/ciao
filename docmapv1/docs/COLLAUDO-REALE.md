@@ -113,6 +113,14 @@ il numero e l'immagine. Se un passo si blocca, salta al blocco successivo.
 - [ ] F8. Chiudi la pagina dell'hub, doppio clic su `hub\RIPRISTINA-BACKUP.bat`, scegli il backup più recente, scrivi `SI`: finisce con «Fatto»; in `%APPDATA%\DocMapHub\backups\` c'è la cartella `prima-del-ripristino-…`; riapri l'hub: clienti e licenze ci sono, stessa passphrase.
 - [ ] F9. Clienti › **Situazione (Excel)**: il file si apre con un doppio clic in Excel, colonne separate, accenti giusti.
 
+## G. Nome e marchio (15 min, app 26.12.12 + hub 0.13) — guida: `MARCHIO.md`
+
+- [ ] G1. Dopo l'aggiornamento il PC mostra **Doc Location** (in alto, accesso, scheda del browser) e i dati sono tutti lì; un backup vecchio `DocMap_…json` si ripristina.
+- [ ] G2. Sul telefono (sito online aggiornato con «Siti da aggiornare»): la pagina e l'app installata si chiamano Doc Location dopo una riapertura con la rete; i QR già stampati si aprono come prima.
+- [ ] G3. Hub: un cliente di prova › **Marchio e prezzo** › Modifica, nome «Archivio Prova», sigla AP, un colore; «Siti da aggiornare» › aggiorna il sito di prova: il sito mostra solo «Archivio Prova» (nessun Doc Location), con quel colore.
+- [ ] G4. Stesso cliente: preventivo Studio Pro con sconto 10%: la scheda dice 80,10 €/mese. Poi **Azzera**: torna al listino.
+- [ ] G5. `python tools\brand.py imposta --nome "Prova Nome"` in una **copia** della cartella del programma, poi apri `index.html` della copia: si chiama «Prova Nome». (Non farlo nella cartella vera.)
+
 ## Dopo il collaudo
 
 Mandami le righe ❌ con le foto. Io correggo, aggiorno questa scheda e `STATO.md` (sezione 4), e ogni problema diventa

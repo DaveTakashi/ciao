@@ -22,7 +22,7 @@
 const NY_DEF = {contents:true, place:true, oldHist:false, lookback:1, clients:false, tplTitle:'Documenti {anno}', tplCat:'', doneYears:[]};
 Object.assign(I18N.it, {
   nav_ny:'Nuovo anno', nd_ny:'Prepara in un clic i faldoni del nuovo anno per tutti i clienti, con le etichette',
-  ny_h:'Nuovo anno in un clic', ny_p:'Per ogni cliente DocMap prende i faldoni dell\'anno scorso (stesso cliente, categoria e titolo) e prepara quelli del nuovo anno: anno aggiornato nel titolo e nel contenuto, codice nuovo, QR nuovo, posto accanto a quello dell\'anno prima. Controlli l\'elenco, togli la spunta a quelli che non servono e premi Crea. Si annulla in un colpo.',
+  ny_h:'Nuovo anno in un clic', ny_p:('Per ogni cliente ' + brandName() + ' prende i faldoni dell\'anno scorso (stesso cliente, categoria e titolo) e prepara quelli del nuovo anno: anno aggiornato nel titolo e nel contenuto, codice nuovo, QR nuovo, posto accanto a quello dell\'anno prima. Controlli l\'elenco, togli la spunta a quelli che non servono e premi Crea. Si annulla in un colpo.'),
   ny_year:'Anno da preparare', ny_opts:'Opzioni', ny_o_contents:'Copia il contenuto dell\'anno prima con l\'anno nuovo (es. «2025: Fatture acquisto» → «2026: Fatture acquisto»)',
   ny_o_place:'Posto suggerito da «Dove lo metto?» (accanto all\'anno prima; se il posto è pieno, quello accanto con spazio)', ny_o_hist:'Metti i faldoni dell\'anno prima in «Storico»',
   ny_o_look:'Anche i faldoni fermi da 2 anni (il cliente ha saltato un anno)', ny_o_clients:'Anche i clienti dell\'anagrafica che non hanno ancora nessun faldone', ny_o_tpl:'Titolo per questi clienti', ny_o_tplcat:'Categoria (vuota = quella del cliente)',
@@ -37,7 +37,7 @@ Object.assign(I18N.it, {
 });
 Object.assign(I18N.en, {
   nav_ny:'New year', nd_ny:'Prepare the new year\'s binders for every client in one click, with the labels',
-  ny_h:'New year in one click', ny_p:'For every client DocMap takes last year\'s binders (same client, category and title) and prepares the new year\'s: year updated in the title and contents, new code, new QR, place next to last year\'s. Check the list, untick what you do not need and press Create. One undo step.',
+  ny_h:'New year in one click', ny_p:('For every client ' + brandName() + ' takes last year\'s binders (same client, category and title) and prepares the new year\'s: year updated in the title and contents, new code, new QR, place next to last year\'s. Check the list, untick what you do not need and press Create. One undo step.'),
   ny_year:'Year to prepare', ny_opts:'Options', ny_o_contents:'Copy last year\'s contents with the new year («2025: Purchase invoices» → «2026: Purchase invoices»)',
   ny_o_place:'Place suggested by «Where do I put it?» (next to last year; if full, the next one with room)', ny_o_hist:'Move last year\'s binders to «Historical»',
   ny_o_look:'Also series idle for 2 years (the client skipped a year)', ny_o_clients:'Also register clients that have no binder yet', ny_o_tpl:'Title for these clients', ny_o_tplcat:'Category (empty = the client\'s)',
@@ -259,7 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
   HELP_TOPICS.push({ id:'newyear', guide:null, tags:['archive', 'label'], pop:62, related:['place', 'disposal', 'print'],
     kw:{it:'nuovo anno gennaio faldoni nuovi anno nuovo tutti i clienti etichette nuove apertura esercizio duplicare copia anno prossimo', en:'new year january new binders all clients new labels duplicate copy next year'},
     title:{it:'Come preparo in un clic i faldoni del nuovo anno per tutti i clienti?', en:'How do I prepare the new year\'s binders for every client in one click?'},
-    body:{it:'<p>Menu <b>⚙ Funzioni avanzate › Lavoro › Nuovo anno</b>. DocMap cerca, per ogni cliente, i faldoni dell\'anno prima: stesso cliente (Codice Multi o nome), stessa categoria e stesso titolo senza l\'anno. Per ognuno prepara quello nuovo:</p><ul>' +
+    body:{it:('<p>Menu <b>⚙ Funzioni avanzate › Lavoro › Nuovo anno</b>. ' + brandName() + ' cerca, per ogni cliente, i faldoni dell\'anno prima: stesso cliente (Codice Multi o nome), stessa categoria e stesso titolo senza l\'anno. Per ognuno prepara quello nuovo:</p><ul>') +
       '<li>l\'anno va avanti dove è scritto: titolo («Fatture 2025» → «Fatture 2026»), anno di riferimento, tag e righe del contenuto di quell\'anno;</li><li>codice parlante nuovo (il primo libero del cliente) e <b>QR nuovo</b> (un codice stampato non si riusa mai);</li>' +
       '<li>il posto accanto al faldone dell\'anno prima (con <b>Dove lo metto?</b>: se quel posto è pieno, quello accanto con spazio);</li><li>già selezionato per la stampa.</li></ul>' +
       '<p>Controlla l\'elenco, togli la spunta a quelli che non servono e premi <b>Crea</b>. Poi <b>Stampa solo queste N etichette</b>. Tutto si annulla in un colpo con <b>Annulla</b>; premere di nuovo non crea doppioni (un anno già pronto viene saltato).</p>' +

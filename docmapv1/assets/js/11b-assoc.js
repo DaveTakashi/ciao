@@ -128,7 +128,7 @@ Object.assign(I18N.en, { cam_unsupported:'This browser gives no access to the ca
 if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
   (function(){
     Object.assign(I18N.it, {
-      sa_title:'DocMap — Ubicazione', sa_loc:'Ubicazione', sa_start:'Avvia associazione qui', sa_active:'Associazione attiva', sa_stop:'Stop', sa_seq:'Scansiona in sequenza',
+      sa_title:('' + brandName() + ' — Ubicazione'), sa_loc:'Ubicazione', sa_start:'Avvia associazione qui', sa_active:'Associazione attiva', sa_stop:'Stop', sa_seq:'Scansiona in sequenza',
       sa_hint:'Da ora ogni QR di faldone che apri finisce in questa scatola. Il QR di un\'altra scatola cambia la scatola attiva.',
       sa_here:'Associazione attiva in questa ubicazione.', sa_ro:'Puoi solo consultare questa ubicazione.', sa_binders:'Faldoni qui', sa_children:'Contiene', sa_none:'Nessun faldone in questa ubicazione.',
       sa_count:'{n} faldoni', sa_count1:'1 faldone', sa_session:'{n} in questa sessione', sa_assigned:'{b} messo in {l}', sa_already:'{b} è già in {l}', sa_switched:'Scatola attiva: {l}',
@@ -140,7 +140,7 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       sa_back_loc:'Torna all\'ubicazione'
     });
     Object.assign(I18N.en, {
-      sa_title:'DocMap — Location', sa_loc:'Location', sa_start:'Start association here', sa_active:'Association mode on', sa_stop:'Stop', sa_seq:'Scan in sequence',
+      sa_title:('' + brandName() + ' — Location'), sa_loc:'Location', sa_start:'Start association here', sa_active:'Association mode on', sa_stop:'Stop', sa_seq:'Scan in sequence',
       sa_hint:'From now on every binder QR you open goes into this box. The QR of another box switches the active box.',
       sa_here:'Association mode is on for this location.', sa_ro:'You can only view this location.', sa_binders:'Binders here', sa_children:'Contains', sa_none:'No binders in this location.',
       sa_count:'{n} binders', sa_count1:'1 binder', sa_session:'{n} this session', sa_assigned:'{b} put in {l}', sa_already:'{b} is already in {l}', sa_switched:'Active box: {l}',

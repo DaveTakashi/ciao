@@ -21,7 +21,7 @@ const RM_DAY_LS = 'docmap_reminders_toast_day';
 
 Object.assign(I18N.it, {
   nav_rem:'Promemoria', nd_rem:'Chi deve riportare faldoni: in scadenza, in ritardo, fuori da tanto, con il messaggio pronto',
-  rm_h:'Promemoria di rientro', rm_p:'DocMap controlla da solo chi ha faldoni fuori: quelli in scadenza, in ritardo o fuori da tanto. Per ognuno prepara il messaggio; lo mandi tu con un clic (e-mail, WhatsApp o copia) e lo segni come inviato. DocMap non invia nulla da solo.',
+  rm_h:'Promemoria di rientro', rm_p:('' + brandName() + ' controlla da solo chi ha faldoni fuori: quelli in scadenza, in ritardo o fuori da tanto. Per ognuno prepara il messaggio; lo mandi tu con un clic (e-mail, WhatsApp o copia) e lo segni come inviato. ' + brandName() + ' non invia nulla da solo.'),
   rm_due_now:'Da sollecitare oggi', rm_later:'Già sollecitati (prossimo promemoria più avanti)', rm_none:'Nessun promemoria: nessun faldone in ritardo, in scadenza o fuori da tanto.',
   rm_k_late:'in ritardo di {d} giorni', rm_k_soon:'rientro entro {d}', rm_k_today:'rientro oggi', rm_k_long:'fuori da {d} giorni senza data di rientro',
   rm_holder_none:'(senza nome di chi lo ha)', rm_n:'{n} faldoni', rm_last:'ultimo sollecito {d}', rm_next:'prossimo il {d}', rm_never:'mai sollecitato',
@@ -30,12 +30,12 @@ Object.assign(I18N.it, {
   rm_subj:'Promemoria restituzione faldoni', rm_hello:'Buongiorno {w},', rm_body_late:'risultano ancora presso di voi questi faldoni, che dovevano rientrare:', rm_body_soon:'vi ricordiamo la restituzione di questi faldoni:',
   rm_body_long:'risultano presso di voi da tempo questi faldoni:', rm_line_due:'rientro previsto il {d}', rm_line_since:'consegnato il {d}', rm_bye:'Grazie, a presto.',
   rm_rules:'Regole', rm_r_on:'Promemoria automatici attivi', rm_r_before:'Avvisa quanti giorni prima della data di rientro', rm_r_every:'Ripeti il sollecito ogni quanti giorni',
-  rm_r_long:'Senza data di rientro: avvisa dopo quanti giorni fuori', rm_r_notify:'Notifica di sistema quando apro DocMap (se il browser lo permette)',
+  rm_r_long:'Senza data di rientro: avvisa dopo quanti giorni fuori', rm_r_notify:('Notifica di sistema quando apro ' + brandName() + ' (se il browser lo permette)'),
   rm_toast:'{n} promemoria di rientro da mandare oggi', rm_open:'Apri', rm_todo:'{n} promemoria di rientro da mandare', rm_log:'Promemoria di rientro inviato a {w} ({n} faldoni)'
 });
 Object.assign(I18N.en, {
   nav_rem:'Reminders', nd_rem:'Who has to bring binders back: due soon, late, out for long, with the message ready',
-  rm_h:'Return reminders', rm_p:'DocMap checks by itself who has binders out: due soon, late or out for a long time. For each one it prepares the message; you send it with one click (e-mail, WhatsApp or copy) and mark it as sent. DocMap never sends anything by itself.',
+  rm_h:'Return reminders', rm_p:('' + brandName() + ' checks by itself who has binders out: due soon, late or out for a long time. For each one it prepares the message; you send it with one click (e-mail, WhatsApp or copy) and mark it as sent. ' + brandName() + ' never sends anything by itself.'),
   rm_due_now:'To remind today', rm_later:'Already reminded (next reminder later)', rm_none:'No reminders: no binder is late, due soon or out for long.',
   rm_k_late:'{d} days late', rm_k_soon:'due back by {d}', rm_k_today:'due back today', rm_k_long:'out for {d} days with no return date',
   rm_holder_none:'(no holder name)', rm_n:'{n} binders', rm_last:'last reminder {d}', rm_next:'next on {d}', rm_never:'never reminded',
@@ -44,7 +44,7 @@ Object.assign(I18N.en, {
   rm_subj:'Reminder: binders to return', rm_hello:'Hello {w},', rm_body_late:'these binders are still with you and were due back:', rm_body_soon:'a reminder to return these binders:',
   rm_body_long:'these binders have been with you for a while:', rm_line_due:'due back on {d}', rm_line_since:'handed over on {d}', rm_bye:'Thank you.',
   rm_rules:'Rules', rm_r_on:'Automatic reminders on', rm_r_before:'Warn how many days before the return date', rm_r_every:'Repeat the reminder every how many days',
-  rm_r_long:'With no return date: warn after how many days out', rm_r_notify:'System notification when I open DocMap (if the browser allows it)',
+  rm_r_long:'With no return date: warn after how many days out', rm_r_notify:('System notification when I open ' + brandName() + ' (if the browser allows it)'),
   rm_toast:'{n} return reminders to send today', rm_open:'Open', rm_todo:'{n} return reminders to send', rm_log:'Return reminder sent to {w} ({n} binders)'
 });
 if (typeof ICONS === 'object' && !ICONS.bell) ICONS.bell = '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>';
@@ -202,7 +202,7 @@ function rmAutoCheck(){
     try { localStorage.setItem(RM_DAY_LS, day); } catch(e){}
     if (typeof toast === 'function') toast(t('rm_toast', {n}), 'warn', 9000, {label:t('rm_open'), fn:() => { S.view = 'reminders'; savePrefs(); renderAll(); }});
     if (rmSet().notify && typeof Notification !== 'undefined' && Notification.permission === 'granted' && document.visibilityState !== 'visible'){
-      try { new Notification('DocMap', {body:t('rm_toast', {n}), tag:'docmap-reminders'}); } catch(e){}
+      try { new Notification(('' + brandName()), {body:t('rm_toast', {n}), tag:'docmap-reminders'}); } catch(e){}
     }
     return n;
   } catch(e){ console.warn('reminders', e); return 0; }
@@ -243,9 +243,9 @@ document.addEventListener('DOMContentLoaded', () => {
   HELP_TOPICS.push({ id:'reminders', guide:null, tags:['archive'], pop:50, related:['status', 'pick', 'insights'],
     kw:{it:'promemoria sollecito sollecitare ritardo restituzione rientro scadenza fuori da tanto prestito avviso notifica email whatsapp ricordare', en:'reminder remind late overdue return due out for long loan notification email whatsapp'},
     title:{it:'Come ricordo a chi ha un faldone di riportarlo (promemoria automatici)?', en:'How do I remind people to bring a binder back (automatic reminders)?'},
-    body:{it:'<p>Menu <b>⚙ Funzioni avanzate › Lavoro › Promemoria</b>. DocMap controlla da solo, ogni volta che lo apri e ogni ora, chi ha faldoni <b>in ritardo</b>, <b>in scadenza</b> (di serie 2 giorni prima) o <b>fuori da tanto</b> senza data di rientro (di serie 30 giorni), e li raggruppa per persona.</p>' +
+    body:{it:('<p>Menu <b>⚙ Funzioni avanzate › Lavoro › Promemoria</b>. ' + brandName() + ' controlla da solo, ogni volta che lo apri e ogni ora, chi ha faldoni <b>in ritardo</b>, <b>in scadenza</b> (di serie 2 giorni prima) o <b>fuori da tanto</b> senza data di rientro (di serie 30 giorni), e li raggruppa per persona.</p>') +
       '<p>Per ognuno prepara il messaggio con l\'elenco dei faldoni: <b>E-mail</b>, <b>WhatsApp</b> o <b>Copia il testo</b>, poi <b>Segna come inviato</b>. Il sollecito torna dopo 7 giorni (cambia in <b>Regole</b>) o se quella persona prende altri faldoni; <b>Rimanda</b> lo sposta. I contatti (e-mail, telefono) si scrivono una volta sotto «Contatto».</p>' +
-      '<p>DocMap <b>non invia nulla da solo</b>: il messaggio lo mandi tu. I promemoria da mandare compaiono anche in <b>Oggi</b> e in un avviso al primo avvio del giorno; in Regole puoi attivare la notifica di sistema.</p>',
-      en:'<p>Menu <b>⚙ Advanced › Work › Reminders</b>: late, due soon or long-out binders grouped by holder, with a ready e-mail / WhatsApp text, «Mark as sent», repeat every N days, postpone. DocMap never sends anything by itself.</p>'}
+      ('<p>' + brandName() + ' <b>non invia nulla da solo</b>: il messaggio lo mandi tu. I promemoria da mandare compaiono anche in <b>Oggi</b> e in un avviso al primo avvio del giorno; in Regole puoi attivare la notifica di sistema.</p>'),
+      en:('<p>Menu <b>⚙ Advanced › Work › Reminders</b>: late, due soon or long-out binders grouped by holder, with a ready e-mail / WhatsApp text, «Mark as sent», repeat every N days, postpone. ' + brandName() + ' never sends anything by itself.</p>')}
   });
 });
