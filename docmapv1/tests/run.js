@@ -9,7 +9,7 @@ const {spawn} = require('child_process');
 const os = require('os');
 const path = require('path');
 
-const FAST = ['smoke.js', 'unit.js', 'upgrade.js', 'v126.js', 'v128.js', 'v129.js', 'v129b.js', 'v1210.js', 'v1210b.js', 'v1210c.js', 'v1210d.js', 'v1210e.js'];
+const FAST = ['smoke.js', 'unit.js', 'upgrade.js', 'v126.js', 'v128.js', 'v129.js', 'v129b.js', 'v1210.js', 'v1210b.js', 'v1210c.js', 'v1210d.js', 'v1210e.js', 'v1211.js'];
 const files = process.argv.slice(2).length ? process.argv.slice(2) : FAST;
 const jobs = Math.max(1, +process.env.DM_JOBS || Math.min(4, Math.max(1, os.cpus().length - 1)));
 

@@ -49,6 +49,16 @@ un'altra cartella o svuotala tu).
 **La pagina dell'hub non si apre / porta occupata.**
 L'hub sceglie da solo una porta libera e la scrive nella finestra nera. `run_windows.bat info` dice anche l'indirizzo.
 
+**Qualcosa non va nell'hub e non so cosa.**
+Impostazioni › **Controllo dell'hub** › «Controlla adesso» (o `run_windows.bat controllo`). Ogni riga gialla o rossa
+dice cosa fare. Funziona anche se l'hub non parte.
+
+**Devo rimettere un backup dell'hub (PC nuovo, registro rovinato, errore mio).**
+Chiudi la pagina dell'hub, doppio clic su **`hub\RIPRISTINA-BACKUP.bat`**, scegli il numero del backup e scrivi `SI`.
+I dati di adesso non si cancellano: finiscono in `%APPDATA%\DocMapHub\backups\prima-del-ripristino-<ora>\`. Un backup
+rovinato viene rifiutato prima di toccare qualcosa. Da un PC nuovo: copia prima lo zip di backup in
+`%APPDATA%\DocMapHub\backups\`.
+
 **Ho perso il kit di consegna.**
 Scheda del cliente › **Kit di consegna**: si rifà quando vuoi, le copie di `config.php` vengono riprese dai siti.
 
@@ -82,7 +92,7 @@ Sì. Ogni QR è `https://qr7.it/<codice>`: cambia solo dove qr7.it manda, il cod
 ## Chiedere aiuto
 
 1. Doppio clic su **`hub\RACCOGLI-INFO.bat`**: crea `DocMap-info-per-assistenza.txt` sul Desktop con versione di
-   Windows e Python, cartelle, impostazioni dell'hub e ultime 30 operazioni. **Non contiene password né codici.**
+   Windows e Python, cartelle, impostazioni dell'hub, Controllo dell'hub, controllo dei backup e ultime 30 operazioni. **Non contiene password né codici.**
 2. Fai una **foto o uno screenshot** del messaggio di errore (finestra nera compresa).
 3. Manda i due file in chat dicendo cosa stavi facendo.
 

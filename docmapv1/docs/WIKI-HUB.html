@@ -13,7 +13,6 @@ pre{background:var(--box);padding:10px 12px;border-radius:6px;overflow-x:auto} p
 @media (max-width:820px){.wrap{display:block} nav{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line)} main{padding:16px}}
 @media print{nav{display:none} .wrap{display:block}}
 </style></head><body><div class="wrap"><nav><b>Wiki DocMap Hub</b><div class="toc">
-
 <ul>
 <li><a href="#wiki-di-docmap-hub">Wiki di DocMap Hub</a><ul>
 <li><a href="#indice">Indice</a></li>
@@ -46,6 +45,7 @@ pre{background:var(--box);padding:10px 12px;border-radius:6px;overflow-x:auto} p
 <li><a href="#615-eliminare-un-cliente-011">6.15 Eliminare un cliente (0.11)</a></li>
 <li><a href="#616-piu-pc-e-sito-online-pacchetto-della-sede-pronto-011">6.16 Più PC e sito online; pacchetto della sede pronto (0.11)</a></li>
 <li><a href="#617-spostare-il-sito-su-un-altro-dominio-o-unaltra-cartella-011">6.17 Spostare il sito su un altro dominio o un'altra cartella (0.11)</a></li>
+<li><a href="#618-controllo-dellhub-e-situazione-dei-clienti-012">6.18 Controllo dell'hub e situazione dei clienti (0.12)</a></li>
 </ul>
 </li>
 <li><a href="#7-la-pagina-web-del-hub-il-gestionale">7. La pagina web del hub (il gestionale)</a></li>
@@ -66,9 +66,11 @@ pre{background:var(--box);padding:10px 12px;border-radius:6px;overflow-x:auto} p
 </li>
 </ul>
 </div>
-</nav><main><h1 id="wiki-di-docmap-hub">Wiki di DocMap Hub</h1>
-<p>Vale per <strong>hub 0.11.2</strong>, <strong>DocMap 26.12.7 (app v12.7)</strong> e <strong>strumenti di installazione 1.2.0</strong>. Data: 17 novembre 2026.</p>
+</nav>
+<main><h1 id="wiki-di-docmap-hub">Wiki di DocMap Hub</h1>
+<p>Vale per <strong>hub 0.12.0</strong>, <strong>DocMap 26.12.11 (app v12.11)</strong> e <strong>strumenti di installazione 1.2.0</strong>. Data: 23 novembre 2026.</p>
 <blockquote>
+<p><strong>Novità 0.12.</strong> Aggiornare e riparare senza paura: <strong>backup automatico al primo avvio di ogni versione nuova</strong>, ogni backup <strong>controllato</strong> (pulsante «Verifica»), <strong>ripristino sicuro</strong> con <code>hub\RIPRISTINA-BACKUP.bat</code> (i dati di adesso vanno da parte, mai cancellati), <strong>Controllo dell'hub</strong> in Impostazioni (<code>controllo</code>), <strong>Clienti › Situazione (Excel)</strong>. Capitoli 3, 6.13, 6.18. Aggiornamento: <code>AGGIORNAMENTO-HUB-0.12.0.md</code>.</p>
 <p><strong>Novità 0.11.</strong> <strong>Elimina cliente</strong> (backup prima, per ripartire da zero; capitolo 6.15), <strong>pacchetto della sede
 pronto</strong> con <code>INSTALLA-SENZA-DOMANDE.bat</code> e il codice del ponte già dentro (6.16), <strong>più PC con il sito online come
 riferimento</strong>: le postazioni aprono il sito online e il PC della sede può essere spento (6.16), <strong>Sposta il sito</strong> su un
@@ -216,7 +218,8 @@ aggiornare è sicuro: sostituire la cartella del programma non tocca mai i dati.
 <p>(Per la 0.5 c'è una guida dedicata: <code>AGGIORNAMENTO-HUB-0.3-0.5.md</code>. Al primo avvio l'hub copia da solo il registro in <code>backups\</code> prima di aggiornarlo.)</p>
 <ol>
 <li>Chiudi la pagina del hub (finestra nera: Ctrl+C) e ogni comando in corso.</li>
-<li><code>run_windows.bat backup</code> e copia lo zip sulla chiavetta (per scrupolo).</li>
+<li><code>run_windows.bat backup</code> e copia lo zip sulla chiavetta (per scrupolo). Dalla <strong>0.12</strong> l'hub fa anche da solo un
+   backup al primo avvio della versione nuova (<code>docmap-hub-prima-della-&lt;versione&gt;-….zip</code>) e lo scrive in Panoramica.</li>
 <li>Estrai il nuovo zip in una cartella temporanea, apri la cartella <code>DocMap-hub-&lt;versione&gt;\</code> (es. <code>DocMap-hub-0.7\</code>) e <strong>copia tutto il suo
    contenuto dentro <code>C:\DocMapHub\</code></strong>, scegliendo <strong>«Sostituisci i file nella destinazione»</strong>.</li>
 <li>Non cancellare <code>C:\DocMapHub\hub\.venv\</code> (l'ambiente Python: se lo cancelli si ricrea da solo, serve Internet).</li>
@@ -229,8 +232,9 @@ aggiornare è sicuro: sostituire la cartella del programma non tocca mai i dati.
 sono gli stessi perché stanno in <code>%APPDATA%</code>. La prima volta ricrea <code>.venv</code>.</p>
 <p><strong>Cosa non fare mai:</strong> cancellare <code>%APPDATA%\DocMapHub\</code>, oppure lanciare <code>keygen --rotate</code> "per sicurezza" (crea una
 chiave nuova: le licenze vecchie restano valide, ma i pacchetti nuovi avranno una chiave pubblica diversa).</p>
-<p><strong>Ripristino da backup</strong> (PC nuovo o rotto): installa il hub (capitolo 2, solo i punti 1–2), estrai lo zip di backup
-dentro <code>%APPDATA%\DocMapHub\</code> (crea la cartella se non c'è), poi <code>run_windows.bat info</code>. Le cartelle <code>clienti\</code> non
+<p><strong>Ripristino da backup</strong> (PC nuovo o rotto; dalla 0.12): installa il hub (capitolo 2, solo i punti 1–2), copia lo zip di
+backup in <code>%APPDATA%\DocMapHub\backups\</code> (crea le cartelle se non ci sono), poi doppio clic su
+<code>hub\RIPRISTINA-BACKUP.bat</code> e scegli il numero (oppure <code>run_windows.bat ripristina-backup C:\percorso\backup.zip</code>). Le cartelle <code>clienti\</code> non
 sono nel backup: si rifanno con <code>cliente nuovo … --rigenera</code>.</p>
 <hr />
 <h2 id="4-accesso-automatico-una-sola-passphrase-mai-piu-richieste">4. Accesso automatico: una sola passphrase, mai più richieste</h2>
@@ -658,8 +662,21 @@ backup resta comunque sul PC. Se un backup non riesce o i backup sono spenti, co
 <p><strong>A mano.</strong> <code>run_windows.bat backup</code> (o «Fai un backup adesso») dopo ogni cliente nuovo o rinnovo. I backup a mano non
 vengono mai cancellati dall'hub.</p>
 <p>Contiene chiavi (cifrate), registro, licenze emesse, cassaforte (cifrata). Non contiene <code>clienti\</code> (si rigenera) né
-l'accesso automatico. <strong>Ripristino</strong>: hub installato e chiuso, estrai lo zip dentro <code>%APPDATA%\DocMapHub\</code> sostituendo i
-file, riapri ed entra con la stessa passphrase (dettagli in <code>AGGIORNAMENTO-HUB-0.6.md</code>).</p>
+l'accesso automatico.</p>
+<p><strong>Controllati (0.12).</strong> Ogni backup viene controllato appena scritto: zip integro, registro integro, chiave di firma
+presente. Se un backup automatico non passa, compare un avviso rosso in Panoramica. Il pulsante <strong>Verifica</strong> accanto a
+ogni backup (o <code>run_windows.bat verifica-backup --tutti</code>) ricontrolla un file in qualsiasi momento.</p>
+<p><strong>Ripristino (0.12).</strong> Chiudi la pagina dell'hub, poi doppio clic su <code>hub\RIPRISTINA-BACKUP.bat</code>: fa il Controllo,
+mostra i backup (il più recente per primo), scegli il numero e scrivi <code>SI</code>. Cosa succede:</p>
+<ol>
+<li>il backup viene controllato: se è rovinato si ferma e non tocca niente;</li>
+<li>se la pagina dell'hub è ancora aperta si ferma;</li>
+<li>registro, chiavi e licenze di adesso vengono <strong>spostati</strong> (non cancellati) in <code>backups\prima-del-ripristino-&lt;ora&gt;\</code>;</li>
+<li>il backup viene rimesso; <code>clienti\</code>, l'accesso automatico e gli altri backup restano come sono.</li>
+</ol>
+<p>Per annullare un ripristino: rimetti a mano i file di <code>prima-del-ripristino-&lt;ora&gt;\</code> nella cartella dati.
+Si possono ripristinare anche le copie del solo registro <code>registro-prima-dello-schema-….sqlite3</code> (le chiavi restano
+quelle di adesso).</p>
 <h3 id="614-controllo-delle-licenze-a-distanza-07">6.14 Controllo delle licenze a distanza (0.7)</h3>
 <p><strong>Dal pannello della licenza</strong> (Licenze → clic, oppure scheda del cliente → Licenze):</p>
 <table>
@@ -774,6 +791,18 @@ run_windows.bat cliente sposta-sito --cliente &quot;Studio Rossi&quot; --annulla
 <p><code>--ftp dominio|stesso|cliente</code> (con <code>cliente</code>: <code>--ftp-host --ftp-utente [--ftp-porta --ftp-protocollo]</code>, la password
 la chiede), <code>--env staging</code> per la demo/staging, <code>--senza-reindirizzo</code> per non toccare il vecchio sito.</p>
 <hr />
+<h3 id="618-controllo-dellhub-e-situazione-dei-clienti-012">6.18 Controllo dell'hub e situazione dei clienti (0.12)</h3>
+<p><strong>Controllo dell'hub</strong>: Impostazioni › «Controlla adesso», oppure <code>run_windows.bat controllo</code>. Non cambia niente e non
+chiede passphrase. Guarda: Python e libreria cryptography, cartella dati scrivibile e spazio libero, registro integro e
+schema, versione dell'hub rispetto ai dati, chiave di firma, ultimo backup (controllato davvero), backup automatici e
+seconda cartella, programma DocMap completo accanto all'hub (con la versione dell'app), impostazioni che puntano a
+cartelle sparite. Ogni riga gialla o rossa dice <strong>cosa fare</strong>. Funziona anche quando l'hub non parte (registro
+rovinato): è il primo comando da lanciare se qualcosa non va, ed è dentro <code>RACCOGLI-INFO.bat</code>.</p>
+<p><strong>Situazione dei clienti (Excel)</strong>: Clienti › «Situazione (Excel)», oppure
+<code>run_windows.bat cliente situazione --csv C:\Users\Dave\Desktop\clienti.csv</code>. Una riga per ogni sito o server di ogni
+cliente: tipo, indirizzo, versione dell'app, «aggiornato» (rispetto alla versione che l'hub pubblicherebbe),
+«risponde» (ultimo controllo), ultimo deploy, piano, scadenza e stato della licenza (attiva, in scadenza entro 30
+giorni, scaduta, sospesa, revocata). Separatore <code>;</code>, si apre con un doppio clic in Excel. Nessuna password o codice.</p>
 <h2 id="7-la-pagina-web-del-hub-il-gestionale">7. La pagina web del hub (il gestionale)</h2>
 <p>Doppio clic su <code>C:\DocMapHub\hub\run_windows.bat</code> → si apre il browser sulla pagina del hub (solo da questo PC). La
 finestra nera non chiede niente: la passphrase la scrivi <strong>nella pagina</strong> (una volta; con <strong>Ricorda su questo PC</strong> entri
@@ -1115,8 +1144,28 @@ Codici di uscita: <code>0</code> riuscito, <code>1</code> errore (messaggio su s
 </tr>
 <tr>
 <td><code>backup</code></td>
-<td>zip di sicurezza</td>
+<td>zip di sicurezza (controllato subito dalla 0.12)</td>
 <td><code>--out</code></td>
+</tr>
+<tr>
+<td><code>controllo</code></td>
+<td>Controllo dell'hub: cosa va e cosa fare; uscita 1 se c'è un errore (0.12)</td>
+<td><code>--json</code></td>
+</tr>
+<tr>
+<td><code>verifica-backup</code></td>
+<td>un backup si può ripristinare? (predefinito: l'ultimo) (0.12)</td>
+<td><code>[nome]</code>, <code>--tutti</code></td>
+</tr>
+<tr>
+<td><code>ripristina-backup</code></td>
+<td>rimette un backup, pagina chiusa; i dati di adesso vanno da parte (0.12)</td>
+<td><code>[nome o percorso]</code>, <code>--ultimo</code>, <code>--si</code></td>
+</tr>
+<tr>
+<td><code>cliente situazione</code></td>
+<td>una riga per sito/server: versione, controllo, licenza (0.12)</td>
+<td><code>--csv FILE</code></td>
 </tr>
 <tr>
 <td><code>web</code></td>
@@ -1199,4 +1248,5 @@ deploy FTPS verso SiteGround, telefoni con il certificato dello studio. Dalla ap
 controlla la licenza (sito costruito dal hub 0.8): da provare su SiteGround. Dalla 0.11, provati solo in simulazione (PHP
 reale con <code>php -S</code>, ponte reale, FTP simulato): <strong>Sposta il sito</strong> (il reindirizzamento <code>.htaccess</code> va provato su
 SiteGround), <code>INSTALLA-SENZA-DOMANDE.bat</code> e il codice del ponte nel pacchetto (Windows reale), il doppio collegamento
-online/ufficio delle postazioni.</p></main></div></body></html>
+online/ufficio delle postazioni.</p>
+</main></div></body></html>

@@ -6,7 +6,7 @@ import calendar
 import json
 import re
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
 from . import licence as L
@@ -33,6 +33,14 @@ def add_months(dt: datetime, months: int) -> datetime:
     return dt.replace(year=y, month=m, day=d)
 
 
+def version_tuple(v: str | None) -> tuple:
+    """'0.11.2' → (0, 11, 2); anything odd sorts first."""
+    out = []
+    for part in re.split(r"[.\-+]", v or ""):
+        out.append(int(part) if part.isdigit() else -1)
+    return tuple(out) or (-1,)
+
+
 def slug(text: str) -> str:
     s = re.sub(r"[^A-Za-z0-9]+", "-", text or "").strip("-").lower()
     return s[:40] or "licenza"
@@ -44,6 +52,34 @@ class Hub:
         self.registry = Registry(self.dir)
         self.keys = KeyStore(self.dir)
         self.plans = load_plans(self.dir)
+        self.upgrade = self._track_version()
+
+    def _track_version(self) -> dict | None:
+        """v0.12: first run of a new hub version on existing data → automatic backup + event.
+
+        ``meta.hub_version`` = last version that ran on these data, ``meta.hub_version_max`` = newest ever
+        (an older hub put back by hand is reported by ``controllo``, never blocked)."""
+        from . import __version__
+        reg = self.registry
+        prev = reg.get_meta("hub_version")
+        if prev == __version__:
+            return None
+        top = reg.get_meta("hub_version_max")
+        newest = max([v for v in (top, __version__) if v], key=version_tuple)
+        info = {"from": prev, "to": __version__, "backup": None, "error": None,
+                "older": bool(top) and version_tuple(__version__) < version_tuple(top)}
+        if not reg.created_now and not info["older"]:
+            stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+            try:
+                out = self.backup(self.dir / "backups" / f"docmap-hub-prima-della-{__version__}-{stamp}.zip")
+                info["backup"] = out.name
+            except Exception as exc:  # noqa: BLE001 - never block the hub; `controllo` reports it
+                info["error"] = str(exc)
+        reg.set_meta("hub_version", __version__)
+        reg.set_meta("hub_version_max", newest)
+        if not reg.created_now:
+            reg.log("hub.downgrade" if info["older"] else "hub.upgrade", details=info)
+        return info if not reg.created_now else None
 
     def close(self):
         self.registry.close()

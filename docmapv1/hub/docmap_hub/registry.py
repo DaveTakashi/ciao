@@ -211,12 +211,18 @@ class Registry:
     def __init__(self, data_dir: Path):
         self.path = Path(data_dir) / DB_NAME
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.created_now = not self.path.exists()   # v0.12: a brand-new hub (nothing to back up on first run)
+        self.newer_schema: int | None = None        # v0.12: registry written by a newer hub (see migrate)
         # check_same_thread=False: the web page serves requests one at a time from a
         # worker thread; access stays serialised.
         self.conn = sqlite3.connect(str(self.path), check_same_thread=False, timeout=15)
         self.conn.row_factory = sqlite3.Row
-        self.conn.execute("PRAGMA foreign_keys = ON")
-        self.migrate()
+        try:
+            self.conn.execute("PRAGMA foreign_keys = ON")
+            self.migrate()
+        except sqlite3.DatabaseError:
+            self.conn.close()   # damaged file: never keep it open (Windows would lock it against a restore)
+            raise
 
     def close(self) -> None:
         self.conn.close()
@@ -233,8 +239,22 @@ class Registry:
         r = self.conn.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()
         return int(r[0]) if r else 0
 
+    def get_meta(self, key: str) -> str | None:
+        self.conn.execute("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT)")
+        r = self.conn.execute("SELECT value FROM meta WHERE key=?", (key,)).fetchone()
+        return r[0] if r else None
+
+    def set_meta(self, key: str, value: str) -> None:
+        with self.conn:
+            self.conn.execute("INSERT INTO meta(key, value) VALUES(?, ?) "
+                              "ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, str(value)))
+
     def migrate(self) -> int:
         current = self.schema_version()
+        if current > SCHEMA_VERSION:
+            # v0.12: an older hub on data a newer hub already upgraded. Migrations are additive, so the old
+            # code still works; nothing is changed here and `controllo` / Panoramica say it plainly.
+            self.newer_schema = current
         if 0 < current < SCHEMA_VERSION:
             self._backup_before_migration(current)
         for version, stmts in MIGRATIONS:

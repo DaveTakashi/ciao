@@ -40,7 +40,6 @@ import io
 import json
 import os
 import posixpath
-import shutil
 import ssl
 import stat
 import tempfile

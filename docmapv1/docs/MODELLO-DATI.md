@@ -855,3 +855,32 @@ extra:[{id, code}]}` (scade dopo 4 ore senza scansioni).
 - **Telefono**: `docmap_v26_inv_outbox` (coda: lavori `rec`, `tomb`, `ai`), `docmap_v26_inv_recent` (ultime 300 versioni dei
   faldoni acquisiti), `docmap_v26_inv_prefs` (scatola attiva e «Mantieni» per progetto), IndexedDB `docmap_v26_inv` store `photos`.
 - **Server**: foto in `data_dir/photos/` cifrate (`API-CONTRACT.md` §14).
+
+## 19. Lavoro annuale (v12.11 — `assets/js/02l-years.js`, `06w-newyear.js`, `06x-retention.js`, `06y-place.js`)
+
+Nessuna colonna e nessuna tabella nuova: tutto nello stato del PC (`docmap_v26_state`) e nei backup JSON.
+
+- **Anni di un faldone**: tutti gli anni a 4 cifre di `ref_year` e degli anni delle righe di contenuto (`2024`,
+  `2024-2025`, `2024/25`). L'ultimo (`yrMax`) decide nuovo anno e scarto. **Serie** = stesso cliente (`multi_code`,
+  altrimenti `company_name` normalizzato), stessa `category`, stesso `binder_title` senza anni.
+- `S.settings.newYear` = `{contents, place, oldHist, lookback (1|2), clients, tplTitle, tplCat, doneYears:[anni]}` (solo PC).
+- `S.settings.place` = `{cap}` (faldoni per posto, 0 = senza limite; solo PC).
+- `S.settings.retention` = `{on, month (1-12), defYears, holdTag, publicBody, rules:[{id, cat, kw, years, keep, note}], rulesAt}`:
+  **impostazione condivisa** (pacchetti di sincronizzazione e server, dentro il sottoinsieme di `locSyncSubset`; vince la
+  `rulesAt` più recente).
+- `S.disposals[]` (verbali di scarto, solo PC + backup):
+
+| Campo | Significato |
+|---|---|
+| `id` | `ds-<anno>-<8 caratteri>` |
+| `year`, `n` | anno della proposta e numero progressivo nell'anno (verbale `2026/1`) |
+| `created_at`, `created_by`, `approver`, `role`, `note` | preparazione e chi approva |
+| `public_body`, `authority`, `authority_date` | ente pubblico: autorizzazione della Soprintendenza |
+| `rules[]` | testo delle regole applicate (come stampato) |
+| `items[]` | copia di ogni faldone: `id, speaking_code, short_code, multi_code, company_name, binder_title, category, years, location, rule, until, binder` (record completo) |
+| `hash` | SHA-256 di `docmap-disposal-v1 · id · year · n · created_at · approver · role · authority · authority_date · items (id=codice=short=anni, ordinati)` |
+| `executed_at`, `executed_by`, `destroyer`, `certificate`, `destroyed_on` | distruzione eseguita: i faldoni escono da `S.binders` (lapidi di sincronizzazione) |
+| `cancelled_at` | verbale annullato (i faldoni tornano proponibili) |
+
+Unione dei backup: per `id`; un verbale va solo avanti (da eseguire → annullato / eseguito). Gli `short_code` e i codici
+parlanti dei faldoni distrutti restano occupati (mai riusati).

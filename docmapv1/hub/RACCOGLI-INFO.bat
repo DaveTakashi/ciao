@@ -25,6 +25,8 @@ set "OUT=%USERPROFILE%\Desktop\DocMap-info-per-assistenza.txt"
   echo == Hub
   if exist ".venv\Scripts\python.exe" (
     ".venv\Scripts\python.exe" -m docmap_hub info
+    ".venv\Scripts\python.exe" -m docmap_hub controllo
+    ".venv\Scripts\python.exe" -m docmap_hub verifica-backup --tutti
     ".venv\Scripts\python.exe" -m docmap_hub log --limit 30
   ) else (
     echo Ambiente Python non ancora creato: avvia prima run_windows.bat

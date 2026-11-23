@@ -54,6 +54,7 @@ GUIDES = [
     ("docs/AGGIORNAMENTO-v12.7-v12.8.md", "AGGIORNAMENTO-v12.7-v12.8.html"),
     ("docs/AGGIORNAMENTO-v12.8-v12.9.md", "AGGIORNAMENTO-v12.8-v12.9.html"),
     ("docs/AGGIORNAMENTO-v12.9-v12.10.md", "AGGIORNAMENTO-v12.9-v12.10.html"),
+    ("docs/AGGIORNAMENTO-v12.10-v12.11.md", "AGGIORNAMENTO-v12.10-v12.11.html"),
 ]
 CSS = """:root{--fg:#1d232b;--mut:#5b6672;--line:#d9dee4;--bg:#fff;--box:#f4f6f8;--acc:#0b6bcb}
 @media (prefers-color-scheme:dark){:root{--fg:#e6e9ed;--mut:#9aa5b1;--line:#333b45;--bg:#14181d;--box:#1e242b;--acc:#5aa7f0}}

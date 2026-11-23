@@ -239,8 +239,8 @@ def make_handler(app: HubWebApp):
             return {k: v[0] for k, v in urllib.parse.parse_qs(data, keep_blank_values=True).items()}
 
         def _page(self, title: str, body: str, code=200, refresh: bool = False):
-            doc = (f"<!doctype html><html lang='it'><head><meta charset='utf-8'>"
-                   f"<meta name='viewport' content='width=device-width,initial-scale=1'>"
+            doc = ("<!doctype html><html lang='it'><head><meta charset='utf-8'>"
+                   "<meta name='viewport' content='width=device-width,initial-scale=1'>"
                    + ("<meta http-equiv='refresh' content='2'>" if refresh else "")
                    + f"<title>{_e(title)}</title><style>{CSS}</style></head><body><main>{body}</main></body></html>")
             self._send(code, doc.encode("utf-8"))
@@ -420,11 +420,17 @@ def make_handler(app: HubWebApp):
                             raise RegistryError("Pacchetto non ancora preparato.")
                         name, data = f.name, f.read_bytes()
                         app.hub.registry.log("package.download", kind, ref, {"file": f.name})
+                    elif kind == "situazione-clienti.csv":   # v0.12: one row per site/server, for Excel
+                        from . import report
+                        name = f"situazione-clienti-{datetime.now().strftime('%Y-%m-%d')}.csv"
+                        data = report.to_csv(report.rows(app.hub))
+                        app.hub.registry.log("customers.report", details={"file": name})
                     else:
                         raise RegistryError("Pacchetto sconosciuto.")
             except (RegistryError, OSError) as exc:
                 return self._send(404, str(exc).encode("utf-8"), "text/plain; charset=utf-8")
-            self._send(200, data, "application/zip", {"Content-Disposition": f'attachment; filename="{name}"'})
+            ctype = "text/csv; charset=utf-8" if name.endswith(".csv") else "application/zip"
+            self._send(200, data, ctype, {"Content-Disposition": f'attachment; filename="{name}"'})
 
         # -- v0.4: the management app (single page) + JSON API --------------------------------------
         def _spa(self):
@@ -676,6 +682,8 @@ def _api_routes():
         ("GET", r(r"/api/backups"), A.backups_view),
         ("POST", r(r"/api/backups"), A.backups_config),
         ("POST", r(r"/api/backups/now"), A.backup_now),
+        ("POST", r(r"/api/backups/verify"), A.backup_verify),
+        ("GET", r(r"/api/hub/check"), A.hub_check),
         # v0.7
         ("POST", r(r"/api/instances/([\w-]+)/licence/(suspend|revoke|reactivate|modify|renew-short)"), A.licence_action),
         ("POST", r(r"/api/instances/([\w-]+)/licence/autorenew"), A.licence_autorenew),

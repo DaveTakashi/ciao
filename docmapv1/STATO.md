@@ -1,18 +1,18 @@
 # STATO di DocMap — fonte unica
 
-> Aggiornato al **2026-11-22**. Chi cambia una versione, un test o una decisione aggiorna questo file nello stesso
+> Aggiornato al **2026-11-23**. Chi cambia una versione, un test o una decisione aggiorna questo file nello stesso
 > commit. Per ripartire dopo una pausa (persona o agente) si legge questo, poi [`CHANGELOG.md`](CHANGELOG.md).
 
 ## 1. Versioni correnti e cosa va con cosa
 
 | Componente | Versione | Dove si legge | Zip per Dave (file del progetto) |
 |---|---|---|---|
-| App DocMap (PC, web, telefono) | **26.12.10** (v12.10, ondata 2: prelievi con percorso, consegna e rientro firmati, faldone smarrito, andamento e previsioni; fine ondata 1: Oggi, Annulla, stati vuoti) | `APP_VERSION` in `assets/js/02-core.js` | dentro lo zip completo `docmapv1/python/DocMap-hub-0.11.2-app-26.12.10.zip` |
+| App DocMap (PC, web, telefono) | **26.12.11** (v12.11, ondata 2 seconda parte: nuovo anno in un clic, scarto proposto con verbale, «Dove lo metto?», ricerca a voce; prima 26.12.10: prelievi, consegna firmata, faldone smarrito, promemoria, previsioni) | `APP_VERSION` in `assets/js/02-core.js` | dentro lo zip completo `docmapv1/python/DocMap-hub-0.11.2-app-26.12.11.zip` |
 | Database locale (SQLite nel browser) | schema **9** | `DB_SCHEMA_VERSION` in `assets/js/06-db.js` | — |
-| Server web PHP (`server-php/api.php`) | 26.12.10 (v12.10: rotta pubblica `finder`, solo GET, solo il contatto del faldone smarrito), schema **3**, licenza con `licence_required`; `setup.php` con cartella per sito e modalità JSON; v12.8: rotte `project`, `photo_put`, `photo`, `ai_spine` | `DM_APP_VERSION`, `DM_SCHEMA` | dentro lo zip dell'app (`deploy/`) |
-| Server Python (sede) | pacchetto 1.0.0, parità con PHP 26.12.10 (anche sulla licenza, sull'inventario e su `finder`) | `server-python/docmap_server/__init__.py` | dentro l'installer |
+| Server web PHP (`server-php/api.php`) | 26.12.11 (v12.11: solo il numero; v12.10: rotta pubblica `finder`, solo GET, solo il contatto del faldone smarrito), schema **3**, licenza con `licence_required`; `setup.php` con cartella per sito e modalità JSON; v12.8: rotte `project`, `photo_put`, `photo`, `ai_spine` | `DM_APP_VERSION`, `DM_SCHEMA` | dentro lo zip dell'app (`deploy/`) |
+| Server Python (sede) | pacchetto 1.0.0, parità con PHP 26.12.11 (anche sulla licenza, sull'inventario e su `finder`) | `server-python/docmap_server/__init__.py` | dentro l'installer |
 | Strumenti di installazione Windows | 1.2.0 | `TOOLS_VERSION` in `installer-windows/docmap_tools.py` | dentro lo zip completo (`installer-windows/`); i pacchetti per i clienti li fa l'hub (il vecchio `DocMap-installer-26.12.7.zip` è in `vecchie-versioni/`) |
-| Hub (PC di Dave) | **0.11.2**, registro schema **4** (modelli cliente) (`registry.py`) | `hub/docmap_hub/__init__.py` | `docmapv1/python/DocMap-hub-0.11.2.zip` (**zip completo**: hub + app + sito + server + installatore + guide; fatto e controllato da `tools/crea-zip.py`) |
+| Hub (PC di Dave) | **0.12.0**, registro schema **4** (modelli cliente) (`registry.py`); meta `hub_version` | `hub/docmap_hub/__init__.py` | `docmapv1/python/DocMap-hub-0.12.0.zip` (**zip completo**: hub + app 26.12.11 + sito + server + installatore + guide; fatto e controllato da `tools/crea-zip.py`) |
 | Aggiornatore del PC | con l'app | `AGGIORNA-DOCMAP.bat` + `tools/aggiorna-app.ps1` | dentro lo zip dell'app |
 
 Regola: lo **stesso numero 26.12.x** deve comparire in app, `api.php` e server Python. Il server PHP e quello Python
@@ -20,14 +20,14 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
 
 ## 2. Codice
 
-- Ramo di consolidamento: `claude/project-thread-5qvqr5` (contiene tutto: app v12.6 + server Python + installer + hub 0.8),
-  PR #4 verso `main`. Sostituisce le PR a catena #1 (app), #2 (Python), #3 (hub).
-- Hub 0.9 + app 26.12.7 (autocritica del hub), hub 0.10/0.10.1 (modelli, Attiva tutto, kit), 0.10.2 (cartelle) e 0.11 (elimina cliente, pacchetto sede pronto, più PC, sposta il sito): ramo `claude/project-thread-acqq2g`, PR #5 sopra la #4.
-- App 26.12.8 (Progetti di inventario, indirizzo dei QR configurabile): ramo `claude/project-thread-epf33l` (parte dalla PR #5).
-- App 26.12.9 (app installabile PWA, cronometro dei tempi; ondata 0 e prima parte dell'ondata 1): PR #8, unita in `main`.
-- App 26.12.10 (ondata 2: funzioni 1, 3, 5, 7 scelte da Dave; fine ondata 1): ramo `claude/project-thread-1dzp8h` ripartito da `main`, PR verso `main`.
-- Dopo l'unione: `main` è la versione vera; ogni thread parte da `main`.
-- Qualità e CI (lint, test unitari e di aggiornamento, test in parallelo, CI attiva): ramo `claude/project-thread-imzwad` da `main` dopo l'unione della PR #9, PR verso `main`.
+- **2026-11-23: tutto è in `main`** (unico ramo vero): PR #9 (app 26.12.10), #10 (qualità e CI), #11 (app 26.12.11),
+  #12 (hub 0.12.0), unite con la PR di integrazione del ramo `claude/project-thread-imzwad`. Le PR #1–#8 sono unite o
+  chiuse (già incluse). **Ogni thread nuovo parte da `main` aggiornato** e apre la sua PR verso `main`; la CI su GitHub
+  deve essere verde prima dell'unione.
+- Storia dei rami: consolidamento `claude/project-thread-5qvqr5` (PR #4, app 26.12.6 + server Python + installatore + hub
+  0.8); hub 0.9–0.11 `claude/project-thread-acqq2g` (PR #5); app 26.12.8 `claude/project-thread-epf33l` (PR #7); app
+  26.12.9–26.12.10 `claude/project-thread-1dzp8h` (PR #8, #9); app 26.12.11 `claude/project-thread-o4rwcv` (PR #11); hub
+  0.12.0 `claude/project-thread-4o1oly` (PR #12); qualità e CI `claude/project-thread-imzwad` (PR #10 e integrazione).
 
 ## 3. Test
 
@@ -35,8 +35,8 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
 |---|---|---|---|
 | Verifica veloce (tutto tranne la suite completa) | `bash tools/verifica-veloce.sh` | ~4 min | tutto OK (2026-11-23) |
 | Lint JS / Python | `node tools/lint-js.js`, `python3 tools/lint-py.py` (dentro la verifica veloce) | 5 s | 0 problemi (2026-11-23) |
-| Test app tutti insieme (smoke, unit, aggiornamento, v12.6 … v12.10) | `cd tests && NODE_PATH=$(npm root -g) node run.js` | ~40 s | 12/12 file OK (2026-11-23) |
-| Suite completa app (Playwright) | `cd tests && NODE_PATH=$(npm root -g) node suite.js` | ~35 min | 1376/1376 (2026-11-23, app 26.12.10 + correzioni della PR qualità) |
+| Test app tutti insieme (smoke, unit, aggiornamento, v12.6 … v12.11) | `cd tests && NODE_PATH=$(npm root -g) node run.js` | ~40 s | 13/13 file OK (2026-11-23) |
+| Suite completa app (Playwright) | `cd tests && NODE_PATH=$(npm root -g) node suite.js` | ~35 min | 1376/1376 (2026-11-23, app 26.12.11 + hub 0.12.0 uniti in main) |
 | CI su GitHub | `.github/workflows/docmap-ci.yml` (= `ci/docmap-ci.yml`), Ubuntu 24.04 | ~5 min | verde sulla PR #10 (2026-11-23); unica cartella fuori da `docmapv1/`, confermata da Dave (D20) |
 
 Come sono fatti i test e come aggiungerne: [`docs/TEST.md`](docs/TEST.md).
@@ -50,6 +50,18 @@ Come sono fatti i test e come aggiungerne: [`docs/TEST.md`](docs/TEST.md).
 - Difetti trovati e corretti: e-mail del faldone smarrito che accettava `?cc=` / `&body=` (si poteva aggiungere un
   destinatario al link mailto; ora solo indirizzi semplici e link codificato); 4 testi italiani duplicati nel dizionario
   inglese dell'inventario; una riga morta in `06j-status.js`.
+
+### Esito 2026-11-23, app 26.12.11 (nuovo anno, scarto, dove lo metto, voce)
+
+- Test nuovo, nella verifica veloce: `tests/v1211.js` 49/49 (anni e serie, `yrShift`, frasi a voce → ricerca anche sul
+  telefono, «Dove lo metto?» con capienza e albero, scheda «Metti qui», nuovo anno: piano, spunte, crea, stampa solo i
+  nuovi, niente doppioni, Annulla, opzioni, Oggi; scarto: regole, esclusi, verbale con impronta, firma richiesta,
+  distruzione, codici mai riusati, Annulla, verbale annullato, backup, regole condivise, avviso annuale; microfono finto
+  su Archivio e Ctrl+K; dati della 26.12.10). `tests/v1210e.js`: il menu Lavoro ora ha anche Nuovo anno e Scarto.
+- Verifica veloce: tutto OK (v1211 49/49). Suite completa 2026-11-23: **1376/1376** (errors: none) dopo aver aggiornato 2
+  controlli della suite (il menu ⚙ ha anche Nuovo anno e Scarto; README / INDICE / HANDOFF_PROMPT con 26.12.11).
+- Provato solo in Chromium con un riconoscimento vocale finto: **microfono vero, stampa vera del verbale e regole di
+  conservazione con un consulente mai provati** (righe D19–D22 di `COLLAUDO-REALE.md`).
 
 ### Esito 2026-11-22, app 26.12.10 (prelievi, consegna firmata, faldone smarrito, previsioni, fine ondata 1)
 
@@ -93,6 +105,17 @@ Come sono fatti i test e come aggiungerne: [`docs/TEST.md`](docs/TEST.md).
 
 - Terzo giro (`AUTOCRITICA-HUB-0.10.md` §4bis): kit rifatto con le copie di config.php riprese dai siti, stop su
   cartelle non vuote, controllo del solo sito attivato, un «Attiva tutto» per cliente. Hub 145 test, verifica veloce OK.
+
+### Esito 2026-11-23, hub 0.12.0 (aggiornare e riparare senza paura)
+
+- Backup automatico al primo avvio di ogni versione nuova (meta `hub_version`/`hub_version_max`), ogni backup
+  controllato subito (`backups.verify`), ripristino sicuro `ripristina-backup` / `hub\RIPRISTINA-BACKUP.bat` (sposta i
+  dati di adesso in `backups\prima-del-ripristino-<ora>\`, mai cancella), `controllo` (`doctor.py`) anche con registro
+  rovinato, messaggio chiaro su `sqlite3.DatabaseError`, avviso hub più vecchio dei dati, `cliente situazione` /
+  Clienti › Situazione (Excel) (`report.py`). Pyflakes pulito sul codice dell'hub.
+- Test: hub 178 (18 nuovi in `test_v12_manutenzione.py`: migrazione da ogni schema 1–3, schema più nuovo, versioni,
+  backup rovinati, ripristino, CLI, API, CSV). Non provato su Windows: `RIPRISTINA-BACKUP.bat` e lo spostamento delle
+  cartelle con file aperti (righe F6–F9 in `COLLAUDO-REALE.md`).
 
 ### Esito 2026-11-17, hub 0.11.2 (zip completo)
 
@@ -146,6 +169,9 @@ Come sono fatti i test e come aggiungerne: [`docs/TEST.md`](docs/TEST.md).
 
 Scheda unica da seguire: [`docs/COLLAUDO-REALE.md`](docs/COLLAUDO-REALE.md).
 
+- App 26.12.11 (righe D19–D22): nuovo anno sui dati veri (titoli strani, clienti scritti in modi diversi), «Dove lo metto?»
+  sugli scaffali veri, regole di scarto viste da un consulente e verbale stampato, ricerca a voce con un microfono vero.
+
 - App 26.12.8, **inventario rapido** su telefoni veri (righe D7–D9): velocità reale per faldone, fotocamera e beep su
   iPhone/Android, microfono (Web Speech: Chrome Android sì; Safari iPhone da verificare), lettura AI con una chiave vera
   (mai chiamata davvero: solo il fornitore finto `mock` e un test con la rete simulata).
@@ -162,6 +188,11 @@ Scheda unica da seguire: [`docs/COLLAUDO-REALE.md`](docs/COLLAUDO-REALE.md).
 - **Telefoni** Android e iPhone (accesso ricordato, stati, associazione, offline) e **NFC** (solo Android/Chrome).
 
 ## 5. Limiti noti
+
+- Scarto (26.12.11): è una **proposta** con regole indicative (non consulenza legale, non conservazione a norma). I verbali
+  stanno nel salvataggio del PC e nei backup, non sul server (le regole sì). Un faldone senza anno non viene mai proposto.
+- Nuovo anno: le serie si riconoscono da cliente + categoria + titolo senza anni; un cliente scritto in due modi senza
+  Codice Multi forma due serie. Ricerca a voce: riconoscimento del browser (può usare un servizio online del browser).
 
 - App installabile (26.12.9): solo da `https://` (o `localhost`); la sede in HTTP semplice o `file://` non si installa.
   La copia senza rete contiene solo il programma: i dati del server senza rete non ci sono. I tempi misurati restano sul

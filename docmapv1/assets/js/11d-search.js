@@ -367,7 +367,7 @@ function srPhVoice(){
   const R = window.SpeechRecognition || window.webkitSpeechRecognition; if (!R) return;
   if (SR.voice){ try { SR.voice.stop(); } catch(e){} return; }
   const r = new R(); r.lang = S.lang === 'en' ? 'en-GB' : 'it-IT'; r.interimResults = false; r.maxAlternatives = 1;
-  r.onresult = (e) => { const txt = String(((e.results[0] || [])[0] || {}).transcript || '').trim(); if (!txt) return; SR.ph.q = txt.replace(/[.。]$/, ''); const i = document.getElementById('sr-ph-q'); if (i) i.value = SR.ph.q; srAddRecent(SR.ph.q); srPhRefresh(); };
+  r.onresult = (e) => { const txt = String(((e.results[0] || [])[0] || {}).transcript || '').trim(); if (!txt) return; SR.ph.q = typeof vsParse === 'function' ? (vsParse(txt).q || txt.replace(/[.。]$/, '')) : txt.replace(/[.。]$/, ''); const i = document.getElementById('sr-ph-q'); if (i) i.value = SR.ph.q; srAddRecent(SR.ph.q); srPhRefresh(); };
   r.onend = r.onerror = () => { SR.voice = null; const m = document.getElementById('sr-mic'); if (m){ m.classList.remove('on'); m.setAttribute('aria-label', t('sr_ph_voice')); } };
   SR.voice = r; try { r.start(); } catch(e){ SR.voice = null; }
   const m = document.getElementById('sr-mic'); if (m){ m.classList.add('on'); m.setAttribute('aria-label', t('sr_ph_listen')); }
