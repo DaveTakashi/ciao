@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from . import __version__, paths
+from .branding import brand_name as _bn
 
 LEVELS = ("ok", "warn", "error")
 MIN_PY = (3, 11)
@@ -141,7 +142,7 @@ def _check_registry(d: Path) -> tuple[list[dict], dict]:
                       "Funziona (le migrazioni sono solo aggiunte), ma le cose nuove della " + top + " qui non ci sono.",
                       "Avvia la cartella dell'hub " + top + " o più nuova."))
     else:
-        out.append(_r("version", "ok", f"DocMap Hub {__version__}",
+        out.append(_r("version", "ok", f"{_bn()} Hub {__version__}",
                       f"versione precedente su questi dati: {last}" if last and last != __version__ else ""))
     return out, facts
 
@@ -212,7 +213,7 @@ def _check_program(settings: dict) -> list[dict]:
         script = runner.build_deploy_script(_SettingsReg(settings))  # type: ignore[arg-type]
         root = script.parent.parent
         app_v = _app_version(root)
-        out.append(_r("program", "ok", "Programma DocMap completo accanto all'hub",
+        out.append(_r("program", "ok", f"Programma {_bn()} completo accanto all'hub",
                       f"{root}" + (f" · app {app_v}" if app_v else "")))
     except Exception as exc:  # noqa: BLE001 - RunnerError or anything odd: report, do not crash
         out.append(_r("program", "warn", "Non trovo tools\\build_deploy.py",

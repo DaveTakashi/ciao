@@ -868,7 +868,7 @@ const AUTH_ACTIONS = {
 
 /* ---------------- Web mode: lock screen before the desktop app boots ---------------- */
 Object.assign(I18N.it, {
-  vl_h:'Accedi a DocMap', vl_p:'I dati di questo archivio sono cifrati in questo browser. Accedi per sbloccarli.',
+  vl_h:('Accedi a ' + brandName()), vl_p:'I dati di questo archivio sono cifrati in questo browser. Accedi per sbloccarli.',
   vl_setup_h:'Primo accesso su questo dispositivo', vl_setup_p:'Crea l\'amministratore di questo browser. Il PIN o la password cifra i dati salvati qui: se lo perdi, i dati di questo dispositivo non si possono recuperare (reimportali dal pacchetto di sincronizzazione).',
   vl_create:'Crea e accedi', vl_orphan_h:'Dati cifrati senza utenti', vl_orphan_p:'In questo browser ci sono dati cifrati ma nessun utente che possa aprirli. Puoi solo azzerarli e reimportare i dati.',
   vl_reset:'Azzera i dati di questo browser', vl_reset_sure:'Tocca di nuovo per confermare: i dati cifrati di questo browser verranno cancellati.',
@@ -881,7 +881,7 @@ Object.assign(I18N.it, {
   vl_e_token:'Codice di accesso non valido o revocato.', vl_e_offline:'Server non raggiungibile: controlla la connessione e riprova.', vl_srv_note:'Versione online: i dati sono nel database condiviso dello studio (cifrato) e, cifrati, in questo browser.'
 });
 Object.assign(I18N.en, {
-  vl_h:'Sign in to DocMap', vl_p:'This archive\'s data is encrypted in this browser. Sign in to unlock it.',
+  vl_h:('Sign in to ' + brandName()), vl_p:'This archive\'s data is encrypted in this browser. Sign in to unlock it.',
   vl_setup_h:'First sign-in on this device', vl_setup_p:'Create this browser\'s administrator. The PIN or password encrypts the data stored here: if you lose it, this device\'s data cannot be recovered (import it again from the sync package).',
   vl_create:'Create and sign in', vl_orphan_h:'Encrypted data without users', vl_orphan_p:'This browser holds encrypted data but no user can open it. You can only clear it and import the data again.',
   vl_reset:'Clear this browser\'s data', vl_reset_sure:'Tap again to confirm: this browser\'s encrypted data will be erased.',
@@ -919,7 +919,7 @@ function vaultLockRender(){
   if (!el){ el = document.createElement('div'); el.id = 'vault-lock'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); document.body.appendChild(el); }
   let last = ''; try { last = localStorage.getItem('docmap_v26_scan_user') || ''; } catch(e){}
   const pinF = (id, lbl, ac) => '<div class="field"><label for="' + id + '">' + esc(t(lbl)) + '</label><input class="inp mono" id="' + id + '" type="password" autocomplete="' + ac + '"></div>';
-  el.innerHTML = '<form class="vl-card" data-vl="' + mode + '" novalidate><div class="vl-brand"><span class="vl-mark">DM</span><div><b>DocMap</b>' + (c.studioName ? '<span>' + esc(c.studioName) + '</span>' : '') + '</div>' +
+  el.innerHTML = '<form class="vl-card" data-vl="' + mode + ('" novalidate><div class="vl-brand">' + brandMarkHtml('vl-mark') + '<div><b>' + brandName() + '</b>') + (c.studioName ? '<span>' + esc(c.studioName) + '</span>' : '') + '</div>' +
       '<div class="vl-lang"><button type="button" data-vl-lang="it" class="' + (S.lang === 'it' ? 'on' : '') + '">IT</button><button type="button" data-vl-lang="en" class="' + (S.lang === 'en' ? 'on' : '') + '">EN</button></div></div>' +
     (mode === 'login' ? '<h1>' + esc(t('vl_h')) + '</h1><p>' + esc(t('vl_p')) + '</p>' +
         '<div class="field"><label for="vl-user">' + esc(t('au_user')) + '</label><input class="inp" id="vl-user" autocomplete="username" autocapitalize="none" spellcheck="false" value="' + esc(last) + '"></div>' + pinF('vl-pin', 'au_secret', 'current-password')

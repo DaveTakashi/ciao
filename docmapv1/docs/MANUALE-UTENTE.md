@@ -1,6 +1,6 @@
-# DocMap 2026 — manuale d'uso (passo passo)
+# Doc Location — manuale d'uso (passo passo)
 
-> Per chi usa DocMap ogni giorno nello studio. Versione **26.12.5**. Ogni capitolo è una cosa da fare, in passi brevi.
+> Per chi usa Doc Location ogni giorno nello studio. Versione **26.12.12**. Ogni capitolo è una cosa da fare, in passi brevi.
 > I nomi tra **grassetto** sono scritti esattamente come sui pulsanti (interfaccia in italiano).
 > Descrizione completa di ogni funzione: [`RIFERIMENTO-FUNZIONI.md`](RIFERIMENTO-FUNZIONI.md) · parole: [`GLOSSARIO.md`](GLOSSARIO.md) ·
 > prove da fare a mano: [`CHECKLIST-COLLAUDO.md`](CHECKLIST-COLLAUDO.md).
@@ -17,10 +17,10 @@ Dove si trovano le cose:
 
 ## 1. Prima installazione su un PC
 
-1. Estrai lo zip di DocMap in una cartella fissa, per esempio `C:\DocMap\`. Non aprire i file da dentro lo zip.
+1. Estrai lo zip di Doc Location in una cartella fissa, per esempio `C:\DocMap\`. Non aprire i file da dentro lo zip.
 2. Apri la cartella `docmapv1` e fai doppio clic su `index.html`.
 3. Usa **Chrome** o **Edge**, sempre lo stesso browser e lo stesso profilo. Nel browser conviene un segnalibro alla pagina.
-4. Alla schermata "Benvenuto in DocMap 2026" scegli da dove iniziare, oppure **Esploro da solo**.
+4. Alla schermata "Benvenuto in Doc Location" scegli da dove iniziare, oppure **Esploro da solo**.
 5. Apri ⚙ Funzioni avanzate › **Impostazioni**:
    - in **Impostazioni Studio** scrivi il nome dello studio;
    - in **Il tuo nome (operatore)** scrivi il tuo nome. Compare nel Registro attività accanto a ogni operazione;
@@ -37,7 +37,7 @@ Dove si trovano le cose:
 
 1. Apri **Informazioni** › **Clienti** › **Importa elenco clienti**. Va bene anche trascinare il file nella finestra.
 2. Scegli il file dello studio: un CSV con colonne `TIPO;Ditta;Ragione_soc;Indirizzo;Codice_com;Cap;Localita;Provincia;ETS_ENC`, oppure un Excel `.xlsx`.
-3. DocMap riconosce l'elenco clienti e mostra **Anteprima elenco clienti**. Abbinamento delle colonne:
+3. Doc Location riconosce l'elenco clienti e mostra **Anteprima elenco clienti**. Abbinamento delle colonne:
    - Ditta → Codice Multi;
    - Ragione_soc → Ragione sociale;
    - Localita (Provincia) → Luogo;
@@ -60,7 +60,7 @@ Dove si trovano le cose:
 4. Posizione: hai due modi.
    - **Posizione rapida**: scrivi per esempio `A1-β-SX` (stanza, armadio, ripiano, settore). Gli stessi campi uno per uno sono in **Dettagli posizione**.
    - **Ubicazione (scatola)**: scegli una scatola delle Ubicazioni (§6).
-5. Premi **Salva** (o Ctrl+S). Se il codice parlante esiste già, DocMap lo segnala e propone il primo libero.
+5. Premi **Salva** (o Ctrl+S). Se il codice parlante esiste già, Doc Location lo segnala e propone il primo libero.
 
 ### 3.2 Modificare un faldone
 1. In **Archivio** cerca il faldone: codice, cliente, Multi, tag o note.
@@ -108,14 +108,14 @@ queste N etichette**.
    - **Scala 100%** (o "Dimensioni effettive"), mai "Adatta";
    - **Margini: nessuno**;
    - intestazioni e piè di pagina disattivati.
-4. A stampa finita DocMap chiede **Aggiornare la mappa del foglio parziale?**:
+4. A stampa finita Doc Location chiede **Aggiornare la mappa del foglio parziale?**:
    - **Sì, aggiorna mappa** se il foglio è uscito bene;
    - **No, lascia così** se la stampa è andata male.
 
 ### 4.2 Scarica PDF (stampare da un altro PC)
 1. In **Stampa Etichette** premi **Scarica PDF**: esce un file come `DocMap_etichette_mrink143_AAAA-MM-GG.pdf`.
 2. Stampalo da qualunque PC con **Scala 100% / Dimensioni effettive**. Non usare mai "Adatta alla pagina".
-3. Dopo il download DocMap chiede se segnare come usate le caselle dell'ultimo foglio (**Segnare le caselle come usate?**).
+3. Dopo il download Doc Location chiede se segnare come usate le caselle dell'ultimo foglio (**Segnare le caselle come usate?**).
 4. Nel riquadro **Pagine** puoi scegliere quali fogli stampare (es. `1-3,5`) e l'ordine inverso.
 5. **PDF per tipografia (CMYK, nero solo K)** serve solo per la tipografia: lascialo spento in ufficio.
 
@@ -151,7 +151,7 @@ Il QR stampato contiene `https://qr7.it/dm26XXXXXXXX`. Il sistema qr7.it deve sa
    - una riga per faldone e una per ogni ubicazione (tag `docmap26,location,<codice>`).
 2. Se hai già un `manifest.csv` con altri codici (es. 1TSE0G):
    - premi **Carica manifest.csv e unisci**. Le righe che non sono dm26 restano; le dm26 vengono aggiornate o aggiunte;
-   - con **Rimuovi le righe dm26 non più presenti in DocMap** spariscono quelle dei faldoni eliminati.
+   - con **Rimuovi le righe dm26 non più presenti in Doc Location** spariscono quelle dei faldoni eliminati.
 3. Carica il file su qr7.it.
 4. Rifallo ogni volta che crei nuovi faldoni o scatole, o cambi la destinazione.
 
@@ -233,7 +233,7 @@ magazzino. Faldoni, ubicazioni, stampa ed esportazioni restano divisi.
 Per dire "questa scansia sta dentro quell'armadio" senza digitare:
 1. **Ubicazioni** › **Modalità associazione** e spunta **Annida ubicazioni**.
 2. Scansiona il QR dell'armadio (diventa il **contenitore**), poi il QR di una scansia che non è ancora dentro.
-3. DocMap chiede *"Sposta S2 dentro A1?"*: premi **Sì, sposta** oppure scansiona di nuovo la scansia. **No** apre
+3. Doc Location chiede *"Sposta S2 dentro A1?"*: premi **Sì, sposta** oppure scansiona di nuovo la scansia. **No** apre
    soltanto la scansia. **Annulla spostamento** rimette tutto com'era.
 4. I faldoni scansionati dopo vanno nell'ubicazione più precisa attiva. Senza la spunta la modalità associazione
    funziona come prima.
@@ -249,7 +249,7 @@ Un tag NFC adesivo può sostituire o affiancare il QR: contiene **lo stesso indi
 ### 6.10 Stati: preso, reinserito, dato al Comune…
 Ogni faldone, ogni singolo documento e ogni scatola può avere uno **stato**: Preso, Reinserito, Dato al cliente,
 Restituito dal cliente, Fuori per pratica, Dato al Comune / ente, Restituito dal Comune / ente, Mancante / non trovato,
-Ritrovato, Da verificare. DocMap ricorda chi lo ha fatto, quando e da dove.
+Ritrovato, Da verificare. Doc Location ricorda chi lo ha fatto, quando e da dove.
 
 **La regola per tutto lo studio**: quando prendi un faldone scansiona il QR e premi **Preso**; quando lo rimetti a posto
 scansionalo e premi **Reinserito**. Chi lo scansiona dopo vede subito "Preso da Mario · da 2 giorni".
@@ -284,7 +284,7 @@ scansionalo e premi **Reinserito**. Chi lo scansiona dopo vede subito "Preso da 
 3. Carica **il contenuto** di `deploy/studio-de/` in `public_html/studio-de/`, compresi i file `.htaccess`.
 4. Apri **una sola volta** `https://docmap.pr-it.it/studio-de/server-php/setup.php` e compila:
    - "Cartella del database": meglio fuori da `public_html`, per esempio `/home/customer/www/docmap.pr-it.it/docmap-data/studio-de` (dalla 26.12.7 `setup.php` propone già una cartella per ogni sito);
-   - "Persone che useranno DocMap": una per riga, `nome,ruolo`, con ruolo `admin`, `editor` o `viewer`;
+   - "Persone che useranno Doc Location": una per riga, `nome,ruolo`, con ruolo `admin`, `editor` o `viewer`;
    - lascia spuntato "Consenti la sincronizzazione dal programma sul PC";
    - premi **Genera chiave e token**.
 5. **Copia subito i codici di accesso** (token) mostrati: si vedono una volta sola. Scarica anche una copia di `config.php` e tienila al sicuro, fuori dal sito: senza quella chiave il database non si legge. `setup.php` si disattiva da solo.
@@ -376,7 +376,7 @@ Differenza tra i due registri: il **Registro attività** dice *cosa è stato fat
 
 | Cosa | Come | Quando (consiglio) | Dove tenerlo |
 |---|---|---|---|
-| Backup JSON (faldoni, clienti, ubicazioni, impostazioni, registro attività, registro sincronizzazioni) | pulsante **Salva backup** in alto, oppure ⚙ › **Esporta e Salva** › **Scarica docmap_workspace.json** | ogni giorno a fine lavoro e prima di import, modifica massiva o aggiornamento | cartella di rete o chiavetta, **fuori** dalla cartella di DocMap; tieni almeno le ultime 30 copie |
+| Backup JSON (faldoni, clienti, ubicazioni, impostazioni, registro attività, registro sincronizzazioni) | pulsante **Salva backup** in alto, oppure ⚙ › **Esporta e Salva** › **Scarica docmap_workspace.json** | ogni giorno a fine lavoro e prima di import, modifica massiva o aggiornamento | cartella di rete o chiavetta, **fuori** dalla cartella di Doc Location; tieni almeno le ultime 30 copie |
 | Database completo con le **foto** | ⚙ › **Database** › **Scarica docmap.sqlite** (oppure **Collega un file .sqlite sul PC** per il salvataggio automatico) | ogni settimana e prima di ogni aggiornamento | come sopra |
 | CSV completo (per Excel) | ⚙ › **Esporta e Salva** › **Scarica docmap_full_backup.csv** | quando serve un elenco leggibile | dove serve |
 | Server online | da SiteGround (Gestione file o FTP) scarica la cartella dati (`docmap.sqlite`, `docmap.sqlite-wal`, `docmap.sqlite-shm`) e `config.php` | ogni settimana e prima di ogni aggiornamento del server | fuori dal sito, in un posto protetto: chi ha `config.php` ha la chiave |
@@ -391,17 +391,17 @@ Per ripristinare (prova a farlo almeno una volta: [`CHECKLIST-COLLAUDO.md`](CHEC
 - **Database .sqlite**: ⚙ › **Database** › **Apri file .sqlite** › **Apri e sostituisci**.
 - **Annullare un'operazione appena fatta**: **Annulla** (compare per alcuni secondi). Per l'ultimo stato prima di un ripristino: **Ripristina snapshot precedente** in Impostazioni.
 
-## 12. Aggiornare DocMap a una versione nuova
+## 12. Aggiornare Doc Location a una versione nuova
 
 > **Dalla v12.6 sul PC basta un doppio clic.** Metti lo zip nuovo in Download (o nella cartella sopra quella di
-> DocMap), poi doppio clic su `AGGIORNA-DOCMAP.bat` nella cartella di DocMap (oppure trascina lo zip sopra il file).
+> Doc Location), poi doppio clic su `AGGIORNA-DOCMAP.bat` nella cartella di Doc Location (oppure trascina lo zip sopra il file).
 > Lo script:
 >
 > 1. ti ricorda il backup;
 > 2. copia la versione attuale in `DocMap-copie\`;
 > 3. mette i file nuovi **nella stessa cartella**, tenendo il tuo `docmap.config.js` (i dati sono nel browser e non
 >    vengono toccati);
-> 4. controlla la versione e riapre DocMap.
+> 4. controlla la versione e riapre Doc Location.
 >
 > Se qualcosa non va, `AGGIORNA-DOCMAP.bat ripristina` rimette la copia. Il server si aggiorna come sempre, **prima**
 > dei PC.
@@ -419,7 +419,7 @@ Segui sempre la guida della versione (`docs/AGGIORNAMENTO-vX-vY.md`) e le regole
      versione giusta, se il database è aggiornato, se il codice di accesso va, e confronta i dati del server con quelli
      del PC; se non coincidono premi **Sincronizza ora**.
 4. **PC**:
-   - chiudi DocMap e copia i nuovi file **sopra quelli vecchi, nella stessa cartella**, con lo stesso browser;
+   - chiudi Doc Location e copia i nuovi file **sopra quelli vecchi, nella stessa cartella**, con lo stesso browser;
    - riapri `index.html`;
    - controlla la versione in ⚙ › **Impostazioni** e il numero di faldoni e clienti.
 5. **Telefoni**: ricarica la pagina.
@@ -432,7 +432,7 @@ Segui sempre la guida della versione (`docs/AGGIORNAMENTO-vX-vY.md`) e le regole
 | Problema | Cosa fare |
 |---|---|
 | **Non vedo i miei dati** (archivio vuoto o vecchio) | Stai usando un altro browser, un altro profilo di Chrome o una finestra in incognito: i dati stanno nel browser dove li hai inseriti. Riapri con quel browser. Se hai cancellato i dati di navigazione, ripristina l'ultimo backup (§11) o fai **Sincronizza con il server**. Sul telefono ogni browser ha la sua copia: dopo il primo accesso i dati arrivano dal server. |
-| Due cartelle di DocMap sullo stesso PC mostrano gli stessi dati | È normale con Chrome ed Edge: tutte le copie aperte da `file://` nello stesso profilo condividono i dati. Per un archivio separato serve un altro profilo del browser. |
+| Due cartelle di Doc Location sullo stesso PC mostrano gli stessi dati | È normale con Chrome ed Edge: tutte le copie aperte da `file://` nello stesso profilo condividono i dati. Per un archivio separato serve un altro profilo del browser. |
 | **La fotocamera non parte** sul telefono | Apri la pagina dall'indirizzo `https://…` (non da un file). Quando il browser chiede il permesso premi Consenti. Se l'hai negato, riattivalo: su Chrome Android dal lucchetto accanto all'indirizzo, Autorizzazioni, Fotocamera; su iPhone in Impostazioni › Safari › Fotocamera. In alternativa usa la fotocamera del telefono per aprire i QR uno per uno. |
 | **La webcam non parte** sul PC | Consenti la fotocamera dall'icona nella barra dell'indirizzo. Se non va, usa un lettore QR USB nel campo **Lettore QR / codice + Invio**. |
 | Il lettore USB non scrive nel campo | Clicca prima nel campo. Il lettore deve essere impostato come tastiera italiana con "Invio" dopo il codice. Prova a scansionare in un blocco note: deve uscire `https://qr7.it/dm26…` o `dm26…`. |
@@ -445,7 +445,7 @@ Segui sempre la guida della versione (`docs/AGGIORNAMENTO-vX-vY.md`) e le regole
 | Le etichette escono spostate o rimpicciolite | Scala 100%, margini nessuno, poi la calibrazione (§4.4). |
 | "Il motore SQLite non si è avviato" | Apri `index.html` dalla cartella estratta, non da dentro lo zip. |
 | **I faldoni di esempio** (tag `demo`) sono sul server e su tutti i telefoni | Non erano stati eliminati prima della prima sincronizzazione. Elimina gli esempi da un PC (**Elimina esempi** in Archivio) e sincronizza: l'eliminazione arriva a tutti. |
-| Che versione ho? Il server risponde? | ⚙ › Impostazioni › Dati e sicurezza › **Informazioni su DocMap**: versione, schema del database locale e del server, nome del dispositivo, **Verifica server**. **Copia dati per l'assistenza** copia questi dati (senza il codice di accesso) da incollare in un messaggio. |
+| Che versione ho? Il server risponde? | ⚙ › Impostazioni › Dati e sicurezza › **Informazioni su Doc Location**: versione, schema del database locale e del server, nome del dispositivo, **Verifica server**. **Copia dati per l'assistenza** copia questi dati (senza il codice di accesso) da incollare in un messaggio. |
 | Ho l'indirizzo di un QR (`https://qr7.it/dm26…` o `…/q/dm26…`) e voglio il faldone | Incollalo o scansionalo nella ricerca dell'**Archivio**: trova il suo faldone. |
 
 Altri problemi di stampa e import: [`RIFERIMENTO-FUNZIONI.md`](RIFERIMENTO-FUNZIONI.md) › "Problemi comuni".
@@ -457,7 +457,7 @@ errore di battitura non contano.
 
 1. Scrivi una parte del nome del cliente, del codice, della città, di un tag o di un anno: `barbieri`, `BL2`,
    `castello 2024`. Devono esserci **tutte** le parole. Le parole trovate sono evidenziate in giallo nella tabella.
-2. Hai sbagliato a scrivere? DocMap trova lo stesso il faldone e mostra **Forse cercavi: …**: tocca la parola giusta
+2. Hai sbagliato a scrivere? Doc Location trova lo stesso il faldone e mostra **Forse cercavi: …**: tocca la parola giusta
    per correggere la ricerca.
 3. Per restringere usa le **parole chiave** (compaiono come etichette sotto la casella; la ✕ di un'etichetta la toglie):
 
@@ -499,7 +499,7 @@ presi con gli stati rapidi.
 1. Al primo accesso (e a ogni accesso con il PIN) sotto il PIN c'è **Ricordami su questo dispositivo**, già spuntato.
 2. Con la spunta, i QR inquadrati dopo aprono il faldone **subito, senza PIN**.
 3. Il PIN viene chiesto di nuovo:
-   - dopo **30 giorni** senza usare DocMap su quel telefono (o il tempo scelto dall'amministratore);
+   - dopo **30 giorni** senza usare Doc Location su quel telefono (o il tempo scelto dall'amministratore);
    - se tocchi **Esci**;
    - se l'amministratore revoca il codice di accesso di quel telefono o cambia il tuo PIN.
 4. Telefono condiviso o che resta in giro? Togli la spunta: il PIN servirà a ogni QR.
@@ -547,7 +547,7 @@ richiesta, non il telefono.
 ## 18. Azioni su molti faldoni insieme
 
 Quando un'azione tocca **10 o più faldoni** (stato a una selezione, ubicazione a una selezione, salvataggio della
-modifica in blocco) DocMap chiede conferma e dice quanti sono, i primi codici e se hai selezionato **tutto
+modifica in blocco) Doc Location chiede conferma e dice quanti sono, i primi codici e se hai selezionato **tutto
 l'archivio**. Sotto i 10 parte subito e resta il pulsante **Annulla** per qualche secondo.
 
 ## 19. Etichettatrici a nastro e a rotolo, adesivi piccoli (v12.4)
@@ -598,8 +598,8 @@ In cima all'**Archivio** il riquadro **Primi passi** elenca le cose da fare all'
 6. il primo backup;
 7. (facoltativo) il server online, per i telefoni e gli altri PC.
 
-Ogni passo si spunta da solo quando DocMap vede che è fatto. **Guidami** apre la guida con le frecce. **Nascondi**
-toglie il riquadro; per rivederlo: Impostazioni › Dati e sicurezza › Informazioni su DocMap › **Mostra i primi passi**.
+Ogni passo si spunta da solo quando Doc Location vede che è fatto. **Guidami** apre la guida con le frecce. **Nascondi**
+toglie il riquadro; per rivederlo: Impostazioni › Dati e sicurezza › Informazioni su Doc Location › **Mostra i primi passi**.
 
 ## 21. Avviso della licenza e stato della sincronizzazione (v12.6)
 
@@ -672,32 +672,32 @@ i QR, anche per le ristampe.
 
 **Chiudere un progetto.** *Modifica › Stato: chiuso*: il telefono non accetta più scansioni; i faldoni restano.
 
-## 23. Installare DocMap come app e misurare i tempi (v12.9)
+## 23. Installare Doc Location come app e misurare i tempi (v12.9)
 
-**Installare (telefono e PC).** Quando DocMap si apre da un indirizzo `https://` (il sito su SiteGround o la sede con il
+**Installare (telefono e PC).** Quando Doc Location si apre da un indirizzo `https://` (il sito su SiteGround o la sede con il
 certificato dello studio) si può installare come un'app, senza store:
 
 - **Android (Chrome)**: menu ⋮ › **Installa app** (oppure il messaggio «Aggiungi alla schermata Home»).
 - **iPhone (Safari)**: tasto Condividi › **Aggiungi alla schermata Home**.
-- **PC (Chrome o Edge)**: l'icona ⊕ a destra nella barra degli indirizzi, oppure menu › **Installa DocMap**.
+- **PC (Chrome o Edge)**: l'icona ⊕ a destra nella barra degli indirizzi, oppure menu › **Installa Doc Location**.
 
 Il telefono installa la pagina del telefono (cerca, scansiona, inventario); il PC il programma completo. L'app si apre anche
 **senza rete**: il browser tiene una copia dei soli file del programma. I dati del server senza rete non arrivano (lo dice
 l'avviso in alto) e le modifiche dell'inventario aspettano in coda come sempre. Con la rete si usa sempre la versione del
 server: dopo un aggiornamento basta riaprire. Da `index.html` aperto con doppio clic (senza sito) l'installazione non esiste.
 
-**Tempi misurati.** DocMap cronometra due cose:
+**Tempi misurati.** Doc Location cronometra due cose:
 
 - **Trovare un faldone**: dalla prima lettera scritta nella ricerca (PC o telefono) a quando apri il faldone;
 - **Catalogare un faldone**: nell'inventario, il tempo tra un faldone e il successivo (accanto ai totali vedi «N s a faldone»).
 
-Le pause oltre 2 minuti non contano. Dove vederli: sul PC **Impostazioni › Informazioni su DocMap › Dettagli e assistenza**;
+Le pause oltre 2 minuti non contano. Dove vederli: sul PC **Impostazioni › Informazioni su Doc Location › Dettagli e assistenza**;
 sul telefono **Tempi misurati** sotto la casella del codice. **Copia i tempi** prepara un testo da mandare, **Azzera**
 ricomincia. Restano solo su quel dispositivo e sono solo durate: mai nomi, codici o clienti.
 
 ## 24. Tema scuro e «Cerca ovunque» (v12.9)
 
-**Tema scuro.** DocMap segue il tema del sistema (chiaro di giorno, scuro se Windows o il telefono sono in scuro). Per
+**Tema scuro.** Doc Location segue il tema del sistema (chiaro di giorno, scuro se Windows o il telefono sono in scuro). Per
 sceglierlo a mano: sul PC **Impostazioni › Aspetto** (Automatico, Chiaro, Scuro); sul telefono la riga **Aspetto** sotto
 «Tempi misurati». La scelta vale solo per quel dispositivo. Etichette, anteprime dei fogli e stampe restano sempre
 chiare, così un'etichetta non esce mai con lo sfondo scuro.
@@ -712,7 +712,7 @@ conta nei «Tempi misurati».
 Menu **⚙ Funzioni avanzate › Lavoro › Prelievi e consegne › Nuovo prelievo** (oppure Ctrl+K e scrivi «prelievo»).
 
 1. **Motivo**: verifica fiscale, richiesta del cliente, pratica interna, avvocato o tribunale, revisione, digitalizzazione,
-   trasloco, scarto, altro. DocMap propone lo stato da registrare (per esempio «Dato al Comune / ente»), a chi vanno
+   trasloco, scarto, altro. Doc Location propone lo stato da registrare (per esempio «Dato al Comune / ente»), a chi vanno
    (per una verifica fiscale «Agenzia delle Entrate») e la data di rientro. Puoi cambiare tutto.
 2. **Quali faldoni**: scrivi il cliente (nome o Codice Multi), gli anni dal–al, una ricerca, una categoria o un tag;
    oppure incolla i codici (uno per riga, anche da Excel) o usa i faldoni spuntati nell'Archivio. L'anteprima mostra
@@ -747,14 +747,14 @@ il server», così il contatto vale anche sul sito.
 Menu **⚙ Funzioni avanzate › Lavoro › Andamento e previsioni**.
 
 - **Tempo risparmiato** in ore e in euro (questo mese, 12 mesi, da sempre, prossimi 3 mesi). In **Come è calcolato**
-  metti i vostri minuti per trovare un faldone senza DocMap (di serie 6), per registrarlo a mano (3), il costo orario
+  metti i vostri minuti per trovare un faldone senza Doc Location (di serie 6), per registrarlo a mano (3), il costo orario
   (30 €) e la capienza dell'archivio.
 - **Attività e previsioni** per consultazioni, uscite e nuovi faldoni, settimana per settimana. La linea tratteggiata è
   la previsione, la fascia chiara l'intervallo in cui il valore cade 8 volte su 10. Sotto: il modello usato e l'errore
   medio. Con meno di 8 settimane di dati la previsione non c'è ancora.
 - **Faldoni in archivio**: con la capienza indicata, il mese in cui l'archivio sarà pieno.
 - **Suggerimenti**: faldoni in ritardo, fuori da tanto, senza posizione, i più richiesti, quelli fermi da un anno, gli
-  anni oltre i 10 anni (**da verificare** prima di qualsiasi scarto: DocMap non decide lo scarto), backup, picchi.
+  anni oltre i 10 anni (**da verificare** prima di qualsiasi scarto: Doc Location non decide lo scarto), backup, picchi.
 
 ## 28. Oggi, Annulla e pagine vuote che spiegano (v12.10)
 
@@ -772,17 +772,17 @@ Apri **⚙ Funzioni avanzate › Lavoro › Promemoria**.
 - In alto, **Da sollecitare oggi**: una scheda per persona o studio con i faldoni **in ritardo**, **in scadenza** o
   **fuori da tanto**. Prima chi è più in ritardo.
 - Apri la scheda: c'è il **testo già scritto**. Scrivi una volta l'e-mail o il telefono di quella persona, poi
-  **E-mail** o **WhatsApp** aprono il messaggio pronto (oppure **Copia**). DocMap **non manda niente da solo**.
+  **E-mail** o **WhatsApp** aprono il messaggio pronto (oppure **Copia**). Doc Location **non manda niente da solo**.
 - Dopo averlo mandato premi **Segnato come inviato** (si annulla con **Annulla**). La scheda passa in **Già
   sollecitati** e torna dopo 7 giorni se il faldone non è rientrato. **Rimanda di 7 giorni** se la persona ha già
   avvisato.
-- Quando DocMap è aperto, i promemoria del giorno compaiono anche in **Oggi** e in un avviso una volta al giorno.
+- Quando Doc Location è aperto, i promemoria del giorno compaiono anche in **Oggi** e in un avviso una volta al giorno.
 - **Regole**: quanti giorni prima della scadenza, ogni quanti giorni ripetere, dopo quanti giorni un faldone senza data
   è «fuori da tanto», notifica del computer, oppure spegni i promemoria.
 
 ## 30. Nuovo anno in un clic: i faldoni del nuovo anno per tutti i clienti (v12.11)
 
-Menu **⚙ Funzioni avanzate › Lavoro › Nuovo anno**. A gennaio (o da ottobre per l'anno dopo) DocMap prepara da solo i
+Menu **⚙ Funzioni avanzate › Lavoro › Nuovo anno**. A gennaio (o da ottobre per l'anno dopo) Doc Location prepara da solo i
 faldoni del nuovo anno:
 
 1. Per ogni cliente prende i faldoni **dell'anno prima** che formano una serie (stesso cliente, stessa categoria e
@@ -800,7 +800,7 @@ compare in **Oggi**.
 
 ## 31. Scarto: la proposta di ogni gennaio e il verbale (v12.11)
 
-Menu **⚙ Funzioni avanzate › Lavoro › Scarto**. Ogni anno DocMap propone i faldoni che hanno superato il tempo di
+Menu **⚙ Funzioni avanzate › Lavoro › Scarto**. Ogni anno Doc Location propone i faldoni che hanno superato il tempo di
 conservazione secondo le **Regole** dello studio.
 
 - **Regole** (in fondo alla pagina): di serie 10 anni dall'ultimo anno del faldone (scritture contabili, art. 2220
@@ -821,7 +821,7 @@ Come si fa:
 
 Il verbale ha un'**impronta SHA-256**: se qualcuno lo cambia dopo, la stampa lo dice. Ogni passo si annulla subito con
 **Annulla** ed è nel Registro attività. **Importante**: è una proposta da verificare (accertamenti, contenziosi,
-obblighi di legge, accordi con il cliente); DocMap non decide lo scarto e non è «conservazione a norma».
+obblighi di legge, accordi con il cliente); Doc Location non decide lo scarto e non è «conservazione a norma».
 
 ## 32. Dove lo metto? (v12.11)
 
@@ -834,5 +834,15 @@ scrivere quanti faldoni ci stanno in un posto: un posto pieno non viene più pro
 
 Premi il **microfono** nella ricerca dell'Archivio, in **Cerca ovunque** (Ctrl+K) o nella ricerca del telefono e di'
 cosa cerchi, come lo diresti a un collega: «trovami le fatture di Rossi del 2023 fuori archivio», «paghe dal 2019 al
-2021», «codice B L tre». DocMap scrive cosa ha capito e cosa cerca; puoi correggere a mano. Il microfono compare solo
+2021», «codice B L tre». Doc Location scrive cosa ha capito e cosa cerca; puoi correggere a mano. Il microfono compare solo
 dove il browser riconosce la voce (Chrome, Edge, Safari).
+
+## 34. Il nome del programma, la lingua e chi vi assiste (v12.12)
+
+Il programma si chiama **Doc Location**. Chi ve lo ha dato (lo studio che lo vende o un suo rivenditore) può averlo
+chiamato in un altro modo, con il suo logo e i suoi colori: funziona tutto allo stesso modo. In **Impostazioni ›
+Dati e sicurezza › Informazioni su …** trovate versione e **chi vi dà assistenza** (nome, P.IVA, e-mail, telefono,
+sito). I file scaricati (backup, CSV, PDF) iniziano con il nome del programma, per esempio `DocLocation_workspace.json`;
+i backup fatti con il nome di prima (`DocMap_…`) si aprono come sempre. Lingue: italiano e inglese con i pulsanti
+IT / EN; se il vostro programma ha una sola lingua i pulsanti non ci sono. Cartelle e file tecnici sul PC
+(`C:\DocMap`, `AGGIORNA-DOCMAP.bat`) mantengono il nome di prima, apposta: non vanno rinominati.

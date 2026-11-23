@@ -178,7 +178,7 @@ const ACTIONS = {
     const s = dbSessions().find(x => x.id === +el.dataset.id); if (!s) return;
     confirmAction({ danger:true, okLabel:t('delete'), detail:t('db_del_detail', {n:s.name}), onOk: async () => { await dbDeleteSession(s.id); toast(t('deleted')); renderView(); } });
   },
-  'db-session-json': (el) => { const W = dbSessionWorkspace(+el.dataset.id); if (W) download('docmap_session_' + el.dataset.id + '.json', JSON.stringify(W, null, 2), 'application/json'); },
+  'db-session-json': (el) => { const W = dbSessionWorkspace(+el.dataset.id); if (W) download(brandFile('session_') + el.dataset.id + '.json', JSON.stringify(W, null, 2), 'application/json'); },
   'db-download': () => dbDownload(),
   'db-open': () => dbOpenLinkedFile(),
   'db-link': () => dbLinkFile(),

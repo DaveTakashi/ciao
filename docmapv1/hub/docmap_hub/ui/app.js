@@ -1,4 +1,4 @@
-/* DocMap Hub 0.4 — client-centric management app (single page, no external assets, no frameworks).
+/* Hub 0.4 — client-centric management app (single page, no external assets, no frameworks).
    Talks only to the hub's own /api (same origin, CSRF header on every write). */
 (() => {
 'use strict';
@@ -7,6 +7,10 @@
 // basics
 // ---------------------------------------------------------------------------------------------
 const S = { session: null, csrf: null, route: [], counts: {} };
+/* Brand (white label): name and mark come from brand.js through /api/session (docs/MARCHIO.md) */
+const hubBrand = () => (S.session && S.session.brand) || { product_name: '', hub_name: 'Hub', mark: '' };
+const hubTitle = () => [hubBrand().product_name, hubBrand().hub_name || 'Hub'].filter(Boolean).join(' ');
+const hubMark = () => (hubBrand().mark || (hubBrand().product_name || 'H')[0]).toUpperCase();
 const $ = (sel, el = document) => el.querySelector(sel);
 const $$ = (sel, el = document) => Array.from(el.querySelectorAll(sel));
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -154,7 +158,7 @@ function renderLogin(msg) {
   const setup = s.has_keys === false;
   app().className = '';
   app().innerHTML = `<div class="login"><form class="login-card" autocomplete="on">
-    <div class="brand"><div class="logo-mark">D</div><div><b>DocMap Hub</b><div style="color:var(--mut);font-size:12px">versione ${esc(s.version || '')}</div></div></div>
+    <div class="brand"><div class="logo-mark">${esc(hubMark())}</div><div><b>${esc(hubTitle())}</b><div style="color:var(--mut);font-size:12px">versione ${esc(s.version || '')}</div></div></div>
     ${setup ? `<p class="lead">Prima configurazione: scegli la passphrase che protegge la chiave di firma delle licenze e la cassaforte. Almeno 12 caratteri. Annotala in un posto sicuro: senza non si recupera.</p>`
             : `<p class="lead">Una sola passphrase apre la chiave di firma e la cassaforte.</p>`}
     <div class="err-box" ${msg ? '' : 'hidden'}>${esc(msg || '')}</div>
@@ -188,7 +192,7 @@ function shell() {
   app().className = '';
   app().innerHTML = `<div class="shell">
     <aside class="side">
-      <div class="brand"><div class="logo-mark">D</div><div><b>DocMap Hub</b><small>Gestione clienti e installazioni</small></div></div>
+      <div class="brand"><div class="logo-mark">${esc(hubMark())}</div><div><b>${esc(hubTitle())}</b><small>Gestione clienti e installazioni</small></div></div>
       <a class="btn ai" href="#/nuovo-progetto" style="justify-content:center;margin:0 4px 14px" data-r="nuovo-progetto">${ic('sparkle')} Crea progetto con AI</a>
       <nav id="nav"></nav>
       <div class="sec-t">Sistema</div>
@@ -213,7 +217,7 @@ function shell() {
 }
 function setCrumbs(parts) {
   $('#crumbs').innerHTML = parts.map((p, i) => (i < parts.length - 1 && p[1] ? `<a href="${p[1]}">${esc(p[0])}</a> <span>/</span>` : `<b>${esc(p[0])}</b>`)).join(' ');
-  document.title = `${parts[parts.length - 1][0]} · DocMap Hub`;
+  document.title = `${parts[parts.length - 1][0]} · ${hubTitle()}`;
 }
 function setActive(r) {
   $$('.side a.nv').forEach((a) => a.classList.toggle('on', a.dataset.r === r));
@@ -468,7 +472,7 @@ async function kitJob(cid) {
 function newCustomerRegistry() {
   modal({
     title: 'Nuovo cliente (solo anagrafica)', submit: 'Crea cliente', wide: true,
-    body: `<p class="note" style="margin-top:0">Per una trattativa o un cliente senza installazioni. Quando serve, il percorso guidato («Nuovo cliente» con la stessa P.IVA) completa questo cliente senza doppioni.</p>${customerForm()}${fld('project_name', 'Nome del progetto', { ph: 'DocMap <nome del cliente>' })}`,
+    body: `<p class="note" style="margin-top:0">Per una trattativa o un cliente senza installazioni. Quando serve, il percorso guidato («Nuovo cliente» con la stessa P.IVA) completa questo cliente senza doppioni.</p>${customerForm()}${fld('project_name', 'Nome del progetto', { ph: hubBrand().product_name + ' <nome del cliente>' })}`,
     onSubmit: async (d) => {
       const p = customerPayload(d); p.project_name = d.project_name;
       const r = await api('/api/customers', p); closeOverlay(); toast('Cliente creato.'); location.hash = `#/clienti/${r.id}`;
@@ -479,7 +483,7 @@ function newCustomerRegistry() {
 // ---------------------------------------------------------------------------------------------
 // Scheda cliente
 // ---------------------------------------------------------------------------------------------
-const CTABS = [['riepilogo', 'Riepilogo'], ['postazioni', 'Postazioni'], ['pubblica', 'Pubblica'], ['licenze', 'Licenze'], ['accessi', 'Accessi'], ['storico', 'Storico'], ['dati', 'Dati']];
+const CTABS = [['riepilogo', 'Riepilogo'], ['postazioni', 'Postazioni'], ['pubblica', 'Pubblica'], ['licenze', 'Licenze'], ['accessi', 'Accessi'], ['storico', 'Storico'], ['dati', 'Dati'], ['commerciale', 'Marchio e prezzo']];
 async function pCustomer(page, id, tab) {
   const d = await api(`/api/customers/${encodeURIComponent(id)}`);
   const c = d.customer; S.cust = d;
@@ -500,7 +504,7 @@ async function pCustomer(page, id, tab) {
   $('#del-c').onclick = () => deleteCustomer(c);
   $('#new-p').onclick = () => newProject(c);
   const el = $('#tab');
-  ({ riepilogo: tSummary, postazioni: tWorkstations, pubblica: tPublish, licenze: tLicences, accessi: tSecrets, storico: tHistory, dati: tData }[tab] || tSummary)(el, d);
+  ({ riepilogo: tSummary, postazioni: tWorkstations, pubblica: tPublish, licenze: tLicences, accessi: tSecrets, storico: tHistory, dati: tData, commerciale: tCommercial }[tab] || tSummary)(el, d);
 }
 // v0.10.3: «Elimina cliente» — backup first; online sites, office servers and delivered licences are not touched
 async function deleteCustomer(c) {
@@ -693,7 +697,7 @@ function licMini(lics) {
 function tWorkstations(el, d) {
   const hasSede = d.projects.some((p) => p.instances.some((i) => i.role === 'sede'));
   const hasOnline = d.projects.some((p) => p.instances.some((i) => i.envs.some((e) => e.kind === 'web-php' && e.name === 'production')));
-  const onlineNote = hasOnline ? `<div class="note mb"><b>Il riferimento è il sito online.</b> Ogni postazione apre il sito (funziona anche se il PC server è spento, da casa e dal telefono)${hasSede ? '; con il server in ufficio acceso aggiunge anche «DocMap (ufficio)», più veloce in rete locale' : ''}. Genera un client per ogni PC e fai doppio clic su <span class="mono">collega-questo-pc.bat</span>.</div>` : '';
+  const onlineNote = hasOnline ? `<div class="note mb"><b>Il riferimento è il sito online.</b> Ogni postazione apre il sito (funziona anche se il PC server è spento, da casa e dal telefono)${hasSede ? '; con il server in ufficio acceso aggiunge anche «${esc(hubBrand().product_name)} (ufficio)», più veloce in rete locale' : ''}. Genera un client per ogni PC e fai doppio clic su <span class="mono">collega-questo-pc.bat</span>.</div>` : '';
   const pk = d.packages || {};
   const sede = hasSede ? `<div class="card mb"><div class="hd"><span style="color:var(--acc)">${ic('building')}</span><h3>Server di sede (il primo PC)</h3><div class="btns">${pk.sede ? `<a class="btn pri sm" href="/scarica/sede/${esc(d.customer.id)}">${ic('download')} Scarica il pacchetto della sede (${Math.round(pk.sede.size / 1048576 * 10) / 10} MB)</a>` : ''}</div></div>
     <div class="bd" style="color:var(--fg2)">${pk.sede ? `Pacchetto pronto: licenza, nome dello studio e${hasOnline ? ' il collegamento al sito (codice del ponte, se il sito è già attivato e la cassaforte è aperta),' : ''} tutto dentro <span class="mono">${esc(pk.sede.name)}</span>. Sul PC: estrai e doppio clic su <b>INSTALLA-SENZA-DOMANDE.bat</b> (oppure installa.bat per la versione guidata). Va sul PC che fa da server in ufficio: tiene una copia completa e la allinea con il sito ogni 10 minuti. ${hasOnline ? 'Se è spento non si ferma nessuno: PC e telefoni lavorano sul sito online.' : 'È il riferimento dello studio: deve restare acceso in orario di lavoro.'}` : 'Installer non ancora preparato: confermalo da «Crea progetto con AI» con «Prepara subito i pacchetti», oppure da Strumenti classici, Nuovo cliente guidato.'}</div></div>` : '';
@@ -810,6 +814,46 @@ function tData(el, d) {
     ${row('Indirizzo', [x.address, x.city].filter(Boolean).join(', '))}${row('Codice Multi', x.codice_multi)}${row('Codice SDI', x.sdi)}${row('Stato', CUST_STATUS[c.status])}${row('Rivenditore', c.reseller_name)}</dl></div></div>
     <div class="card"><div class="hd"><h3>Note e sistema</h3></div><div class="bd"><p style="white-space:pre-wrap;margin-top:0">${esc(c.notes || 'Nessuna nota.')}</p><dl class="kv">${row('ID', c.id)}${row('Creato', fmtDT(c.created_at).replace(/&amp;/g, '&'))}${row('Progetti', String(d.projects.length))}</dl></div></div></div>`;
   $('#ed').onclick = () => editCustomer(c);
+}
+
+// v0.13: brand the customer sees (white label) and agreed price (quote = only what differs from the price list)
+const eur = (v) => (v === null || v === undefined || v === '') ? '—' : Number(v).toLocaleString('it-IT', { maximumFractionDigits: 2 }) + ' €';
+async function tCommercial(el, d) {
+  const c = d.customer;
+  el.innerHTML = '<div class="card"><div class="bd" style="color:var(--mut)">Carico…</div></div>';
+  const m = await api(`/api/customers/${c.id}/commerciale`);
+  const q = m.quote, b = m.brand, per = q.billing === 'yearly' ? 'anno' : 'mese';
+  const row = (k, v) => `<dt>${esc(k)}</dt><dd>${v}</dd>`;
+  el.innerHTML = `<div class="grid g2"><div class="card"><div class="hd"><h3>Marchio</h3><div class="btns"><button class="btn sm" id="ed-brand">${ic('edit')} Modifica</button></div></div><div class="bd">
+    <p class="note" style="margin-top:0">Il nome che il cliente vede nell'app, sul sito, nei pacchetti e nelle lettere. Di solito è quello del prodotto («${esc(m.product_name)}»); per un rivenditore o un cliente con il suo marchio cambia qui. Arriva ai siti al prossimo deploy.</p>
+    <dl class="kv">${row('Nome', `<b>${esc(b.product_name)}</b>`)}${row('Sigla', esc(b.mark || '—'))}${row('Colore', b.primary_color ? `<span class="mono">${esc(b.primary_color)}</span> <span style="display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:middle;background:${esc(b.primary_color)}"></span>` : 'quello standard')}
+    ${row('Assistenza', esc([b.support_email, b.support_phone].filter(Boolean).join(' · ') || '—'))}${row('Sito', esc(b.website || '—'))}
+    ${row('Da dove viene', Object.keys(m.own_brand).length ? 'marchio proprio del cliente' : Object.keys(m.reseller_brand).length ? 'marchio del rivenditore' : 'marchio del prodotto (brand.js)')}</dl></div></div>
+    <div class="card"><div class="hd"><h3>Prezzo</h3><div class="btns"><button class="btn sm" id="ed-quote">${ic('edit')} Preventivo</button></div></div><div class="bd">
+    <dl class="kv">${row('Piano', esc(q.plan_label))}${row('Listino', eur(q.list_eur) + '/' + per + (q.modules.length ? ' <small>(con ' + q.modules.map((x) => esc(x.label)).join(', ') + ')</small>' : ''))}
+    ${row('Concordato', `<b>${eur(q.agreed_eur)}/${per}</b> <small>${esc(q.how)}</small>`)}${q.setup_eur ? row('Avvio', eur(q.setup_eur) + ' una tantum') : ''}${q.notes ? row('Note', esc(q.notes)) : ''}${q.valid_until ? row('Valido fino al', esc(q.valid_until)) : ''}</dl>
+    ${q.custom ? '' : '<p class="note">Nessun preventivo: vale il listino (unica fonte: plans.json). Se il listino cambia, questo cliente segue il listino.</p>'}</div></div></div>`;
+  $('#ed-brand').onclick = () => modal({ title: `Marchio di ${c.name}`, wide: true,
+    body: `<p class="note" style="margin-top:0">Lascia vuoto per usare quello del rivenditore o del prodotto. L'indirizzo dei QR non dipende dal marchio.</p><div class="frow">${fld('product_name', 'Nome del prodotto', { value: m.own_brand.product_name || '', ph: m.product_name })}${fld('mark', 'Sigla (max 4)', { value: m.own_brand.mark || '' })}</div>
+      <div class="frow">${fld('primary_color', 'Colore #RRGGBB', { value: m.own_brand.primary_color || '', ph: '#0A5C8A' })}${fld('logo_url', 'Logo (https:// o data:image)', { value: m.own_brand.logo_url || '' })}</div>
+      <div class="frow">${fld('support_email', 'Email assistenza', { value: m.own_brand.support_email || '' })}${fld('support_phone', 'Telefono assistenza', { value: m.own_brand.support_phone || '' })}</div>
+      <div class="frow">${fld('website', 'Sito', { value: m.own_brand.website || '', ph: 'https://' })}${fld('vendor_name', 'Chi vende e assiste', { value: m.own_brand.vendor_name || '' })}</div>`,
+    onSubmit: async (f) => { await api(`/api/customers/${c.id}/commerciale`, { brand: f }); closeOverlay(); toast('Marchio salvato: ripubblica i siti per portarlo online.'); route(); } });
+  const own = q.custom ? q : {};
+  $('#ed-quote').onclick = () => modal({ title: `Preventivo di ${c.name}`, wide: true,
+    body: `<p class="note" style="margin-top:0">Scrivi solo quello che cambia rispetto al listino. Canone concordato <b>oppure</b> sconto.</p>
+      <div class="frow">${sel('plan', 'Piano', Object.entries(m.plans).map(([k, v]) => [k, `${v.label} (${eur(v.monthly_eur)}/mese)`]), q.plan)}${sel('billing', 'Fatturazione', [['monthly', 'mensile'], ['yearly', 'annuale (10 mesi)']], q.billing)}</div>
+      <div class="frow">${fld('discount_pct', 'Sconto %', { value: q.how.startsWith('sconto') ? q.how.replace(/[^0-9.,]/g, '') : '' })}${fld('monthly_eur', 'Canone mensile concordato €', { value: q.how === 'canone concordato' ? String(q.billing === 'yearly' ? q.agreed_eur / 10 : q.agreed_eur) : '' })}</div>
+      <div class="frow">${fld('modules', 'Moduli (separati da virgola)', { value: q.modules.map((x) => x.id).join(','), hint: Object.keys(m.modules).join(', ') })}${fld('setup_eur', 'Avvio € una tantum', { value: own.setup_eur != null ? String(own.setup_eur) : '' })}</div>
+      <div class="frow">${fld('notes', 'Note', { value: q.notes })}${fld('valid_until', 'Valido fino al (AAAA-MM-GG)', { value: q.valid_until })}</div>
+      <label class="check"><input type="checkbox" name="clear"> <span>Togli il preventivo (torna al listino)</span></label>`,
+    onSubmit: async (f) => {
+      const num = (v) => (String(v || '').trim() === '' ? null : Number(String(v).replace(',', '.')));
+      const body = f.clear ? { preventivo_azzera: true } : { preventivo: { plan: f.plan, billing: f.billing, discount_pct: num(f.monthly_eur) !== null ? null : num(f.discount_pct), monthly_eur: num(f.monthly_eur),
+        modules: String(f.modules || '').split(',').map((x) => x.trim()).filter(Boolean), setup_eur: num(f.setup_eur), notes: f.notes || null, valid_until: f.valid_until || null } };
+      if (body.preventivo && !body.preventivo.modules.length) body.preventivo.modules = null;
+      await api(`/api/customers/${c.id}/commerciale`, body); closeOverlay(); toast('Preventivo salvato.'); route();
+    } });
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -948,7 +992,7 @@ async function channelCard(box) {
   let d; try { d = await api('/api/licence-channel'); } catch (e) { box.innerHTML = `<div class="note warn">${esc(e.message)}</div>`; return; }
   const ch = d.channel; const rows = d.rows || [];
   const pend = rows.filter((r) => r.update_url && !r.published).length, noUrl = rows.filter((r) => !r.update_url && r.status === 'active').length;
-  box.innerHTML = `<p style="margin-top:0;color:var(--fg2)">L'hub mette ogni licenza firmata in una cartella del <b>tuo</b> sito (<span class="mono">licenze/</span>, indirizzi non indovinabili, nessun dato segreto). Ogni server DocMap la scarica da solo ogni 6 ore e la installa solo se è più recente: così sospensioni, riattivazioni, nuovi limiti e rinnovi automatici arrivano senza toccare il PC del cliente.</p>
+  box.innerHTML = `<p style="margin-top:0;color:var(--fg2)">L'hub mette ogni licenza firmata in una cartella del <b>tuo</b> sito (<span class="mono">licenze/</span>, indirizzi non indovinabili, nessun dato segreto). Ogni server dei clienti la scarica da solo ogni 6 ore e la installa solo se è più recente: così sospensioni, riattivazioni, nuovi limiti e rinnovi automatici arrivano senza toccare il PC del cliente.</p>
     ${ch ? `<dl class="kv"><dt>Sito del canale</dt><dd>${esc(ch.label)}</dd><dt>Indirizzo</dt><dd class="mono">${esc(ch.base_url)}</dd><dt>Licenze</dt><dd>${rows.filter((r) => r.published).length} pubblicate · ${pend} da pubblicare${noUrl ? ` · ${noUrl} senza indirizzo (emesse prima del canale)` : ''}</dd></dl>` : '<p><span class="pill mut">Non impostato</span> Le licenze si consegnano a mano.</p>'}
     ${d.error ? `<div class="note warn">${esc(d.error)}</div>` : ''}
     <div class="btns mt"><button class="btn sm" id="ch-set">${ic('globe')} ${ch ? 'Cambia sito' : 'Imposta il canale'}</button>${ch ? `<button class="btn pri sm" id="ch-pub">${ic('rocket')} Pubblica adesso${noUrl ? ' (e aggiungi l\'indirizzo)' : ''}</button>` : ''}</div>`;
@@ -1010,7 +1054,7 @@ async function pPipeline(page, draftId, step) {
   page.innerHTML = `<div class="ph"><div><h1>${ic('sparkle')} Crea progetto con AI</h1><div class="sub">Funziona con qualsiasi AI (Claude, ChatGPT, Gemini, un modello locale o un agente con accesso ai tuoi file). L'hub non chiama nessuna AI e le password non passano mai dall'AI.</div></div></div>
     <div class="grid g2">
       <div class="card"><div class="hd"><span class="pill info">1</span><h3>Copia il prompt e parla con l'AI</h3></div><div class="bd">
-        <p style="margin-top:0;color:var(--fg2)">Il prompt contiene il contesto di DocMap, le regole, i piani di licenza, il <b>modello JSON completo</b> e un esempio. Incollalo in una chat nuova: l'AI ti fa le domande e alla fine ti dà il JSON pronto.</p>
+        <p style="margin-top:0;color:var(--fg2)">Il prompt contiene il contesto del programma, le regole, i piani di licenza, il <b>modello JSON completo</b> e un esempio. Incollalo in una chat nuova: l'AI ti fa le domande e alla fine ti dà il JSON pronto.</p>
         <div class="btns"><button class="btn ai" id="copy">${ic('sparkle')} Copia prompt per l'AI</button><button class="btn" id="dl-tpl">${ic('download')} Modello JSON</button><button class="btn ghost" id="show">Vedi il prompt</button></div>
         <textarea id="ptxt" rows="14" readonly hidden style="margin-top:12px">${esc(S.pp.prompt)}</textarea></div></div>
       <div class="card"><div class="hd"><span class="pill info">2</span><h3>Incolla il JSON e genera la bozza</h3></div><div class="bd">
@@ -1125,7 +1169,7 @@ async function pDraft(page, id, step) {
       <div class="f"><label>Note</label><textarea data-p="cliente.note" rows="3" style="font-family:inherit;font-size:14px">${esc(d.cliente.note)}</textarea></div><div id="st-issues"></div>`;
   } else if (k === 'progetto') {
     const inst = d.progetto.installazioni;
-    body.innerHTML = `<div class="frow">${pf('progetto.nome', 'Nome del progetto', { ph: 'DocMap Studio Rossi' })}${pf('progetto.nome_studio', 'Nome mostrato nell\'app e sulle etichette')}</div>
+    body.innerHTML = `<div class="frow">${pf('progetto.nome', 'Nome del progetto', { ph: 'Studio Rossi' })}${pf('progetto.nome_studio', 'Nome mostrato nell\'app e sulle etichette')}</div>
       <div class="f" data-wrap="progetto.installazioni"><label>Installazioni</label><div class="btns">
         <label class="check"><input type="checkbox" data-inst="sede" ${inst.includes('sede') ? 'checked' : ''}> <span><b>Sede</b>: server su un PC dello studio</span></label>
         <label class="check"><input type="checkbox" data-inst="online" ${inst.includes('online') ? 'checked' : ''}> <span><b>Online</b>: sito web su hosting</span></label></div><div class="hint perr" style="color:var(--bad)"></div></div>
@@ -1280,7 +1324,7 @@ async function pDeploys(page) {
 // v0.9: every online site behind this hub's version, updated one after the other (stop at the first failure)
 async function updatesCard(box) {
   let u; try { u = await api('/api/updates'); } catch (e) { box.innerHTML = `<div class="bd"><div class="note warn">${esc(e.message)}</div></div>`; return; }
-  if (!u.target) { box.innerHTML = '<div class="bd"><div class="note warn">Non trovo la cartella di DocMap accanto all\'hub: non so quale versione pubblicare.</div></div>'; return; }
+  if (!u.target) { box.innerHTML = '<div class="bd"><div class="note warn">Non trovo la cartella del programma accanto all\'hub: non so quale versione pubblicare.</div></div>'; return; }
   if (!u.sites.length) { box.innerHTML = `<div class="hd"><h3>Aggiornamenti</h3><span class="pill ok">tutti alla ${esc(u.target)}</span></div><div class="bd" style="color:var(--fg2)">Tutti i siti di produzione sono già alla versione di questo hub (o non sono mai stati controllati: premi «Controlla tutto»).</div>`; return; }
   box.innerHTML = `<div class="hd"><h3>Siti da aggiornare alla ${esc(u.target)}</h3><span class="pill warn">${u.sites.length}</span></div><div class="bd">
     <p style="margin-top:0;color:var(--fg2)">Uno dopo l'altro, con il solito deploy: backup del server, caricamento, controllo e ritorno automatico alla versione di prima se il sito non risponde. <b>Al primo errore mi fermo</b> e gli altri restano come sono. Prima prova la nuova versione su uno staging.</p>
@@ -1573,7 +1617,7 @@ function addEnvironment(d, inst) {
   const paint = () => {
     const t = $('#f-type', f).value;
     $('#envf', f).innerHTML = t === 'local-python'
-      ? `${sel('name', 'Nome', [['staging', 'staging'], ['demo-1', 'demo-1'], ['production', 'production']], 'staging')}${fld('studio_name', 'Nome dello studio mostrato nell\'app')}<div class="note">L'hub prepara un server DocMap su una porta libera di questo PC, con i codici di accesso custoditi in cassaforte. Serve per provare o fare demo.</div>`
+      ? `${sel('name', 'Nome', [['staging', 'staging'], ['demo-1', 'demo-1'], ['production', 'production']], 'staging')}${fld('studio_name', 'Nome dello studio mostrato nell\'app')}<div class="note">L'hub prepara un server del programma su una porta libera di questo PC, con i codici di accesso custoditi in cassaforte. Serve per provare o fare demo.</div>`
       : `${sel('name', 'Ruolo', [['production', 'Produzione (quello vero)'], ['staging', 'Staging (prova)']], 'production')}
         ${fld('url', 'Indirizzo', { req: true, ph: t === 'web-php' ? 'https://www.studio.it/docmap/' : 'https://192.168.1.20:8443/' })}
         ${t === 'web-php' ? `${fld('api_url', 'Indirizzo dell\'API (facoltativo)', { ph: 'https://www.studio.it/docmap/server-php/api.php', hint: 'Vuoto = calcolato dall\'indirizzo. Serve al controllo dopo il deploy.' })}${fld('base_path', 'Cartella nel sito (facoltativa)', { ph: '/docmap/' })}` : ''}

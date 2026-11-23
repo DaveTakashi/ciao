@@ -633,7 +633,7 @@ function jrCsvRows(){
 }
 function jrExport(kind){
   const d = new Date(), p = (n) => String(n).padStart(2, '0'), stamp = d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes());
-  const srv = JR.ui.src === 'srv', name = 'docmap-registro-sync-' + (srv ? 'server' : 'locale') + '-' + stamp + '.' + kind;
+  const srv = JR.ui.src === 'srv', name = brandFile('registro-sync-') + (srv ? 'server' : 'locale') + '-' + stamp + '.' + kind;
   if (kind === 'csv') download(name, '\ufeff' + toCSV(jrCsvRows().map(r => r.map(safeCell)), ';'), 'text/csv');
   else download(name, JSON.stringify({format:'docmap-sync-journal', version:1, app:'DocMap26', appVersion:APP_VERSION, exportedAt:nowISO(), source:srv ? 'server' : 'local',
     device:jrClientInfo(), filters:JR.ui.f, entries:srv ? jrSrvList() : jrLocalList()}, null, 1), 'application/json');

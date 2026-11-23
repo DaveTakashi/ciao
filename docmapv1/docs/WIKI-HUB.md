@@ -1,7 +1,9 @@
-# Wiki di DocMap Hub
+# Wiki di Doc Location Hub
 
-Vale per **hub 0.12.0**, **DocMap 26.12.11 (app v12.11)** e **strumenti di installazione 1.2.0**. Data: 23 novembre 2026.
+Vale per **hub 0.13.0**, **Doc Location 26.12.12 (app v12.12)** e **strumenti di installazione 1.2.0**. Data: 23 novembre 2026.
 
+> **Novità 0.13.** Nuovo nome **Doc Location** e **white label**: il nome viene da `brand.js`; ogni rivenditore e ogni cliente può avere nome, sigla, logo, colore e contatti suoi (scheda del cliente › **Marchio e prezzo**, `marchio imposta`), scritti dall'hub in ogni sito e pacchetto. **Listino unico** `plans.json` (`listino`) e **preventivo per cliente** (`cliente preventivo`). Guida: `MARCHIO.md`. Aggiornamento: `AGGIORNAMENTO-HUB-0.13.0.md`.
+>
 > **Novità 0.12.** Aggiornare e riparare senza paura: **backup automatico al primo avvio di ogni versione nuova**, ogni backup **controllato** (pulsante «Verifica»), **ripristino sicuro** con `hub\RIPRISTINA-BACKUP.bat` (i dati di adesso vanno da parte, mai cancellati), **Controllo dell'hub** in Impostazioni (`controllo`), **Clienti › Situazione (Excel)**. Capitoli 3, 6.13, 6.18. Aggiornamento: `AGGIORNAMENTO-HUB-0.12.0.md`.
 >
 > **Novità 0.11.** **Elimina cliente** (backup prima, per ripartire da zero; capitolo 6.15), **pacchetto della sede
@@ -198,7 +200,7 @@ L'unica cosa che chiede ancora la conferma è **mostrare** un segreto nella pagi
 | Parola | Significato | Esempio |
 |---|---|---|
 | **cliente** | lo studio o l'azienda che paga | STUDIO ERMETE DALL'ASTA |
-| **installazione** (instance) | un server DocMap del cliente; ha un codice `instance_id` e una licenza | "STUDIO ERMETE DALL'ASTA — sede", "… — online" |
+| **installazione** (instance) | un server Doc Location del cliente; ha un codice `instance_id` e una licenza | "STUDIO ERMETE DALL'ASTA — sede", "… — online" |
 | **sede** | installazione sul PC del cliente (server Python, `C:\DocMap`) | |
 | **online** | installazione sul web (sito PHP sull'hosting) | `https://docmap.pr-it.it/studio-de/` |
 | **ambiente** | una copia di un'installazione: `production` (quella vera), `staging` (prova), `demo-…` (a scadenza) | |
@@ -209,7 +211,7 @@ L'unica cosa che chiede ancora la conferma è **mostrare** un segreto nella pagi
 | **cassaforte** (vault) | segreti cifrati: `ftp`, `admin_token`, `superadmin`, `basic_auth`, `db_config`, `note` | |
 | **custodia della chiave** | il hub tiene anche la chiave del database del cliente; spenta di base, solo con consenso scritto | |
 | **token del ponte** | codice dell'utente `ponte-sync` che sincronizza sede ⇄ online | |
-| **rivenditore** | chi rivende DocMap con il suo marchio | |
+| **rivenditore** | chi rivende Doc Location con il suo marchio | |
 
 Piani (valori predefiniti):
 
@@ -245,7 +247,7 @@ password (va in cassaforte), cartella base come la vede l'account FTP (di solito
    `studio-neri-2`: due clienti non hanno mai lo stesso sito.
 2. Nella stessa finestra: l'elenco dei passi e **Attiva tutto** (è la conferma). In fila: pubblica la demo →
    configura la demo → pubblica in produzione la versione provata → configura → controlla. Pubblica **solo su cartelle
-   vuote** (se c'è DocMap o un altro sito si ferma); ogni deploy ha backup e ritorno automatico; al primo errore si ferma e dice dove.
+   vuote** (se c'è Doc Location o un altro sito si ferma); ogni deploy ha backup e ritorno automatico; al primo errore si ferma e dice dove.
 3. **Scarica il kit di consegna**: un solo zip con `1-lettere-di-benvenuto.html` (una pagina per persona: indirizzo,
    codice, primo accesso), `2-scheda-tecnica.html` (tutti i codici, anche `admin` e `ponte-sync`), la scheda cliente e
    `config/…-config.php` (chiave del database, se non c'è la custodia). L'hub non lo salva: consegnalo e cancella la
@@ -308,7 +310,7 @@ Prima prova la versione su uno staging.
 
 1. Nella pagina premi **Crea progetto con AI** (in alto a sinistra).
 2. **Copia prompt per l'AI** e incollalo in una chat nuova di qualsiasi AI (Claude, ChatGPT, Gemini, un modello locale,
-   o il tuo agente con accesso ai file). Il prompt contiene il contesto di DocMap, le regole, i piani, il **modello JSON
+   o il tuo agente con accesso ai file). Il prompt contiene il contesto di Doc Location, le regole, i piani, il **modello JSON
    completo** e un esempio. L'AI ti fa le domande e alla fine ti dà un unico blocco JSON (formato `docmap-progetto/1`).
    Il modello vuoto si scarica anche con **Modello JSON**.
 3. Incolla la risposta nel riquadro di destra (anche tutto il messaggio: il JSON lo trova l'hub) e premi **Genera bozza**.
@@ -327,7 +329,7 @@ la stessa onboarding rilanciata non crea doppioni.
 
 **Postazioni.** Ogni postazione ha un nome e un'etichetta. **Genera e scarica client** produce uno zip
 `DocMap-<cliente>-<postazione>.zip` con `collega-questo-pc.bat`: sul PC dello studio installa il certificato dello studio
-per l'utente Windows (lo scarica da `http://<server>:8080/`), crea il collegamento **DocMap** sul desktop (Edge in modalità
+per l'utente Windows (lo scarica da `http://<server>:8080/`), crea il collegamento **Doc Location** sul desktop (Edge in modalità
 app) e registra il nome della postazione. Non servono diritti di amministratore e lo zip non contiene dati né segreti.
 Revoca una postazione dismessa con la matita → **Revoca**.
 
@@ -500,7 +502,7 @@ run_windows.bat cliente elenco
 
 `status` mostra per ogni ambiente: stato, raggiungibile, versione, scadenza licenza, ultimo backup.
 
-### 6.12 Nuova versione di DocMap a tutti i clienti
+### 6.12 Nuova versione di Doc Location a tutti i clienti
 
 1. Aggiorna il hub (capitolo 3): la nuova app è dentro.
 2. Siti: dalla scheda del cliente → **Pubblica** → **Deploy staging**, leggi il piano, **Conferma e pubblica**, prova lo
@@ -586,8 +588,8 @@ aggiornata dal ponte ogni pochi minuti: se è spento non succede niente, gli alt
 riallinea. Deve restare acceso in orario d'ufficio **solo** nel modello «solo sede» (niente sito online).
 
 **Postazioni** (scheda del cliente → Postazioni → pacchetto della postazione): se il cliente ha il sito online,
-`collega-questo-pc.bat` crea il collegamento **«DocMap - <studio>»** che apre il sito online (niente certificato da
-installare); se c'è anche la sede aggiunge **«DocMap (ufficio) - <studio>»** per lavorare in rete locale.
+`collega-questo-pc.bat` crea il collegamento **«Doc Location - <studio>»** che apre il sito online (niente certificato da
+installare); se c'è anche la sede aggiunge **«Doc Location (ufficio) - <studio>»** per lavorare in rete locale.
 
 **Pacchetto della sede pronto.** Scheda del cliente → Postazioni → **Scarica il pacchetto della sede**: lo zip contiene
 già licenza, modello del ponte e, se il cliente ha il sito, il **codice del ponte** (`cliente\token-ponte.txt`, messo
@@ -614,7 +616,7 @@ Cosa fa, in fila e con stop al primo errore: **backup** del hub; pubblica il pro
 **vuota**); **configura** il sito nuovo (database nuovo, chiave nuova, **codici nuovi** per tutte le persone); **copia
 tutti i dati** dal sito vecchio al nuovo con il ponte; mette sul vecchio indirizzo un **reindirizzamento** (il
 `.htaccess` di prima resta come `.htaccess.prima-dello-spostamento`), così link salvati e collegamenti dei PC portano al
-nuovo. Dalla 0.11.1 il reindirizzamento vale **solo per le pagine di DocMap** (pagine, `/q/<codice>`, programma, API):
+nuovo. Dalla 0.11.1 il reindirizzamento vale **solo per le pagine di Doc Location** (pagine, `/q/<codice>`, programma, API):
 il sito nuovo può stare anche **dentro** la cartella del vecchio (`…/studio-de/2026/`) e le altre sottocartelle non si
 toccano. **Il sito vecchio non si cancella** (lo togli tu via FTP quando vuoi). Le **etichette stampate** puntano a
 `qr7.it` e non cambiano: aggiorna solo la destinazione su QR7 se la usi.
@@ -643,7 +645,7 @@ la chiede), `--env staging` per la demo/staging, `--senza-reindirizzo` per non t
 **Controllo dell'hub**: Impostazioni › «Controlla adesso», oppure `run_windows.bat controllo`. Non cambia niente e non
 chiede passphrase. Guarda: Python e libreria cryptography, cartella dati scrivibile e spazio libero, registro integro e
 schema, versione dell'hub rispetto ai dati, chiave di firma, ultimo backup (controllato davvero), backup automatici e
-seconda cartella, programma DocMap completo accanto all'hub (con la versione dell'app), impostazioni che puntano a
+seconda cartella, programma Doc Location completo accanto all'hub (con la versione dell'app), impostazioni che puntano a
 cartelle sparite. Ogni riga gialla o rossa dice **cosa fare**. Funziona anche quando l'hub non parte (registro
 rovinato): è il primo comando da lanciare se qualcosa non va, ed è dentro `RACCOGLI-INFO.bat`.
 

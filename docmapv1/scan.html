@@ -7,8 +7,8 @@
 <meta name="referrer" content="no-referrer">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#0F172A">
-<title>DocMap</title>
-<!-- DocMap 2026 (DM26) v10 — mobile page shown after scanning a binder QR.
+<title>Archivio</title>
+<!-- v10 — mobile page shown after scanning a binder QR.
      scan.html?q={short_code} · ?qr= · ?code={speaking_code} · <base>/q/{short_code} · #/q/{short_code}  [&lang=en]
      Works from file:// in the same browser as the desktop app (shared localStorage/IndexedDB),
      as a static upload in web mode (docmap.config.js, docs/DEPLOY-WEB.md) and later with the Python API (docs/API-CONTRACT.md).
@@ -30,10 +30,12 @@
 <link rel="stylesheet" href="assets/css-licence.css">
 <link rel="stylesheet" href="assets/css-inventory.css">
 <link rel="stylesheet" href="assets/css-pick.css">   <!-- v12.10: pick list on the phone -->
+<script src="brand.js"></script>   <!-- product brand (white label): the single source, docs/MARCHIO.md -->
+<script src="assets/js/00-brand.js"></script>
 </head>
 <body>
 <div id="app" aria-live="polite"><main class="sc-main sc-center"><div class="sc-spin" aria-hidden="true"></div></main></div>
-<noscript><div style="padding:24px;font-family:sans-serif">DocMap richiede JavaScript attivo. / DocMap requires JavaScript.</div></noscript>
+<noscript><div style="padding:24px;font-family:sans-serif">Questa pagina richiede JavaScript attivo. / This page requires JavaScript.</div></noscript>
 <!-- Classic scripts (not modules) so the page works from file://. Order matters. -->
 <script src="assets/js/02-core.js"></script>
 <script src="assets/js/02c-locations.js"></script>

@@ -16,6 +16,7 @@ from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from docmap_hub.branding import brand_name  # noqa: E402
 from docmap_hub import autoaccess
 from docmap_hub.registry import MIGRATIONS, Registry, RegistryError, SCHEMA_VERSION
 from docmap_hub.service import Hub
@@ -54,7 +55,7 @@ class TestRegistryV3(unittest.TestCase):
         self.assertTrue(list((self.dir / "backups").glob("registro-prima-dello-schema-*-da-2-*.sqlite3")))
         projects = r.list_projects("cus-1")
         self.assertEqual(len(projects), 1)
-        self.assertEqual(projects[0]["name"], "DocMap Studio Vecchio")
+        self.assertEqual(projects[0]["name"], f"{brand_name()} Studio Vecchio")
         self.assertEqual({i["project_id"] for i in r.list_instances("cus-1")}, {projects[0]["id"]})
         self.assertEqual(r.get_customer("cus-1")["status"], "active")
         # running the migration again changes nothing

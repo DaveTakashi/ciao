@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from . import sitesetup as SS
 from .vault import Vault
+from .branding import brand_name as _bn
 
 
 def _step(sid, title, done, hint="", action=None):
@@ -74,7 +75,7 @@ def for_customer(hub, cid: str, *, packages: dict | None = None) -> dict:
                            "Preparalo dalla scheda «Pubblica».", {"do": "tab", "tab": "pubblica"}))
         se = next((e for e in envs if e["instance_id"] == i["id"]), None)
         installed = se is not None and se.get("url") and se["status"] == "running"
-        steps.append(_step(f"inst-{i['id']}", "DocMap installato sul PC dello studio", installed,
+        steps.append(_step(f"inst-{i['id']}", f"{_bn()} installato sul PC dello studio", installed,
                            "Sul PC del cliente: estrai lo zip e lancia installa.bat. Poi scrivi qui l'indirizzo che "
                            "mostra alla fine (https://IP:8443/) e premi «Controlla» (dallo studio o in VPN).",
                            {"do": "env", "env_id": se["id"]} if se else {"do": "tab", "tab": "pubblica"}))

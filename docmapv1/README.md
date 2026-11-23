@@ -1,4 +1,4 @@
-# DocMap 2026 (DM26) — versione 26.12.11
+# Doc Location — versione 26.12.12
 
 Archivio fisico-digitale dello studio. Ogni faldone ha:
 
@@ -16,7 +16,7 @@ Sul PC funziona **offline**, con un doppio clic e senza installare niente. Il **
 2. Fai doppio clic su `docmapv1/index.html`.
 3. Usa **Chrome** o **Edge**, sempre lo stesso browser: i dati restano in quel browser.
 4. Il pulsante **?** in alto (o F1) apre la guida con le azioni guidate. Versione e stato del server: ⚙ › Impostazioni ›
-   Dati e sicurezza › **Informazioni su DocMap**.
+   Dati e sicurezza › **Informazioni su Doc Location**.
 5. Fai spesso **Salva backup** (pulsante in alto).
 
 ## Dove trovare le istruzioni
@@ -58,7 +58,7 @@ assets/, vendor/    codice, stili, caratteri, sql.js (tutto incluso, niente Inte
 server-php/         il database online condiviso (api.php, setup.php) per SiteGround
 server-python/      lo stesso server in Python, per l'installazione in sede
 installer-windows/  installazione in sede su Windows (C:\DocMap)
-hub/                DocMap Hub: clienti, licenze, deploy (PC di Dave)
+hub/                Doc Location Hub: clienti, licenze, deploy (PC di Dave)
 ci/                 test automatici su GitHub (file da attivare)
 tools/              build_deploy.py (cartella da caricare sul sito) e altri strumenti
 tests/              test automatici (solo per chi sviluppa)

@@ -26,7 +26,7 @@ const IV_UNDO_MS = 10000, IV_RECENT_MAX = 300, IV_AMEND_MS = 1200;
 if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
   (function(){
     Object.assign(I18N.it, {
-      iv_title:'Doc Location — Inventario', iv_pick_h:'Inventario rapido', iv_pick_p:'Scegli il progetto su cui lavori.', iv_pick_none:'Nessun progetto aperto. Crealo sul PC: Progetti › Nuovo progetto.',
+      iv_title:('' + brandName() + ' — Inventario'), iv_pick_h:'Inventario rapido', iv_pick_p:'Scegli il progetto su cui lavori.', iv_pick_none:'Nessun progetto aperto. Crealo sul PC: Progetti › Nuovo progetto.',
       iv_open:'Apri l\'inventario {p}', iv_label_of:'Questa etichetta è del progetto {p} e non è ancora stata scansionata.',
       iv_cam_on:'Avvia la fotocamera', iv_cam_off:'Ferma la fotocamera', iv_cam_err:'Fotocamera non disponibile: {m}', iv_cam_hint:'Inquadra il QR: prima la scatola, poi un faldone dopo l\'altro, con la costa ben visibile.',
       iv_box:'Scatola', iv_nobox:'Nessuna scatola attiva: scansiona il QR della scatola.', iv_box_n:'{n} faldoni in questa scatola', iv_box_1:'1 faldone in questa scatola', iv_box_set:'Scatola attiva: {c}', iv_box_new:'Nuova scatola: {c}',
@@ -41,7 +41,7 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       iv_err:'Non salvato: {m}', iv_mode_capture:'Modalità: cattura ora, cataloga dopo', iv_mode_box:'Modalità: scatola → faldoni'
     });
     Object.assign(I18N.en, {
-      iv_title:'Doc Location — Inventory', iv_pick_h:'Rapid inventory', iv_pick_p:'Pick the project you are working on.', iv_pick_none:'No open project. Create it on the PC: Projects › New project.',
+      iv_title:('' + brandName() + ' — Inventory'), iv_pick_h:'Rapid inventory', iv_pick_p:'Pick the project you are working on.', iv_pick_none:'No open project. Create it on the PC: Projects › New project.',
       iv_open:'Open the inventory {p}', iv_label_of:'This label belongs to project {p} and has not been scanned yet.',
       iv_cam_on:'Start the camera', iv_cam_off:'Stop the camera', iv_cam_err:'Camera not available: {m}', iv_cam_hint:'Frame the QR: first the box, then one binder after the other, with the spine in view.',
       iv_box:'Box', iv_nobox:'No active box: scan the box QR.', iv_box_n:'{n} binders in this box', iv_box_1:'1 binder in this box', iv_box_set:'Active box: {c}', iv_box_new:'New box: {c}',

@@ -23,6 +23,7 @@ from datetime import datetime
 from . import sitesetup as SS
 from .registry import RegistryError
 from .vault import Vault, VaultKey
+from .branding import brand_name as _bn
 
 
 class ActivateError(RegistryError):
@@ -117,11 +118,11 @@ def activate_customer(hub, vk: VaultKey, cid: str, *, log=lambda m: None, deploy
                     if dry.get("remote_version") and same:
                         # a previous «Attiva tutto» uploaded exactly these files and stopped at the check (typical:
                         # SSL of a new domain not active yet): resume instead of refusing a folder we filled ourselves
-                        log("  DocMap è già nella cartella, identico a questa versione (tentativo precedente): "
+                        log(f"  {_bn()} è già nella cartella, identico a questa versione (tentativo precedente): "
                             "riprendo da qui")
                     elif dry.get("remote_version"):
                         raise ActivateError(
-                            f"Nella cartella del sito {env['name']} c'è già DocMap (versione {dry['remote_version']}): "
+                            f"Nella cartella del sito {env['name']} c'è già {_bn()} (versione {dry['remote_version']}): "
                             "«Attiva tutto» pubblica solo su cartelle vuote. Usa «Pubblica» (con il piano da leggere).")
                     elif dry.get("remote_file_count"):
                         raise ActivateError(
@@ -199,7 +200,7 @@ def letters_html(cust: dict, codes: list[dict]) -> str:
     people = [c for c in codes if c["env"] == "production" and c["user"] not in (SS.HUB_ADMIN, SS.BRIDGE_USER)]
     pages = []
     for c in people:
-        pages.append(f"""<div class="p"><h1>Benvenuto in DocMap, {_e(c['user'])}</h1>
+        pages.append(f"""<div class="p"><h1>Benvenuto in {_bn()}, {_e(c['user'])}</h1>
 <div class="mut">{_e(cust['name'])} · archivio dei faldoni</div>
 <div class="box"><b>Indirizzo</b><div class="code">{_e(c['url'])}</div>
 <b style="display:block;margin-top:10px">Il tuo codice di accesso</b><div class="code">{_e(c['token'])}</div>

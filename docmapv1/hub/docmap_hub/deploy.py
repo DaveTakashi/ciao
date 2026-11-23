@@ -50,6 +50,7 @@ from pathlib import Path
 
 from . import licence as L
 from .registry import RegistryError
+from .branding import override_for_env
 from .runner import app_version_of, ping, run_build_deploy
 from .vault import Vault, VaultKey, EscrowRefused
 
@@ -483,7 +484,8 @@ def build_for(hub, env: dict) -> Build:
         tk, lic = site_licence_files(hub, env, Path(td.name))
         res = run_build_deploy(target, base_path=s.get("base_path") or "/", slug=s.get("slug") or "studio",
                                domain=s.get("domain") or "https://example.invalid",
-                               studio_name=s.get("studio_name") or "", reg=hub.registry, trusted_keys=tk, licence=lic)
+                               studio_name=s.get("studio_name") or "", reg=hub.registry, trusted_keys=tk, licence=lic,
+                               brand=override_for_env(hub.registry, env))
     except Exception:
         td.cleanup()
         raise

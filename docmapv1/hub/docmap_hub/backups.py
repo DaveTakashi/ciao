@@ -21,6 +21,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from .registry import RegistryError
+from .branding import brand_name as _bn
 
 AUTO_PREFIX = "docmap-hub-auto-"
 UPGRADE_PREFIX = "docmap-hub-prima-della-"   # v0.12: written by the first run of a new hub version
@@ -233,7 +234,7 @@ def decrypt_export(blob: bytes, passphrase: str) -> bytes:
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
     from .vault import derive
     if not blob.startswith(EXPORT_MAGIC):
-        raise RegistryError("Non è un'esportazione di DocMap Hub.")
+        raise RegistryError(f"Non è un'esportazione di {_bn()} Hub.")
     rest = blob[len(EXPORT_MAGIC):]
     hb, _, ct = rest.partition(b"\n")
     try:

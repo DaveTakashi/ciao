@@ -185,7 +185,7 @@ class EncryptedBackupTest(unittest.TestCase):
         self.assertEqual(T.ensure_passphrase(self.base), (pp, False))
         with open(T.passphrase_path(self.base), encoding="utf-8") as f:
             txt = f.read()
-        self.assertTrue(txt.startswith("# DocMap"))
+        self.assertTrue(txt.startswith("# " + T._bn()))
         if os.name == "posix":
             self.assertEqual(os.stat(T.passphrase_path(self.base)).st_mode & 0o077, 0)
         r1 = T.make_backup(self.base, now=dt.datetime(2026, 11, 1, 12, 30))

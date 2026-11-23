@@ -1,4 +1,4 @@
-﻿# DocMap - aggiorna il programma sul PC (la cartella con index.html) da uno zip nuovo, senza toccare i dati.
+﻿# Aggiorna il programma sul PC (la cartella con index.html) da uno zip nuovo, senza toccare i dati.
 # Uso: doppio clic su AGGIORNA-DOCMAP.bat (cerca da solo l'ultimo docmap_v*.zip nella cartella sopra e in Download),
 #      oppure trascina lo zip sopra AGGIORNA-DOCMAP.bat.  Tornare indietro: AGGIORNA-DOCMAP.bat ripristina
 # I dati (faldoni, clienti, foto) stanno nel browser e restano legati al PERCORSO della cartella: per questo i file nuovi
@@ -11,6 +11,12 @@ $app = Split-Path -Parent $PSScriptRoot
 $parent = Split-Path -Parent $app
 $copie = Join-Path $parent 'DocMap-copie'
 $ts = Get-Date -Format 'yyyyMMdd-HHmmss'
+# product name from brand.js (white label, docs/MARCHIO.md); folder and file names keep the technical name docmap
+$prod = 'il programma'
+try {
+    $bj = Get-Content -Raw -Encoding UTF8 -LiteralPath (Join-Path $app 'brand.js')
+    if ($bj -match '(?s)window\.DOCMAP_BRAND\s*=\s*(\{.*\})\s*;?\s*$') { $n = ($Matches[1] | ConvertFrom-Json).product_name; if ($n) { $prod = [string]$n } }
+} catch { }
 
 function Write-Passo([string]$t) { Write-Host ''; Write-Host $t -ForegroundColor Cyan }
 function Write-Bene([string]$t) { Write-Host ('  OK  ' + $t) -ForegroundColor Green }
@@ -37,9 +43,9 @@ function Find-AppFolder([string]$root) {
 function Wait-Fine { Write-Host ''; Read-Host 'Premi Invio per chiudere' | Out-Null }
 
 try {
-    Write-Host 'DocMap - aggiornamento del programma sul PC' -ForegroundColor White
+    Write-Host ($prod + ' - aggiornamento del programma sul PC') -ForegroundColor White
     $cur = Get-AppVersion $app
-    if (-not $cur) { throw "Questa cartella non contiene DocMap: $app" }
+    if (-not $cur) { throw "Questa cartella non contiene $($prod): $app" }
     Write-Bene "Cartella del programma: $app (versione $cur)"
 
     if ($Ripristina) {
@@ -67,7 +73,7 @@ try {
     $tmp = Join-Path $env:TEMP ('docmap-aggiorna-' + $ts)
     if ((Get-Item -LiteralPath $Pacchetto).PSIsContainer) { $root = $Pacchetto } else { Expand-Archive -LiteralPath $Pacchetto -DestinationPath $tmp -Force; $root = $tmp }
     $new = Find-AppFolder $root
-    if (-not $new) { throw 'Lo zip non contiene DocMap (manca index.html o assets\js\02-core.js).' }
+    if (-not $new) { throw 'Lo zip non contiene il programma (manca index.html o assets\js\02-core.js).' }
     $nv = Get-AppVersion $new
     Write-Bene "Versione nuova: $nv  (attuale: $cur)"
     if ([version]$nv -lt [version]$cur) {
@@ -79,9 +85,9 @@ try {
     }
 
     Write-Passo '2. Prima di continuare'
-    Write-Host '  - Apri DocMap e premi "Salva backup" (in alto a destra, o Impostazioni > Dati). Tieni il file da parte.'
+    Write-Host ('  - Apri ' + $prod + ' e premi "Salva backup" (in alto a destra, o Impostazioni > Dati). Tieni il file da parte.')
     Write-Host '  - Se usi il server online: premi anche "Sincronizza con il server".'
-    Write-Host '  - Chiudi tutte le schede di DocMap nel browser.'
+    Write-Host ('  - Chiudi tutte le schede di ' + $prod + ' nel browser.')
     Write-Host '  I dati NON vengono toccati (sono nel browser), ma il backup serve se qualcosa va storto.'
     if (-not (Read-Conferma 'Fatto? Procedo con l''aggiornamento')) { Write-Host 'Annullato.'; Wait-Fine; exit 0 }
 
@@ -110,7 +116,7 @@ try {
     Write-Bene "Installata la versione $nv"
 
     Write-Passo '5. Controlla'
-    Write-Host "  - Si apre DocMap: in Impostazioni > Informazioni su DocMap deve esserci $nv."
+    Write-Host "  - Si apre $($prod): in Impostazioni > Informazioni su $prod deve esserci $nv."
     Write-Host '  - Stesso numero di faldoni e clienti di prima.'
     Write-Host '  - Se usi il server: Sincronizzazione > "Verifica dopo l''aggiornamento" (tutte le righe verdi).'
     Write-Host '  Se qualcosa non va: AGGIORNA-DOCMAP.bat ripristina  (rimette la copia appena fatta).'

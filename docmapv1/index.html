@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>DocMap 2026 — Phygital Archive &amp; Precision Label Studio</title>
-<meta name="description" content="DocMap 2026 (DM26): archivio fisico-digitale, mappatura scaffali, stampa millimetrica di etichette con QR qr7.it, database SQLite locale. Funziona offline con doppio clic.">
+<title>Archivio</title>   <!-- real title from brand.js (00-brand.js) -->
+<meta name="description" content="Archivio fisico-digitale, mappatura scaffali, stampa millimetrica di etichette con QR qr7.it, database SQLite locale. Funziona offline con doppio clic.">
 <script src="docmap.config.js"></script>   <!-- v10: mode local | web (static upload); see docs/DEPLOY-WEB.md -->
 <script>/* v12.9 theme chosen on this device (Impostazioni › Aspetto): applied before the first paint */try{var dmT=localStorage.getItem("docmap_theme");if(dmT==="dark"||dmT==="light")document.documentElement.setAttribute("data-theme",dmT);}catch(e){}</script>
 <link rel="stylesheet" href="assets/css-tokens.css">   <!-- v12.9: design tokens, light + dark themes -->
@@ -22,12 +22,14 @@
 <link rel="stylesheet" href="assets/css-inventory.css">   <!-- v12.8: inventory projects -->
 <link rel="stylesheet" href="assets/css-licence.css">   <!-- v12.6: licence banner -->
 <link rel="stylesheet" href="assets/css-firststeps.css">   <!-- v12.6: Primi passi -->
-<link rel="stylesheet" href="assets/css-helpx.css">   <!-- v11.1: Informazioni su DocMap, FAQ, phone-width polish -->
+<link rel="stylesheet" href="assets/css-helpx.css">   <!-- v11.1: About page, FAQ, phone-width polish -->
 <link rel="stylesheet" href="assets/css-archives.css">   <!-- v12: archives (clusters), Configura archivio, NFC -->
 <link rel="stylesheet" href="assets/css-search.css">   <!-- v12: search, Ricordami, Chi l'ha visto / Accessi -->
 <link rel="stylesheet" href="assets/css-tape.css">   <!-- v12.3: tape / roll label printers -->
 <link rel="stylesheet" href="assets/css-pick.css">   <!-- v12.10: Prelievi e consegne -->
 <link rel="stylesheet" href="assets/css-yearly.css">   <!-- v12.11: Nuovo anno, Scarto, Dove lo metto?, voce -->
+<script src="brand.js"></script>   <!-- product brand (white label): the single source, docs/MARCHIO.md -->
+<script src="assets/js/00-brand.js"></script>
 <style id="page-style">@page{size:210mm 297mm;margin:0mm}</style>
 </head>
 <body>
@@ -43,7 +45,7 @@
 <input type="file" id="file-manifest" accept=".csv,.txt,text/csv" class="hidden">
 <input type="file" id="file-restore" accept=".json,application/json" class="hidden">
 <input type="file" id="file-sqlite" accept=".sqlite,.sqlite3,.db,application/x-sqlite3,application/vnd.sqlite3" class="hidden">
-<noscript><div style="padding:40px;font-family:sans-serif">DocMap 2026 richiede JavaScript attivo. / DocMap 2026 requires JavaScript.</div></noscript>
+<noscript><div style="padding:40px;font-family:sans-serif">Questa pagina richiede JavaScript attivo. / This page requires JavaScript.</div></noscript>
 
 <!-- Classic scripts (not modules) so everything runs from file:// with a double-click. Order matters. -->
 <script src="vendor/sql-wasm.js"></script>
@@ -82,7 +84,7 @@
 <script src="assets/js/06j-status.js"></script>   <!-- v12: statuses / check-out (Fuori archivio) -->
 <script src="assets/js/07-help.js"></script>
 <script src="assets/js/08-guide.js"></script>
-<script src="assets/js/07b-helpx.js"></script>   <!-- v11.1: knowledge base, tours, Informazioni su DocMap -->
+<script src="assets/js/07b-helpx.js"></script>   <!-- v11.1: knowledge base, tours, About page -->
 <script src="assets/js/10-auth.js"></script>
 <script src="assets/js/06k-access.js"></script>   <!-- v12: remembered sign-in, views / access log (after 10-auth.js) -->
 <script src="assets/js/11b-assoc.js"></script>   <!-- v11: camera QR scanner (association mode) -->

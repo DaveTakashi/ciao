@@ -29,7 +29,7 @@ const HX_SERVER_SCHEMA = 3;   // server-php/api.php DM_SCHEMA this client knows 
 const HX_UPGRADE_DOCS = ['docs/AGGIORNAMENTI.md', 'docs/AGGIORNAMENTO-v10-v12.md', 'docs/AGGIORNARE-IL-SERVER.md', 'docs/AGGIORNAMENTO-v12.4-v12.5.md', 'docs/AGGIORNAMENTO-v12.3-v12.4.md', 'docs/GUIDA-SINCRONIZZAZIONE.md'];
 
 Object.assign(I18N.it, {
-  hx_about:'Informazioni su DocMap', hx_about_d:'Versione, database e dispositivo: utile per gli aggiornamenti e per l\'assistenza.',
+  hx_vendor:'Assistenza', hx_about:('Informazioni su ' + brandName()), hx_about_d:'Versione, database e dispositivo: utile per gli aggiornamenti e per l\'assistenza.',
   hx_ver:'Versione del programma', hx_db:'Database locale (SQLite)', hx_db_v:'schema {v}', hx_db_exp:'atteso {v}', hx_db_wait:'in avvio…', hx_db_err:'non disponibile: {m}',
   hx_srv:'Server online', hx_srv_none:'non collegato (i dati restano su questo PC)', hx_srv_cfg:'configurato, non ancora verificato', hx_srv_v:'API {v} · schema {s}',
   hx_srv_old:'Il server ha uno schema più vecchio di questo programma: aggiorna prima il server (vedi la guida di aggiornamento).',
@@ -45,7 +45,7 @@ Object.assign(I18N.it, {
   la_in_box1:'1 faldone qui'
 });
 Object.assign(I18N.en, {
-  hx_about:'About DocMap', hx_about_d:'Version, database and device: useful for upgrades and support.',
+  hx_vendor:'Support', hx_about:('About ' + brandName()), hx_about_d:'Version, database and device: useful for upgrades and support.',
   hx_ver:'Program version', hx_db:'Local database (SQLite)', hx_db_v:'schema {v}', hx_db_exp:'expected {v}', hx_db_wait:'starting…', hx_db_err:'not available: {m}',
   hx_srv:'Online server', hx_srv_none:'not connected (data stays on this PC)', hx_srv_cfg:'configured, not checked yet', hx_srv_v:'API {v} · schema {s}',
   hx_srv_old:'The server schema is older than this program: upgrade the server first (see the upgrade guide).',
@@ -101,18 +101,18 @@ HELP_TOPICS.push(
   { id:'first-run', guide:'firstrun', tags:['start', 'safety'], acts:['how'], pop:78, related:['client-new', 'create', 'backup', 'server', 'troubleshoot'],
     kw:{it:'installare primo avvio nuovo pc zip cartella doppio clic chrome edge inizio configurazione', en:'install first start new pc zip folder double click chrome edge setup'},
     title:{it:'Come inizio: primo avvio sul PC', en:'How do I start: first run on the PC'},
-    body:{it:'<ol><li><b>Scegli una cartella fissa</b> e lasciala lì per sempre, ad esempio ' + HX_K('C:\\DocMap') + ' o ' + HX_K('Documenti\\DocMap') + '. Estrai lo zip in quella cartella (non aprirlo dalla cartella Download né dall\'anteprima dello zip).</li>' +
+    body:{it:'<ol><li><b>Scegli una cartella fissa</b> e lasciala lì per sempre, ad esempio ' + HX_K('C:\\' + BRAND.file_prefix) + ' o ' + HX_K('Documenti\\DocMap') + '. Estrai lo zip in quella cartella (non aprirlo dalla cartella Download né dall\'anteprima dello zip).</li>' +
             '<li>Apri ' + HX_K('index.html') + ' con un <b>doppio clic</b>, con <b>Chrome</b> o <b>Edge</b>. Crea un collegamento sul desktop: d\'ora in poi apri sempre <b>quel file</b>, con <b>quel browser</b>.</li>' +
             '<li>Nella prima finestra scegli da dove partire (crea un faldone, stampa, calibra) oppure chiudila.</li>' +
-            '<li>In <b>⚙ Funzioni avanzate › Impostazioni</b> scrivi il <b>nome dello studio</b> e il <b>tuo nome</b> (compare nel Registro attività). In fondo, <b>Informazioni su DocMap</b> mostra versione e percorso.</li>' +
+            ('<li>In <b>⚙ Funzioni avanzate › Impostazioni</b> scrivi il <b>nome dello studio</b> e il <b>tuo nome</b> (compare nel Registro attività). In fondo, <b>Informazioni su ' + brandName() + '</b> mostra versione e percorso.</li>') +
             '<li>In <b>⚙ Funzioni avanzate › Sincronizzazione</b> dai un nome a questo PC (<b>Nome del dispositivo</b>, es. "PC Reception"): lo vedrai nel Registro sincronizzazioni.</li>' +
             '<li>Importa l\'elenco clienti (<b>Informazioni › Clienti › Importa elenco clienti</b>), poi crea o importa i faldoni. I 5 faldoni di esempio (tag ' + HX_K('demo') + ') si eliminano dalla barra in Archivio.</li>' +
             '<li>Se lo studio ha il server online, collegalo <b>dopo</b> aver eliminato i faldoni di esempio (vedi "Come collego il PC al server online").</li></ol>' +
             '<p>Dove sono i dati? <b>Nel browser</b> di questo PC (memoria locale + database SQLite), legati al percorso di ' + HX_K('index.html') + '. Un altro browser, un\'altra cartella o una finestra anonima mostrano un archivio vuoto. Per questo fai spesso <b>Salva backup</b> e, se c\'è, sincronizza con il server.</p>',
-          en:'<ol><li><b>Choose a fixed folder</b> and leave it there for good, e.g. ' + HX_K('C:\\DocMap') + ' or ' + HX_K('Documents\\DocMap') + '. Extract the zip into that folder (do not open it from Downloads or from the zip preview).</li>' +
+          en:'<ol><li><b>Choose a fixed folder</b> and leave it there for good, e.g. ' + HX_K('C:\\' + BRAND.file_prefix) + ' or ' + HX_K('Documents\\DocMap') + '. Extract the zip into that folder (do not open it from Downloads or from the zip preview).</li>' +
             '<li>Open ' + HX_K('index.html') + ' with a <b>double click</b>, in <b>Chrome</b> or <b>Edge</b>. Make a desktop shortcut: from now on always open <b>that file</b> with <b>that browser</b>.</li>' +
             '<li>In the first window choose where to start (create a binder, print, calibrate) or close it.</li>' +
-            '<li>In <b>⚙ Advanced tools › Settings</b> type the <b>studio name</b> and <b>your name</b> (shown in the Activity log). At the bottom, <b>About DocMap</b> shows version and path.</li>' +
+            ('<li>In <b>⚙ Advanced tools › Settings</b> type the <b>studio name</b> and <b>your name</b> (shown in the Activity log). At the bottom, <b>About ' + brandName() + '</b> shows version and path.</li>') +
             '<li>In <b>⚙ Advanced tools › Sync</b> name this PC (<b>Device name</b>, e.g. "Reception PC"): you will see it in the Sync journal.</li>' +
             '<li>Import the client list (<b>Information › Clients › Import client list</b>), then create or import binders. The 5 sample binders (tag ' + HX_K('demo') + ') are deleted from the bar in Archive.</li>' +
             '<li>If the studio has the online server, connect it <b>after</b> deleting the sample binders (see "How do I connect the PC to the online server").</li></ol>' +
@@ -122,20 +122,20 @@ HELP_TOPICS.push(
     title:{it:'Come collego il PC al server online', en:'How do I connect the PC to the online server'},
     body:{it:'<p>Il server online (cartella ' + HX_K('server-php') + ' sul vostro hosting) è il database condiviso dello studio. L\'amministratore lo installa una volta (docs/DEPLOY-WEB.md) e ti dà due cose: l\'<b>indirizzo</b> e un <b>codice di accesso</b> personale.</p>' +
             '<ol><li>Apri <b>⚙ Funzioni avanzate › Sincronizzazione</b> e scorri fino a <b>Server online</b>.</li>' +
-            '<li><b>Indirizzo del server</b>: ad esempio ' + HX_K('https://docmap.pr-it.it/studio-de/server-php/api.php') + ' (basta anche l\'indirizzo della cartella: DocMap aggiunge ' + HX_K('server-php/api.php') + ').</li>' +
+            '<li><b>Indirizzo del server</b>: ad esempio ' + HX_K('https://docmap.pr-it.it/studio-de/server-php/api.php') + (' (basta anche l\'indirizzo della cartella: ' + brandName() + ' aggiunge ') + HX_K('server-php/api.php') + ').</li>' +
             '<li><b>Codice di accesso (token)</b>: incollalo così com\'è. Resta solo in questo browser: non va nei backup né nei CSV.</li>' +
             '<li>Premi <b>Salva</b> e poi <b>Prova connessione</b>: deve comparire "Connesso come … (ruolo)".</li>' +
-            '<li>Premi <b>Sincronizza con il server</b>. La prima volta, se il server è vuoto, DocMap propone di caricare tutto l\'archivio di questo PC: conferma solo sul PC "principale". Sugli altri PC il primo Sincronizza scarica l\'archivio comune.</li></ol>' +
+            ('<li>Premi <b>Sincronizza con il server</b>. La prima volta, se il server è vuoto, ' + brandName() + ' propone di caricare tutto l\'archivio di questo PC: conferma solo sul PC "principale". Sugli altri PC il primo Sincronizza scarica l\'archivio comune.</li></ol>') +
             '<ul><li><b>Ruoli</b>: Solo lettura (non invia modifiche), Può modificare, Amministratore (vede il registro del server di tutti e crea i codici con <b>Codici di accesso</b>).</li>' +
             '<li><b>Protezione con password della cartella</b>: compilala solo se l\'hosting chiede utente e password (es. SiteGround) e la sincronizzazione viene bloccata.</li>' +
             '<li>La <b>web app</b> e i <b>telefoni</b> lavorano direttamente sul server, in automatico; il PC sincronizza quando premi il pulsante.</li>' +
             '<li>Errori: vedi "Risoluzione problemi" (codice rifiutato, troppi tentativi, orologio, server non raggiungibile).</li></ul>',
           en:'<p>The online server (the ' + HX_K('server-php') + ' folder on your hosting) is the studio\'s shared database. The administrator installs it once (docs/DEPLOY-WEB.md) and gives you two things: the <b>address</b> and a personal <b>access code</b>.</p>' +
             '<ol><li>Open <b>⚙ Advanced tools › Sync</b> and scroll to <b>Online server</b>.</li>' +
-            '<li><b>Server address</b>: e.g. ' + HX_K('https://docmap.pr-it.it/studio-de/server-php/api.php') + ' (the folder address is enough too: DocMap appends ' + HX_K('server-php/api.php') + ').</li>' +
+            '<li><b>Server address</b>: e.g. ' + HX_K('https://docmap.pr-it.it/studio-de/server-php/api.php') + (' (the folder address is enough too: ' + brandName() + ' appends ') + HX_K('server-php/api.php') + ').</li>' +
             '<li><b>Access code (token)</b>: paste it as it is. It stays only in this browser: never in backups or CSV.</li>' +
             '<li>Press <b>Save</b>, then <b>Test connection</b>: "Connected as … (role)" must appear.</li>' +
-            '<li>Press <b>Sync with the server</b>. The first time, with an empty server, DocMap offers to upload this PC\'s whole archive: confirm only on the "main" PC. On the other PCs the first sync downloads the shared archive.</li></ol>' +
+            ('<li>Press <b>Sync with the server</b>. The first time, with an empty server, ' + brandName() + ' offers to upload this PC\'s whole archive: confirm only on the "main" PC. On the other PCs the first sync downloads the shared archive.</li></ol>') +
             '<ul><li><b>Roles</b>: Read only (sends no changes), Can edit, Administrator (sees everybody\'s server journal and creates codes with <b>Access codes</b>).</li>' +
             '<li><b>Folder password protection</b>: fill it in only if the hosting asks for user and password (e.g. SiteGround) and the sync is blocked.</li>' +
             '<li>The <b>web app</b> and the <b>phones</b> work on the server directly, automatically; the PC syncs when you press the button.</li>' +
@@ -148,7 +148,7 @@ HELP_TOPICS.push(
             '<li>Su un PC nuovo <b>elimina i faldoni di esempio</b> prima della prima sincronizzazione, altrimenti finiscono anche sul server.</li>' +
             '<li>Sincronizza <b>a inizio e a fine lavoro</b> (meglio anche dopo una sessione di etichette o di associazioni). Ogni sincronizzazione riceve prima le novità, poi invia le tue.</li>' +
             '<li>Telefoni: inquadrano il QR, accedono con utente e PIN e salvano subito sul server (anche la modalità associazione delle scatole).</li></ol>' +
-            '<ul><li><b>Regola</b>: per ogni faldone, cliente o ubicazione vince la modifica <b>più recente</b>. Per questo data e ora dei dispositivi devono essere giuste: DocMap avvisa se l\'orologio differisce di oltre 2 minuti da quello del server.</li>' +
+            ('<ul><li><b>Regola</b>: per ogni faldone, cliente o ubicazione vince la modifica <b>più recente</b>. Per questo data e ora dei dispositivi devono essere giuste: ' + brandName() + ' avvisa se l\'orologio differisce di oltre 2 minuti da quello del server.</li>') +
             '<li><b>Conflitto</b>: lo stesso faldone è cambiato qui e altrove dopo l\'ultima sincronizzazione. Si apre una finestra con i campi affiancati: <b>Tieni locale</b> o <b>Tieni importato</b>.</li>' +
             '<li><b>Tracciabilità</b>: ogni invio e ricezione finisce nel <b>Registro sincronizzazioni</b> con dispositivo, utente, ora e decisione presa; l\'amministratore vede anche quello del server, di tutti.</li>' +
             '<li><b>Senza server</b>: puoi scambiare pacchetti cifrati (Sincronizzazione › 1 Copia export / 2 Importa dati), con le stesse regole.</li></ul>',
@@ -157,26 +157,26 @@ HELP_TOPICS.push(
             '<li>On a new PC <b>delete the sample binders</b> before the first sync, otherwise they reach the server too.</li>' +
             '<li>Sync <b>when you start and when you finish</b> (ideally also after a labelling or association session). Every sync first receives the news, then sends yours.</li>' +
             '<li>Phones: scan the QR, log in with user and PIN and save on the server at once (box association mode included).</li></ol>' +
-            '<ul><li><b>Rule</b>: for each binder, client or location the <b>most recent</b> change wins. So device date and time must be right: DocMap warns when the clock differs by more than 2 minutes from the server.</li>' +
+            ('<ul><li><b>Rule</b>: for each binder, client or location the <b>most recent</b> change wins. So device date and time must be right: ' + brandName() + ' warns when the clock differs by more than 2 minutes from the server.</li>') +
             '<li><b>Conflict</b>: the same binder changed here and elsewhere since the last sync. A window shows the fields side by side: <b>Keep local</b> or <b>Keep imported</b>.</li>' +
             '<li><b>Traceability</b>: every send and receive goes into the <b>Sync journal</b> with device, user, time and decision; the administrator also sees the server\'s, for everybody.</li>' +
             '<li><b>Without a server</b>: exchange encrypted packages (Sync › 1 Export copy / 2 Import data), with the same rules.</li></ul>'} },
   { id:'upgrade', guide:null, tags:['safety', 'start'], acts:['how', 'fix'], pop:64, related:['backup', 'about', 'server', 'troubleshoot'],
     kw:{it:'nuova versione aggiornamento sostituire file zip migrazione non perdere dati installare sopra', en:'new version upgrade replace files zip migration keep data install over'},
-    title:{it:'Come aggiorno DocMap a una nuova versione senza perdere i dati', en:'How do I upgrade DocMap to a new version without losing data'},
+    title:{it:('Come aggiorno ' + brandName() + ' a una nuova versione senza perdere i dati'), en:('How do I upgrade ' + brandName() + ' to a new version without losing data')},
     body:{it:'<p>I tuoi dati <b>non sono dentro i file del programma</b>: sono nel browser (e sul server, se lo usate). Aggiornare vuol dire sostituire i file del programma <b>nello stesso percorso</b>: il browser ritrova i dati e la nuova versione li completa da sola (migrazioni solo aggiuntive, niente viene tolto).</p>' +
             '<ol><li><b>Prima</b>, con la versione vecchia: <b>Salva backup</b> (JSON) e, da Database, scarica il file ' + HX_K('.sqlite') + ' (contiene anche le foto). Annota quanti faldoni e clienti hai. Se usate il server: <b>Sincronizza con il server</b>.</li>' +
-            '<li>Chiudi tutte le schede di DocMap. Copia da parte la cartella vecchia (per tornare indietro).</li>' +
+            ('<li>Chiudi tutte le schede di ' + brandName() + '. Copia da parte la cartella vecchia (per tornare indietro).</li>') +
             '<li>Estrai la nuova versione <b>sopra</b> la cartella di sempre, sovrascrivendo: ' + HX_K('index.html') + ', ' + HX_K('scan.html') + ', ' + HX_K('assets') + ', ' + HX_K('vendor') + ', ' + HX_K('docs') + '. Non rinominare né spostare la cartella. Se avevi personalizzato ' + HX_K('docmap.config.js') + ' (web app), tieni il tuo.</li>' +
-            '<li>Riapri lo <b>stesso</b> ' + HX_K('index.html') + ' con lo stesso browser. In <b>Impostazioni › Informazioni su DocMap</b> controlla la nuova versione, poi numero di faldoni e clienti.</li>' +
+            '<li>Riapri lo <b>stesso</b> ' + HX_K('index.html') + (' con lo stesso browser. In <b>Impostazioni › Informazioni su ' + brandName() + '</b> controlla la nuova versione, poi numero di faldoni e clienti.</li>') +
             '<li><b>Server</b>: si aggiorna <b>per primo</b>. Carica i nuovi file sopra i vecchi <b>senza cancellare</b> ' + HX_K('server-php/config.php') + ' né la cartella dati (' + HX_K('docmap.sqlite') + '); non rieseguire setup.php. Il server aggiorna da solo il suo database alla prima richiesta e continua ad accettare i PC e i telefoni della versione precedente.</li>' +
             '<li>Sincronizza di nuovo e prova un telefono.</li></ol>' +
             '<p><b>Tornare indietro</b>: rimetti la cartella vecchia nello stesso percorso; se serve ripristina il backup. La procedura completa è in ' + HX_K('docs/AGGIORNAMENTI.md') + ', le differenze di ogni versione in ' + HX_K('docs/AGGIORNAMENTO-vX-vY.md') + '.</p>',
           en:'<p>Your data is <b>not inside the program files</b>: it lives in the browser (and on the server, if you use it). Upgrading means replacing the program files <b>at the same path</b>: the browser finds the data again and the new version completes it by itself (additive migrations only, nothing is removed).</p>' +
             '<ol><li><b>First</b>, with the old version: <b>Save backup</b> (JSON) and, from Database, download the ' + HX_K('.sqlite') + ' file (it also holds the photos). Note how many binders and clients you have. If you use the server: <b>Sync with the server</b>.</li>' +
-            '<li>Close every DocMap tab. Copy the old folder aside (to go back).</li>' +
+            ('<li>Close every ' + brandName() + ' tab. Copy the old folder aside (to go back).</li>') +
             '<li>Extract the new version <b>over</b> the usual folder, overwriting: ' + HX_K('index.html') + ', ' + HX_K('scan.html') + ', ' + HX_K('assets') + ', ' + HX_K('vendor') + ', ' + HX_K('docs') + '. Do not rename or move the folder. If you customised ' + HX_K('docmap.config.js') + ' (web app), keep yours.</li>' +
-            '<li>Reopen the <b>same</b> ' + HX_K('index.html') + ' with the same browser. In <b>Settings › About DocMap</b> check the new version, then the number of binders and clients.</li>' +
+            '<li>Reopen the <b>same</b> ' + HX_K('index.html') + (' with the same browser. In <b>Settings › About ' + brandName() + '</b> check the new version, then the number of binders and clients.</li>') +
             '<li><b>Server</b>: it is upgraded <b>first</b>. Upload the new files over the old ones <b>without deleting</b> ' + HX_K('server-php/config.php') + ' or the data folder (' + HX_K('docmap.sqlite') + '); do not run setup.php again. The server upgrades its own database on the first request and keeps accepting PCs and phones of the previous version.</li>' +
             '<li>Sync again and try a phone.</li></ol>' +
             '<p><b>Going back</b>: put the old folder back at the same path; restore the backup if needed. The full procedure is in ' + HX_K('docs/AGGIORNAMENTI.md') + ', the differences of each release in ' + HX_K('docs/AGGIORNAMENTO-vX-vY.md') + '.</p>'} },
@@ -203,7 +203,7 @@ HELP_TOPICS.push(
     kw:{it:'faq domande frequenti non vedo i dati spariti vuoto fotocamera bloccata 401 403 429 orologio conflitto errore non funziona aiuto', en:'faq frequently asked data missing gone empty camera blocked 401 403 429 clock conflict error not working help'},
     title:{it:'Risoluzione problemi: domande frequenti', en:'Troubleshooting: frequently asked questions'},
     body:{it:'<dl class="hx-faq">' +
-            '<dt>Non vedo più i miei faldoni (archivio vuoto o solo gli esempi)</dt><dd>I dati sono nel browser e legati al percorso del file. Hai aperto DocMap da un\'altra cartella (Download, chiavetta, zip non estratto), con un altro browser, un altro utente di Windows o in una finestra anonima? Riapri l\'' + HX_K('index.html') + ' di sempre (il percorso è in Impostazioni › Informazioni su DocMap). Se i dati non ci sono davvero: <b>Impostazioni › Ripristina da backup JSON</b>, oppure <b>Sincronizza con il server</b>.</dd>' +
+            ('<dt>Non vedo più i miei faldoni (archivio vuoto o solo gli esempi)</dt><dd>I dati sono nel browser e legati al percorso del file. Hai aperto ' + brandName() + ' da un\'altra cartella (Download, chiavetta, zip non estratto), con un altro browser, un altro utente di Windows o in una finestra anonima? Riapri l\'') + HX_K('index.html') + (' di sempre (il percorso è in Impostazioni › Informazioni su ' + brandName() + '). Se i dati non ci sono davvero: <b>Impostazioni › Ripristina da backup JSON</b>, oppure <b>Sincronizza con il server</b>.</dd>') +
             '<dt>"Da esportare" resta arancione</dt><dd>Ci sono modifiche salvate solo nel browser: premi <b>Salva backup</b> (o Ctrl+S). Diventa verde.</dd>' +
             '<dt>La fotocamera non parte</dt><dd>Il browser l\'ha bloccata: clicca l\'icona della fotocamera o del lucchetto nella barra degli indirizzi › <b>Consenti</b> e ricarica. Chiudi le app che la usano (Teams, Zoom). Sul telefono la fotocamera funziona solo con la pagina in <b>https</b> (server dello studio); in alternativa usa la fotocamera del telefono per aprire il QR.</dd>' +
             '<dt>"Il server ha rifiutato il codice di accesso" (errore 401 / 403)</dt><dd>Codice sbagliato, incompleto o revocato. Chiedi all\'amministratore un nuovo codice (Codici di accesso) e incollalo in Sincronizzazione › Server online, poi <b>Prova connessione</b>.</dd>' +
@@ -213,9 +213,9 @@ HELP_TOPICS.push(
             '<dt>Si apre una finestra di conflitto</dt><dd>Lo stesso faldone è stato cambiato qui e altrove. Guarda i campi affiancati e scegli <b>Tieni locale</b> o <b>Tieni importato</b>; la scelta resta scritta nel Registro sincronizzazioni e si può ripristinare.</dd>' +
             '<dt>Le etichette escono spostate o più piccole</dt><dd>Nel dialogo di stampa: Scala 100% / Dimensioni effettive, Margini: Nessuno. Poi fai la prova di calibrazione.</dd>' +
             '<dt>Il telefono non legge il QR</dt><dd>QR troppo piccolo o rovinato: almeno 15 mm, nero pieno. Ristampa solo quei QR da Informazioni › QR.</dd>' +
-            '<dt>Mi serve aiuto</dt><dd>Impostazioni › Informazioni su DocMap › <b>Copia dati per l\'assistenza</b> e incolla il testo nel messaggio: contiene versione, database e dispositivo, mai i codici di accesso.</dd></dl>',
+            ('<dt>Mi serve aiuto</dt><dd>Impostazioni › Informazioni su ' + brandName() + ' › <b>Copia dati per l\'assistenza</b> e incolla il testo nel messaggio: contiene versione, database e dispositivo, mai i codici di accesso.</dd></dl>'),
           en:'<dl class="hx-faq">' +
-            '<dt>My binders are gone (empty archive or only the samples)</dt><dd>Data lives in the browser, tied to the path of the file. Did you open DocMap from another folder (Downloads, a USB stick, an unextracted zip), with another browser, another Windows user or in a private window? Reopen the usual ' + HX_K('index.html') + ' (its path is in Settings › About DocMap). If the data is really missing: <b>Settings › Restore from JSON backup</b>, or <b>Sync with the server</b>.</dd>' +
+            ('<dt>My binders are gone (empty archive or only the samples)</dt><dd>Data lives in the browser, tied to the path of the file. Did you open ' + brandName() + ' from another folder (Downloads, a USB stick, an unextracted zip), with another browser, another Windows user or in a private window? Reopen the usual ') + HX_K('index.html') + (' (its path is in Settings › About ' + brandName() + '). If the data is really missing: <b>Settings › Restore from JSON backup</b>, or <b>Sync with the server</b>.</dd>') +
             '<dt>"Not exported" stays amber</dt><dd>Some changes are saved only in the browser: press <b>Save backup</b> (or Ctrl+S). It turns green.</dd>' +
             '<dt>The camera does not start</dt><dd>The browser blocked it: click the camera or padlock icon in the address bar › <b>Allow</b> and reload. Close apps using it (Teams, Zoom). On a phone the camera only works with the page on <b>https</b> (the studio server); otherwise use the phone camera to open the QR.</dd>' +
             '<dt>"The server refused the access code" (error 401 / 403)</dt><dd>Wrong, incomplete or revoked code. Ask the administrator for a new code (Access codes), paste it in Sync › Online server, then <b>Test connection</b>.</dd>' +
@@ -225,30 +225,30 @@ HELP_TOPICS.push(
             '<dt>A conflict window opens</dt><dd>The same binder was changed here and elsewhere. Compare the fields side by side and choose <b>Keep local</b> or <b>Keep imported</b>; the choice is recorded in the Sync journal and can be restored.</dd>' +
             '<dt>Labels come out shifted or smaller</dt><dd>In the print dialog: Scale 100% / Actual size, Margins: None. Then run the calibration test.</dd>' +
             '<dt>The phone does not read the QR</dt><dd>QR too small or damaged: at least 15 mm, solid black. Reprint only those QR codes from Information › QR.</dd>' +
-            '<dt>I need help</dt><dd>Settings › About DocMap › <b>Copy support details</b> and paste the text in your message: it holds version, database and device, never access codes.</dd></dl>'} },
+            ('<dt>I need help</dt><dd>Settings › About ' + brandName() + ' › <b>Copy support details</b> and paste the text in your message: it holds version, database and device, never access codes.</dd></dl>')} },
   { id:'about', guide:null, tags:['safety', 'help'], acts:['what', 'find'], pop:30, related:['upgrade', 'troubleshoot', 'server'],
     kw:{it:'versione numero schema database assistenza supporto informazioni su docmap dispositivo', en:'version number schema database support about docmap device'},
-    title:{it:'Dove vedo la versione di DocMap e i dati per l\'assistenza', en:'Where do I see the DocMap version and the support details'},
-    body:{it:'<p>In <b>⚙ Funzioni avanzate › Impostazioni</b>, nel riquadro <b>Dati e sicurezza</b>, trovi <b>Informazioni su DocMap</b>: versione del programma, schema del database locale, stato del server online, nome e ID di questo dispositivo. <b>Dettagli e assistenza</b> aggiunge il percorso del programma, la chiave dei dati nel browser e le guide di aggiornamento.</p>' +
+    title:{it:('Dove vedo la versione di ' + brandName() + ' e i dati per l\'assistenza'), en:('Where do I see the ' + brandName() + ' version and the support details')},
+    body:{it:('<p>In <b>⚙ Funzioni avanzate › Impostazioni</b>, nel riquadro <b>Dati e sicurezza</b>, trovi <b>Informazioni su ' + brandName() + '</b>: versione del programma, schema del database locale, stato del server online, nome e ID di questo dispositivo. <b>Dettagli e assistenza</b> aggiunge il percorso del programma, la chiave dei dati nel browser e le guide di aggiornamento.</p>') +
             '<ul><li><b>Verifica server</b> interroga il server (senza codice di accesso) e mostra versione dell\'API e schema del suo database: se è più vecchio di questo programma, aggiorna prima il server.</li>' +
             '<li><b>Copia dati per l\'assistenza</b> copia un riepilogo in testo semplice da incollare in una mail: niente codici di accesso, password o dati dei clienti.</li></ul>' +
-            '<p><button class="btn btn-sm" data-a="hx-about" type="button">' + 'Apri Informazioni su DocMap' + '</button></p>',
-          en:'<p>In <b>⚙ Advanced tools › Settings</b>, in the <b>Data &amp; safety</b> box, you find <b>About DocMap</b>: program version, local database schema, online server status, name and ID of this device. <b>Details and support</b> adds the program path, the browser data key and the upgrade guides.</p>' +
+            '<p><button class="btn btn-sm" data-a="hx-about" type="button">' + ('Apri Informazioni su ' + brandName()) + '</button></p>',
+          en:('<p>In <b>⚙ Advanced tools › Settings</b>, in the <b>Data &amp; safety</b> box, you find <b>About ' + brandName() + '</b>: program version, local database schema, online server status, name and ID of this device. <b>Details and support</b> adds the program path, the browser data key and the upgrade guides.</p>') +
             '<ul><li><b>Check server</b> queries the server (without access code) and shows its API version and database schema: if it is older than this program, upgrade the server first.</li>' +
             '<li><b>Copy support details</b> copies a plain-text summary to paste into an email: no access codes, passwords or client data.</li></ul>' +
-            '<p><button class="btn btn-sm" data-a="hx-about" type="button">' + 'Open About DocMap' + '</button></p>'} }
+            '<p><button class="btn btn-sm" data-a="hx-about" type="button">' + ('Open About ' + brandName()) + '</button></p>'} }
 );
 
 /* ---------------- 2. guided tours ---------------- */
 Object.assign(GUIDES, {
-  firstrun: { pop:70, title:{it:'Primo avvio: prepara DocMap su questo PC', en:'First run: set DocMap up on this PC'}, steps:[
+  firstrun: { pop:70, title:{it:('Primo avvio: prepara ' + brandName() + ' su questo PC'), en:('First run: set ' + brandName() + ' up on this PC')}, steps:[
     navStep('settings', {it:'Apri Impostazioni', en:'Open Settings'}, {it:'Apri "Impostazioni".', en:'Open "Settings".'}),
     { target:() => { const el = $('#se-studio'); return el && el.closest('.field'); }, title:{it:'Nome dello studio', en:'Studio name'}, text:{it:'Scrivi il nome dello studio: compare sulla pagina del telefono e nei PDF.', en:'Type the studio name: it shows on the phone page and in the PDFs.'} },
     { target:() => { const el = $('#se-operator'); return el && el.closest('.field'); }, title:{it:'Il tuo nome', en:'Your name'}, text:{it:'Scrivi il tuo nome: il Registro attività dirà chi ha fatto ogni operazione da questo PC.', en:'Type your name: the Activity log will say who did each operation from this PC.'} },
-    { target:'#hx-about', title:{it:'Informazioni su DocMap', en:'About DocMap'}, text:{it:'Qui vedi versione, database e dispositivo. "Dettagli e assistenza" mostra anche il percorso del programma: aprilo sempre da lì, con lo stesso browser.', en:'Here you see version, database and device. "Details and support" also shows the program path: always open it from there, with the same browser.'} },
+    { target:'#hx-about', title:{it:('Informazioni su ' + brandName()), en:('About ' + brandName())}, text:{it:'Qui vedi versione, database e dispositivo. "Dettagli e assistenza" mostra anche il percorso del programma: aprilo sempre da lì, con lo stesso browser.', en:'Here you see version, database and device. "Details and support" also shows the program path: always open it from there, with the same browser.'} },
     navStep('sync', {it:'Apri Sincronizzazione', en:'Open Sync'}, {it:'Apri "Sincronizzazione".', en:'Open "Sync".'}),
     { target:() => { const el = $('#sy-label'); return el && el.closest('.field'); }, title:{it:'Nome del dispositivo', en:'Device name'}, text:{it:'Dai un nome a questo PC, ad esempio "PC Reception": lo vedrai nel Registro sincronizzazioni e sul server.', en:'Name this PC, e.g. "Reception PC": you will see it in the Sync journal and on the server.'} },
-    { final:true, title:{it:'DocMap è pronto ✓', en:'DocMap is ready ✓'}, text:{it:'Ora importa l\'elenco clienti o crea il primo cliente. Se lo studio ha il server online, collegalo dopo aver eliminato i faldoni di esempio.', en:'Now import the client list or create the first client. If the studio has the online server, connect it after deleting the sample binders.'}, chain:'client' }
+    { final:true, title:{it:('' + brandName() + ' è pronto ✓'), en:('' + brandName() + ' is ready ✓')}, text:{it:'Ora importa l\'elenco clienti o crea il primo cliente. Se lo studio ha il server online, collegalo dopo aver eliminato i faldoni di esempio.', en:'Now import the client list or create the first client. If the studio has the online server, connect it after deleting the sample binders.'}, chain:'client' }
   ]},
   server: { pop:62, title:{it:'Collega il PC al server online', en:'Connect the PC to the online server'}, steps:[
     navStep('sync', {it:'Apri Sincronizzazione', en:'Open Sync'}, {it:'Apri "Sincronizzazione".', en:'Open "Sync".'}),
@@ -343,13 +343,24 @@ function hxAboutBody(){
       row(t('hx_path'), '<span class="mono small hx-break" id="hx-m-path">' + esc(f.path) + '</span><div class="hint">' + esc(t('hx_path_d')) + '</div>') +
       row(t('hx_key'), '<span class="mono small">' + esc(f.key) + '</span>') +
       (typeof dmtHTML === 'function' ? row(t('dmt_h'), dmtHTML()) : '') +
+      (hxVendorHTML() ? row(t('hx_vendor'), hxVendorHTML()) : '') +
       row(t('hx_docs'), HX_UPGRADE_DOCS.map(d => '<span class="kbd">' + esc(d) + '</span>').join(' ') + '<div class="hint">' + esc(t('hx_docs_d')) + '</div>') + '</dl>' +
     (w ? '<div class="warn-box small">' + ic('alert') + '<div>' + esc(w) + '</div></div>' : '') +
     '<div class="row hx-acts" style="margin-top:12px"><button class="btn btn-sm" data-a="hx-help" data-id="upgrade">' + ic('book') + esc(t('hx_upg_help')) + '</button></div>';
 }
+/* Vendor and support contacts from brand.js (white label): only the fields the brand fills in. */
+function hxVendorHTML(){
+  const b = BRAND, out = [];
+  if (b.vendor_legal || b.vendor_name) out.push('<b>' + esc(b.vendor_legal || b.vendor_name) + '</b>' + (b.vendor_vat ? ' <span class="tiny muted">P.IVA ' + esc(b.vendor_vat) + '</span>' : ''));
+  if (b.support_email) out.push('<a href="mailto:' + encodeURIComponent(b.support_email).replace('%40', '@') + '">' + esc(b.support_email) + '</a>');
+  if (b.support_phone) out.push(esc(b.support_phone));
+  if (b.website) out.push('<a href="' + esc(b.website) + '" target="_blank" rel="noopener">' + esc(b.website.replace(/^https?:\/\//, '')) + '</a>');
+  if (brandCopyright()) out.push('<span class="tiny muted">' + esc(brandCopyright()) + '</span>');
+  return out.join('<br>');
+}
 function hxSupportText(){
   const f = hxFacts();
-  return ['DocMap 2026 ' + f.version, t('hx_mode') + ': ' + t(f.dev.mode === 'web' ? 'hx_mode_web' : 'hx_mode_local'),
+  return [('' + brandName() + ' ') + f.version, t('hx_mode') + ': ' + t(f.dev.mode === 'web' ? 'hx_mode_web' : 'hx_mode_local'),
     t('hx_db') + ': ' + hxDbText(f.db), t('hx_counts') + ': ' + t('hx_counts_v', f.counts),
     t('hx_srv') + ': ' + (f.url ? f.url + ' · ' : '') + hxSrvText(f) + (f.ping ? ' · ' + t('hx_srv_at', {d:fmtDate(f.ping.at, true)}) + (f.ping.php ? ' · PHP ' + f.ping.php : '') : ''),
     t('hx_dev') + ': ' + f.dev.name + ' (' + f.dev.id + ')', t('hx_path') + ': ' + f.path, t('hx_key') + ': ' + f.key,

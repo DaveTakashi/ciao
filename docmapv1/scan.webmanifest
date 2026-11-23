@@ -1,7 +1,7 @@
 {
   "id": "./scan.html",
-  "name": "DocMap — telefono",
-  "short_name": "DocMap",
+  "name": "Doc Location — telefono",
+  "short_name": "Doc Location",
   "description": "Cerca, scansiona e cataloga i faldoni dal telefono.",
   "lang": "it",
   "dir": "ltr",

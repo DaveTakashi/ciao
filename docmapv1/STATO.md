@@ -1,4 +1,4 @@
-# STATO di DocMap — fonte unica
+# STATO di Doc Location (nome tecnico DocMap) — fonte unica
 
 > Aggiornato al **2026-11-23**. Chi cambia una versione, un test o una decisione aggiorna questo file nello stesso
 > commit. Per ripartire dopo una pausa (persona o agente) si legge questo, poi [`CHANGELOG.md`](CHANGELOG.md).
@@ -7,12 +7,12 @@
 
 | Componente | Versione | Dove si legge | Zip per Dave (file del progetto) |
 |---|---|---|---|
-| App DocMap (PC, web, telefono) | **26.12.11** (v12.11, ondata 2 seconda parte: nuovo anno in un clic, scarto proposto con verbale, «Dove lo metto?», ricerca a voce; prima 26.12.10: prelievi, consegna firmata, faldone smarrito, promemoria, previsioni) | `APP_VERSION` in `assets/js/02-core.js` | dentro lo zip completo `docmapv1/python/DocMap-hub-0.11.2-app-26.12.11.zip` |
+| App Doc Location (PC, web, telefono) | **26.12.12** (v12.12: nuovo nome Doc Location, marchio in un solo file `brand.js`, lingue dal marchio; prima 26.12.11: nuovo anno in un clic, scarto proposto con verbale, «Dove lo metto?», ricerca a voce) | `APP_VERSION` in `assets/js/02-core.js`; marchio: `brand.js` (`docs/MARCHIO.md`) | dentro lo zip completo `docmapv1/python/DocMap-hub-0.13.0-app-26.12.12.zip` |
 | Database locale (SQLite nel browser) | schema **9** | `DB_SCHEMA_VERSION` in `assets/js/06-db.js` | — |
-| Server web PHP (`server-php/api.php`) | 26.12.11 (v12.11: solo il numero; v12.10: rotta pubblica `finder`, solo GET, solo il contatto del faldone smarrito), schema **3**, licenza con `licence_required`; `setup.php` con cartella per sito e modalità JSON; v12.8: rotte `project`, `photo_put`, `photo`, `ai_spine` | `DM_APP_VERSION`, `DM_SCHEMA` | dentro lo zip dell'app (`deploy/`) |
-| Server Python (sede) | pacchetto 1.0.0, parità con PHP 26.12.11 (anche sulla licenza, sull'inventario e su `finder`) | `server-python/docmap_server/__init__.py` | dentro l'installer |
+| Server web PHP (`server-php/api.php`) | 26.12.12 (v12.12: solo il numero, più `brand.php` che legge il marchio per `setup.php`; v12.11: solo il numero; v12.10: rotta pubblica `finder`, solo GET, solo il contatto del faldone smarrito), schema **3**, licenza con `licence_required`; `setup.php` con cartella per sito e modalità JSON; v12.8: rotte `project`, `photo_put`, `photo`, `ai_spine` | `DM_APP_VERSION`, `DM_SCHEMA` | dentro lo zip dell'app (`deploy/`) |
+| Server Python (sede) | pacchetto 1.0.0, parità con PHP 26.12.12 (anche sulla licenza, sull'inventario e su `finder`) | `server-python/docmap_server/__init__.py` | dentro l'installer |
 | Strumenti di installazione Windows | 1.2.0 | `TOOLS_VERSION` in `installer-windows/docmap_tools.py` | dentro lo zip completo (`installer-windows/`); i pacchetti per i clienti li fa l'hub (il vecchio `DocMap-installer-26.12.7.zip` è in `vecchie-versioni/`) |
-| Hub (PC di Dave) | **0.12.0**, registro schema **4** (modelli cliente) (`registry.py`); meta `hub_version` | `hub/docmap_hub/__init__.py` | `docmapv1/python/DocMap-hub-0.12.0-app-26.12.11.zip` (**zip completo**: hub + app 26.12.11 + sito + server + installatore + guide; fatto e controllato da `tools/crea-zip.py`) |
+| Hub (PC di Dave) | **0.13.0** (marchio per rivenditore e cliente, listino unico `plans.json`, preventivi), registro schema **4** (`registry.py`); meta `hub_version` | `hub/docmap_hub/__init__.py` | `docmapv1/python/DocMap-hub-0.13.0-app-26.12.12.zip` (**zip completo**: hub + app 26.12.12 + sito + server + installatore + guide; fatto e controllato da `tools/crea-zip.py`) |
 | Aggiornatore del PC | con l'app | `AGGIORNA-DOCMAP.bat` + `tools/aggiorna-app.ps1` | dentro lo zip dell'app |
 
 Regola: lo **stesso numero 26.12.x** deve comparire in app, `api.php` e server Python. Il server PHP e quello Python
@@ -40,6 +40,17 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
 | CI su GitHub | `.github/workflows/docmap-ci.yml` (= `ci/docmap-ci.yml`), Ubuntu 24.04 | ~5 min | verde sulla PR #10 (2026-11-23); unica cartella fuori da `docmapv1/`, confermata da Dave (D20) |
 
 Come sono fatti i test e come aggiungerne: [`docs/TEST.md`](docs/TEST.md).
+
+### Esito 2026-11-23, app 26.12.12 + hub 0.13.0 (Doc Location, white label, listino)
+
+- Test nuovi: `tests/marchio.js` 27/27 (nome di `brand.js` ovunque; una copia costruita con un altro marchio non mostra
+  mai «Doc Location» né «DocMap» nelle viste, nei dizionari, nell'aiuto e sul telefono; colore, sigla, prefisso dei
+  file, una sola lingua; `brand.py` rifiuta marchi sbagliati e un dominio dei QR) e `hub/tests/test_v13_marchio.py` 13
+  (marchio rivenditore → cliente senza l'identità originale, deploy con il marchio, CLI, API, listino generato,
+  preventivi, `plans.json` locale, pacchetti). Lint: regola `brand-literal` (JS e Python).
+- Verifica veloce: tutto OK (hub 191, server Python 36, installatore 76, parità PHP ⇄ Python, test app 14/14 file).
+  Suite completa: vedi la riga in tabella (aggiornati i controlli che citavano «DocMap 2026» nei PDF e i nomi dei file).
+- Non provato: nome nuovo su telefoni veri e app installata (righe G1–G5 di `COLLAUDO-REALE.md`).
 
 ### Esito 2026-11-23, qualità e CI (nessuna versione nuova dell'app)
 
@@ -227,6 +238,8 @@ Vedi `docs/ROADMAP.md` §5 (D1–D7) e la memoria del progetto. Aggiunte:
 | D18 | 2026-11-22 | L'indirizzo dei QR è configurabile (`qr7.it` di default); Doc Location è solo il marchio, nessun dominio forzato | Dave: «voglio essere libero, agnostico» |
 | D19 | 2026-11-22 | Un progetto di inventario è un archivio con `inv`; etichette = codici brevi normali con il prefisso del progetto; record del telefono con id `inv-<codice>` | niente tipi nuovi da sincronizzare, nessun doppione, QR7 e manifest invariati |
 | D20 | 2026-11-23 | CI attiva: l'unico file fuori da `docmapv1/` è `.github/workflows/docmap-ci.yml` (GitHub legge solo lì), copia identica di `ci/docmap-ci.yml` controllata dalla verifica veloce | confermato da Dave il 2026-11-23 (eccezione alla regola 1 di `CLAUDE.md`) |
+| D21 | 2026-11-23 | Il nome del prodotto sta solo in `brand.js` (prodotto) → marchio del rivenditore → marchio del cliente; nessun nome nel codice (lint `brand-literal`); i nomi tecnici `docmap` restano | Dave: rivendere in white label e cambiare nome «molto rapidamente» |
+| D22 | 2026-11-23 | Prezzi solo in `hub/docmap_hub/plans.json` (bozza 39/89/190/99+600/290–590 €/mese, annuale = 10 mesi); prezzi di un cliente = suo preventivo; lingue IT + EN, scelte dal marchio | Dave: «unica fonte di verità per ciascun dato dove ha senso» |
 | D15 | 2026-11-06 | Dopo ogni cambio di licenza il hub la carica subito sui siti online (FTP); il canale resta per la sede | la sospensione deve valere subito, non al prossimo deploy |
 
 ## 7. Prossimi passi (ordine concordato con Dave il 2026-11-06)

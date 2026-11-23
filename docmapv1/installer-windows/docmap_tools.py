@@ -67,6 +67,24 @@ import time
 import urllib.request
 import zipfile
 
+_BRAND_RE = re.compile(r"window\.DOCMAP_BRAND\s*=\s*(\{.*\})\s*;?\s*$", re.S)
+
+
+def _bn() -> str:
+    """Product name from brand.js (docs/MARCHIO.md): BASE\\app\\brand.js when installed, docmapv1/brand.js in the repo."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    for p in (os.path.join(here, "..", "app", "brand.js"), os.path.join(here, "..", "brand.js")):
+        try:
+            with open(p, encoding="utf-8") as f:
+                m = _BRAND_RE.search(f.read().lstrip("\ufeff"))
+            n = json.loads(m.group(1)).get("product_name") if m else None
+            if isinstance(n, str) and n.strip():
+                return n.strip()
+        except (OSError, ValueError, AttributeError):
+            continue
+    return "Archivio documenti"
+
+
 TOOLS_VERSION = "1.2.0"
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_BASE = r"C:\DocMap"
@@ -186,7 +204,7 @@ def slugify(name: str) -> str:
 def read_config(base: str) -> dict:
     p = paths(base)["config"]
     if not os.path.isfile(p):
-        raise ToolError("Configurazione non trovata: %s (DocMap non è ancora installato?)" % p)
+        raise ToolError(f"Configurazione non trovata: %s ({_bn()} non è ancora installato?)" % p)
     try:
         c = _read_json(p)
     except (OSError, ValueError) as e:
@@ -201,7 +219,7 @@ def read_config(base: str) -> dict:
 def config_js(settings: dict) -> str:
     cfg = {"mode": "web", "basePath": "/", "apiBase": "/api", "studioSlug": settings.get("slug") or "studio",
            "studioName": settings.get("nome_studio") or ""}
-    return ("/* DocMap 2026 — configurazione per l'installazione in sede (rete locale), scritta da\n"
+    return (f"/* {_bn()} — configurazione per l'installazione in sede (rete locale), scritta da\n"
             "   installer-windows/docmap_tools.py (config-js) a ogni installazione/aggiornamento: non modificarla a mano.\n"
             "   mode \"web\": accesso con utente e PIN su ogni dispositivo; apiBase \"/api\": database del server sulla stessa origine. */\n"
             "window.DOCMAP_CONFIG = Object.freeze(" + json.dumps(cfg, ensure_ascii=False, indent=2) + ");\n")
@@ -305,8 +323,8 @@ def ensure_certificates(cert_dir: str, studio: str, hostname: str, ips: list, no
         h = re.sub(r"[^A-Za-z0-9-]", "", (hostname or "").split(".")[0]).lower()
         permitted = [x509.IPAddress(ipaddress.IPv4Network(n)) for n in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8")]
         permitted += [x509.DNSName("local"), x509.DNSName("localhost")] + ([x509.DNSName(h)] if h else [])
-        name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, ("DocMap CA " + (studio or "studio"))[:64]),
-                          x509.NameAttribute(NameOID.ORGANIZATION_NAME, "DocMap (installazione locale)")])
+        name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, (f"{_bn()} CA " + (studio or "studio"))[:64]),
+                          x509.NameAttribute(NameOID.ORGANIZATION_NAME, f"{_bn()} (installazione locale)")])
         ca = (x509.CertificateBuilder().subject_name(name).issuer_name(name).public_key(key.public_key())
               .serial_number(x509.random_serial_number())
               .not_valid_before(now - _dt.timedelta(days=1)).not_valid_after(now + _dt.timedelta(days=3650))
@@ -388,7 +406,7 @@ def address_texts(settings: dict, ip: str, all_ips: list) -> tuple:
     u = urls(settings, ip)
     others = [i for i in all_ips if i != ip]
     lines = [
-        "DocMap - indirizzo nella rete dello studio",
+        f"{_bn()} - indirizzo nella rete dello studio",
         "==========================================",
         "",
         "Programma (PC e telefoni collegati al Wi-Fi/rete dello studio):",
@@ -399,9 +417,9 @@ def address_texts(settings: dict, ip: str, all_ips: list) -> tuple:
         lines += ["Prima volta su ogni telefono/PC: installa il certificato dello studio da",
                   "    " + u["certificato"],
                   "(spiegazione nella pagina e in GUIDA-INSTALLAZIONE.md, sezione 5).", ""]
-    lines += ["Destinazione dei QR dei faldoni (DocMap > Impostazioni > Destinazione finale):",
+    lines += [f"Destinazione dei QR dei faldoni ({_bn()} > Impostazioni > Destinazione finale):",
               "    " + u["qr_dest"], "",
-              "Indirizzo del database per DocMap sul PC (Sincronizzazione > Server online):",
+              f"Indirizzo del database per {_bn()} sul PC (Sincronizzazione > Server online):",
               "    " + u["api"], ""]
     if others:
         lines += ["Altri indirizzi di questo PC (se il primo non funziona): " + ", ".join(others), ""]
@@ -413,25 +431,25 @@ def address_texts(settings: dict, ip: str, all_ips: list) -> tuple:
     def esc(s):
         return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
-    studio = esc(settings.get("nome_studio") or "DocMap")
+    studio = esc(settings.get("nome_studio") or f"{_bn()}")
     cert_block = ""
     if u["certificato"]:
         cert_block = ('<section><h2>1 · Una volta per dispositivo: il certificato</h2><div class="qr" data-url="%s"></div>'
                       '<p class="u">%s</p><p>Inquadra con la fotocamera, apri la pagina e segui le istruzioni.</p></section>'
                       % (esc(u["certificato"]), esc(u["certificato"])))
-    html = """<!DOCTYPE html>
+    html = f"""<!DOCTYPE html>
 <html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>DocMap · indirizzo</title>
-<style>body{font-family:system-ui,Segoe UI,sans-serif;color:#0F172A;margin:24px}h1{font-size:22px}h2{font-size:16px}
-main{display:flex;gap:32px;flex-wrap:wrap}section{border:1px solid #CBD5E1;border-radius:12px;padding:16px;width:300px}
-.qr svg{width:260px;height:260px}.u{font-family:Consolas,monospace;font-size:15px;word-break:break-all}
-@media print{button{display:none}}</style></head>
-<body><h1>DocMap · %s</h1><p>Da appendere vicino alla stampante: collega il telefono al Wi-Fi dello studio e inquadra.</p>
-<main>%s<section><h2>%s · DocMap</h2><div class="qr" data-url="%s"></div><p class="u">%s</p>
-<p>Si apre DocMap: primo accesso con nome utente, PIN e codice di accesso ricevuto dall'amministratore.</p></section></main>
+<title>{_bn()} · indirizzo</title>
+<style>body{{font-family:system-ui,Segoe UI,sans-serif;color:#0F172A;margin:24px}}h1{{font-size:22px}}h2{{font-size:16px}}
+main{{display:flex;gap:32px;flex-wrap:wrap}}section{{border:1px solid #CBD5E1;border-radius:12px;padding:16px;width:300px}}
+.qr svg{{width:260px;height:260px}}.u{{font-family:Consolas,monospace;font-size:15px;word-break:break-all}}
+@media print{{button{{display:none}}}}</style></head>
+<body><h1>{_bn()} · %s</h1><p>Da appendere vicino alla stampante: collega il telefono al Wi-Fi dello studio e inquadra.</p>
+<main>%s<section><h2>%s · {_bn()}</h2><div class="qr" data-url="%s"></div><p class="u">%s</p>
+<p>Si apre {_bn()}: primo accesso con nome utente, PIN e codice di accesso ricevuto dall'amministratore.</p></section></main>
 <p><button onclick="print()">Stampa</button></p>
 <script src="app/assets/js/01-qr.js"></script>
-<script>document.querySelectorAll('.qr').forEach(function(d){ try { d.innerHTML = DMQR.svg(d.getAttribute('data-url'), {ecl:'M'}); } catch(e){ d.textContent = '(QR non disponibile: usa l\\'indirizzo scritto sotto)'; } });</script>
+<script>document.querySelectorAll('.qr').forEach(function(d){{ try {{ d.innerHTML = DMQR.svg(d.getAttribute('data-url'), {{ecl:'M'}}); }} catch(e){{ d.textContent = '(QR non disponibile: usa l\\'indirizzo scritto sotto)'; }} }});</script>
 </body></html>
 """ % (studio, cert_block, "2" if cert_block else "", esc(u["app"]), esc(u["app"]))
     return txt, html
@@ -540,19 +558,19 @@ def encrypt_stream(src, dst, secret: str, magic: bytes = BK_MAGIC, log2n: int | 
 def read_header(f, magic: bytes | None = None) -> dict:
     head = _read_full(f, HEADER_LEN)
     if len(head) < HEADER_LEN or head[:8] not in (BK_MAGIC, KEY_MAGIC):
-        raise ToolError("Il file non è un backup cifrato né un kit di DocMap (intestazione non riconosciuta).")
+        raise ToolError(f"Il file non è un backup cifrato né un kit di {_bn()} (intestazione non riconosciuta).")
     mg, ver, kdf, log2n, r, p, _res, chunk, salt, prefix, _res2 = _HDR.unpack(head[:_HDR.size])
     if magic is not None and mg != magic:
         raise ToolError("Questo file è un %s, non un %s." % (_KIND[mg], _KIND[magic]))
     if ver != ENC_VERSION or kdf != KDF_SCRYPT:
-        raise ToolError("Formato del file non supportato (versione %d): aggiorna gli strumenti di DocMap." % ver)
+        raise ToolError(f"Formato del file non supportato (versione %d): aggiorna gli strumenti di {_bn()}." % ver)
     if not (10 <= log2n <= 20 and 1 <= r <= 16 and 1 <= p <= 4 and 128 * r * (1 << log2n) <= (1 << 30)
             and 16 <= chunk <= (1 << 26)):
         raise ToolError("Intestazione del file danneggiata (parametri non validi).")
     return {"magic": mg, "log2n": log2n, "r": r, "p": p, "chunk": chunk, "salt": salt, "prefix": prefix, "head": head}
 
 
-_KIND = {BK_MAGIC: "backup cifrato di DocMap (.docmap-backup)", KEY_MAGIC: "kit di emergenza di DocMap (.docmap-key)"}
+_KIND = {BK_MAGIC: f"backup cifrato di {_bn()} (.docmap-backup)", KEY_MAGIC: f"kit di emergenza di {_bn()} (.docmap-key)"}
 
 
 def decrypt_stream(src, dst, secrets_to_try, magic: bytes = BK_MAGIC) -> tuple:
@@ -647,8 +665,8 @@ def is_encrypted(path: str) -> bool:
 PASSPHRASE_FILE = "backup-passphrase.txt"
 KIT_STATE_FILE = "kit-emergenza.json"
 PASSPHRASE_HEADER = (
-    "# DocMap - passphrase dei backup cifrati (.docmap-backup). NON cancellare, NON inviare per email.\n"
-    "# La usa il backup automatico (attivita' \"DocMap Backup\", utente SYSTEM). La cartella config e' leggibile solo\n"
+    f"# {_bn()} - passphrase dei backup cifrati (.docmap-backup). NON cancellare, NON inviare per email.\n"
+    f"# La usa il backup automatico (attivita' \"{_bn()} Backup\", utente SYSTEM). La cartella config e' leggibile solo\n"
     "# dagli amministratori. Una copia stampata sta nel Kit di emergenza (kit-emergenza.ps1).\n"
     "# Prima riga senza # = passphrase attuale; le righe dopo = passphrase precedenti (per aprire i backup vecchi).\n")
 
@@ -695,7 +713,7 @@ def set_passphrase(base: str, new: str) -> dict:
     """Nuova passphrase attuale; le precedenti restano nel file per aprire i backup già fatti."""
     new = canonical_secret(new)
     if len(new) < PASSPHRASE_MIN:
-        raise ToolError("Passphrase troppo corta: almeno %d caratteri (meglio il codice generato da DocMap)." % PASSPHRASE_MIN)
+        raise ToolError(f"Passphrase troppo corta: almeno %d caratteri (meglio il codice generato da {_bn()})." % PASSPHRASE_MIN)
     items = [new] + [x for x in read_passphrases(base) if canonical_secret(x) != new]
     _write_passphrases(base, items)
     return {"impronta": _fp(new), "precedenti": len(items) - 1}
@@ -917,7 +935,7 @@ def verify_zip(zpath: str) -> dict:
                 raise ToolError("Lo zip è danneggiato (file %s)." % bad)
             names = set(z.namelist())
             if "MANIFEST.json" not in names or "config/config.json" not in names:
-                raise ToolError("Questo zip non è un backup di DocMap (mancano MANIFEST.json o config/config.json).")
+                raise ToolError(f"Questo zip non è un backup di {_bn()} (mancano MANIFEST.json o config/config.json).")
             man = json.loads(z.read("MANIFEST.json").decode("utf-8"))
             for arc, digest in man.get("file", {}).items():
                 if arc not in names or hashlib.sha256(z.read(arc)).hexdigest() != digest:
@@ -1261,7 +1279,7 @@ def make_kit(base: str, out: str | None = None, now=None, code: str | None = Non
 
 
 def kit_page(payload: dict, code: str, kit_name: str) -> str:
-    studio = _esc(payload.get("studio") or "DocMap")
+    studio = _esc(payload.get("studio") or f"{_bn()}")
     groups = "".join("<span>%s</span>" % _esc(g) for g in code.split("-"))
     pps = payload.get("passphrase_backup") or []
     cur = _esc(pps[0]) if pps else "(nessuna)"
@@ -1270,22 +1288,22 @@ def kit_page(payload: dict, code: str, kit_name: str) -> str:
         prev = "<p class=small>Passphrase precedenti (per backup più vecchi): " + ", ".join(
             "<code>%s</code>" % _esc(x) for x in pps[1:]) + "</p>"
     created = _esc(payload.get("creato", "").replace("T", " "))
-    return """<!DOCTYPE html>
+    return f"""<!DOCTYPE html>
 <html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>DocMap · Kit di emergenza</title>
+<title>{_bn()} · Kit di emergenza</title>
 <style>
-:root{--ink:#0F172A;--muted:#475569;--line:#94A3B8;--warn:#B45309}
-body{font-family:system-ui,"Segoe UI",sans-serif;color:var(--ink);background:#fff;max-width:760px;margin:24px auto;padding:0 16px;line-height:1.45}
-h1{font-size:24px;margin:0 0 4px}h2{font-size:17px;margin:22px 0 8px}
-.box{border:2px solid var(--ink);border-radius:10px;padding:14px 16px;margin:12px 0}
-.code{display:flex;flex-wrap:wrap;gap:10px;font-family:Consolas,"Courier New",monospace;font-size:26px;font-weight:700;letter-spacing:2px}
-.code span{border:1px solid var(--line);border-radius:6px;padding:4px 8px}
-.pp{font-family:Consolas,"Courier New",monospace;font-size:20px;font-weight:700;word-break:break-all}
-.small{font-size:13px;color:var(--muted)}.warn{color:var(--warn);font-weight:600}
-ol li{margin:5px 0}.sign{margin-top:28px;display:flex;gap:24px;flex-wrap:wrap}.sign div{flex:1;min-width:220px;border-top:1px solid var(--ink);padding-top:4px;font-size:13px}
-@media print{button{display:none}body{margin:0 auto}}
+:root{{--ink:#0F172A;--muted:#475569;--line:#94A3B8;--warn:#B45309}}
+body{{font-family:system-ui,"Segoe UI",sans-serif;color:var(--ink);background:#fff;max-width:760px;margin:24px auto;padding:0 16px;line-height:1.45}}
+h1{{font-size:24px;margin:0 0 4px}}h2{{font-size:17px;margin:22px 0 8px}}
+.box{{border:2px solid var(--ink);border-radius:10px;padding:14px 16px;margin:12px 0}}
+.code{{display:flex;flex-wrap:wrap;gap:10px;font-family:Consolas,"Courier New",monospace;font-size:26px;font-weight:700;letter-spacing:2px}}
+.code span{{border:1px solid var(--line);border-radius:6px;padding:4px 8px}}
+.pp{{font-family:Consolas,"Courier New",monospace;font-size:20px;font-weight:700;word-break:break-all}}
+.small{{font-size:13px;color:var(--muted)}}.warn{{color:var(--warn);font-weight:600}}
+ol li{{margin:5px 0}}.sign{{margin-top:28px;display:flex;gap:24px;flex-wrap:wrap}}.sign div{{flex:1;min-width:220px;border-top:1px solid var(--ink);padding-top:4px;font-size:13px}}
+@media print{{button{{display:none}}body{{margin:0 auto}}}}
 </style></head><body>
-<h1>DocMap · Kit di emergenza</h1>
+<h1>{_bn()} · Kit di emergenza</h1>
 <p><b>%(studio)s</b> · creato il %(created)s sul PC <b>%(host)s</b></p>
 <p class=warn>Stampa questa pagina (2 copie), mettila in cassaforte e poi elimina il file dal PC. Non fotografarla e non inviarla per email.</p>
 
@@ -1302,7 +1320,7 @@ Se un giorno il programma mostra impronte diverse, questo foglio è vecchio: cre
 
 <h2>Cosa fare se…</h2>
 <ol>
-<li><b>Il PC si rompe o viene rubato.</b> Installa DocMap su un PC nuovo (<code>installa.bat</code>), poi
+<li><b>Il PC si rompe o viene rubato.</b> Installa {_bn()} su un PC nuovo (<code>installa.bat</code>), poi
 <code>C:\\DocMap\\strumenti\\ripristina.ps1</code>: scegli l'ultimo backup (dalla chiavetta/NAS) e, quando lo chiede, scrivi la
 <b>passphrase dei backup</b> (riquadro 2). Il backup contiene anche la chiave del database.</li>
 <li><b>Il database c'è ma la configurazione (config.json) è persa o cambiata.</b> Esegui
@@ -1332,7 +1350,7 @@ def read_kit(kit_path: str, code: str) -> dict:
     except ValueError:
         raise ToolError("Il kit è stato decifrato ma il contenuto non è valido.")
     if payload.get("tipo") != "docmap-kit-emergenza" or not isinstance(payload.get("config"), dict):
-        raise ToolError("Il file non è un Kit di emergenza di DocMap.")
+        raise ToolError(f"Il file non è un Kit di emergenza di {_bn()}.")
     return payload
 
 
@@ -1418,7 +1436,7 @@ SYNC_TEMPLATE = "sync-profile.template.json"
 BRIDGE_TOKEN_FILE = "token-ponte.txt"            # v0.11: added by the hub to the downloaded package, deleted after use
 SYNC_PROFILE = "sync-profile.json"
 SYNC_BAT = "sincronizza.bat"
-SYNC_TASK = "DocMap Sync Web-Locale"
+SYNC_TASK = "DocMap Sync Web-Locale"   # brand: keep (name of the Windows task already registered in every studio)
 BRIDGE_USER = "ponte-sync"
 SECRET_FIELDS = ("token", "basic_pass")
 _KEY_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$")
@@ -1589,7 +1607,7 @@ def sync_bat(base: str) -> str:
     venv_py = os.path.join(p["venv"], "Scripts", "python.exe")
     prof = os.path.join(p["sync"], SYNC_PROFILE)
     esito = os.path.join(p["sync"], "ultimo-esito.txt")
-    return "\r\n".join(["@echo off", "rem DocMap - ponte web <-> studio (creato da configura-sync; lo avvia l'attivita '%s')" % SYNC_TASK,
+    return "\r\n".join(["@echo off", f"rem {_bn()} - ponte web <-> studio (creato da configura-sync; lo avvia l'attivita '%s')" % SYNC_TASK,
                         'cd /d "%s"' % p["server"],
                         '"%s" -m docmap_server sync-remote "%s" > "%s" 2>&1' % (venv_py, prof, esito), ""])
 
@@ -1603,7 +1621,7 @@ def make_sync_profile(base: str, template: dict, web_token: str, local_token: st
     if not (web_token or "").strip():
         raise ToolError("Manca il codice di accesso (token) del sito web per il ponte.")
     if any(c.isspace() for c in web_token.strip()) or len(web_token.strip()) > 200:
-        raise ToolError("Il codice del sito web non sembra un token DocMap (contiene spazi o è troppo lungo).")
+        raise ToolError(f"Il codice del sito web non sembra un token {_bn()} (contiene spazi o è troppo lungo).")
     p = paths(base)
     s = load_settings(base)
     os.makedirs(p["sync"], exist_ok=True)
@@ -1647,7 +1665,7 @@ def configure_sync(base: str, template_path: str | None, web_token: str, basic_p
                         "del cliente preparato dal hub, oppure indica --modello." % (tp, e))
     t = sync_template(tpl)          # prima di toccare config.json
     if not os.path.isfile(p["config"]):
-        raise ToolError("DocMap non è ancora configurato in %s: installa prima il server." % p["config"])
+        raise ToolError(f"{_bn()} non è ancora configurato in %s: installa prima il server." % p["config"])
     local = add_bridge_token(base)
     res = make_sync_profile(base, t, web_token, local, basic_pass)
     if template_path and os.path.abspath(template_path) != os.path.abspath(os.path.join(p["sync"], SYNC_TEMPLATE)):
@@ -1664,7 +1682,7 @@ INSTALLER_FILES = ["installa.bat", "installa.ps1", "comune.ps1", "backup.ps1", "
 
 def build_package(out: str, make_zip: bool = False, repo_docmap: str | None = None, public_keys: str | None = None,
                   licence: str | None = None, studio_name: str | None = None, sync_model: str | None = None,
-                  client_info: dict | None = None, documents=()) -> dict:
+                  client_info: dict | None = None, documents=(), brand: str | None = None) -> dict:
     """Prepara la cartella da portare in studio:
          <out>/installa.bat, *.ps1, docmap_tools.py, GUIDA-INSTALLAZIONE.md, VERSIONE.txt
          <out>/app/      ← tools/build_deploy.py --no-server --base-path / (poi docmap.config.js viene riscritto in studio)
@@ -1697,7 +1715,8 @@ def build_package(out: str, make_zip: bool = False, repo_docmap: str | None = No
     os.makedirs(out, exist_ok=True)
     import subprocess
     r = subprocess.run([sys.executable, os.path.join(docmap, "tools", "build_deploy.py"), os.path.join(out, "app"),
-                        "--no-server", "--base-path", "/", "--slug", "studio"], capture_output=True, text=True)
+                        "--no-server", "--base-path", "/", "--slug", "studio"] + (["--brand", brand] if brand else []),
+                       capture_output=True, text=True)
     if r.returncode != 0:
         raise ToolError("build_deploy.py non riuscito: " + (r.stderr or r.stdout))
     _write_text_atomic(os.path.join(out, "app", "docmap.config.js"), config_js(dict(DEFAULT_SETTINGS)))
@@ -1737,7 +1756,7 @@ def build_package(out: str, make_zip: bool = False, repo_docmap: str | None = No
             _write_text_atomic(os.path.join(cdir, SYNC_TEMPLATE), json.dumps(tpl, ensure_ascii=False, indent=2) + "\n")
         _write_text_atomic(os.path.join(cdir, CLIENT_INFO), json.dumps(personal, ensure_ascii=False, indent=2) + "\n")
     version = app_version(docmap)
-    _write_text_atomic(os.path.join(out, "VERSIONE.txt"), "DocMap %s · strumenti %s · %s\n"
+    _write_text_atomic(os.path.join(out, "VERSIONE.txt"), f"{_bn()} %s · strumenti %s · %s\n"
                        % (version, TOOLS_VERSION, time.strftime("%Y-%m-%d")))
     manifest = []
     for root, dirs, files in os.walk(out):
@@ -1825,24 +1844,24 @@ def lan_middleware(app, api_paths):
     return wrapped
 
 
-CERT_PAGE = """<!DOCTYPE html>
+CERT_PAGE = f"""<!DOCTYPE html>
 <html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>DocMap · certificato dello studio</title>
-<style>body{{font-family:system-ui,sans-serif;max-width:640px;margin:16px auto;padding:0 16px;color:#0F172A}}
-a.b{{display:inline-block;background:#2563EB;color:#fff;padding:12px 18px;border-radius:10px;text-decoration:none;font-weight:700;margin:6px 0}}
-li{{margin:6px 0}}</style></head><body>
-<h1>DocMap · {studio}</h1>
-<p>Per usare DocMap in modo protetto (HTTPS) questo dispositivo deve fidarsi del <b>certificato dello studio</b>.
+<title>{_bn()} · certificato dello studio</title>
+<style>body{{{{font-family:system-ui,sans-serif;max-width:640px;margin:16px auto;padding:0 16px;color:#0F172A}}}}
+a.b{{{{display:inline-block;background:#2563EB;color:#fff;padding:12px 18px;border-radius:10px;text-decoration:none;font-weight:700;margin:6px 0}}}}
+li{{{{margin:6px 0}}}}</style></head><body>
+<h1>{_bn()} · {{studio}}</h1>
+<p>Per usare {_bn()} in modo protetto (HTTPS) questo dispositivo deve fidarsi del <b>certificato dello studio</b>.
 Si fa <b>una volta sola</b> per dispositivo.</p>
 <p><a class="b" href="/DocMap-CA-studio.crt">1. Scarica il certificato</a></p>
 <h2>Android</h2><ol><li>Apri il file scaricato oppure: Impostazioni › Sicurezza › Altre impostazioni › <i>Installa da memoria</i> ›
 <i>Certificato CA</i> (il nome del menu cambia un po' da telefono a telefono: cerca "certificato" nelle Impostazioni).</li>
 <li>Conferma "Installa comunque".</li></ol>
 <h2>iPhone / iPad</h2><ol><li>Scarica con <b>Safari</b> e scegli "Consenti".</li><li>Impostazioni › <i>Profilo scaricato</i> › Installa.</li>
-<li>Impostazioni › Generali › Info › <i>Impostazioni attendibilità certificati</i> › attiva "DocMap CA".</li></ol>
+<li>Impostazioni › Generali › Info › <i>Impostazioni attendibilità certificati</i> › attiva "{_bn()} CA".</li></ol>
 <h2>PC Windows</h2><ol><li>Apri il file › Installa certificato › Computer locale › "Autorità di certificazione radice attendibili".</li></ol>
-<p><a class="b" href="{app}">2. Apri DocMap</a></p>
-<p style="color:#475569;font-size:14px">Impronta SHA-256 del certificato (per chi vuole controllare):<br><code style="word-break:break-all">{fp}</code></p>
+<p><a class="b" href="{{app}}">2. Apri {_bn()}</a></p>
+<p style="color:#475569;font-size:14px">Impronta SHA-256 del certificato (per chi vuole controllare):<br><code style="word-break:break-all">{{fp}}</code></p>
 </body></html>
 """
 
@@ -1956,8 +1975,8 @@ def _ask_secret(prompt, path, base=None):
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(prog="docmap_tools.py", description="DocMap — strumenti per l'installazione in sede")
-    ap.add_argument("--base", default=os.environ.get("DOCMAP_BASE") or DEFAULT_BASE, help="cartella di DocMap (C:\\DocMap)")
+    ap = argparse.ArgumentParser(prog="docmap_tools.py", description=f"{_bn()} — strumenti per l'installazione in sede")
+    ap.add_argument("--base", default=os.environ.get("DOCMAP_BASE") or DEFAULT_BASE, help=f"cartella di {_bn()} (C:\\DocMap)")
     sub = ap.add_subparsers(dest="cmd", required=True)
     a = sub.add_parser("impostazioni")
     a.add_argument("--nome-studio")
@@ -2006,6 +2025,7 @@ def main(argv=None) -> int:
     pk.add_argument("--nome-studio", help="nome dello studio proposto da installa.ps1")
     pk.add_argument("--sync-modello", help="modello del profilo del ponte web <-> locale (senza codici)")
     pk.add_argument("--cliente-json", help="altri dati del cliente (JSON, niente segreti) da mettere in cliente/cliente.json")
+    pk.add_argument("--marchio", help="file JSON con il marchio del rivenditore/cliente (campi di brand.js, docs/MARCHIO.md)")
     pk.add_argument("--documento", action="append", default=[], help="file da copiare nella radice del pacchetto (ripetibile)")
     ip_ = sub.add_parser("info-pacchetto")
     ip_.add_argument("cartella")
@@ -2119,7 +2139,7 @@ def main(argv=None) -> int:
                     raise ToolError("--cliente-json deve contenere un oggetto JSON.")
             _print_json(build_package(a.out, a.zip, public_keys=a.chiave_pubblica, licence=a.licenza,
                                       studio_name=a.nome_studio, sync_model=a.sync_modello, client_info=info,
-                                      documents=a.documento))
+                                      documents=a.documento, brand=a.marchio))
         elif a.cmd == "info-pacchetto":
             _print_json(package_info(a.cartella))
         elif a.cmd == "abilita-licenza":

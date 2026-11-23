@@ -24,6 +24,7 @@ import uuid
 
 from . import hosting as H
 from .registry import RegistryError, _now
+from .branding import brand_name as _bn
 
 SEEDED = "templates.seeded"
 DEFAULT = "templates.default"
@@ -132,7 +133,7 @@ def builtin_data(over: dict) -> dict:
     over = copy.deepcopy(over)
     staging = bool((over.get("online") or {}).pop("staging", False))
     _deep_update(d, over)
-    d["progetto"]["nome"] = "DocMap {nome}"
+    d["progetto"]["nome"] = f"{_bn()} {{nome}}"
     d["progetto"]["nome_studio"] = "{nome}"
     if "online" in d["progetto"]["installazioni"]:
         d["online"]["indirizzo"] = "{sito}"
@@ -365,7 +366,7 @@ def apply(hub, tref: str | None, name: str, vat: str = "", installazioni: list |
         d["progetto"]["modello"] = t["name"]
     else:
         d = P.normalize(copy.deepcopy(P.TEMPLATE))
-        d["progetto"]["nome"], d["progetto"]["nome_studio"] = "DocMap {nome}", "{nome}"
+        d["progetto"]["nome"], d["progetto"]["nome_studio"] = f"{_bn()} {{nome}}", "{nome}"
         d["online"]["ftp"]["password"] = ""
         d["postazioni"], d["utenti_iniziali"], d["archivi"] = [], [], []
         if H.get(reg):  # empty masks still publish on the default hosting when there is one

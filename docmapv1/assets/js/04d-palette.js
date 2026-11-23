@@ -9,13 +9,13 @@ const CK = {open:false, q:'', items:[], sel:0, back:null};
 Object.assign(I18N.it, {
   ck_btn:'Cerca ovunque', ck_ph:'Cerca un faldone, un cliente, una pagina o un\'azione…', ck_hint:'↑ ↓ per scegliere · Invio per aprire · Esc per chiudere',
   ck_g_binder:'Faldoni', ck_g_client:'Clienti', ck_g_page:'Pagine', ck_g_action:'Azioni', ck_none:'Nessun risultato per «{q}».',
-  ck_a_new:'Nuovo faldone', ck_a_backup:'Salva backup', ck_a_about:'Informazioni su DocMap', ck_a_help:'Aiuto', ck_a_print_sel:'Stampa le etichette in coda',
+  ck_a_new:'Nuovo faldone', ck_a_backup:'Salva backup', ck_a_about:('Informazioni su ' + brandName()), ck_a_help:'Aiuto', ck_a_print_sel:'Stampa le etichette in coda',
   ck_a_theme:'Tema: {t}', ck_client_d:'mostra i suoi faldoni nell\'Archivio', ck_go:'Vai a',
 });
 Object.assign(I18N.en, {
   ck_btn:'Search everywhere', ck_ph:'Search a binder, a client, a page or an action…', ck_hint:'↑ ↓ to choose · Enter to open · Esc to close',
   ck_g_binder:'Binders', ck_g_client:'Clients', ck_g_page:'Pages', ck_g_action:'Actions', ck_none:'No result for «{q}».',
-  ck_a_new:'New binder', ck_a_backup:'Save backup', ck_a_about:'About DocMap', ck_a_help:'Help', ck_a_print_sel:'Print the queued labels',
+  ck_a_new:'New binder', ck_a_backup:'Save backup', ck_a_about:('About ' + brandName()), ck_a_help:'Help', ck_a_print_sel:'Print the queued labels',
   ck_a_theme:'Theme: {t}', ck_client_d:'show their binders in the Archive', ck_go:'Go to',
 });
 
@@ -116,10 +116,10 @@ document.addEventListener('DOMContentLoaded', () => {
   HELP_TOPICS.push({ id:'look', guide:null, tags:['start'], related:['app-install', 'about'],
     kw:{it:'tema scuro chiaro notte aspetto colori ctrl+k cerca ovunque scorciatoia tastiera comandi lente', en:'dark light theme night look colours ctrl+k search everywhere shortcut keyboard commands'},
     title:{it:'Tema scuro e Cerca ovunque (Ctrl+K)', en:'Dark theme and Search everywhere (Ctrl+K)'},
-    body:{it:'<p><b>Tema scuro</b>: DocMap segue il tema del sistema. Per sceglierlo a mano: <b>Impostazioni › Aspetto</b> (Automatico, Chiaro, Scuro); sul telefono la riga <b>Aspetto</b> sotto «Tempi misurati». Vale solo per questo dispositivo. Etichette, anteprime e stampe restano sempre chiare.</p>' +
+    body:{it:('<p><b>Tema scuro</b>: ' + brandName() + ' segue il tema del sistema. Per sceglierlo a mano: <b>Impostazioni › Aspetto</b> (Automatico, Chiaro, Scuro); sul telefono la riga <b>Aspetto</b> sotto «Tempi misurati». Vale solo per questo dispositivo. Etichette, anteprime e stampe restano sempre chiare.</p>') +
       '<p><b>Cerca ovunque</b>: premi <b>Ctrl+K</b> (⌘K sul Mac) o la lente 🔍 in alto. Scrivi un codice, un cliente, una pagina («stampa») o un\'azione («backup», «nuovo faldone», «tema»). ↑ ↓ per scegliere, Invio per aprire, Esc per chiudere.</p>' +
       '<p><button class="btn btn-sm" data-ck-open="1" type="button">Prova Cerca ovunque</button></p>',
-      en:'<p><b>Dark theme</b>: DocMap follows the system theme. To choose it: <b>Settings › Appearance</b> (Automatic, Light, Dark); on the phone the <b>Appearance</b> row under «Measured times». It applies to this device only. Labels, previews and printing always stay light.</p>' +
+      en:('<p><b>Dark theme</b>: ' + brandName() + ' follows the system theme. To choose it: <b>Settings › Appearance</b> (Automatic, Light, Dark); on the phone the <b>Appearance</b> row under «Measured times». It applies to this device only. Labels, previews and printing always stay light.</p>') +
       '<p><b>Search everywhere</b>: press <b>Ctrl+K</b> (⌘K on a Mac) or the 🔍 at the top. Type a code, a client, a page («print») or an action («backup», «new binder», «theme»). ↑ ↓ to choose, Enter to open, Esc to close.</p>' +
       '<p><button class="btn btn-sm" data-ck-open="1" type="button">Try Search everywhere</button></p>'} });
 });

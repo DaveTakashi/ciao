@@ -21,6 +21,7 @@ from . import licence as L
 from .keys import KeyError_
 from .registry import RegistryError
 from .service import Hub
+from .branding import brand_name as _bn
 
 ENV_PASSPHRASE = "DOCMAP_HUB_PASSPHRASE"
 
@@ -146,6 +147,108 @@ def cmd_plans(hub: Hub, args) -> int:
             ", ".join(f"{k}={_limit(v)}" for k, v in p.get("limits", {}).items()),
             ", ".join(p.get("features", []))] for pid, p in hub.plans.items()],
           ["piano", "nome", "mesi", "tolleranza", "limiti", "funzioni"])
+    return 0
+
+
+def _brand_patch(args) -> dict:
+    """brand.js fields from the options of «marchio» (only the ones given) and/or a JSON file."""
+    patch: dict = {}
+    if getattr(args, "da", None):
+        patch.update(json.loads(Path(args.da).read_text("utf-8-sig")))
+    for opt, key in (("nome", "product_name"), ("nome_breve", "short_name"), ("sigla", "mark"), ("logo", "logo_url"),
+                     ("colore", "primary_color"), ("email_assistenza", "support_email"),
+                     ("telefono_assistenza", "support_phone"), ("sito", "website"), ("fornitore", "vendor_name"),
+                     ("prefisso_file", "file_prefix")):
+        v = getattr(args, opt, None)
+        if v is not None:
+            patch[key] = v
+    return patch
+
+
+def cmd_brand_show(hub: Hub, args) -> int:
+    from . import branding as B
+    if args.cliente:
+        c = hub.registry.get_customer(args.cliente)
+        b, over = B.brand_for_customer(hub.registry, c), B.customer_override(hub.registry, c)
+        out(f"Marchio per {c['name']}: «{b['product_name']}»" + (" (personalizzato: " + ", ".join(sorted(over)) + ")" if over else " (quello del prodotto)"))
+    else:
+        b = B.product_brand(hub.registry)
+        out(f"Marchio del prodotto (brand.js): «{b['product_name']}»")
+    out(json.dumps(b, ensure_ascii=False, indent=2))
+    return 0
+
+
+def cmd_brand_set(hub: Hub, args) -> int:
+    """0.13: own brand of a customer (customers.extra.brand) or of a reseller (resellers.branding_json)."""
+    from . import branding as B
+    reg = hub.registry
+    if bool(args.cliente) == bool(args.rivenditore):
+        raise CliError("Indica --cliente oppure --rivenditore.")
+    if args.rivenditore:
+        cur = dict(reg.get_reseller(args.rivenditore).get("branding") or {})
+    else:
+        cur = dict(B.customer_extra(reg.get_customer(args.cliente)).get("brand") or {})
+    new = {} if args.azzera else {**cur, **_brand_patch(args)}
+    new = {k: v for k, v in new.items() if v not in (None, "")}
+    errs = B.validate_override(reg, new) if new else []
+    if errs:
+        raise CliError("Marchio non valido: " + "; ".join(errs))
+    if args.rivenditore:
+        r = reg.update_reseller_branding(args.rivenditore, new or None)
+        out(f"Marchio del rivenditore {r['name']}: " + (f"«{new['product_name']}»" if new else "tolto (vale quello del prodotto)"))
+    else:
+        c = reg.update_customer(args.cliente, extra={"brand": new or None})
+        out(f"Marchio di {c['name']}: " + (f"«{new.get('product_name') or B.brand_for_customer(reg, c)['product_name']}»" if new else "tolto"))
+    out("Per portarlo ai siti: ripubblica (deploy / «Siti da aggiornare»); i pacchetti nuovi lo hanno già.")
+    return 0
+
+
+def cmd_listino(hub: Hub, args) -> int:
+    from . import pricing as P
+    from .branding import brand_name
+    lst = P.load_listino(hub.dir)
+    md = P.render_markdown(lst, brand_name(hub.registry))
+    if args.md:
+        Path(args.md).write_text(md, encoding="utf-8", newline="\n")
+        out(f"Scritto {args.md}")
+        return 0
+    table([[pid, p.get("label"), P._eur((p.get("price") or {}).get("monthly_eur")), P._eur((p.get("price") or {}).get("yearly_eur"))]
+           for pid, p in lst["plans"].items()], ["piano", "nome", "al mese", "all'anno"])
+    return 0
+
+
+def cmd_preventivo(hub: Hub, args) -> int:
+    from . import pricing as P
+    reg = hub.registry
+    c = reg.get_customer(args.cliente)
+    changes: dict = {}
+    for opt, key in (("piano", "plan"), ("fatturazione", "billing"), ("note", "notes"), ("valido_fino", "valid_until")):
+        if getattr(args, opt) is not None:
+            changes[key] = getattr(args, opt) or None
+    for opt, key in (("sconto", "discount_pct"), ("canone", "monthly_eur"), ("avvio", "setup_eur")):
+        v = getattr(args, opt)
+        if v is not None:
+            changes[key] = None if v == "" else float(v.replace(",", "."))
+    if args.moduli is not None:
+        changes["modules"] = [m.strip() for m in args.moduli.split(",") if m.strip()] or None
+    if "monthly_eur" in changes and changes["monthly_eur"] is not None:
+        changes.setdefault("discount_pct", None)
+    if changes.get("plan") and changes["plan"] not in P.load_listino(hub.dir)["plans"]:
+        raise CliError(f"Piano sconosciuto: {changes['plan']} (vedi: listino)")
+    if changes or args.azzera:
+        P.set_quote(reg, c["id"], changes, clear=args.azzera)
+        c = reg.get_customer(c["id"])
+    q = P.quote(P.load_listino(hub.dir), c)
+    per = "anno" if q["billing"] == "yearly" else "mese"
+    out(f"{c['name']}: piano {q['plan_label']} ({q['plan']}), fatturazione per {per}")
+    out(f"  listino:     {P._eur(q['list_eur'])}/{per}" + ("  (con " + ", ".join(m['label'] for m in q['modules']) + ")" if q["modules"] else ""))
+    out(f"  concordato:  {P._eur(q['agreed_eur'])}/{per}  [{q['how']}]")
+    if q["setup_eur"]:
+        out(f"  avvio:       {P._eur(q['setup_eur'])} una tantum")
+    if q["notes"] or q["valid_until"]:
+        out(f"  note:        {q['notes']}" + (f" (valido fino al {q['valid_until']})" if q["valid_until"] else ""))
+    if not q["custom"]:
+        out("  (nessun preventivo personalizzato: vale il listino)")
     return 0
 
 
@@ -1072,7 +1175,7 @@ def cmd_aggiorna_siti(hub: Hub, args) -> int:
     from . import sitesetup as SS
     target = SS.available_version(hub.registry)
     if not target:
-        raise CliError("Non trovo la cartella di DocMap accanto all'hub (settings set docmap_dir …).")
+        raise CliError(f"Non trovo la cartella di {_bn()} accanto all'hub (settings set docmap_dir …).")
     sites = SS.outdated_sites(hub, target, include_staging=args.anche_staging)
     if not sites:
         out(f"Tutti i siti sono già alla {target} (oppure mai controllati: check-all).")
@@ -1371,7 +1474,7 @@ def cmd_cliente_situazione(hub: Hub, args) -> int:
 def cmd_info(hub: Hub, args) -> int:
     from . import autoaccess
     prog = Path(__file__).resolve().parent.parent.parent  # the folder that holds hub\, installer-windows\, …
-    out(f"DocMap Hub {__version__}")
+    out(f"{_bn()} Hub {__version__}")
     out(f"Programma (si può sostituire a ogni aggiornamento): {prog}")
     out(f"Dati (NON toccare: chiavi, registro, cassaforte, clienti): {hub.dir}")
     out(f"Chiave di firma attiva: {hub.keys.active_id or 'nessuna (keygen)'}")
@@ -1442,8 +1545,8 @@ def cmd_auto(hub: Hub, args) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="python -m docmap_hub",
-                                 description="DocMap Hub: licenze, ambienti (produzione/staging/demo), cassaforte, porte e deploy.")
-    ap.add_argument("--version", action="version", version=f"DocMap Hub {__version__}")
+                                 description=f"{_bn()} Hub: licenze, ambienti (produzione/staging/demo), cassaforte, porte e deploy.")
+    ap.add_argument("--version", action="version", version=f"{_bn()} Hub {__version__}")
     ap.add_argument("--dir", help="cartella dati dell'hub (predefinita: %%APPDATA%%\\DocMapHub "
                                   "o ~/.docmap-hub, oppure variabile DOCMAP_HUB_DIR)")
     ap.add_argument("--passphrase-file", help="legge la passphrase da un file (solo per automazioni)")
@@ -1469,6 +1572,23 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--key-id", help="chiave da esportare (predefinita: quella attiva)")
     p.add_argument("--out", help="file di destinazione")
     add("plans", cmd_plans, "mostra i piani e i loro valori predefiniti")
+    p = add("listino", cmd_listino, "prezzi di listino (unica fonte: plans.json); --md rigenera LISTINO.md")
+    p.add_argument("--md", help="scrive il listino in Markdown (es. ../docs/commerciale/LISTINO.md)")
+
+    p = add("marchio", None, "marchio (white label): prodotto, rivenditore, cliente")
+    ms = p.add_subparsers(dest="sub", metavar="azione")
+    q = add("mostra", cmd_brand_show, "mostra il marchio del prodotto o quello che vede un cliente", ms)
+    q.add_argument("--cliente")
+    q = add("imposta", cmd_brand_set, "marchio proprio di un cliente o di un rivenditore (campi di brand.js)", ms)
+    q.add_argument("--cliente")
+    q.add_argument("--rivenditore")
+    for o_, h_ in (("nome", "nome del prodotto"), ("nome-breve", "nome sotto l'icona"), ("sigla", "max 4 caratteri"),
+                   ("logo", "immagine (percorso nel programma, https:// o data:)"), ("colore", "#RRGGBB"),
+                   ("email-assistenza", None), ("telefono-assistenza", None), ("sito", "https://…"),
+                   ("fornitore", "chi vende e assiste"), ("prefisso-file", "inizio dei nomi dei file scaricati")):
+        q.add_argument("--" + o_, help=h_)
+    q.add_argument("--da", help="file JSON con i campi di brand.js")
+    q.add_argument("--azzera", action="store_true", help="toglie il marchio proprio (torna quello del prodotto)")
 
     p = add("reseller", None, "rivenditori")
     rs = p.add_subparsers(dest="sub", metavar="azione")
@@ -1738,6 +1858,17 @@ def build_parser() -> argparse.ArgumentParser:
     add("elenco", cmd_cliente_elenco, "clienti, installazioni e cartelle preparate", cl)
     q = add("situazione", cmd_cliente_situazione, "una riga per sito/server di ogni cliente: versione, controllo, licenza", cl)
     q.add_argument("--csv", help="scrive un file per Excel (separatore ;), es. C:\\Users\\Dave\\Desktop\\clienti.csv")
+    q = add("preventivo", cmd_preventivo, "prezzo concordato con un cliente (solo ciò che cambia rispetto al listino)", cl)
+    q.add_argument("cliente")
+    q.add_argument("--piano")
+    q.add_argument("--fatturazione", choices=["monthly", "yearly"])
+    q.add_argument("--sconto", help="percentuale sul listino (vuoto = togli)")
+    q.add_argument("--canone", help="canone mensile concordato in euro (sostituisce lo sconto)")
+    q.add_argument("--moduli", help="es. retention,handover (vuoto = nessuno)")
+    q.add_argument("--avvio", help="prezzo dell'avvio in euro")
+    q.add_argument("--note")
+    q.add_argument("--valido-fino", dest="valido_fino", help="AAAA-MM-GG")
+    q.add_argument("--azzera", action="store_true", help="toglie il preventivo: vale il listino")
     q = add("percorso", cmd_percorso, "passi fatti e prossimo passo di un cliente", cl)
     q.add_argument("--cliente", required=True)
 

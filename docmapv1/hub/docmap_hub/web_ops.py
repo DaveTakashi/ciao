@@ -20,6 +20,7 @@ from datetime import datetime
 from . import health
 from .registry import ENV_KINDS
 from .vault import KINDS, KIND_IT, Vault, VaultError
+from .branding import brand_name as _bn
 
 NAV = [("/", "← Nuovo gestionale"), ("/classico", "Licenze"), ("/clienti", "Nuovo cliente"), ("/envs", "Istanze & ambienti"), ("/vault", "Cassaforte"), ("/deploy", "Deploy"),
        ("/ports", "Porte"), ("/status", "Stato")]
@@ -95,7 +96,7 @@ class Jobs:
 
 def nav(active: str, hidden: str) -> str:
     links = " ".join(f"<a href='{h}' class='{'on' if h == active else ''}'>{_e(t)}</a>" for h, t in NAV)
-    return (f"<nav class='top'><div class='links'><b>DocMap Hub</b> {links}</div>"
+    return (f"<nav class='top'><div class='links'><b>{_bn()} Hub</b> {links}</div>"
             f"<form class='inline' method='post' action='/logout'>{hidden}<button class='sec'>Esci</button></form>"
             "</nav>")
 

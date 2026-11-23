@@ -209,7 +209,7 @@ const LOG_EXPORT_KIND = (f) => /^manifest/i.test(f) ? 'export.manifest' : /full_
 (function logWrap(){
   const wrap = (name, fn) => { const orig = window[name]; if (typeof orig !== 'function') return; window[name] = fn(orig); };
   wrap('markExported', (o) => function(file){ const r = o.apply(this, arguments); logAct(LOG_EXPORT_KIND(String(file || '')), {type:'file', id:'', code:String(file || '')}, 'Scaricato ' + file, {file:String(file || ''), binders:S.binders.length}); return r; });
-  wrap('exportClientsCSV', (o) => function(){ const r = o.apply(this, arguments); logAct('export.clients', {type:'file', id:'', code:'docmap_clienti.csv'}, 'Scaricato docmap_clienti.csv (' + (S.clients || []).length + ' clienti)', {file:'docmap_clienti.csv', clients:(S.clients || []).length}); return r; });
+  wrap('exportClientsCSV', (o) => function(){ const r = o.apply(this, arguments); logAct('export.clients', {type:'file', id:'', code:brandFile('clienti', 'csv')}, 'Scaricato ' + brandFile('clienti', 'csv') + ' (' + (S.clients || []).length + ' clienti)', {file:brandFile('clienti', 'csv'), clients:(S.clients || []).length}); return r; });
   wrap('printLabels', (o) => function(){ const d = logPrintDetails(); if (d.labels) logAct('print.labels', null, 'Stampa di ' + d.labels + ' etichette (' + d.sheets + ' fogli, foglio ' + d.preset + ', contenuto ' + d.mode + ')', d); return o.apply(this, arguments); });
   wrap('printRegister', (o) => function(list){ logAct('print.register', null, 'Stampa del Registro Generale (' + (list || []).length + ' faldoni)', {binders:(list || []).length}); return o.apply(this, arguments); });
   wrap('printCalibration', (o) => function(){ logAct('print.calibration', null, 'Stampa del foglio di prova (' + S.print.presetId + ')', {preset:S.print.presetId}); return o.apply(this, arguments); });
@@ -316,7 +316,7 @@ function logCSV(list){
 function logExportCSV(){
   const list = logFiltered();
   const d = new Date(), p = (n) => String(n).padStart(2, '0');
-  const name = 'docmap_registro_attivita_' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '_' + p(d.getHours()) + p(d.getMinutes()) + '.csv';
+  const name = brandFile('registro_attivita_') + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '_' + p(d.getHours()) + p(d.getMinutes()) + '.csv';
   download(name, logCSV(list), 'text/csv');
   logAct('export.log', {type:'file', id:'', code:name}, 'Scaricato il registro attività (' + list.length + ' operazioni)', {file:name, rows:list.length});
   toast(t('lg_exported', {f:name}));

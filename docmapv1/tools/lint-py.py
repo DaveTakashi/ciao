@@ -77,12 +77,31 @@ def main():
     for f in files:
         with open(f, encoding='utf-8') as fh:
             api.check(fh.read(), f, rep)
+    errors += brand_literals(files)
     for e in errors:
         print('  ✗', e)
     print('  %d Python files, %d minor notes (unused imports, …): run `python3 -m pyflakes hub` to see them'
           % (len(files), notes))
     print(('✗ lint-py: %d problems' % len(errors)) if errors else 'OK lint-py: no problems')
     return 1 if errors else 0
+
+
+def brand_literals(files):
+    """White label: a product name written in a string of the program (tests and the brand tools aside)."""
+    if sys.version_info < (3, 12):
+        return []   # the checker needs the f-string tokens of 3.12+
+    sys.path.insert(0, os.path.join(ROOT, 'tools'))
+    import brand_sweep_py as B
+    out = []
+    for f in files:
+        rel = os.path.relpath(f, ROOT).replace(os.sep, '/')
+        if '/tests/' in rel or rel.startswith('tools/brand') or rel == 'tools/make_pdf_fonts.py':
+            continue
+        with open(f, encoding='utf-8') as fh:
+            src = fh.read()
+        for a, b, kind in B.findings(src):
+            out.append('%s:%s: product name written in a string: use the brand reader (tools/brand_sweep_py.py)' % (rel, a[0]))
+    return out
 
 
 if __name__ == '__main__':
