@@ -161,3 +161,20 @@ main.fd-main{justify-content:flex-start}
 .w1-acts{display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start}
 .w1-nores p{margin:4px 0}
 .w1-how{max-width:520px;margin:6px auto 10px}
+
+/* v12.10 «Promemoria» (PC view 'reminders') */
+.rm-g{border-left:4px solid var(--brand)}
+.rm-w-late{border-left-color:var(--red)}
+.rm-w-today,.rm-w-soon{border-left-color:var(--amber)}
+.rm-gh{display:flex;gap:var(--s3);align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+.rm-gh h3{margin:0;font-size:var(--fs-lg);text-transform:none;letter-spacing:0;color:var(--text)}
+.rm-acts{display:flex;gap:6px;flex-wrap:wrap}
+.rm-acts a{text-decoration:none}
+.rm-items{list-style:none;margin:var(--s3) 0 0;padding:0;display:flex;flex-direction:column;gap:4px}
+.rm-it{display:flex;gap:var(--s2);align-items:baseline;flex-wrap:wrap;font-size:var(--fs-sm)}
+.rm-it span{color:var(--text-2);min-width:0;overflow-wrap:anywhere}
+.rm-it small{margin-left:auto;color:var(--muted)}
+.rm-late small{color:var(--red);font-weight:var(--fw-strong)}
+.rm-soon small,.rm-today small{color:var(--amber-ink)}
+.rm-more summary{cursor:pointer;color:var(--text-2);font-size:var(--fs-sm);margin-top:var(--s2)}
+.rm-msg{white-space:pre-wrap;background:var(--surface-2);border-radius:var(--radius-sm);padding:var(--s3);font-family:var(--font);font-size:var(--fs-sm);margin:var(--s2) 0 0;overflow-wrap:anywhere}

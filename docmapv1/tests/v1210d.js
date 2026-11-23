@@ -49,7 +49,7 @@ const ok = (c, n, x) => { if (c) passes++; else { fails++; console.log('  ✗ FA
     const n0 = await p.evaluate(() => S.binders.length);
     await p.evaluate(() => { const id = S.binders[1].id; ACTIONS['del']({dataset:{id}}); }); await p.waitForTimeout(150);
     ok(await p.evaluate((n) => S.binders.length === n - 1 && !topModal() && /Annulla/.test($$('.toast').map(x => x.textContent).join()), n0), 'delete one binder: no question, «Annulla» in the message');
-    await p.evaluate(() => $$('.toast button').pop().click()); await p.waitForTimeout(200);
+    await p.evaluate(() => $$('.toast').filter(x => /Annulla/.test(x.textContent)).pop().querySelector('button').click()); await p.waitForTimeout(200);
     ok(await p.evaluate((n) => S.binders.length === n, n0), 'Annulla brings it back');
     await p.evaluate(() => { S.clients = S.clients || []; S.clients.push({id:'cl-w1', name:'Cliente W1', multi_code:''}); persist(); ACTIONS['cl-del']({dataset:{id:'cl-w1'}}); }); await p.waitForTimeout(150);
     ok(await p.evaluate(() => !S.clients.some(c => c.id === 'cl-w1') && !topModal()), 'delete a client: no question either');

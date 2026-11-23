@@ -764,3 +764,18 @@ Menu **⚙ Funzioni avanzate › Lavoro › Andamento e previsioni**.
   subito; per 9 secondi compare **Annulla** in basso. Se preferisci la domanda: **Impostazioni › Eliminazioni ›
   Chiedi sempre conferma prima di eliminare**. Eliminare più faldoni insieme chiede sempre.
 - **Nessun risultato**: la pagina dice perché e offre **Togli ricerca e filtri**, **Cerca ovunque** e **Crea …**.
+
+## 29. Promemoria: ricordare a chi ha un faldone di riportarlo (v12.10)
+
+Apri **⚙ Funzioni avanzate › Lavoro › Promemoria**.
+
+- In alto, **Da sollecitare oggi**: una scheda per persona o studio con i faldoni **in ritardo**, **in scadenza** o
+  **fuori da tanto**. Prima chi è più in ritardo.
+- Apri la scheda: c'è il **testo già scritto**. Scrivi una volta l'e-mail o il telefono di quella persona, poi
+  **E-mail** o **WhatsApp** aprono il messaggio pronto (oppure **Copia**). DocMap **non manda niente da solo**.
+- Dopo averlo mandato premi **Segnato come inviato** (si annulla con **Annulla**). La scheda passa in **Già
+  sollecitati** e torna dopo 7 giorni se il faldone non è rientrato. **Rimanda di 7 giorni** se la persona ha già
+  avvisato.
+- Quando DocMap è aperto, i promemoria del giorno compaiono anche in **Oggi** e in un avviso una volta al giorno.
+- **Regole**: quanti giorni prima della scadenza, ogni quanti giorni ripetere, dopo quanti giorni un faldone senza data
+  è «fuori da tanto», notifica del computer, oppure spegni i promemoria.

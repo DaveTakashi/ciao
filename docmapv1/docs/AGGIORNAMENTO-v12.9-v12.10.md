@@ -1,6 +1,6 @@
-# DocMap: da 26.12.9 (v12.9) a 26.12.10 (v12.10) — prelievi, consegna firmata, faldone smarrito, previsioni
+# DocMap: da 26.12.9 (v12.9) a 26.12.10 (v12.10) — prelievi, consegna firmata, faldone smarrito, promemoria, previsioni
 
-Ondata 2 della roadmap «verso lo stato dell'arte» (funzioni 1, 3, 5 e 7 scelte da Dave) e fine dell'ondata 1.
+Ondata 2 della roadmap «verso lo stato dell'arte» (funzioni 1, 3, 5, 6 e 7 scelte da Dave) e fine dell'ondata 1.
 **Nessun dato cambia**: nessuna migrazione, nessuna chiave di memoria cambiata, nessuna tabella nuova sul server.
 Il server ha **una sola rotta nuova**, pubblica e in sola lettura (`finder`, vedi sotto).
 
@@ -42,6 +42,21 @@ Il server ha **una sola rotta nuova**, pubblica e in sola lettura (`finder`, ved
   telefoni. In alternativa l'installatore può scriverlo in `docmap.config.js` (`finder: {name, phone, email, whatsapp, note}`).
 - Server: rotta pubblica `api.php?r=finder&c=<codice>` (solo GET, nessun token, restituisce solo il contatto).
 
+### 6. Promemoria di rientro (⚙ Funzioni avanzate › Lavoro › Promemoria)
+
+- DocMap calcola da solo **chi deve riportare cosa**: faldoni **in ritardo** (oltre la data di rientro), **in scadenza**
+  (entro 2 giorni) e **fuori da tanto** (più di 30 giorni senza data di rientro). Uno per persona o studio, anche se
+  il nome è scritto con maiuscole o spazi diversi.
+- Per ognuno c'è un **testo pronto** (saluto, motivo, un faldone per riga) con **E-mail**, **WhatsApp** e **Copia**.
+  Il contatto (e-mail, telefono) si scrive una volta lì vicino e resta. **DocMap non manda mai niente da solo**: il
+  messaggio lo manda una persona, poi **Segnato come inviato** (con Annulla). Si ripete dopo 7 giorni se il faldone
+  non è tornato; un nuovo faldone in ritardo per la stessa persona lo fa ricomparire subito. **Rimanda di 7 giorni**
+  per chi ha già avvisato.
+- **Automatico**: all'apertura e ogni ora i promemoria del giorno compaiono in **Oggi**, in un avviso una volta al
+  giorno e, se lo attivate, come notifica del computer.
+- **Regole** (giorni prima della scadenza, ogni quanti giorni ripetere, dopo quanti giorni «fuori da tanto»,
+  notifica, acceso/spento) nella stessa pagina.
+
 ### 7. Andamento e previsioni (⚙ Funzioni avanzate › Lavoro › Andamento e previsioni)
 
 - **Tempo risparmiato** (questo mese, 12 mesi, da sempre, prossimi 3 mesi) in ore e in euro: ogni consultazione vale
@@ -68,7 +83,7 @@ Il server ha **una sola rotta nuova**, pubblica e in sola lettura (`finder`, ved
 
 ## File nuovi
 
-`assets/js/02j-pick.js`, `02k-finder.js`, `06r-pick.js`, `06s-finder.js`, `06t-insights.js`, `06u-wave1.js`,
+`assets/js/02j-pick.js`, `02k-finder.js`, `06r-pick.js`, `06s-finder.js`, `06t-insights.js`, `06u-wave1.js`, `06v-reminders.js`,
 `11g-pick.js`, `11h-finder.js`, `assets/css-pick.css`. Cambiano anche `index.html`, `scan.html`, `02-core.js`,
 `02d-status.js`, `06j-status.js`, `06c-clients.js`, `06l-archives.js`, `09-actions.js`, `sw.js`,
 `server-php/api.php` (e il server Python). Il deploy (`tools/build_deploy.py`, hub «Invia ai siti») li copia da solo.
@@ -78,8 +93,11 @@ Il server ha **una sola rotta nuova**, pubblica e in sola lettura (`finder`, ved
 - Prelievi: `S.picks` nel salvataggio del PC (anche nei backup JSON e nel ripristino); la catena di custodia vera sono
   gli **stati** dei faldoni, già sincronizzati ovunque. Firme: nell'archivio foto del telefono e sul server (`photo_put`,
   cifrate, mai sovrascritte).
+- Promemoria: `S.reminders` (inviati e rimandati, anche nei backup JSON) e le impostazioni `reminders` (regole) e
+  `holderContacts` (contatti di chi riceve i faldoni), solo sul PC.
 - Impostazioni nuove: `finder`, `finderAt` (condivise), `insights`, `confirmDeletes` (solo su quel PC).
-- Telefono: chiavi nuove `docmap_v26_pick_active`, `docmap_v26_pick_sig_outbox`; PC: `docmap_today_v1` (solo preferenza).
+- Telefono: chiavi nuove `docmap_v26_pick_active`, `docmap_v26_pick_sig_outbox`; PC: `docmap_today_v1` e
+  `docmap_reminders_toast_day` (solo preferenze).
 
 ## Passi
 

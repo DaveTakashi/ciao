@@ -98,7 +98,7 @@ const draw = async (pg, sel) => { const box = await pg.locator(sel).boundingBox(
     await p.evaluate(() => renderView());
     await p.click('.pk-more summary'); await p.click('[data-a="pk-del"]'); await p.waitForTimeout(250);   // no question: «Annulla» (06u-wave1.js)
     ok(await p.evaluate(() => S.picks.length) === 0 && await p.evaluate((id) => sqEv().filter(e => String(e.batch_id).startsWith(id)).length, P.id) === 12, 'delete: the list goes, the statuses stay');
-    await p.evaluate(() => { const t0 = $$('.toast button').pop(); if (t0) t0.click(); }); await p.waitForTimeout(250);
+    await p.evaluate(() => { const t0 = $$('.toast').filter(x => /Annulla/.test(x.textContent)).map(x => x.querySelector('button')).pop(); if (t0) t0.click(); }); await p.waitForTimeout(250);
     ok(await p.evaluate((id) => S.picks.length === 1 && S.picks[0].id === id, P.id), 'undo brings the deleted list back');
     ok(await p.evaluate(() => ckResults('prelievo').some(x => x.g === 'action' && /prelievo/i.test(x.label))), 'Ctrl+K: «Nuovo prelievo» action');
     ok(await p.evaluate(() => { helpEnsure(); HELP.q = 'verifica fiscale'; const r = helpList().map(x => x.id); HELP.q = ''; return r[0] === 'pick'; }), 'help: «verifica fiscale» finds the pick-list topic first');

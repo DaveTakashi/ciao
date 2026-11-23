@@ -229,7 +229,7 @@ const sec = (n) => console.log('\n== ' + n);
   const nDel0 = await p.evaluate(() => S.binders.length);
   await p.click('[data-a="del"] >> nth=0'); await p.waitForTimeout(200);
   ok(await p.evaluate((n) => S.binders.length === n - 1 && !topModal() && $$('.toast button').length > 0, nDel0), 'delete one binder: done at once, «Annulla» offered');
-  await p.evaluate(() => { const b0 = $$('.toast button').pop(); if (b0) b0.click(); }); await p.waitForTimeout(250);
+  await p.evaluate(() => { const b0 = $$('.toast').filter(x => /Annulla/.test(x.textContent)).map(x => x.querySelector('button')).pop(); if (b0) b0.click(); }); await p.waitForTimeout(250);
   ok(await p.evaluate((n) => S.binders.length === n, nDel0), 'undo brings the deleted binder back');
   await p.evaluate(() => { S.settings.confirmDeletes = true; renderAll(); }); await p.waitForTimeout(150);
   await p.click('[data-a="del"] >> nth=0'); await p.waitForTimeout(200);
@@ -496,7 +496,7 @@ const sec = (n) => console.log('\n== ' + n);
   sec('v8 A: navigation, Informazioni, QR reprint');
   // top bar: 3 main tabs, everything else in the "Funzioni avanzate" menu
   v = await p.evaluate(() => ({main:[...document.querySelectorAll('.nav .nav-main [data-a="nav"]')].map(b => b.dataset.v), adv:[...document.querySelectorAll('#nav-more [data-a="nav"]')].map(b => b.dataset.v).sort(), vis:[...document.querySelectorAll('.nav [data-a="nav"]')].filter(b => b.checkVisibility()).length}));
-  ok(v.main.join() === 'archive,inv,print,info' && v.vis === 4 && v.adv.join() === 'ai,database,export,import,insights,log,pick,settings,sync', 'top bar: exactly 4 main tabs (v12.8: Progetti), the rest in the "Funzioni avanzate" menu', v);
+  ok(v.main.join() === 'archive,inv,print,info' && v.vis === 4 && v.adv.join() === 'ai,database,export,import,insights,log,pick,reminders,settings,sync', 'top bar: exactly 4 main tabs (v12.8: Progetti), the rest in the "Funzioni avanzate" menu', v);
   for (const view of ['import', 'export', 'database', 'ai', 'settings']){
     await p.click('#nav-more summary'); await p.waitForTimeout(120);
     await p.click('#nav-more [data-v="' + view + '"]'); await p.waitForTimeout(200);
