@@ -9,6 +9,8 @@
 | [`LISTINO.md`](LISTINO.md) | piani, prezzi, moduli, servizi | Dave (interno + cliente) |
 | [`CONDIZIONI-DI-SERVIZIO.md`](CONDIZIONI-DI-SERVIZIO.md) | condizioni generali di licenza e assistenza | QR7 SRL e il cliente |
 | [`NOMINA-RESPONSABILE-ART28.md`](NOMINA-RESPONSABILE-ART28.md) | nomina a responsabile del trattamento (GDPR art. 28), solo quando QR7 ospita o vede i dati | il cliente (titolare) nomina QR7 SRL |
+| [`NOMINA-SUBRESPONSABILE-AI-BOZZA.md`](NOMINA-SUBRESPONSABILE-AI-BOZZA.md) | allegato art. 28 per l'**inventario** e la **lettura AI** delle foto: tre modalità (nessuna AI, AI locale, AI in cloud con sub-responsabile), misure, conservazione. **Bozza per il legale** | il cliente (titolare) e chi fa l'inventario |
+| [`INFORMATIVA-INVENTARIO-AI-BOZZA.md`](INFORMATIVA-INVENTARIO-AI-BOZZA.md) | avviso al cliente prima di un inventario: cosa fotografiamo, cosa fa l'AI, la sua scelta. **Bozza per il legale** | consegnato al cliente, firmato per la scelta |
 | [`GARANZIA-QR.md`](GARANZIA-QR.md) | impegno sui QR stampati (`qr7.it`) per 10 anni | QR7 SRL |
 | [`COPIONE-DEMO.md`](COPIONE-DEMO.md) | demo di 20 minuti, passo per passo | Dave o il rivenditore |
 

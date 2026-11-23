@@ -851,6 +851,13 @@ extra:[{id, code}]}` (scade dopo 4 ore senza scansioni).
 - **Scatola acquisita** = ubicazione radice con id `inv-<short_code>`, `archive_id` = progetto, `name` = numero stampato.
 - **Faldone acquisito** = faldone con id `inv-<short_code>`, `archive_id`, `location_id` (scatola), `speaking_code`, `company_name`
   (= cliente del progetto se c'è) e `inv = {p, st: captured|proposed|review|confirmed, ph (id foto), ai: {company, title, year_from, year_to, doc_type, tags, notes, text, confidence, empty_spine, model, ms, at}, voice, by, dev, at, n, box, ok_by, ok_at}`.
+- **v12.12** (nessuna migrazione, solo campi in più con valore predefinito, `normalizeInv`): progetto `mode` anche
+  `station` | `chain`; `doc` (bool, livello documento); `price: {binder, box, doc, fixed, vat}` (preventivo; `null` = prezzo
+  generale, `invPrices`); `template` (id del modello); lotti `kind` anche `doc` | `any` (stessa numerazione `binder_to`).
+  Faldone: `inv.lvl = 'doc'`, `inv.parent` (id del faldone che lo contiene), `inv.folder` (suo codice) per i documenti;
+  `inv.ph2` seconda foto (prima pagina). Impostazioni del PC: `invPrices`, `invTemplates[{id, name, …campi del modello}]`,
+  `invAi {on, url, model}` (non sincronizzate). Verifica di una scatola: riga di registro `inventory.verify`. Telefono:
+  `docmap_v26_inv_prefs` ricorda anche la cartella aperta e la scelta jolly.
 - **SQLite**: colonne `archives.inv_json`, `binders.inv_json` (JSON), aggiunte solo se mancano; nessun cambio di `DB_SCHEMA_VERSION`.
 - **Telefono**: `docmap_v26_inv_outbox` (coda: lavori `rec`, `tomb`, `ai`), `docmap_v26_inv_recent` (ultime 300 versioni dei
   faldoni acquisiti), `docmap_v26_inv_prefs` (scatola attiva e «Mantieni» per progetto), IndexedDB `docmap_v26_inv` store `photos`.

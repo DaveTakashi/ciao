@@ -288,3 +288,29 @@ else document.addEventListener('DOMContentLoaded', () => { if (typeof ACTIONS ==
   // leaving the project page stops the live refresh
   wrap('renderView', (o) => function(){ const r = o.apply(this, arguments); if (IVQ.live && (S.view !== 'inv' || IVP.open !== IVQ.live)) ivqLiveStop(); return r; });
 })();
+
+/* ---------------- help topic (v12.12) ---------------- */
+document.addEventListener('DOMContentLoaded', () => {
+  if (typeof HELP_TOPICS === 'undefined' || HELP_TOPICS.some(x => x.id === 'inventory-pro')) return;
+  const inv = HELP_TOPICS.find(x => x.id === 'inventory'); if (inv && !inv.related.includes('inventory-pro')) inv.related.unshift('inventory-pro');
+  HELP_TOPICS.push({ id:'inventory-pro', guide:null, tags:['start'], related:['inventory', 'server'],
+    kw:{it:'stazione fissa catena due persone verifica scatola scanner bluetooth pistola documenti pagina modelli prezzi preventivo report fine lavoro fatturazione operatori ai locale ollama lm studio',
+        en:'fixed station chain two people verify box bluetooth scanner gun documents page templates prices quote report end of job billing operators local ai ollama lm studio'},
+    title:{it:'Inventario: stazione, catena, verifica, report e prezzi', en:'Inventory: station, chain, verify, report and prices'},
+    body:{it:'<p>Quattro <b>modalità</b> nel progetto (Modifica): <b>Scatola → faldoni</b> e <b>Cattura ora, cataloga dopo</b> come prima; <b>Stazione fissa</b> (telefono sul supporto, la persona passa i faldoni davanti alla fotocamera: conferma grande, comandi nascosti); <b>Catena a due persone</b> (uno scansiona, l\'altro corregge sul PC nel pannello <b>In diretta</b>, che si aggiorna da solo).</p>' +
+      '<ul><li><b>Scanner Bluetooth o USB</b>: collegalo al telefono o al PC come tastiera; ogni lettura vale come una scansione con la fotocamera.</li>' +
+      '<li><b>Documenti</b>: con «Livello documento» attivo nel progetto, scansiona il faldone e poi le etichette dei documenti che contiene; rileggere il faldone chiude la cartella. Le etichette <b>Jolly</b> valgono per scatole, faldoni o documenti.</li>' +
+      '<li><b>Verifica una scatola</b> (telefono): scansiona la scatola e poi tutto quello che c\'è dentro; vedi cosa manca, cosa è fuori posto e lo sposti con un tocco. Il risultato resta nel registro e nel report.</li>' +
+      '<li><b>Modelli</b>: un nuovo progetto parte da un modello (commercialista, ente, legale…) con tag, anni e modalità; <b>Salva come modello</b> ne crea uno tuo.</li>' +
+      '<li><b>Prezzi</b>: quelli generali in Impostazioni › Inventario; quelli del preventivo nel progetto (vuoti = generali).</li>' +
+      '<li><b>Report di fine lavoro</b>: totali, tempi, lettura AI, etichette usate, fatturazione indicativa, operatori; stampa o CSV.</li>' +
+      '<li><b>AI locale</b>: in Impostazioni › Inventario puoi usare un modello sul PC (Ollama o LM Studio) per leggere dal PC le foto che il server online non ha letto: le foto non escono dall\'ufficio. Sul server la scelta del fornitore è nella configurazione.</li></ul>',
+      en:'<p>Four <b>modes</b> in the project (Edit): <b>Box → binders</b> and <b>Capture now, catalogue later</b> as before; <b>Fixed station</b> (phone on a stand, the person moves binders past the camera: big confirmation, controls hidden); <b>Two-person chain</b> (one scans, the other fixes on the PC in the <b>Live</b> panel, which refreshes by itself).</p>' +
+      '<ul><li><b>Bluetooth or USB scanner</b>: pair it with the phone or PC as a keyboard; each reading counts as a camera scan.</li>' +
+      '<li><b>Documents</b>: with «Document level» on in the project, scan the binder then the labels of the documents inside; scanning the binder again closes the folder. <b>Jolly</b> labels work for boxes, binders or documents.</li>' +
+      '<li><b>Check a box</b> (phone): scan the box then everything in it; see what is missing or misplaced and move it with one tap. The result stays in the log and in the report.</li>' +
+      '<li><b>Templates</b>: a new project starts from a template (accountant, public body, legal…) with tags, years and mode; <b>Save as template</b> makes your own.</li>' +
+      '<li><b>Prices</b>: general ones in Settings › Inventory; the quote ones in the project (empty = general).</li>' +
+      '<li><b>End-of-job report</b>: totals, times, AI reading, labels used, indicative billing, operators; print or CSV.</li>' +
+      '<li><b>Local AI</b>: in Settings › Inventory you can use a model on the PC (Ollama or LM Studio) to read from the PC the photos the online server did not read: photos never leave the office. On the server the provider is chosen in the configuration.</li></ul>'} });
+});

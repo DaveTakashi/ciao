@@ -7,12 +7,12 @@
 
 | Componente | Versione | Dove si legge | Zip per Dave (file del progetto) |
 |---|---|---|---|
-| App DocMap (PC, web, telefono) | **26.12.11** (v12.11, ondata 2 seconda parte: nuovo anno in un clic, scarto proposto con verbale, «Dove lo metto?», ricerca a voce; prima 26.12.10: prelievi, consegna firmata, faldone smarrito, promemoria, previsioni) | `APP_VERSION` in `assets/js/02-core.js` | dentro lo zip completo `docmapv1/python/DocMap-hub-0.11.2-app-26.12.11.zip` |
+| App DocMap (PC, web, telefono) | **26.12.12** (v12.12, inventario fasi 3 e 4: stazione fissa, catena a due, verifica scatole, lettore Bluetooth, documenti, modelli, prezzi, report di fine lavoro, AI con qualsiasi fornitore; prima 26.12.11: nuovo anno in un clic, scarto proposto con verbale, «Dove lo metto?», ricerca a voce; prima 26.12.10: prelievi, consegna firmata, faldone smarrito, promemoria, previsioni) | `APP_VERSION` in `assets/js/02-core.js` | dentro lo zip completo `docmapv1/python/DocMap-hub-0.12.0-app-26.12.12.zip` |
 | Database locale (SQLite nel browser) | schema **9** | `DB_SCHEMA_VERSION` in `assets/js/06-db.js` | — |
-| Server web PHP (`server-php/api.php`) | 26.12.11 (v12.11: solo il numero; v12.10: rotta pubblica `finder`, solo GET, solo il contatto del faldone smarrito), schema **3**, licenza con `licence_required`; `setup.php` con cartella per sito e modalità JSON; v12.8: rotte `project`, `photo_put`, `photo`, `ai_spine` | `DM_APP_VERSION`, `DM_SCHEMA` | dentro lo zip dell'app (`deploy/`) |
-| Server Python (sede) | pacchetto 1.0.0, parità con PHP 26.12.11 (anche sulla licenza, sull'inventario e su `finder`) | `server-python/docmap_server/__init__.py` | dentro l'installer |
+| Server web PHP (`server-php/api.php`) | 26.12.12 (v12.12: `ai_provider` anche `openai_compatible` / `ollama`, `ai_base_url`, `hints.kind`, `project&detail=1`; v12.11: solo il numero; v12.10: rotta pubblica `finder`, solo GET, solo il contatto del faldone smarrito), schema **3**, licenza con `licence_required`; `setup.php` con cartella per sito e modalità JSON; v12.8: rotte `project`, `photo_put`, `photo`, `ai_spine` | `DM_APP_VERSION`, `DM_SCHEMA` | dentro lo zip dell'app (`deploy/`) |
+| Server Python (sede) | pacchetto 1.0.0, parità con PHP 26.12.12 (anche sulla licenza, sull'inventario, sui fornitori AI e su `finder`) | `server-python/docmap_server/__init__.py` | dentro l'installer |
 | Strumenti di installazione Windows | 1.2.0 | `TOOLS_VERSION` in `installer-windows/docmap_tools.py` | dentro lo zip completo (`installer-windows/`); i pacchetti per i clienti li fa l'hub (il vecchio `DocMap-installer-26.12.7.zip` è in `vecchie-versioni/`) |
-| Hub (PC di Dave) | **0.12.0**, registro schema **4** (modelli cliente) (`registry.py`); meta `hub_version` | `hub/docmap_hub/__init__.py` | `docmapv1/python/DocMap-hub-0.12.0-app-26.12.11.zip` (**zip completo**: hub + app 26.12.11 + sito + server + installatore + guide; fatto e controllato da `tools/crea-zip.py`) |
+| Hub (PC di Dave) | **0.12.0**, registro schema **4** (modelli cliente) (`registry.py`); meta `hub_version` | `hub/docmap_hub/__init__.py` | `docmapv1/python/DocMap-hub-0.12.0-app-26.12.12.zip` (**zip completo**: hub + app 26.12.12 + sito + server + installatore + guide; fatto e controllato da `tools/crea-zip.py`) |
 | Aggiornatore del PC | con l'app | `AGGIORNA-DOCMAP.bat` + `tools/aggiorna-app.ps1` | dentro lo zip dell'app |
 
 Regola: lo **stesso numero 26.12.x** deve comparire in app, `api.php` e server Python. Il server PHP e quello Python
@@ -27,7 +27,8 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
 - Storia dei rami: consolidamento `claude/project-thread-5qvqr5` (PR #4, app 26.12.6 + server Python + installatore + hub
   0.8); hub 0.9–0.11 `claude/project-thread-acqq2g` (PR #5); app 26.12.8 `claude/project-thread-epf33l` (PR #7); app
   26.12.9–26.12.10 `claude/project-thread-1dzp8h` (PR #8, #9); app 26.12.11 `claude/project-thread-o4rwcv` (PR #11); hub
-  0.12.0 `claude/project-thread-4o1oly` (PR #12); qualità e CI `claude/project-thread-imzwad` (PR #10 e integrazione).
+  0.12.0 `claude/project-thread-4o1oly` (PR #12); qualità e CI `claude/project-thread-imzwad` (PR #10 e integrazione);
+  app 26.12.12 (inventario fasi 3 e 4) `claude/project-thread-dvih10` da `main`, PR verso `main`.
 
 ## 3. Test
 
@@ -35,11 +36,27 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
 |---|---|---|---|
 | Verifica veloce (tutto tranne la suite completa) | `bash tools/verifica-veloce.sh` | ~4 min | tutto OK (2026-11-23) |
 | Lint JS / Python | `node tools/lint-js.js`, `python3 tools/lint-py.py` (dentro la verifica veloce) | 5 s | 0 problemi (2026-11-23) |
-| Test app tutti insieme (smoke, unit, aggiornamento, v12.6 … v12.11) | `cd tests && NODE_PATH=$(npm root -g) node run.js` | ~40 s | 13/13 file OK (2026-11-23) |
+| Test app tutti insieme (smoke, unit, aggiornamento, v12.6 … v12.12) | `cd tests && NODE_PATH=$(npm root -g) node run.js` | ~40 s | 14/14 file OK (2026-11-23) |
 | Suite completa app (Playwright) | `cd tests && NODE_PATH=$(npm root -g) node suite.js` | ~35 min | 1376/1376 (2026-11-23, app 26.12.11 + hub 0.12.0 uniti in main) |
 | CI su GitHub | `.github/workflows/docmap-ci.yml` (= `ci/docmap-ci.yml`), Ubuntu 24.04 | ~5 min | verde sulla PR #10 (2026-11-23); unica cartella fuori da `docmapv1/`, confermata da Dave (D20) |
 
 Come sono fatti i test e come aggiungerne: [`docs/TEST.md`](docs/TEST.md).
+
+### Esito 2026-11-23, app 26.12.12 (inventario fasi 3 e 4, AI agnostica)
+
+- Test nuovo, nella verifica veloce: `tests/v1212.js` 50/50 (modello: modalità, lotti doc/jolly, prezzi a tre livelli,
+  fatturazione, modelli, verifica, report; PC: modulo con modello e prezzi, lotti, filtro livello, scheda Lavoro, report
+  e CSV, salva modello, diretta, Impostazioni › Inventario, AI locale con servizio finto; telefono in locale: stazione,
+  documenti dentro il faldone, jolly, foto della pagina, riepilogo scatola, verifica con mancanti / fuori posto / Sposta
+  qui, lettore a tastiera veloce sì e scrittura lenta no; server PHP vero: `detail=1`, riga di verifica, AI dal PC con
+  `mock`; dati della 26.12.11). Server Python: `test_inventory_ai.py` 7/7 (anche OpenAI-compatibile e Ollama);
+  `diff_test.py` con un servizio OpenAI finto locale: PHP e Python mandano la stessa richiesta e danno la stessa risposta.
+  `tests/upgrade.js` dai rilasci 26.12.7, 26.12.10, 26.12.11: 42/42.
+- Verifica veloce: tutto OK (lint, hub, server Python, parità PHP ⇄ Python, zip, installatore, 14/14 file di test app;
+  `v1211.js` ora legge la versione da `02-core.js`, come nel thread del marchio). Suite completa: non rifatta per questo rilascio (nessuna
+  pagina esistente cambia aspetto; da rifare prima dell'unione se Dave lo chiede).
+- Provato solo in Chromium con fotocamera, lettore e servizi AI finti: **stazione fissa con un supporto vero, lettore
+  Bluetooth vero, Ollama vero, chiave AI vera, stampa del report mai provati** (righe D23–D30 di `COLLAUDO-REALE.md`).
 
 ### Esito 2026-11-23, qualità e CI (nessuna versione nuova dell'app)
 
@@ -169,6 +186,9 @@ Come sono fatti i test e come aggiungerne: [`docs/TEST.md`](docs/TEST.md).
 
 Scheda unica da seguire: [`docs/COLLAUDO-REALE.md`](docs/COLLAUDO-REALE.md).
 
+- App 26.12.12 (righe D23–D30): stazione fissa con un supporto vero e velocità a faldone, lettore Bluetooth, catena a due
+  con il PC in diretta, verifica di una scatola, documenti, report stampato, Ollama sul PC, chiave AI vera (dopo il legale).
+
 - App 26.12.11 (righe D19–D22): nuovo anno sui dati veri (titoli strani, clienti scritti in modi diversi), «Dove lo metto?»
   sugli scaffali veri, regole di scarto viste da un consulente e verbale stampato, ricerca a voce con un microfono vero.
 
@@ -203,9 +223,17 @@ Scheda unica da seguire: [`docs/COLLAUDO-REALE.md`](docs/COLLAUDO-REALE.md).
   (al massimo ogni 6 ore), non in background.
 - Le foto degli armadi restano solo sul PC. Le foto delle coste (inventario) stanno sul server; senza server restano
   nel browser che le ha scattate (stesso PC in modalità locale).
-- Inventario: la lettura AI richiede il server online con `ai_provider` e la chiave; spedisce la foto al fornitore
-  dell'AI (serve la nomina GDPR art. 28 e l'informativa al cliente). Senza, si cataloga dalla griglia di revisione.
-- Inventario: una seconda scansione della stessa etichetta non sposta il faldone in un'altra scatola (si fa dalla scheda).
+- Inventario: la lettura AI dal telefono richiede il server con `ai_provider`; con un fornitore in cloud la foto esce
+  dallo studio (bozze GDPR in `docs/commerciale/`, da far vedere al legale); con `ollama` in sede o il modello locale del
+  PC no. Il modello locale del PC legge solo quando lo chiedi (**Leggi con l'AI**), non durante la scansione. Senza AI
+  si cataloga dalla griglia di revisione.
+- Inventario 26.12.12: prezzi, modelli e modello locale stanno nelle impostazioni di quel PC (backup sì, sincronizzazione
+  no); la verifica di una scatola è una riga del registro, non cambia i faldoni da sola (solo **Sposta qui**). Un'app
+  26.12.11 apre i progetti nuovi come *Cattura ora* e i lotti Documenti / Jolly come faldoni. Il lettore Bluetooth è
+  riconosciuto dalla velocità dei tasti (meno di 60 ms l'uno dall'altro, poi Invio): un lettore impostato più lento va
+  usato nel campo del codice.
+- Inventario: una seconda scansione della stessa etichetta non sposta il faldone in un'altra scatola (si fa dalla scheda o
+  con **Verifica una scatola › Sposta qui**).
 - Aggiornamento del PC con `AGGIORNA-DOCMAP.bat` (mai provato su Windows reale); server e telefoni come prima.
 - I documenti commerciali (`docs/commerciale/`) sono bozze: prezzi non validati, testi legali da rivedere.
 
@@ -227,6 +255,7 @@ Vedi `docs/ROADMAP.md` §5 (D1–D7) e la memoria del progetto. Aggiunte:
 | D18 | 2026-11-22 | L'indirizzo dei QR è configurabile (`qr7.it` di default); Doc Location è solo il marchio, nessun dominio forzato | Dave: «voglio essere libero, agnostico» |
 | D19 | 2026-11-22 | Un progetto di inventario è un archivio con `inv`; etichette = codici brevi normali con il prefisso del progetto; record del telefono con id `inv-<codice>` | niente tipi nuovi da sincronizzare, nessun doppione, QR7 e manifest invariati |
 | D20 | 2026-11-23 | CI attiva: l'unico file fuori da `docmapv1/` è `.github/workflows/docmap-ci.yml` (GitHub legge solo lì), copia identica di `ci/docmap-ci.yml` controllata dalla verifica veloce | confermato da Dave il 2026-11-23 (eccezione alla regola 1 di `CLAUDE.md`) |
+| D21 | 2026-11-23 | Lettura AI agnostica: `ai_provider` = spento · `anthropic` · `openai_compatible` · `ollama` (locale) · `mock`; stesso prompt in app, PHP e Python; l'operatore non aspetta mai l'AI. Prezzi con una fonte sola per livello: `INV_PRICE_DEFAULT` (codice) < Impostazioni › Inventario < preventivo nel progetto | Dave 2026-11-23: «fai tu, ben documentato, facile da modificare, unica fonte di verità per ciascun dato» |
 | D15 | 2026-11-06 | Dopo ogni cambio di licenza il hub la carica subito sui siti online (FTP); il canale resta per la sede | la sospensione deve valere subito, non al prossimo deploy |
 
 ## 7. Prossimi passi (ordine concordato con Dave il 2026-11-06)

@@ -5,6 +5,7 @@ const {chromium} = require('playwright');
 const path = require('path');
 const APP = path.resolve(__dirname, '..');
 const fileUrl = f => 'file://' + path.join(APP, f).replace(/\\/g, '/');
+const APP_VERSION_NOW = (require('fs').readFileSync(path.join(APP, 'assets/js/02-core.js'), 'utf8').match(/APP_VERSION\s*=\s*'([^']+)'/) || [])[1];
 let fails = 0, passes = 0;
 const ok = (c, n, x) => { if (c) passes++; else { fails++; console.log('  ✗ FAIL', n, x !== undefined ? JSON.stringify(x).slice(0, 900) : ''); } };
 // fake speech recognition: says what window.__say holds
@@ -234,7 +235,7 @@ const FAKE_SPEECH = () => {
     await p2.evaluate(() => { const st = JSON.parse(localStorage.getItem('docmap_v26_state')); delete st.disposals; delete st.settings.retention; delete st.settings.newYear; delete st.settings.place; st.app = 'DocMap26'; localStorage.setItem('docmap_v26_state', JSON.stringify(st)); });
     await p2.reload(); await p2.waitForTimeout(1300);
     R = await p2.evaluate(() => ({n:S.binders.length, plan:nyPlan(nyDefaultYear()).rows.length >= 0, prop:rtProposal(2026).prop.length, ds:dsList().length, set:rtSet().defYears, cap:plSet().cap, ver:APP_VERSION}));
-    ok(R.n > 5 && R.ds === 0 && R.set === 10 && R.cap === 0 && R.ver === '26.12.11', 'old data: opens with defaults (no records, 10 years, no capacity)', R);
+    ok(R.n > 5 && R.ds === 0 && R.set === 10 && R.cap === 0 && R.ver === APP_VERSION_NOW, 'old data: opens with defaults (no records, 10 years, no capacity)', R);
     ok(errs2.length === 0, 'no console errors (old data)', errs2);
     await p2.close();
 

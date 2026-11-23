@@ -836,3 +836,52 @@ Premi il **microfono** nella ricerca dell'Archivio, in **Cerca ovunque** (Ctrl+K
 cosa cerchi, come lo diresti a un collega: «trovami le fatture di Rossi del 2023 fuori archivio», «paghe dal 2019 al
 2021», «codice B L tre». DocMap scrive cosa ha capito e cosa cerca; puoi correggere a mano. Il microfono compare solo
 dove il browser riconosce la voce (Chrome, Edge, Safari).
+
+## 35. Inventario: stazione fissa, catena a due, verifica, documenti, report e prezzi (v12.12)
+
+Tutto quello del §22 resta uguale. In più, nel progetto (**Modifica**):
+
+**Modelli di progetto.** *Nuovo progetto › Parti da un modello*: commercialista, ente pubblico, studio legale, azienda,
+condominio, trasloco. Il modello compila tag rapidi, anni attesi, modalità e livello documento; poi cambi quello che vuoi.
+Un progetto riuscito si salva come modello tuo con **Salva come modello** (scheda *Lavoro*); i modelli tuoi si vedono e si
+cancellano in **Impostazioni › Inventario**.
+
+**Quattro modalità.**
+
+- *Scatola → faldoni* e *Cattura ora, cataloga dopo*: come prima.
+- *Stazione fissa*: il telefono sta su un supporto (o una webcam sul PC), la persona passa i faldoni davanti alla
+  fotocamera uno dopo l'altro. Ogni lettura dà una conferma grande e colorata, tag, anni e voce sono chiusi in «Tag, anni e voce» e lo
+  stesso faldone non viene letto due volte di fila.
+- *Catena a due persone*: una persona scansiona, l'altra al PC apre il progetto e preme **In diretta** (scheda *Lavoro*):
+  i faldoni appena arrivati compaiono da soli ogni pochi secondi, con la foto, e si correggono e confermano subito.
+
+**Lettore Bluetooth o USB.** Un lettore di codici collegato come tastiera (al telefono o al PC) funziona da solo: ogni
+lettura vale come una scansione con la fotocamera. Non serve toccare nessun campo.
+
+**Livello documento.** Con *Livello documento* attivo puoi generare anche lotti di etichette **Documenti** e **Jolly**
+(vanno bene per scatola, faldone o documento). Sul telefono: scansiona il faldone, poi le etichette dei documenti che
+contiene; ogni documento è collegato al suo faldone. Riscansiona il faldone (o un altro) per chiudere la cartella. Per un
+documento la foto è della prima pagina e l'AI la legge come tale. Sul PC il filtro *Livello* mostra solo faldoni o solo
+documenti.
+
+**Costa vuota?** Con la fotocamera accesa c'è **Foto della prima pagina**: fotografa la prima pagina interna e l'AI legge quella.
+
+**Verifica di una scatola (telefono).** **Verifica una scatola**, scansiona la scatola e poi tutto quello che c'è dentro.
+Vedi quanti ne hai trovati su quanti attesi, **cosa manca** e **cosa è fuori posto** (con la scatola dove risultava):
+**Sposta qui** lo mette nella scatola giusta con un tocco. **Chiudi la verifica** la salva nel registro attività e nel report.
+Al cambio di scatola il telefono mostra anche un riepilogo della scatola appena chiusa.
+
+**Prezzi.** In **Impostazioni › Inventario** scrivi i prezzi generali (a faldone, a scatola, a documento, quota fissa,
+IVA). Se per un cliente hai fatto un preventivo diverso, scrivi i prezzi **nel progetto**: un campo vuoto usa quello
+generale. I prezzi sono indicativi, IVA esclusa; il report non è una fattura.
+
+**Report di fine lavoro.** Scheda *Lavoro › Report di fine lavoro*: periodo, totali, stato della catalogazione, tempo
+mediano a faldone, lettura AI, etichette generate e non usate, **fatturazione** (quantità × prezzo, imponibile, IVA,
+totale), **operatori** (quanti faldoni e documenti, quanti da rivedere, il loro ritmo), scatole con anni e verifiche.
+**Stampa** o **Scarica CSV** (si apre in Excel).
+
+**Lettura AI dal PC.** Nella revisione dei faldoni **Leggi con l'AI** legge le foto non ancora lette: usa il server online se
+ha la lettura AI accesa, altrimenti il **modello locale** di **Impostazioni › Inventario** (Ollama o LM Studio su un PC
+dello studio, indirizzo e nome del modello, pulsante **Prova**). Con il modello locale nessuna foto esce dallo studio. Se DocMap si apre da un sito (`https://…`) e non dal file sul PC, Ollama va avviato con la variabile `OLLAMA_ORIGINS` che contiene l'indirizzo del sito (LM Studio: opzione «Enable CORS»), altrimenti il browser blocca la risposta.
+L'AI riempie solo i campi vuoti e non tocca quello che hai scritto tu. Sul server il fornitore (Claude, un servizio
+compatibile OpenAI, Ollama in sede, oppure niente) si sceglie nella configurazione: vedi `AGGIORNAMENTO-v12.11-v12.12.md`.

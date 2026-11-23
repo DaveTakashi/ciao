@@ -22,13 +22,21 @@ di passare al piano superiore.
 | Spazio online gestito da QR7 (UE) | incluso nel piano Pro; per Studio **+120 €/anno** |
 | Giornata di etichettatura in studio | […] €/giornata + trasferta |
 
+## Servizio di inventario (lavoro a misura)
+
+I prezzi a faldone, a scatola, a documento, la quota fissa e l'IVA **non si scrivono qui**: stanno in un posto solo,
+**Impostazioni › Inventario** dell'app (valori di partenza nel codice: `INV_PRICE_DEFAULT` in
+`assets/js/02f-inventory.js`, oggi di esempio). Il **preventivo** di un cliente si scrive nel suo progetto (un campo
+vuoto usa il prezzo generale) e il report di fine lavoro calcola il totale da lì. Le condizioni privacy del lavoro:
+`NOMINA-SUBRESPONSABILE-AI-BOZZA.md` e `INFORMATIVA-INVENTARIO-AI-BOZZA.md`.
+
 ## Moduli aggiuntivi (si accendono dalla licenza)
 
 | Modulo | Stato | Prezzo indicativo |
 |---|---|---|
-| Conservazione e scarto (date di scarto, verbale PDF) | da fare | +90 €/anno |
-| Consegna e ritiro documenti con firma sul telefono | da fare | +90 €/anno |
-| DocMap Intelligence (AI: foto → campi compilati) | da fare | crediti prepagati, ricarico 2-3× sul costo |
+| Conservazione e scarto (date di scarto, verbale PDF) | fatto (app 26.12.11), da provare con un consulente | +90 €/anno |
+| Consegna e ritiro documenti con firma sul telefono | fatto (app 26.12.10) | +90 €/anno |
+| Lettura AI (foto → campi compilati; fornitore a scelta, anche locale) | fatto (app 26.12.8, fornitori 26.12.12), mai provato con una chiave vera | crediti prepagati, ricarico 2-3× sul costo |
 | White-label per rivenditori | in licenza (campo `reseller`, `branding`) | 30–40% al rivenditore sul canone |
 
 ## Regole

@@ -1,7 +1,7 @@
 # CLAUDE.md — regole fisse per gli agenti su DocMap
 
 Leggi questo file per primo, poi [`STATO.md`](STATO.md) (dove siamo) e il manuale tecnico adatto alla zona che tocchi.
-Tutto il codice vero è su `main` (app 26.12.11, hub 0.12.0 al 2026-11-23): parti sempre da `main` aggiornato.
+Tutto il codice vero è su `main` (app 26.12.12 dopo la PR delle fasi 3-4 dell'inventario, hub 0.12.0 al 2026-11-23): parti sempre da `main` aggiornato.
 
 ## Regole che non si discutono
 
