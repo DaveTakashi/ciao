@@ -5,7 +5,7 @@ Leggi questo file per primo, poi [`STATO.md`](STATO.md) (dove siamo) e il manual
 ## Regole che non si discutono
 
 1. **Lavora solo dentro `docmapv1/`** del repository `DaveTakashi/ciao` (repo di test). L'unica eccezione autorizzata
-   va chiesta a Dave e scritta in `STATO.md`.
+   va chiesta a Dave e scritta in `STATO.md`. Eccezione in vigore: `.github/workflows/docmap-ci.yml` (CI, decisione D20).
 2. **Nessun dato perso, mai.** Migrazioni solo additive, chiavi di memoria (`localStorage`, IndexedDB) invariate,
    backup prima di ogni aggiornamento, guida di aggiornamento per ogni rilascio (`docs/AGGIORNAMENTI.md`).
 3. **Lingua**: Dave scrive in italiano; documenti per l'utente in italiano semplice; codice e commenti in inglese.
@@ -30,8 +30,12 @@ Leggi questo file per primo, poi [`STATO.md`](STATO.md) (dove siamo) e il manual
 ## Prima di ogni push
 
 ```bash
-bash docmapv1/tools/verifica-veloce.sh      # ~3 min: sintassi, hub, server, parità PHP⇄Python, installer, smoke app
+bash docmapv1/tools/verifica-veloce.sh      # ~4 min: lint JS/Python, sintassi, hub, server, parità PHP⇄Python, installer, test app
 ```
+
+I test app si lanciano anche da soli o tutti insieme in ~40 s (`cd docmapv1/tests && NODE_PATH=$(npm root -g) node run.js`).
+Un file di test nuovo usa `tests/lib/harness.js` e va nell'elenco `FAST` di `tests/run.js`: vedi [`docs/TEST.md`](docs/TEST.md).
+La CI su GitHub (`.github/workflows/docmap-ci.yml`, copia identica di `ci/docmap-ci.yml`) fa la stessa verifica a ogni push.
 
 Prima di un **rilascio** anche la suite completa: `cd docmapv1/tests && NODE_PATH=$(npm root -g) node suite.js`.
 Se `api.php` cambia, il server Python va riallineato nello stesso rilascio (il PHP è la specifica).

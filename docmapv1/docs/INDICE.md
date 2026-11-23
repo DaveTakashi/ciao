@@ -20,7 +20,7 @@
 | **Dave / chi usa DocMap in studio** (operatore) | [`MANUALE-UTENTE.md`](MANUALE-UTENTE.md) | [`GLOSSARIO.md`](GLOSSARIO.md), [`RIFERIMENTO-FUNZIONI.md`](RIFERIMENTO-FUNZIONI.md), [`CHECKLIST-COLLAUDO.md`](CHECKLIST-COLLAUDO.md), [`AGGIORNAMENTO-v10-v12.md`](AGGIORNAMENTO-v10-v12.md), [`GUIDA-SINCRONIZZAZIONE.md`](GUIDA-SINCRONIZZAZIONE.md), [`AGGIORNAMENTO-v12.1-v12.2.md`](AGGIORNAMENTO-v12.1-v12.2.md), [`AGGIORNAMENTO-v11.1-v12.md`](AGGIORNAMENTO-v11.1-v12.md) |
 | **Chi gestisce il sito su SiteGround** (sistemista) | [`DEPLOY-WEB.md`](DEPLOY-WEB.md) §0 e `README-DEPLOY.md` dentro il deploy | [`MANUALE-UTENTE.md`](MANUALE-UTENTE.md) §7, §11, §12 · [`SICUREZZA.md`](SICUREZZA.md) · [`AGGIORNAMENTI.md`](AGGIORNAMENTI.md) · [`CHECKLIST-COLLAUDO.md`](CHECKLIST-COLLAUDO.md) §3, §7, §8 |
 | **Sviluppatore Python** (porting del server, integrazione con il gestionale) | [`HANDOFF_PROMPT.md`](HANDOFF_PROMPT.md) (il prompt completo da incollare) | [`python/PORTING.md`](python/PORTING.md), [`python/openapi.yaml`](python/openapi.yaml), [`python/SCHEMI.md`](python/SCHEMI.md), [`API-CONTRACT.md`](API-CONTRACT.md), [`MODELLO-DATI.md`](MODELLO-DATI.md), [`SYNC.md`](SYNC.md), [`ALLINEAMENTO-PYTHON.md`](ALLINEAMENTO-PYTHON.md) |
-| **Agente o sviluppatore del front-end** (JavaScript) | [`../AGENTS.md`](../AGENTS.md) | [`ARCHITETTURA.md`](ARCHITETTURA.md), [`MODELLO-DATI.md`](MODELLO-DATI.md), [`SYNC.md`](SYNC.md), [`AGGIORNAMENTI.md`](AGGIORNAMENTI.md), `tests/suite.js` |
+| **Agente o sviluppatore del front-end** (JavaScript) | [`../AGENTS.md`](../AGENTS.md) | [`ARCHITETTURA.md`](ARCHITETTURA.md), [`MODELLO-DATI.md`](MODELLO-DATI.md), [`SYNC.md`](SYNC.md), [`AGGIORNAMENTI.md`](AGGIORNAMENTI.md), [`TEST.md`](TEST.md), `tests/suite.js` |
 
 ## Ordine di lettura consigliato
 
@@ -86,6 +86,7 @@ nuovi nello stesso percorso (prima il sito, poi i PC, poi i telefoni), controllo
 
 | Documento | A cosa serve |
 |---|---|
+| [`TEST.md`](TEST.md) | Test e controlli: livelli (lint, unitari, aggiornamento, funzioni, verifica veloce, suite, CI), come scrivere un test nuovo con `tests/lib/harness.js`. |
 | [`../AGENTS.md`](../AGENTS.md) | Guida per agenti e sviluppatori: regole, mappa dei file, convenzioni, ricette (campo nuovo, vista, modello etichetta, test), versioni. |
 | [`ARCHITETTURA.md`](ARCHITETTURA.md) | Moduli, ordine di caricamento, flusso dei dati, motore di stampa, PDF, registro, sincronizzazione, ubicazioni. |
 | [`MODELLO-DATI.md`](MODELLO-DATI.md) | Il contratto dei dati: ogni campo, CSV (ordine delle colonne), JSON, schema SQLite locale e migrazioni, chiavi di memoria. |
