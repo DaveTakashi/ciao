@@ -182,6 +182,22 @@ def overview(app) -> dict:
     if lerr:
         alerts.append({"level": "bad", "kind": "channel", "id": None, "customer_id": None,
                        "title": "Licenze: operazione automatica non riuscita", "text": lerr})
+    # v0.12: data from a newer hub, first run of this version
+    if getattr(reg, "newer_schema", None):
+        alerts.append({"level": "bad", "kind": "backup", "id": None, "customer_id": None,
+                       "title": f"Dati di un hub più nuovo (schema {reg.newer_schema})",
+                       "text": "stai usando una cartella dell'hub vecchia: avvia quella con il numero più alto"})
+    up = getattr(app.hub, "upgrade", None)
+    if up and up.get("older"):
+        alerts.append({"level": "warn", "kind": "backup", "id": None, "customer_id": None,
+                       "title": f"Hub {up['to']} più vecchio di quello già usato su questi dati",
+                       "text": "Impostazioni → Controllo dell'hub"})
+    elif up and up.get("from") is not None or (up and up.get("backup")):
+        alerts.append({"level": "bad" if up.get("error") else "info", "kind": "backup", "id": None,
+                       "customer_id": None, "title": f"Hub aggiornato alla {up['to']}"
+                       + (f" (da {up['from']})" if up.get("from") else ""),
+                       "text": (f"backup automatico prima dell'aggiornamento: {up['backup']}" if up.get("backup")
+                                else f"backup prima dell'aggiornamento NON riuscito: {up.get('error')}")})
     from . import backups as B
     bcfg, blast = B.config(reg), B.last_auto_at(app.hub)
     sch_err = getattr(getattr(app, "backup_scheduler", None), "error", None)
@@ -1012,6 +1028,17 @@ def backups_config(app, body: dict) -> dict:
                  every_hours=body.get("every_hours") or None, keep=body.get("keep") or None,
                  copy_dir=body.get("copy_dir") if "copy_dir" in body else None)
     return backups_view(app)
+
+
+def hub_check(app) -> dict:
+    """v0.12: «Controllo dell'hub» (read-only; same as `run_windows.bat controllo`)."""
+    from . import doctor
+    return doctor.run(app.hub.dir)
+
+
+def backup_verify(app, body: dict) -> dict:
+    from . import backups as B
+    return B.verify(B.path_of(app.hub, str(body.get("name") or "")))
 
 
 def backup_now(app, body: dict) -> dict:

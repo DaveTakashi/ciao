@@ -12,7 +12,7 @@
 | Server web PHP (`server-php/api.php`) | 26.12.11 (v12.11: solo il numero; v12.10: rotta pubblica `finder`, solo GET, solo il contatto del faldone smarrito), schema **3**, licenza con `licence_required`; `setup.php` con cartella per sito e modalità JSON; v12.8: rotte `project`, `photo_put`, `photo`, `ai_spine` | `DM_APP_VERSION`, `DM_SCHEMA` | dentro lo zip dell'app (`deploy/`) |
 | Server Python (sede) | pacchetto 1.0.0, parità con PHP 26.12.11 (anche sulla licenza, sull'inventario e su `finder`) | `server-python/docmap_server/__init__.py` | dentro l'installer |
 | Strumenti di installazione Windows | 1.2.0 | `TOOLS_VERSION` in `installer-windows/docmap_tools.py` | dentro lo zip completo (`installer-windows/`); i pacchetti per i clienti li fa l'hub (il vecchio `DocMap-installer-26.12.7.zip` è in `vecchie-versioni/`) |
-| Hub (PC di Dave) | **0.11.2**, registro schema **4** (modelli cliente) (`registry.py`) | `hub/docmap_hub/__init__.py` | `docmapv1/python/DocMap-hub-0.11.2.zip` (**zip completo**: hub + app + sito + server + installatore + guide; fatto e controllato da `tools/crea-zip.py`) |
+| Hub (PC di Dave) | **0.12.0**, registro schema **4** (modelli cliente) (`registry.py`); meta `hub_version` | `hub/docmap_hub/__init__.py` | `docmapv1/python/DocMap-hub-0.12.0.zip` (**zip completo**: hub + app 26.12.11 + sito + server + installatore + guide; fatto e controllato da `tools/crea-zip.py`) |
 | Aggiornatore del PC | con l'app | `AGGIORNA-DOCMAP.bat` + `tools/aggiorna-app.ps1` | dentro lo zip dell'app |
 
 Regola: lo **stesso numero 26.12.x** deve comparire in app, `api.php` e server Python. Il server PHP e quello Python
@@ -106,6 +106,17 @@ Come sono fatti i test e come aggiungerne: [`docs/TEST.md`](docs/TEST.md).
 
 - Terzo giro (`AUTOCRITICA-HUB-0.10.md` §4bis): kit rifatto con le copie di config.php riprese dai siti, stop su
   cartelle non vuote, controllo del solo sito attivato, un «Attiva tutto» per cliente. Hub 145 test, verifica veloce OK.
+
+### Esito 2026-11-23, hub 0.12.0 (aggiornare e riparare senza paura)
+
+- Backup automatico al primo avvio di ogni versione nuova (meta `hub_version`/`hub_version_max`), ogni backup
+  controllato subito (`backups.verify`), ripristino sicuro `ripristina-backup` / `hub\RIPRISTINA-BACKUP.bat` (sposta i
+  dati di adesso in `backups\prima-del-ripristino-<ora>\`, mai cancella), `controllo` (`doctor.py`) anche con registro
+  rovinato, messaggio chiaro su `sqlite3.DatabaseError`, avviso hub più vecchio dei dati, `cliente situazione` /
+  Clienti › Situazione (Excel) (`report.py`). Pyflakes pulito sul codice dell'hub.
+- Test: hub 178 (18 nuovi in `test_v12_manutenzione.py`: migrazione da ogni schema 1–3, schema più nuovo, versioni,
+  backup rovinati, ripristino, CLI, API, CSV). Non provato su Windows: `RIPRISTINA-BACKUP.bat` e lo spostamento delle
+  cartelle con file aperti (righe F6–F9 in `COLLAUDO-REALE.md`).
 
 ### Esito 2026-11-17, hub 0.11.2 (zip completo)
 

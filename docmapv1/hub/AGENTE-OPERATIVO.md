@@ -37,6 +37,11 @@ In breve:
     (cartella nuova, codici nuovi per tutti, vecchio indirizzo reindirizzato). Il kit (`--kit-out`) va su chiavetta.
     Se lo spostamento si ferma, rilancia lo stesso comando con lo stesso `--url` (riprende); `--annulla` solo prima della
     copia dei dati.
+17. (0.12) Primo comando quando qualcosa non va: `controllo` (o `controllo --json`): non cambia niente, non chiede
+    passphrase e funziona anche se il registro è rovinato. `verifica-backup --tutti` prima di qualsiasi operazione
+    rischiosa. `ripristina-backup` **solo su richiesta esplicita di Dave**, con la pagina dell'hub chiusa: sposta i dati
+    di adesso in `backups\prima-del-ripristino-<ora>\` (dillo a Dave). Non cancellare mai quelle cartelle né i backup
+    `docmap-hub-prima-della-*.zip`. `cliente situazione --csv FILE` per un riepilogo da dare a Dave (niente segreti).
 16. (0.11.2) Se qualcosa non va sul PC di Dave: chiedigli `RACCOGLI-INFO.bat` (nella cartella `hub`) e una foto
     dell'errore; le soluzioni note sono in `docs/DOMANDE-FREQUENTI.md`. Non chiedere mai passphrase, kit o `config.php`.
 13. (0.9) Per sapere cosa manca a un cliente: `cliente percorso --cliente "Nome"` (o la scheda nella pagina): fai o

@@ -108,6 +108,10 @@ il numero e l'immagine. Se un passo si blocca, salta al blocco successivo.
 - [ ] F3. Dal PC: **Verifica dopo l'aggiornamento** contro il sito di prova: tutte le righe verdi.
 - [ ] F4. **Aggiornatore del PC** (app 26.12.6): metti lo zip nuovo in Download, doppio clic su `AGGIORNA-DOCMAP.bat`: chiede il backup, copia la versione vecchia in `DocMap-copie\`, riapre DocMap con la versione nuova e gli stessi dati. Poi `AGGIORNA-DOCMAP.bat ripristina` rimette la versione di prima.
 - [ ] F5. **Primi passi** (app 26.12.6): in un browser nuovo (o in una finestra InPrivate) il riquadro nell'Archivio si spunta da solo man mano che fai i passi.
+- [ ] F6. **Hub 0.12, primo avvio**: avvia la cartella nuova; Panoramica dice «Hub aggiornato alla 0.12.0» e in Impostazioni › Backup c'è un backup «prima di una nuova versione».
+- [ ] F7. Impostazioni › **Controllo dell'hub** › «Controlla adesso»: nessuna riga rossa; **Verifica** su un backup dice «Si può ripristinare».
+- [ ] F8. Chiudi la pagina dell'hub, doppio clic su `hub\RIPRISTINA-BACKUP.bat`, scegli il backup più recente, scrivi `SI`: finisce con «Fatto»; in `%APPDATA%\DocMapHub\backups\` c'è la cartella `prima-del-ripristino-…`; riapri l'hub: clienti e licenze ci sono, stessa passphrase.
+- [ ] F9. Clienti › **Situazione (Excel)**: il file si apre con un doppio clic in Excel, colonne separate, accenti giusti.
 
 ## Dopo il collaudo
 

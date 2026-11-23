@@ -11,12 +11,14 @@ import argparse
 import getpass
 import json
 import os
+import sqlite3
 import sys
+from datetime import datetime
 from pathlib import Path
 
-from . import __version__
+from . import __version__, paths
 from . import licence as L
-from .keys import KeyError_, KeyStore
+from .keys import KeyError_
 from .registry import RegistryError
 from .service import Hub
 
@@ -368,10 +370,110 @@ def cmd_log(hub: Hub, args) -> int:
 
 
 def cmd_backup(hub: Hub, args) -> int:
+    from . import backups as B
     path = hub.backup(args.out)
     out(f"Backup creato: {path}")
+    chk = B.verify(path)   # v0.12: a backup is only useful if it can be restored
+    if not chk["ok"]:
+        raise CliError("Il backup appena scritto non supera il controllo: " + "; ".join(chk["problems"]))
+    out("Controllato: si può ripristinare (run_windows.bat ripristina-backup).")
     out("Copialo su una chiavetta USB o un disco esterno e in un secondo luogo (es. cloud personale).")
     out("Le chiavi private nel backup restano cifrate: senza passphrase non servono a nessuno.")
+    return 0
+
+
+# v0.12: hub check, backup check and restore. They run WITHOUT opening the hub (registry may be damaged).
+
+def cmd_controllo(args) -> int:
+    from . import doctor
+    rep = doctor.run(args.dir)
+    if getattr(args, "json", False):
+        out(json.dumps(rep, ensure_ascii=False, indent=1))
+    else:
+        out(doctor.text_report(rep))
+    return 1 if rep["level"] == "error" else 0
+
+
+def _backup_files(data_dir: Path) -> list[Path]:
+    from . import backups as B
+    bdir = data_dir / "backups"
+    if not bdir.is_dir():
+        return []
+    return sorted((f for f in bdir.iterdir() if f.is_file() and B.NAME_RE.fullmatch(f.name)
+                   and not f.name.endswith(".docmap-hub")), key=lambda f: f.stat().st_mtime, reverse=True)
+
+
+def _pick_backup(data_dir: Path, ref: str | None, latest: bool) -> Path:
+    files = _backup_files(data_dir)
+    if ref:
+        p = Path(ref)
+        if p.is_file():
+            return p
+        for f in files:
+            if f.name == ref:
+                return f
+        raise CliError(f"Backup «{ref}» non trovato in {data_dir / 'backups'}.")
+    zips = [f for f in files if f.suffix == ".zip"]
+    if not zips:
+        raise CliError(f"Nessun backup in {data_dir / 'backups'}.")
+    if latest or not sys.stdin.isatty():
+        return zips[0]
+    out("Backup disponibili (il più recente per primo):")
+    for i, f in enumerate(zips[:20], 1):
+        at = datetime.fromtimestamp(f.stat().st_mtime).strftime("%d/%m/%Y %H:%M")
+        out(f"  {i:>2}. {at}  {f.name}")
+    ans = input("Numero del backup da ripristinare (Invio = annulla): ").strip()
+    if not ans.isdigit() or not 1 <= int(ans) <= min(20, len(zips)):
+        raise CliError("Annullato: nessun backup scelto.")
+    return zips[int(ans) - 1]
+
+
+def cmd_verifica_backup(args) -> int:
+    from . import backups as B
+    d = paths.resolve(args.dir)
+    files = _backup_files(d) if args.tutti else [_pick_backup(d, args.nome, True)]
+    bad = 0
+    for f in files:
+        r = B.verify(f)
+        cnt = r["counts"]
+        what = (f"schema {r['schema']}, {cnt.get('customers', '?')} clienti, {cnt.get('licences', '?')} licenze"
+                + (f", chiave {r['active_key']}" if r["active_key"] else ""))
+        if r["ok"]:
+            out(f"OK      {f.name} — {what}")
+        else:
+            bad += 1
+            out(f"ERRORE  {f.name} — " + "; ".join(r["problems"]))
+    if not files:
+        out("Nessun backup da controllare.")
+    return 1 if bad else 0
+
+
+def cmd_ripristina_backup(args) -> int:
+    from . import backups as B
+    d = paths.resolve(args.dir)
+    src = _pick_backup(d, args.nome, args.ultimo)
+    chk = B.verify(src)
+    if not chk["ok"]:
+        raise CliError("Questo backup non si può ripristinare: " + "; ".join(chk["problems"]))
+    cnt = chk["counts"]
+    out(f"Ripristino: {src.name}")
+    out(f"  dentro: {cnt.get('customers', '?')} clienti, {cnt.get('environments', '?')} siti/server, "
+        f"{cnt.get('licences', '?')} licenze, chiave {chk['active_key'] or '—'}")
+    out("  I dati di adesso NON si cancellano: li metto da parte in backups\\prima-del-ripristino-<ora>\\.")
+    if not args.si:
+        if not sys.stdin.isatty():
+            raise CliError("Conferma con --si (nessuna tastiera per chiedere).")
+        if input("Scrivi SI per procedere: ").strip().upper() != "SI":
+            raise CliError("Annullato.")
+    res = B.restore(d, src, log=out)
+    with Hub(d) as hub:   # opens, migrates if the backup is older, records the event
+        hub.registry.log("hub.restore", details={"from": src.name, "aside": res["aside"]})
+        n = len(hub.registry.list_customers())
+    out(f"Fatto: {n} clienti nel registro ripristinato.")
+    out(f"Per annullare il ripristino: i file di prima sono in {res['aside']}")
+    from . import autoaccess
+    if autoaccess.path(d).exists():
+        out("Nota: «Ricorda su questo PC» è attivo; se il backup ha passphrase diverse, la pagina te le chiederà.")
     return 0
 
 
@@ -1253,6 +1355,19 @@ def cmd_cliente_elenco(hub: Hub, args) -> int:
     return 0
 
 
+def cmd_cliente_situazione(hub: Hub, args) -> int:
+    from . import report
+    data = report.rows(hub)
+    if args.csv:
+        Path(args.csv).write_bytes(report.to_csv(data))
+        out(f"Scritto {args.csv}: {len(data)} righe (si apre con Excel).")
+        return 0
+    table([[r.get("customer", ""), r.get("env", "") or "—", r.get("app_version", ""), r.get("up_to_date", ""),
+            r.get("check_ok", ""), r.get("licence_expires", ""), r.get("licence_state", "")] for r in data],
+          ["cliente", "sito/server", "versione", "aggiornato", "risponde", "scadenza", "licenza"])
+    return 0
+
+
 def cmd_info(hub: Hub, args) -> int:
     from . import autoaccess
     prog = Path(__file__).resolve().parent.parent.parent  # the folder that holds hub\, installer-windows\, …
@@ -1435,6 +1550,16 @@ def build_parser() -> argparse.ArgumentParser:
     q.add_argument("--out", help="percorso del file .zip (predefinito: <cartella dati>/backups/)")
     q = add("esporta-hub", cmd_export_hub, "esporta tutto l'hub in un unico file cifrato con una passphrase")
     q.add_argument("--out", help="file o cartella di destinazione")
+    q = add("controllo", cmd_controllo, "controlla Python, dati, registro, chiavi, backup e programma (non cambia niente)")
+    q.add_argument("--json", action="store_true", help="risultato in JSON")
+    q = add("verifica-backup", cmd_verifica_backup, "controlla che un backup si possa ripristinare (predefinito: l'ultimo)")
+    q.add_argument("nome", nargs="?", help="nome del file in backups\\ o percorso completo")
+    q.add_argument("--tutti", action="store_true", help="controlla tutti i backup")
+    q = add("ripristina-backup", cmd_ripristina_backup,
+            "rimette un backup dell'hub (pagina chiusa; i dati di adesso vanno da parte, non si cancellano)")
+    q.add_argument("nome", nargs="?", help="nome del file in backups\\ o percorso; senza nome: scegli da un elenco")
+    q.add_argument("--ultimo", action="store_true", help="usa il backup più recente")
+    q.add_argument("--si", action="store_true", help="non chiedere conferma")
     q = add("importa-hub", cmd_import_hub, "importa un'esportazione cifrata in una cartella dati VUOTA (PC nuovo)")
     q.add_argument("file")
     q = add("web", cmd_web, "pagina di amministrazione locale (solo 127.0.0.1)")
@@ -1611,6 +1736,8 @@ def build_parser() -> argparse.ArgumentParser:
     q.add_argument("--salva", action="store_true", help="chiede il token mostrato da setup.php e lo salva in cassaforte")
     q.add_argument("--esporta", help="scrive il token in questo file (es. E:\\token-ponte.txt) per configura-sync.ps1")
     add("elenco", cmd_cliente_elenco, "clienti, installazioni e cartelle preparate", cl)
+    q = add("situazione", cmd_cliente_situazione, "una riga per sito/server di ogni cliente: versione, controllo, licenza", cl)
+    q.add_argument("--csv", help="scrive un file per Excel (separatore ;), es. C:\\Users\\Dave\\Desktop\\clienti.csv")
     q = add("percorso", cmd_percorso, "passi fatti e prossimo passo di un cliente", cl)
     q.add_argument("--cliente", required=True)
 
@@ -1686,6 +1813,9 @@ def build_parser() -> argparse.ArgumentParser:
     return ap
 
 
+HUBLESS = (cmd_import_hub, cmd_controllo, cmd_verifica_backup, cmd_ripristina_backup)
+
+
 def main(argv: list[str] | None = None) -> int:
     for stream in (sys.stdout, sys.stderr):
         try:
@@ -1699,8 +1829,8 @@ def main(argv: list[str] | None = None) -> int:
         getattr(args, "help_parser", ap).print_help()
         return 2
     try:
-        if args.fn is cmd_import_hub:  # must not create an empty registry first
-            return cmd_import_hub(args)
+        if args.fn in HUBLESS:  # must not open (or create) the registry first
+            return int(args.fn(args) or 0)
         with Hub(args.dir) as hub:
             if args.fn is not cmd_auto and not getattr(args, "passphrase_file", None):
                 from . import autoaccess
@@ -1708,6 +1838,11 @@ def main(argv: list[str] | None = None) -> int:
             return int(args.fn(hub, args) or 0)
     except (CliError, KeyError_, RegistryError, L.LicenceError, OSError, ValueError) as exc:
         print(f"Errore: {exc}", file=sys.stderr)
+        return 1
+    except sqlite3.DatabaseError as exc:  # v0.12: damaged registry → say what to do, no traceback
+        print(f"Errore: il registro dell'hub non si legge ({exc}).\n"
+              "Controlla con: run_windows.bat controllo\n"
+              "Ripristina l'ultimo backup buono con: run_windows.bat ripristina-backup", file=sys.stderr)
         return 1
     except KeyboardInterrupt:
         print("\nInterrotto.", file=sys.stderr)

@@ -19,11 +19,10 @@ import shutil
 import subprocess
 import uuid
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
 from . import licence as L
 from .registry import RegistryError
-from .runner import LocalRunner, RunnerError, local_api_url, server_python_dir, server_python_exe
+from .runner import LocalRunner, RunnerError, server_python_dir, server_python_exe
 from .vault import Vault, VaultKey
 
 

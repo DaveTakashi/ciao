@@ -1,7 +1,9 @@
 # Wiki di DocMap Hub
 
-Vale per **hub 0.11.2**, **DocMap 26.12.7 (app v12.7)** e **strumenti di installazione 1.2.0**. Data: 17 novembre 2026.
+Vale per **hub 0.12.0**, **DocMap 26.12.10 (app v12.10)** e **strumenti di installazione 1.2.0**. Data: 23 novembre 2026.
 
+> **Novità 0.12.** Aggiornare e riparare senza paura: **backup automatico al primo avvio di ogni versione nuova**, ogni backup **controllato** (pulsante «Verifica»), **ripristino sicuro** con `hub\RIPRISTINA-BACKUP.bat` (i dati di adesso vanno da parte, mai cancellati), **Controllo dell'hub** in Impostazioni (`controllo`), **Clienti › Situazione (Excel)**. Capitoli 3, 6.13, 6.18. Aggiornamento: `AGGIORNAMENTO-HUB-0.12.0.md`.
+>
 > **Novità 0.11.** **Elimina cliente** (backup prima, per ripartire da zero; capitolo 6.15), **pacchetto della sede
 > pronto** con `INSTALLA-SENZA-DOMANDE.bat` e il codice del ponte già dentro (6.16), **più PC con il sito online come
 > riferimento**: le postazioni aprono il sito online e il PC della sede può essere spento (6.16), **Sposta il sito** su un
@@ -126,7 +128,8 @@ aggiornare è sicuro: sostituire la cartella del programma non tocca mai i dati.
 (Per la 0.5 c'è una guida dedicata: `AGGIORNAMENTO-HUB-0.3-0.5.md`. Al primo avvio l'hub copia da solo il registro in `backups\` prima di aggiornarlo.)
 
 1. Chiudi la pagina del hub (finestra nera: Ctrl+C) e ogni comando in corso.
-2. `run_windows.bat backup` e copia lo zip sulla chiavetta (per scrupolo).
+2. `run_windows.bat backup` e copia lo zip sulla chiavetta (per scrupolo). Dalla **0.12** l'hub fa anche da solo un
+   backup al primo avvio della versione nuova (`docmap-hub-prima-della-<versione>-….zip`) e lo scrive in Panoramica.
 3. Estrai il nuovo zip in una cartella temporanea, apri la cartella `DocMap-hub-<versione>\` (es. `DocMap-hub-0.7\`) e **copia tutto il suo
    contenuto dentro `C:\DocMapHub\`**, scegliendo **«Sostituisci i file nella destinazione»**.
    - Non cancellare `C:\DocMapHub\hub\.venv\` (l'ambiente Python: se lo cancelli si ricrea da solo, serve Internet).
@@ -141,8 +144,9 @@ sono gli stessi perché stanno in `%APPDATA%`. La prima volta ricrea `.venv`.
 **Cosa non fare mai:** cancellare `%APPDATA%\DocMapHub\`, oppure lanciare `keygen --rotate` "per sicurezza" (crea una
 chiave nuova: le licenze vecchie restano valide, ma i pacchetti nuovi avranno una chiave pubblica diversa).
 
-**Ripristino da backup** (PC nuovo o rotto): installa il hub (capitolo 2, solo i punti 1–2), estrai lo zip di backup
-dentro `%APPDATA%\DocMapHub\` (crea la cartella se non c'è), poi `run_windows.bat info`. Le cartelle `clienti\` non
+**Ripristino da backup** (PC nuovo o rotto; dalla 0.12): installa il hub (capitolo 2, solo i punti 1–2), copia lo zip di
+backup in `%APPDATA%\DocMapHub\backups\` (crea le cartelle se non ci sono), poi doppio clic su
+`hub\RIPRISTINA-BACKUP.bat` e scegli il numero (oppure `run_windows.bat ripristina-backup C:\percorso\backup.zip`). Le cartelle `clienti\` non
 sono nel backup: si rifanno con `cliente nuovo … --rigenera`.
 
 ---
@@ -515,8 +519,23 @@ backup resta comunque sul PC. Se un backup non riesce o i backup sono spenti, co
 vengono mai cancellati dall'hub.
 
 Contiene chiavi (cifrate), registro, licenze emesse, cassaforte (cifrata). Non contiene `clienti\` (si rigenera) né
-l'accesso automatico. **Ripristino**: hub installato e chiuso, estrai lo zip dentro `%APPDATA%\DocMapHub\` sostituendo i
-file, riapri ed entra con la stessa passphrase (dettagli in `AGGIORNAMENTO-HUB-0.6.md`).
+l'accesso automatico.
+
+**Controllati (0.12).** Ogni backup viene controllato appena scritto: zip integro, registro integro, chiave di firma
+presente. Se un backup automatico non passa, compare un avviso rosso in Panoramica. Il pulsante **Verifica** accanto a
+ogni backup (o `run_windows.bat verifica-backup --tutti`) ricontrolla un file in qualsiasi momento.
+
+**Ripristino (0.12).** Chiudi la pagina dell'hub, poi doppio clic su `hub\RIPRISTINA-BACKUP.bat`: fa il Controllo,
+mostra i backup (il più recente per primo), scegli il numero e scrivi `SI`. Cosa succede:
+
+1. il backup viene controllato: se è rovinato si ferma e non tocca niente;
+2. se la pagina dell'hub è ancora aperta si ferma;
+3. registro, chiavi e licenze di adesso vengono **spostati** (non cancellati) in `backups\prima-del-ripristino-<ora>\`;
+4. il backup viene rimesso; `clienti\`, l'accesso automatico e gli altri backup restano come sono.
+
+Per annullare un ripristino: rimetti a mano i file di `prima-del-ripristino-<ora>\` nella cartella dati.
+Si possono ripristinare anche le copie del solo registro `registro-prima-dello-schema-….sqlite3` (le chiavi restano
+quelle di adesso).
 
 ### 6.14 Controllo delle licenze a distanza (0.7)
 
@@ -618,6 +637,21 @@ run_windows.bat cliente sposta-sito --cliente "Studio Rossi" --annulla
 la chiede), `--env staging` per la demo/staging, `--senza-reindirizzo` per non toccare il vecchio sito.
 
 ---
+
+### 6.18 Controllo dell'hub e situazione dei clienti (0.12)
+
+**Controllo dell'hub**: Impostazioni › «Controlla adesso», oppure `run_windows.bat controllo`. Non cambia niente e non
+chiede passphrase. Guarda: Python e libreria cryptography, cartella dati scrivibile e spazio libero, registro integro e
+schema, versione dell'hub rispetto ai dati, chiave di firma, ultimo backup (controllato davvero), backup automatici e
+seconda cartella, programma DocMap completo accanto all'hub (con la versione dell'app), impostazioni che puntano a
+cartelle sparite. Ogni riga gialla o rossa dice **cosa fare**. Funziona anche quando l'hub non parte (registro
+rovinato): è il primo comando da lanciare se qualcosa non va, ed è dentro `RACCOGLI-INFO.bat`.
+
+**Situazione dei clienti (Excel)**: Clienti › «Situazione (Excel)», oppure
+`run_windows.bat cliente situazione --csv C:\Users\Dave\Desktop\clienti.csv`. Una riga per ogni sito o server di ogni
+cliente: tipo, indirizzo, versione dell'app, «aggiornato» (rispetto alla versione che l'hub pubblicherebbe),
+«risponde» (ultimo controllo), ultimo deploy, piano, scadenza e stato della licenza (attiva, in scadenza entro 30
+giorni, scaduta, sospesa, revocata). Separatore `;`, si apre con un doppio clic in Excel. Nessuna password o codice.
 
 ## 7. La pagina web del hub (il gestionale)
 
@@ -733,7 +767,11 @@ Codici di uscita: `0` riuscito, `1` errore (messaggio su stderr che inizia con "
 | `settings show\|set` | impostazioni | `installer_dir`, `docmap_dir`, `server_python_dir`, `server_python_exe`, `ports.range`, `web.port` |
 | `server-check` | server-python pronto? | |
 | `log` | registro operazioni | `--limit` |
-| `backup` | zip di sicurezza | `--out` |
+| `backup` | zip di sicurezza (controllato subito dalla 0.12) | `--out` |
+| `controllo` | Controllo dell'hub: cosa va e cosa fare; uscita 1 se c'è un errore (0.12) | `--json` |
+| `verifica-backup` | un backup si può ripristinare? (predefinito: l'ultimo) (0.12) | `[nome]`, `--tutti` |
+| `ripristina-backup` | rimette un backup, pagina chiusa; i dati di adesso vanno da parte (0.12) | `[nome o percorso]`, `--ultimo`, `--si` |
+| `cliente situazione` | una riga per sito/server: versione, controllo, licenza (0.12) | `--csv FILE` |
 | `web` | pagina locale (porta 47823 o la successiva libera, ricordata) | `--port`, `--no-browser` |
 
 Variabili d'ambiente utili: `DOCMAP_HUB_DIR` (cartella dati), `DOCMAP_HUB_PASSPHRASE`, `DOCMAP_HUB_VAULT_PASSPHRASE`,

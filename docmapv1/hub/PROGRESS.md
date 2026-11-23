@@ -82,3 +82,14 @@
 - Test: hub 112 OK (3 saltati), server test_licence 9 + test_licence_channel 3 OK; prova nel browser.
 - Prossimo (0.8): controllo della licenza nel server PHP (siti online), utenti a distanza (creare/disattivare utenti di
   un'installazione dal gestionale con il token admin in cassaforte), deploy verso il server di sede.
+
+## 2026-11-23 — v0.12: aggiornare e riparare senza paura
+- Backup automatico al primo avvio di ogni versione nuova (`docmap-hub-prima-della-<v>-….zip`), evento `hub.upgrade`;
+  meta `hub_version` / `hub_version_max`; avviso se si avvia un hub più vecchio dei dati o dati di uno schema più nuovo.
+- `backups.verify` (zip, nomi ammessi, registro `integrity_check`, schema, chiave attiva) dopo ogni backup e pulsante
+  «Verifica»; `backups.restore` + `ripristina-backup` + `RIPRISTINA-BACKUP.bat`: rifiuta backup rovinati e pagina
+  aperta, sposta i dati di adesso da parte, rimette tutto com'era se qualcosa va storto a metà.
+- `doctor.py` / `controllo` / Impostazioni › Controllo dell'hub; dentro `RACCOGLI-INFO.bat`. Registro rovinato →
+  messaggio chiaro (niente traceback) e la connessione si chiude subito.
+- `report.py` / `cliente situazione --csv` / Clienti › Situazione (Excel), protetto contro le formule di Excel.
+- Pulizia: import inutili tolti (pyflakes pulito). Test: 178 OK (10 saltati), 18 nuovi in `test_v12_manutenzione.py`.

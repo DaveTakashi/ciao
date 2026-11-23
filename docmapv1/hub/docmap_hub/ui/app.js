@@ -314,7 +314,7 @@ async function pCustomers(page) {
   const list = await api('/api/customers');
   let filter = sessionStorage.getItem('hub.cf') || 'all'; let q = '';
   page.innerHTML = `<div class="ph"><div><h1>Clienti</h1><div class="sub">Apri un cliente per vedere progetti, siti, postazioni, licenze e storico.</div></div>
-    <div class="btns"><button class="btn" id="new-cust">${ic('plus')} Nuovo cliente</button><a class="btn ai" href="#/nuovo-progetto">${ic('sparkle')} Crea progetto con AI</a></div></div>
+    <div class="btns"><button class="btn" id="new-cust">${ic('plus')} Nuovo cliente</button><a class="btn ai" href="#/nuovo-progetto">${ic('sparkle')} Crea progetto con AI</a><a class="btn" href="/scarica/situazione-clienti.csv" title="Una riga per sito o server: versione, controllo, licenza. Si apre con Excel.">${ic('download')} Situazione (Excel)</a></div></div>
     <div class="card"><div class="toolbar"><input type="search" id="q" placeholder="Cerca per nome, P.IVA, città, Codice Multi…">
       <div class="chips">${[['all', 'Tutti'], ['bad', 'Con problemi'], ['expiring', 'In scadenza'], ['prospect', 'Trattative']].map(([v, t]) => `<button class="chip" data-f="${v}">${t}</button>`).join('')}</div></div>
       <div class="tbl-wrap" id="tbl"></div></div>`;
@@ -1324,6 +1324,7 @@ async function pSettings(page, part) {
       <div class="card" style="grid-column:1/-1" id="host-card"><div class="hd"><h3>${ic('globe')} Hosting predefinito</h3></div><div class="bd" id="host-box">Carico…</div></div>
       <div class="card" style="grid-column:1/-1" id="tpl-card"><div class="hd"><h3>${ic('users')} Modelli cliente</h3><div class="btns"><button class="btn sm" id="tpl-restore">Ripristina i predefiniti</button></div></div><div class="bd flush" id="tpl-box">Carico…</div></div>
       <div class="card" style="grid-column:1/-1"><div class="hd"><h3>${ic('key')} Canale delle licenze</h3></div><div class="bd" id="ch-box">Carico…</div></div>
+      <div class="card" style="grid-column:1/-1"><div class="hd"><h3>${ic('shield')} Controllo dell'hub</h3><div class="btns"><button class="btn sm" id="chk-run">Controlla adesso</button></div></div><div class="bd" id="chk-box">Carico…</div></div>
       <div class="card" style="grid-column:1/-1"><div class="hd"><h3>${ic('download')} Backup dell'hub</h3><div class="btns"><button class="btn sm" id="exp-hub">${ic('lock')} Esporta tutto l'hub (cifrato)</button></div></div><div class="bd" id="bk-box">Carico…</div></div>
       <div class="card"><div class="hd"><h3>${ic('moon')} Aspetto</h3></div><div class="bd">${sel('theme', 'Tema', [['auto', 'Automatico (come Windows)'], ['light', 'Chiaro'], ['dark', 'Scuro']], theme)}</div></div>
       <div class="card"><div class="hd"><h3>${ic('folder')} Strumenti classici</h3></div><div class="bd"><p style="margin-top:0;color:var(--fg2)">Le pagine della versione 0.3, ancora disponibili mentre il nuovo gestionale le assorbe.</p>
@@ -1331,6 +1332,7 @@ async function pSettings(page, part) {
       <div class="card"><div class="hd"><h3>Informazioni</h3></div><div class="bd"><dl class="kv"><dt>Versione</dt><dd>${esc(s.version)}</dd><dt>Chiave di firma</dt><dd class="mono">${esc(s.key_id || '—')}</dd><dt>Cartella dati</dt><dd class="mono">${esc(s.data_dir || '')}</dd></dl></div></div>
     </div>`;
   backupsCard($('#bk-box')); channelCard($('#ch-box')); $('#exp-hub').onclick = exportHub;
+  checkCard($('#chk-box')); $('#chk-run').onclick = () => checkCard($('#chk-box'));
   hostingCard($('#host-box')); templatesCard($('#tpl-box'));
   $('#tpl-restore').onclick = async () => { try { const r = await api('/api/templates/restore', {}); S.tpl = r; toast(r.added ? `Rimessi ${r.added} modelli.` : 'Ci sono già tutti.'); templatesCard($('#tpl-box')); } catch (e) { toast(e.message, true); } };
   if (part === 'modelli' || part === 'hosting') setTimeout(() => { const c = $(part === 'modelli' ? '#tpl-card' : '#host-card'); if (c) c.scrollIntoView({ block: 'start' }); }, 50);
@@ -1598,14 +1600,20 @@ async function envJob(e, what) {
 async function backupsCard(box) {
   let d; try { d = await api('/api/backups'); } catch (e) { box.innerHTML = `<div class="note warn">${esc(e.message)}</div>`; return; }
   const c = d.config; const KB = (n) => (n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB');
-  const KIND = { auto: 'automatico', manuale: 'a mano', migrazione: 'prima di un aggiornamento', esportazione: 'esportazione cifrata' };
+  const KIND = { auto: 'automatico', manuale: 'a mano', migrazione: 'prima di un aggiornamento', aggiornamento: 'prima di una nuova versione', esportazione: 'esportazione cifrata' };
   box.innerHTML = `<p style="margin-top:0">${c.auto ? `<span class="pill ok">Attivi</span> Ogni ${c.every_hours} ore mentre l'hub è aperto, tengo gli ultimi ${c.keep}.` : '<span class="pill warn">Spenti</span> Nessun backup automatico.'} Ultimo automatico: <b>${d.last_auto ? ago(d.last_auto) : 'mai'}</b>.</p>
     ${d.error ? `<div class="note warn">Ultimo tentativo non riuscito: ${esc(d.error)}</div>` : ''}
     ${c.copy_dir ? `<p style="color:var(--fg2);font-size:13px">Copia anche in <span class="mono">${esc(c.copy_dir)}</span></p>` : '<p style="color:var(--mut);font-size:13px">Consiglio: imposta una seconda cartella (chiavetta, NAS, OneDrive) così il backup sopravvive anche a un guasto del PC.</p>'}
     <div class="btns"><button class="btn pri sm" id="bk-now">${ic('download')} Fai un backup adesso</button><button class="btn sm" id="bk-cfg">${ic('gear')} Impostazioni</button></div>
     <div class="tbl-wrap mt"><table class="t"><thead><tr><th>File</th><th>Tipo</th><th>Quando</th><th>Dimensione</th><th></th></tr></thead><tbody>
-    ${d.items.slice(0, 12).map((b) => `<tr><td class="mono" style="font-size:12px">${esc(b.name)}</td><td>${esc(KIND[b.kind] || b.kind)}</td><td>${ago(b.at)}</td><td>${KB(b.size)}</td><td class="r"><a class="btn sm" href="/scarica/backup/${encodeURIComponent(b.name)}" title="Scarica">${ic('download')}</a></td></tr>`).join('') || '<tr><td colspan="5"><div class="empty">Ancora nessun backup</div></td></tr>'}</tbody></table></div>
-    <p style="color:var(--mut);font-size:12.5px">Cartella: <span class="mono">${esc(d.folder)}</span>. Le chiavi e la cassaforte restano cifrate dentro il backup: senza le passphrase non servono a nessuno. Per ripristinare segui la guida «Ripristino dell'hub».</p>`;
+    ${d.items.slice(0, 12).map((b) => `<tr><td class="mono" style="font-size:12px">${esc(b.name)}</td><td>${esc(KIND[b.kind] || b.kind)}</td><td>${ago(b.at)}</td><td>${KB(b.size)}</td><td class="r">${b.kind !== 'esportazione' ? `<button class="btn sm bk-ver" data-name="${esc(b.name)}" title="Controlla che si possa ripristinare">Verifica</button> ` : ''}<a class="btn sm" href="/scarica/backup/${encodeURIComponent(b.name)}" title="Scarica">${ic('download')}</a></td></tr>`).join('') || '<tr><td colspan="5"><div class="empty">Ancora nessun backup</div></td></tr>'}</tbody></table></div>
+    <p style="color:var(--mut);font-size:12.5px">Cartella: <span class="mono">${esc(d.folder)}</span>. Le chiavi e la cassaforte restano cifrate dentro il backup: senza le passphrase non servono a nessuno. Per ripristinare: chiudi la pagina dell'hub e avvia <span class="mono">hub\\RIPRISTINA-BACKUP.bat</span> (i dati di adesso vanno da parte, non si cancellano).</p>`;
+  box.querySelectorAll('.bk-ver').forEach((b) => { b.onclick = async () => {
+    b.disabled = true;
+    try { const r = await api('/api/backups/verify', { name: b.dataset.name }); const n = r.counts || {};
+      toast(r.ok ? `Si può ripristinare: ${n.customers ?? '?'} clienti, ${n.licences ?? '?'} licenze, schema ${r.schema}.` : `NON ripristinabile: ${(r.problems || []).join('; ')}`, !r.ok);
+      b.textContent = r.ok ? 'OK' : 'Rovinato'; b.className = `btn sm bk-ver ${r.ok ? '' : 'danger'}`;
+    } catch (e) { toast(e.message, true); b.disabled = false; } }; });
   $('#bk-now', box).onclick = async (ev) => { ev.target.disabled = true; try { const r = await api('/api/backups/now', {}); const j = await waitJob(r.job); toast(`Backup fatto: ${j.result?.name || ''}`); } catch (e) { toast(e.message, true); } backupsCard(box); };
   $('#bk-cfg', box).onclick = () => modal({
     title: 'Backup automatici', body: `<label class="check"><input type="checkbox" name="auto" ${c.auto ? 'checked' : ''}> <span>Fai i backup automatici</span></label>
@@ -1613,6 +1621,16 @@ async function backupsCard(box) {
       ${fld('copy_dir', 'Copia anche in questa cartella (facoltativo)', { value: c.copy_dir, ph: 'E:\\Backup-DocMap  oppure  C:\\Users\\Dave\\OneDrive\\DocMap', hint: 'Se la chiavetta non è inserita il backup resta comunque sul PC e la copia si salta.' })}`,
     onSubmit: async (v) => { await api('/api/backups', v); closeOverlay(); toast('Salvato.'); backupsCard(box); },
   });
+}
+
+// ---- v0.12: «Controllo dell'hub» -----------------------------------------------------------
+async function checkCard(box) {
+  box.innerHTML = 'Controllo…';
+  let r; try { r = await api('/api/hub/check'); } catch (e) { box.innerHTML = `<div class="note warn">${esc(e.message)}</div>`; return; }
+  const PILL = { ok: '<span class="pill ok">OK</span>', warn: '<span class="pill warn">Da guardare</span>', error: '<span class="pill bad">Errore</span>' };
+  const head = { ok: 'Tutto a posto.', warn: `Da guardare: ${r.counts.warn}, nessun errore.`, error: `Errori: ${r.counts.error}. Leggi «cosa fare».` }[r.level];
+  box.innerHTML = `<p style="margin-top:0"><b>${esc(head)}</b> <span style="color:var(--mut);font-size:12.5px">Non cambia niente; lo stesso controllo c'è in <span class="mono">run_windows.bat controllo</span> e in RACCOGLI-INFO.</span></p>
+    <div class="tbl-wrap"><table class="t"><tbody>${r.results.map((x) => `<tr><td style="width:120px">${PILL[x.level]}</td><td><b>${esc(x.title)}</b>${x.detail ? `<div style="color:var(--mut);font-size:12.5px;word-break:break-all">${esc(x.detail)}</div>` : ''}${x.fix && x.level !== 'ok' ? `<div style="font-size:13px;margin-top:2px">Cosa fare: ${esc(x.fix)}</div>` : ''}</td></tr>`).join('')}</tbody></table></div>`;
 }
 
 // ---- v0.10: default hosting and customer templates ------------------------------------------
