@@ -779,3 +779,60 @@ Apri **⚙ Funzioni avanzate › Lavoro › Promemoria**.
 - Quando DocMap è aperto, i promemoria del giorno compaiono anche in **Oggi** e in un avviso una volta al giorno.
 - **Regole**: quanti giorni prima della scadenza, ogni quanti giorni ripetere, dopo quanti giorni un faldone senza data
   è «fuori da tanto», notifica del computer, oppure spegni i promemoria.
+
+## 30. Nuovo anno in un clic: i faldoni del nuovo anno per tutti i clienti (v12.11)
+
+Menu **⚙ Funzioni avanzate › Lavoro › Nuovo anno**. A gennaio (o da ottobre per l'anno dopo) DocMap prepara da solo i
+faldoni del nuovo anno:
+
+1. Per ogni cliente prende i faldoni **dell'anno prima** che formano una serie (stesso cliente, stessa categoria e
+   stesso titolo senza l'anno: «Fatture 2025» → «Fatture 2026»).
+2. Mostra l'elenco: per ognuno il faldone dell'anno prima, quello nuovo (codice, titolo, anno) e **dove metterlo**
+   (accanto a quello dell'anno prima; se quel posto è pieno, quello accanto con spazio).
+3. Togli la spunta a quelli che non servono e premi **Crea N faldoni**.
+4. Premi **Stampa solo queste N etichette**, attaccale sui faldoni nuovi e mettili nel posto indicato.
+
+L'anno va avanti dove è scritto (titolo, anno di riferimento, tag, righe del contenuto di quell'anno). Ogni faldone
+nuovo ha un **codice e un QR nuovi**. Tutto si annulla in un colpo con **Annulla**; premere di nuovo non crea
+doppioni. **Opzioni**: copiare o no il contenuto, anno vecchio in «Storico», serie ferme da 2 anni, clienti
+dell'anagrafica che non hanno ancora faldoni (titolo come «Documenti {anno}»). Da dicembre a febbraio il promemoria
+compare in **Oggi**.
+
+## 31. Scarto: la proposta di ogni gennaio e il verbale (v12.11)
+
+Menu **⚙ Funzioni avanzate › Lavoro › Scarto**. Ogni anno DocMap propone i faldoni che hanno superato il tempo di
+conservazione secondo le **Regole** dello studio.
+
+- **Regole** (in fondo alla pagina): di serie 10 anni dall'ultimo anno del faldone (scritture contabili, art. 2220
+  c.c.), atti e libri sociali / verbali / statuti da tenere sempre, una regola per il Lavoro con la nota sul LUL.
+  Puoi aggiungerne per **categoria** o per **parole** (cercate in titolo, tag e contenuto) e scegliere il mese in cui
+  compare la proposta. Le regole valgono per tutto lo studio (vanno anche sul server).
+- **Non vengono proposti**: faldoni senza anno (li vedi a parte per aggiungerlo), con il tag **non-scartare** (es.
+  un accertamento o una causa in corso), fuori archivio, già in un verbale.
+
+Come si fa:
+
+1. Controlla la proposta e togli la spunta a quelli da tenere.
+2. **Prepara il verbale**: chi approva lo scarto (obbligatorio) e il ruolo; per un **ente pubblico** anche il numero
+   dell'autorizzazione della Soprintendenza archivistica.
+3. **Stampa il verbale**, fallo firmare e consegna i faldoni alla ditta di distruzione.
+4. Dopo la distruzione premi **Segna come distrutti** (ditta, numero del certificato, data): i faldoni escono
+   dall'archivio, restano descritti nel verbale e i loro codici e QR non vengono mai riusati.
+
+Il verbale ha un'**impronta SHA-256**: se qualcuno lo cambia dopo, la stampa lo dice. Ogni passo si annulla subito con
+**Annulla** ed è nel Registro attività. **Importante**: è una proposta da verificare (accertamenti, contenziosi,
+obblighi di legge, accordi con il cliente); DocMap non decide lo scarto e non è «conservazione a norma».
+
+## 32. Dove lo metto? (v12.11)
+
+Nella scheda del faldone, sotto la posizione, **Dove lo metto?** propone fino a 3 posti, ognuno con il motivo: accanto
+allo stesso faldone di un altro anno, dove sono gli altri faldoni del cliente, con i faldoni della stessa categoria e
+anno. **Metti qui** imposta la posizione; poi salva la scheda come sempre. In **Impostazioni › Dove lo metto?** puoi
+scrivere quanti faldoni ci stanno in un posto: un posto pieno non viene più proposto per primo.
+
+## 33. Cercare a voce (v12.11)
+
+Premi il **microfono** nella ricerca dell'Archivio, in **Cerca ovunque** (Ctrl+K) o nella ricerca del telefono e di'
+cosa cerchi, come lo diresti a un collega: «trovami le fatture di Rossi del 2023 fuori archivio», «paghe dal 2019 al
+2021», «codice B L tre». DocMap scrive cosa ha capito e cosa cerca; puoi correggere a mano. Il microfono compare solo
+dove il browser riconosce la voce (Chrome, Edge, Safari).

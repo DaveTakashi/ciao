@@ -1,5 +1,10 @@
 # Roadmap DocMap: dall'MVP a Python, hub e vendita
 
+> **Stato 2026-11-23 (roadmap improvement, https://claude.ai/artifact/REfM3o3usUzjcqmQ6LX4ht):** ondata 1 fatta (26.12.9–26.12.10);
+> ondata 2: K1 prelievi, K6 consegna firmata, K10 faldone smarrito, K11 promemoria, K13 tempo risparmiato (26.12.10),
+> **K9 nuovo anno, K2 scarto proposto con verbale, K8 «Dove lo metto?», K7 ricerca a voce (26.12.11)**. Restano K14 (ponte
+> gestionali, serve un accesso ai gestionali) e le ondate 3–4.
+
 > **Aggiornamento 2026-11-06 — roadmap verso lo stato dell'arte.** Le fasi F0–F10 sotto sono la storia del primo
 > percorso (F0–F5 fatte). La roadmap in vigore è il Claude Doc «DocMap: roadmap verso lo stato dell'arte»
 > (https://claude.ai/artifact/QqBxz8KPmWWsQzjHzcMUCC), rivista ogni 2 settimane. Riassunto:
