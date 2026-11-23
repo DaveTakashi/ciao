@@ -203,7 +203,7 @@ function logPrintDetails(){
   let codes = []; try { codes = printQueueBinders().map(b => b.speaking_code); } catch(e){}
   return {preset:P.presetId, mode:P.contentMode, labels:L.items || 0, sheets:(L.pages || []).length, copies:P.copies || 1, qr:P.qrMode, binders:codes.length, codes:codes.slice(0, 100)};
 }
-const LOG_EXPORT_KIND = (f) => /^manifest/i.test(f) ? 'export.manifest' : /full_backup\.csv$/i.test(f) ? 'export.csv' : /^docmap_workspace_\d/i.test(f) ? 'export.backup' : /\.json$/i.test(f) ? 'export.json' : /\.sqlite3?$|\.db$/i.test(f) ? 'export.sqlite' : 'export.file';
+const LOG_EXPORT_KIND = (f) => /^manifest/i.test(f) ? 'export.manifest' : /full_backup\.csv$/i.test(f) ? 'export.csv' : /(^|_)workspace_\d/i.test(f) ? 'export.backup' : /\.json$/i.test(f) ? 'export.json' : /\.sqlite3?$|\.db$/i.test(f) ? 'export.sqlite' : 'export.file';
 
 /* ---------------- Wrappers around existing global functions (installed at load; callers resolve them at call time) ---------------- */
 (function logWrap(){
