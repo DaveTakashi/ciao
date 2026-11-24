@@ -18,7 +18,7 @@ const {chromium} = require('playwright');
 const APP = path.resolve(__dirname, '..');
 const REPO = path.resolve(APP, '..');
 // [label, git ref]. Keep the release Dave has installed in the office and the previous one.
-const FROM = [['26.12.7 (installata in studio)', 'e34086d'], ['26.12.11', 'b5b2ae9'], ['26.12.12', '492cac8'], ['26.12.13', 'a0dd04a'], ['26.12.14', 'd34999d'], ['26.12.15 (rilascio precedente)', '74ed48c']];
+const FROM = [['26.12.7 (installata in studio)', 'e34086d'], ['26.12.11', 'b5b2ae9'], ['26.12.12', '492cac8'], ['26.12.13', 'a0dd04a'], ['26.12.14', 'd34999d'], ['26.12.15', '74ed48c'], ['26.12.16 (rilascio precedente)', 'ff1145f']];
 
 let passes = 0, fails = 0;
 const ok = (c, n, x) => { if (c) passes++; else { fails++; console.log('  ✗ FAIL', n, x !== undefined ? JSON.stringify(x).slice(0, 900) : ''); } return !!c; };

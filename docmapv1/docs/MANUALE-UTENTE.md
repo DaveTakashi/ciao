@@ -961,6 +961,25 @@ e, per i faldoni senza etichetta, toccate **Faldone senza etichetta**: il faldon
 della costa, e la lettura AI lo compila come gli altri. Se l'etichetta servirà, la stampate dopo dal PC.
 
 **Sul PC.** Il report mostra i faldoni contati accanto a quelli acquisiti e il prezzo usa i contati quando sono di più.
-Nella scheda Strumenti la tabella **Scatole** riassume conteggi, anni, tag, note e foto. **Dati per l'addestramento**
+Nella pagina del progetto il riquadro **Scatole** riassume conteggi, anni, tag, note e foto. **Dati per l'addestramento**
 scarica un file con le foto e le risposte confermate da una persona, utile per allenare un modello di lettura: contiene
 dati dei clienti, va dato solo a chi li tratta per lo studio.
+
+## 39. Lettura AI: campi da controllare, vocabolario dei tag e banco di prova (v12.17)
+
+**Campi da controllare.** Quando l'AI legge una costa dice quanto è sicura di ogni campo. Nella revisione del progetto i
+campi di cui non è sicura sono **gialli** e sopra c'è «Da controllare: …». Guardate quelli: il resto è di solito giusto.
+Un faldone con un campo giallo resta «Da rivedere» e **Conferma le proposte sicure** lo salta.
+
+**Vocabolario dei tag.** Nella pagina del progetto, riquadro **Lettura AI: vocabolario e banco di prova** (sotto *Scatole*): scrivete una riga per tag e, dopo
+«=», le parole che volete trattare come quel tag, per esempio `Paghe = cedolini, buste paga, LUL`. Maiuscole, accenti e
+punti non contano. Nelle **parole escluse** mettete quelle che non devono mai diventare tag. Premete **Salva il
+vocabolario**: i tag entrano anche tra i tag rapidi del telefono, e l'AI e la voce useranno solo questi.
+Sotto compaiono i **nuovi tag suggeriti**: parole lette su almeno 3 faldoni. Con **+** diventano tag, con **×** non
+verranno più proposte. Nomi di persone e ditte non vengono mai suggeriti.
+
+**Banco di prova.** Dopo aver confermato almeno qualche decina di faldoni, nello stesso riquadro scegliete chi legge
+(l'AI del server o il modello locale del PC) e quanti faldoni rileggere, poi **Avvia la prova**. La tabella dice per
+ogni campo quante letture erano giuste, quanti faldoni erano tutti giusti, i secondi a faldone e l'**affidabilità**.
+Ripetete la prova con un altro fornitore e confrontate le righe prima di decidere quale usare. Nessun faldone viene
+cambiato.

@@ -873,6 +873,11 @@ extra:[{id, code}]}` (scade dopo 4 ore senza scansioni).
   prefisso del progetto (`invNolabelCode`) e `inv.nolabel = 1`. Dati per l'addestramento: JSON Lines, prima riga
   `{format:'docmap-inv-train', v:1, …}`, poi righe `t:'binder'` (foto, campi confermati `truth`, lettura `ai`) e `t:'shot'`
   (foto della scatola, posizioni delle etichette); formato completo in `docs/RICONOSCIMENTO.md`.
+- **v12.17**: lettura AI (`inv.ai`) anche `field_conf = {company, title, years, doc_type, tags}` (0…1, 0 = campo vuoto),
+  `provider`, `prompt_v` (versione del prompt, oggi 2; 1 = letture precedenti), `ms`. Progetto `inv.vocab = {syn:[{tag,
+  words[]}] (max 60 tag, 12 parole), stop:[parole escluse, già ripiegate]}` (`invVocabNorm`; viaggia anche nei modelli
+  `invTplNorm`) e `inv.bench = [{at, provider, model, prompt_v, n, ok, ms, err, acc:{campo: 0…1 o null}, calib}]` (ultime
+  12, `invBenchListNorm`). Righe di registro nuove: `inventory.vocab`, `inventory.bench`.
 - **Server**: foto in `data_dir/photos/` cifrate (`API-CONTRACT.md` §14).
 
 ## 19. Lavoro annuale (v12.11 — `assets/js/02l-years.js`, `06w-newyear.js`, `06x-retention.js`, `06y-place.js`)

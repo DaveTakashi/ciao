@@ -34,7 +34,7 @@ log = logging.getLogger("docmap")
 
 DM_API = "docmap-php"
 DM_API_VERSION = 1
-DM_APP_VERSION = "26.12.16"   # v12.16 (was v12.15): DocMap release these server files belong to (ping app_version; the app compares it with its own)
+DM_APP_VERSION = "26.12.17"   # v12.17 (was v12.16): DocMap release these server files belong to (ping app_version; the app compares it with its own)
 DM_TYPES = ("binder", "client", "location", "archive", "status_event")   # v11: + location · v12: + archive + status_event
 DM_ROLES = {"viewer": 1, "editor": 2, "admin": 3}
 DM_MOBILE_FIELDS = ("archive_state", "contents_items", "room_code", "cabinet_code", "shelf_code", "sector_code", "notes",
@@ -1092,7 +1092,9 @@ DM_PHOTO_MIMES = ("image/jpeg", "image/webp", "image/png")
 DM_AI_PROVIDERS = ("anthropic", "openai_compatible", "ollama", "mock")   # v12.12: any OpenAI-compatible service, local Ollama / LM Studio
 DM_AI_KINDS = ("spine", "doc", "page")
 DM_AI_TAGS_MAX = 40
-DM_AI_JSON_HINT = "\nRispondi solo con un oggetto JSON con queste chiavi: company, title, year_from, year_to, doc_type, tags, notes, text, confidence, empty_spine."
+DM_AI_PROMPT_V = 2   # v12.17: version of ai_prompt + ai_schema (2 = field_conf); saved with every reading
+DM_AI_FIELDS = ("company", "title", "years", "doc_type", "tags")
+DM_AI_JSON_HINT = "\nRispondi solo con un oggetto JSON con queste chiavi: company, title, year_from, year_to, doc_type, tags, notes, text, confidence, field_conf, empty_spine."
 YEAR_RE = re.compile(r"\b(?:19|20)\d\d\b", re.ASCII)
 
 
@@ -1310,9 +1312,17 @@ def ai_norm(r, hints):
     cv = pget(r, "confidence", None)
     cf = float(cv) if php_is_numeric(cv) else 0.0
     cf = _round2(max(0.0, min(1.0, cf)))
-    return {"company": cut_str(pget(r, "company", ""), 120), "title": cut_str(pget(r, "title", ""), 160), "year_from": yf, "year_to": yt,
-            "doc_type": cut_str(pget(r, "doc_type", ""), 60), "tags": tags, "notes": cut_str(pget(r, "notes", ""), 300), "text": cut_str(pget(r, "text", ""), 500),
-            "confidence": cf, "empty_spine": not php_empty(pget(r, "empty_spine", None))}
+    o = {"company": cut_str(pget(r, "company", ""), 120), "title": cut_str(pget(r, "title", ""), 160), "year_from": yf, "year_to": yt,
+         "doc_type": cut_str(pget(r, "doc_type", ""), 60), "tags": tags, "notes": cut_str(pget(r, "notes", ""), 300), "text": cut_str(pget(r, "text", ""), 500),
+         "confidence": cf, "field_conf": {}, "empty_spine": not php_empty(pget(r, "empty_spine", None))}
+    # v12.17 confidence of each field: the model's own figure, else the overall one; always 0 for an empty field
+    fc = pget(r, "field_conf", None)
+    fc = fc if is_arr(fc) else {}
+    has = {"company": o["company"] != "", "title": o["title"] != "", "years": yf > 0, "doc_type": o["doc_type"] != "", "tags": len(tags) > 0}
+    for f in DM_AI_FIELDS:
+        v = pget(fc, f, None)
+        o["field_conf"][f] = 0.0 if not has[f] else (_round2(max(0.0, min(1.0, float(v)))) if php_is_numeric(v) else cf)
+    return o
 
 
 def ai_mock(voice, hints):
@@ -1336,6 +1346,7 @@ def ai_prompt(voice, hints):
          "tags = solo tra questi, se corrispondono: " + (", ".join(hints["tags"]) if hints["tags"] else "(nessuno)") + ";\n"
          "notes = altre scritte utili; text = trascrizione fedele di tutto il testo leggibile della costa;\n"
          "confidence = quanto sei sicuro della lettura, da 0 a 1; empty_spine = true se sulla costa non c'e' nulla di leggibile.\n"
+         "field_conf = quanto sei sicuro di ogni campo, da 0 a 1: company, title, years (gli anni), doc_type, tags (0 se il campo e' vuoto).\n"
          "Non inventare: se non leggi un campo lascialo vuoto (0 per gli anni).")
     if hints["client"] != "":
         p += "\nL'archivio appartiene al cliente: " + hints["client"] + "."
@@ -1349,9 +1360,11 @@ def ai_prompt(voice, hints):
 def ai_schema():
     s = {"type": "string"}
     return {"type": "object", "additionalProperties": False,
-            "required": ["company", "title", "year_from", "year_to", "doc_type", "tags", "notes", "text", "confidence", "empty_spine"],
+            "required": ["company", "title", "year_from", "year_to", "doc_type", "tags", "notes", "text", "confidence", "field_conf", "empty_spine"],
             "properties": {"company": s, "title": s, "year_from": {"type": "integer"}, "year_to": {"type": "integer"}, "doc_type": s,
-                           "tags": {"type": "array", "items": s}, "notes": s, "text": s, "confidence": {"type": "number"}, "empty_spine": {"type": "boolean"}}}
+                           "tags": {"type": "array", "items": s}, "notes": s, "text": s, "confidence": {"type": "number"},
+                           "field_conf": {"type": "object", "additionalProperties": False, "required": list(DM_AI_FIELDS), "properties": {f: {"type": "number"} for f in DM_AI_FIELDS}},
+                           "empty_spine": {"type": "boolean"}}}
 
 
 def ai_anthropic(ctx, img, voice, hints):
@@ -1512,10 +1525,10 @@ def r_ai_spine(ctx):
     if img is None and voice == "":
         fail(400, "invalid", "photo_id, data or voice required")
     if prov == "mock":
-        return {"enabled": True, "provider": "mock", "model": "mock", "result": ai_norm(ai_mock(voice, hints), hints), "ms": 0}
+        return {"enabled": True, "provider": "mock", "model": "mock", "result": ai_norm(ai_mock(voice, hints), hints), "ms": 0, "prompt_v": DM_AI_PROMPT_V}
     t0 = time.time()
     a = ai_anthropic(ctx, img, voice, hints) if prov == "anthropic" else ai_openai(ctx, prov, img, voice, hints)
-    return {"enabled": True, "provider": prov, "model": a["model"], "result": ai_norm(a["result"], hints), "ms": int(round((time.time() - t0) * 1000))}
+    return {"enabled": True, "provider": prov, "model": a["model"], "result": ai_norm(a["result"], hints), "ms": int(round((time.time() - t0) * 1000)), "prompt_v": DM_AI_PROMPT_V}
 
 
 def r_patch(ctx, who):

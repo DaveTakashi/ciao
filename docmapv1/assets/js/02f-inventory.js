@@ -93,6 +93,8 @@ function normalizeInv(i){
   o.notes = String(o.notes || '').slice(0, 2000);
   o.target = Math.max(0, Math.min(INV_MAX, parseInt(o.target, 10) || 0));   // v12.15: expected binders (+ documents) of the job, 0 = none
   o.plan = invPlanNorm(o.plan);   // v12.16: how the archive is labelled (boxes, binders, readable code)
+  o.vocab = invVocabNorm(o.vocab);   // v12.17: tag vocabulary of this client (synonyms, excluded words)
+  o.bench = invBenchListNorm(o.bench);   // v12.17: test-bench runs of the AI reading (last INV_BENCH_KEEP)
   return o;
 }
 function invIsProject(a){ return !!(a && a.inv && typeof a.inv === 'object' && /^[A-Za-z0-9]{4}$/.test(a.inv.prefix || '')); }
@@ -176,7 +178,7 @@ const INV_TEMPLATES = [
 function invTplNorm(x){
   x = x && typeof x === 'object' ? x : {};
   return {id:String(x.id || '').slice(0, 60), it:String(x.it || x.name || '').slice(0, 80), en:String(x.en || x.it || x.name || '').slice(0, 80), mode:INV_MODES.includes(x.mode) ? x.mode : 'box',
-    years:Math.max(0, Math.min(200, parseInt(x.years, 10) || 0)), doc:x.doc === true, tags:invNormTags(x.tags), ai:x.ai !== false, auto_confirm:Math.max(0.5, Math.min(1, +x.auto_confirm || INV_AUTO_CONFIRM)), price:invPriceNorm(x.price), custom:x.custom === true};
+    years:Math.max(0, Math.min(200, parseInt(x.years, 10) || 0)), doc:x.doc === true, tags:invNormTags(x.tags), ai:x.ai !== false, auto_confirm:Math.max(0.5, Math.min(1, +x.auto_confirm || INV_AUTO_CONFIRM)), price:invPriceNorm(x.price), vocab:invVocabNorm(x.vocab), custom:x.custom === true};
 }
 /** Built-in + studio templates (studio ones first). */
 function invTemplates(settings){
@@ -186,12 +188,12 @@ function invTemplates(settings){
 /** Fields of the project form from a template (year bar: the last N years up to `year`). */
 function invTplFields(tp, year){
   tp = invTplNorm(tp); year = year || new Date().getFullYear();
-  return {mode:tp.mode, doc:tp.doc, tags:tp.tags.slice(), year_from:tp.years ? year - tp.years : 0, year_to:tp.years ? year : 0, ai:tp.ai, auto_confirm:tp.auto_confirm, price:tp.price, template:tp.id};
+  return {mode:tp.mode, doc:tp.doc, tags:tp.tags.slice(), year_from:tp.years ? year - tp.years : 0, year_to:tp.years ? year : 0, ai:tp.ai, auto_confirm:tp.auto_confirm, price:tp.price, vocab:tp.vocab, template:tp.id};
 }
 /** A project → a studio template (no client, no labels, no numbers). */
 function invTplFromProject(a, name){
   const i = normalizeInv(a && a.inv), span = i.year_from && i.year_to ? i.year_to - i.year_from : 0;
-  return invTplNorm({id:'own-' + uuid().slice(0, 8), it:name, en:name, mode:i.mode, years:span, doc:i.doc, tags:i.tags, ai:i.ai, auto_confirm:i.auto_confirm, price:i.price, custom:true});
+  return invTplNorm({id:'own-' + uuid().slice(0, 8), it:name, en:name, mode:i.mode, years:span, doc:i.doc, tags:i.tags, ai:i.ai, auto_confirm:i.auto_confirm, price:i.price, vocab:i.vocab, custom:true});
 }
 
 /* ---------------- v12.12 verification of a box (mode 6) ---------------- */
@@ -260,6 +262,9 @@ function naturalCmpSafe(x, y){ return typeof naturalCmp === 'function' ? natural
 /* invAiPrompt / invAiNorm are the same text and rules as ai_prompt / ai_norm in server-php/api.php and server-python
    (tests/v1212.js compares them): the PC uses them to ask a LOCAL model directly (Impostazioni › Lettura AI su questo PC). */
 const INV_AI_KINDS = ['spine', 'doc', 'page'];
+/** v12.17: version of the prompt + answer shape (2 = field_conf), saved with every reading = DM_AI_PROMPT_V of the servers. */
+const INV_AI_PROMPT_V = 2;
+const INV_AI_FIELDS = ['company', 'title', 'years', 'doc_type', 'tags'];
 function invAiHints(h){
   h = h && typeof h === 'object' ? h : {};
   const tags = []; (Array.isArray(h.tags) ? h.tags : []).forEach(x => { x = String(x == null ? '' : x).trim().slice(0, 40); if (x !== '' && !tags.includes(x) && tags.length < 40) tags.push(x); });
@@ -278,6 +283,7 @@ function invAiPrompt(voice, hints){
     + "tags = solo tra questi, se corrispondono: " + (hints.tags.length ? hints.tags.join(', ') : '(nessuno)') + ";\n"
     + "notes = altre scritte utili; text = trascrizione fedele di tutto il testo leggibile della costa;\n"
     + "confidence = quanto sei sicuro della lettura, da 0 a 1; empty_spine = true se sulla costa non c'e' nulla di leggibile.\n"
+    + "field_conf = quanto sei sicuro di ogni campo, da 0 a 1: company, title, years (gli anni), doc_type, tags (0 se il campo e' vuoto).\n"
     + "Non inventare: se non leggi un campo lascialo vuoto (0 per gli anni).";
   if (hints.client !== '') p += "\nL'archivio appartiene al cliente: " + hints.client + '.';
   if (hints.year_from || hints.year_to) p += "\nGli anni attesi sono tra " + (hints.year_from || '?') + ' e ' + (hints.year_to || '?') + '.';
@@ -285,7 +291,7 @@ function invAiPrompt(voice, hints){
   return p;
 }
 /** Extra instruction for the OpenAI-compatible providers (no JSON schema everywhere: JSON mode + the list of keys). */
-const INV_AI_JSON_HINT = "\nRispondi solo con un oggetto JSON con queste chiavi: company, title, year_from, year_to, doc_type, tags, notes, text, confidence, empty_spine.";
+const INV_AI_JSON_HINT = "\nRispondi solo con un oggetto JSON con queste chiavi: company, title, year_from, year_to, doc_type, tags, notes, text, confidence, field_conf, empty_spine.";
 /** Text answer of a model → object (accepts ```json fences and text around the object). */
 function invAiParseText(txt){
   let s = String(txt || '').trim();
@@ -302,8 +308,15 @@ function invAiNorm(r, hints){
   let yf = yr(r.year_from), yt = yr(r.year_to);
   if (yf && !yt) yt = yf; if (yt && !yf) yf = yt; if (yf > yt){ const x = yf; yf = yt; yt = x; }
   const tags = []; (Array.isArray(r.tags) ? r.tags : []).forEach(x => { if (typeof x !== 'string') return; hints.tags.forEach(h => { if (x.trim().toLowerCase() === h.toLowerCase() && !tags.includes(h)) tags.push(h); }); });
-  let cf = (typeof r.confidence === 'number' || (typeof r.confidence === 'string' && r.confidence.trim() !== '' && isFinite(+r.confidence))) ? +r.confidence : 0; cf = Math.round(Math.max(0, Math.min(1, cf)) * 100) / 100;
-  return {company:cut(r.company, 120), title:cut(r.title, 160), year_from:yf, year_to:yt, doc_type:cut(r.doc_type, 60), tags, notes:cut(r.notes, 300), text:cut(r.text, 500), confidence:cf, empty_spine:!!r.empty_spine};
+  const num = (v) => typeof v === 'number' ? isFinite(v) : typeof v === 'string' && v.trim() !== '' && isFinite(+v);
+  const r2 = (v) => Math.round(Math.max(0, Math.min(1, +v)) * 100) / 100;
+  const cf = num(r.confidence) ? r2(r.confidence) : 0;
+  const o = {company:cut(r.company, 120), title:cut(r.title, 160), year_from:yf, year_to:yt, doc_type:cut(r.doc_type, 60), tags, notes:cut(r.notes, 300), text:cut(r.text, 500), confidence:cf, field_conf:{}, empty_spine:!!r.empty_spine};
+  // v12.17 confidence of each field: the model's own figure, else the overall one; always 0 for an empty field
+  const fc = r.field_conf && typeof r.field_conf === 'object' && !Array.isArray(r.field_conf) ? r.field_conf : {};
+  const has = {company:o.company !== '', title:o.title !== '', years:yf > 0, doc_type:o.doc_type !== '', tags:tags.length > 0};
+  INV_AI_FIELDS.forEach(f => { o.field_conf[f] = !has[f] ? 0 : num(fc[f]) ? r2(fc[f]) : cf; });
+  return o;
 }
 
 /* ---------------- phone helpers: voice + years ---------------- */
@@ -322,6 +335,7 @@ function invParseVoice(text, inv){
   const fold = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   const fs = fold(s), tags = [];
   ((inv && inv.tags) || []).forEach(tg => { const f = fold(tg); if (f && new RegExp('(^|[^a-z0-9])' + f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^a-z0-9]|$)').test(fs)) tags.push(tg); });
+  invVocabFind(s, inv).forEach(tg => { if (!tags.some(x => x.toLowerCase() === tg.toLowerCase())) tags.push(tg); });   // v12.17: synonyms said aloud
   return {text:s, tags, years:invYearsIn(s, inv)};
 }
 /** Binder fields from an AI result (+ what the operator added), never inventing a Codice Multi. */
@@ -557,8 +571,151 @@ function invTrainRows(a, binders, locations){
   (binders || []).filter(b => b && b.archive_id === id && b.inv && (b.inv.ph || b.inv.ph2)).forEach(b => {
     const i = b.inv; rows.push({t:'binder', id:b.id, code:b.short_code, photo:i.ph2 || i.ph, kind:invLevel(b) === 'doc' ? 'doc' : i.ph2 ? 'page' : 'spine', confirmed:i.st === 'confirmed',
       truth:{company_name:b.company_name || '', binder_title:b.binder_title || '', ref_year:b.ref_year || '', category:b.category || '', multi_code:b.multi_code || '', tags:invNormTags(b.tags)},
-      ai:i.ai && typeof i.ai === 'object' ? {title:i.ai.title || '', year:i.ai.year || '', company:i.ai.company || '', confidence:+i.ai.confidence || 0, model:i.ai.model || ''} : null, nolabel:!!i.nolabel, box:i.box || ''});
+      ai:i.ai && typeof i.ai === 'object' ? {company:i.ai.company || '', title:i.ai.title || '', year_from:+i.ai.year_from || 0, year_to:+i.ai.year_to || 0, doc_type:i.ai.doc_type || '',
+        tags:Array.isArray(i.ai.tags) ? i.ai.tags.slice() : [], text:i.ai.text || '', confidence:+i.ai.confidence || 0, field_conf:invAiFieldConf(i.ai),
+        provider:i.ai.provider || '', model:i.ai.model || '', prompt_v:+i.ai.prompt_v || 1} : null, nolabel:!!i.nolabel, box:i.box || ''});
   });
   (locations || []).filter(l => l && l.archive_id === id && l.inv).forEach(l => invBoxNorm(l.inv).shots.forEach(s => rows.push({t:'shot', box:l.name || l.short_code, photo:s.ph, w:s.w, h:s.h, codes:s.codes})));
   return rows;
+}
+
+/* ---------------- v12.17 one versioned shape for every AI reading ---------------- */
+/** Below this a filled field is "to check" (yellow on the PC) and the binder goes to review instead of proposal. */
+const INV_FIELD_DOUBT = 0.6;
+/** AI field → binder field it fills. */
+const INV_AI_FIELD_MAP = {company:'company_name', title:'binder_title', years:'ref_year', doc_type:'category', tags:'tags'};
+/** Confidence of each field of a reading; readings before v12.17 (no field_conf) get the overall figure on their filled fields. */
+function invAiFieldConf(ai){
+  ai = ai && typeof ai === 'object' ? ai : {};
+  const cf = Math.max(0, Math.min(1, +ai.confidence || 0)), fc = ai.field_conf && typeof ai.field_conf === 'object' ? ai.field_conf : null;
+  const has = {company:!!ai.company, title:!!ai.title, years:!!(+ai.year_from || +ai.year_to), doc_type:!!ai.doc_type, tags:Array.isArray(ai.tags) && ai.tags.length > 0};
+  const o = {}; INV_AI_FIELDS.forEach(f => { o[f] = !has[f] ? 0 : fc && isFinite(+fc[f]) && fc[f] !== null && fc[f] !== '' ? Math.round(Math.max(0, Math.min(1, +fc[f])) * 100) / 100 : cf; });
+  return o;
+}
+/** Filled fields the reader is not sure of (→ the operator looks at these, not at everything). */
+function invAiDoubts(ai, th){ const fc = invAiFieldConf(ai), lim = th || INV_FIELD_DOUBT; return INV_AI_FIELDS.filter(f => fc[f] > 0 && fc[f] < lim); }
+/** State of a binder after a reading (phone and PC): the operator's voice wins; empty spine, low confidence or a doubtful field → review. */
+function invAiState(res, th, voice, cur){
+  if (cur === 'confirmed') return 'confirmed';
+  if (voice) return 'proposed';
+  res = res || {};
+  return !res.empty_spine && (+res.confidence || 0) >= (th || INV_AUTO_CONFIRM) && !invAiDoubts(res).length ? 'proposed' : 'review';
+}
+/** What is saved in inv.ai: the normalised result + who read it, with which model and which prompt version. */
+function invAiStamp(res, r, extra){
+  r = r || {};
+  return Object.assign({}, res, {field_conf:invAiFieldConf(res), provider:String(r.provider || ''), model:String(r.model || ''), prompt_v:+r.prompt_v || 1, ms:+r.ms || 0, at:typeof nowISO === 'function' ? nowISO() : new Date().toISOString()}, extra || {});
+}
+
+/* ---------------- v12.17 tag vocabulary of a client (controlled tags, synonyms, excluded words) ---------------- */
+/** Words that never become a tag (the project can add its own). */
+const INV_STOP_DEFAULT = ['documenti', 'documento', 'varie', 'vari', 'altro', 'altri', 'archivio', 'faldone', 'faldoni', 'scatola', 'cartella', 'pratica', 'pratiche', 'anno', 'anni',
+  'della', 'delle', 'dello', 'degli', 'dei', 'del', 'dal', 'dalla', 'nel', 'nella', 'per', 'con', 'tra', 'fra', 'sul', 'sulla', 'gli', 'una', 'uno', 'non', 'che', 'ecc', 'srl', 'spa', 'snc', 'sas'];
+/** Same word whatever the accents, case, dots and apostrophes: "I.V.A." = "iva", "Contabilità" = "contabilita". */
+function invFold(x){ return String(x == null ? '' : x).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[.'’`´]/g, '').replace(/[^a-z0-9]+/g, ' ').trim(); }
+/** {syn:[{tag, words[]}], stop[]}: a synonym list per tag (max 60 tags, 12 words each) and the excluded words of this client. */
+function invVocabNorm(v){
+  v = v && typeof v === 'object' ? v : {};
+  const syn = [], seen = new Set();
+  (Array.isArray(v.syn) ? v.syn : []).forEach(x => {
+    if (!x || typeof x !== 'object') return;
+    const tag = String(x.tag || '').replace(/\s+/g, ' ').trim().slice(0, 40), ft = invFold(tag); if (!ft || seen.has(ft) || syn.length >= 60) return;
+    seen.add(ft); const words = [];
+    (Array.isArray(x.words) ? x.words : String(x.words || '').split(/[,;\n]/)).forEach(w => { w = String(w || '').replace(/\s+/g, ' ').trim().slice(0, 40); const f = invFold(w); if (f && f !== ft && !words.some(y => invFold(y) === f) && words.length < 12) words.push(w); });
+    syn.push({tag, words});
+  });
+  const stop = []; (Array.isArray(v.stop) ? v.stop : String(v.stop || '').split(/[,;\n]/)).forEach(w => { const f = invFold(w).slice(0, 40); if (f && !stop.includes(f) && stop.length < 200) stop.push(f); });
+  return {syn, stop};
+}
+/** Text form for the PC editor: "IVA = iva, i.v.a." one tag per line. */
+function invVocabText(v){ return invVocabNorm(v).syn.map(x => x.tag + (x.words.length ? ' = ' + x.words.join(', ') : '')).join('\n'); }
+function invVocabParse(txt, stop){ return invVocabNorm({syn:String(txt || '').split('\n').map(l => { const i = l.indexOf('='); return i < 0 ? {tag:l, words:[]} : {tag:l.slice(0, i), words:l.slice(i + 1)}; }), stop}); }
+/** Excluded words: the defaults + the client's own + the words of the label itself (brand). */
+function invVocabStop(inv){
+  const s = new Set(INV_STOP_DEFAULT); invVocabNorm(inv && inv.vocab).stop.forEach(w => s.add(w));
+  try { if (typeof brandName === 'function') invFold(brandName()).split(' ').forEach(w => w && s.add(w)); } catch(e){}
+  return s;
+}
+/** Every accepted spelling → its tag (quick tags of the project + vocabulary). */
+function invVocabMap(inv){
+  const m = new Map(), add = (w, tag) => { const f = invFold(w); if (f && !m.has(f)) m.set(f, tag); };
+  ((inv && inv.tags) || []).forEach(tg => add(tg, tg));
+  invVocabNorm(inv && inv.vocab).syn.forEach(x => { add(x.tag, x.tag); x.words.forEach(w => add(w, x.tag)); });
+  return m;
+}
+/** Tags to send to the AI: canonical tags first, then synonyms (the server keeps at most 40). */
+function invVocabHintTags(inv){
+  const out = [], push = (x) => { if (x && !out.some(y => y.toLowerCase() === String(x).toLowerCase()) && out.length < 40) out.push(String(x)); };
+  ((inv && inv.tags) || []).forEach(push);
+  const V = invVocabNorm(inv && inv.vocab); V.syn.forEach(x => push(x.tag)); V.syn.forEach(x => x.words.forEach(push));
+  return out;
+}
+/** Any list of words / tags → the canonical tags of the vocabulary (unknown and excluded words dropped). */
+function invVocabMapTags(list, inv){
+  const m = invVocabMap(inv), stop = invVocabStop(inv), out = [];
+  (list || []).forEach(x => { const f = invFold(x), tg = m.get(f); if (tg && !stop.has(f) && !out.includes(tg)) out.push(tg); });
+  return out;
+}
+/** Tags whose name or synonym is written as whole words in a text (transcription, title, voice). */
+function invVocabFind(text, inv){
+  const ft = ' ' + invFold(text) + ' ', out = []; if (ft.trim() === '') return out;
+  invVocabMap(inv).forEach((tag, f) => { if (ft.includes(' ' + f + ' ') && !out.includes(tag)) out.push(tag); });
+  return out;
+}
+/** Tags of a reading after the vocabulary: what the model chose + what the transcription names, all canonical. */
+function invAiTags(res, inv){
+  res = res || {};
+  const found = invVocabFind([res.title, res.doc_type, res.text].filter(Boolean).join(' · '), inv);
+  return invVocabMapTags((Array.isArray(res.tags) ? res.tags : []).concat(found), inv);
+}
+/** Words that come back on many spines of the project but are no tag yet → "nuovi tag suggeriti".
+    Never: short words, numbers, excluded words, words of company / person names (GDPR). */
+function invVocabSuggest(binders, inv, min){
+  min = min || 3;
+  const m = invVocabMap(inv), stop = invVocabStop(inv), names = new Set(), cnt = new Map();
+  (binders || []).forEach(b => invFold(b.company_name).split(' ').forEach(w => w && names.add(w)));
+  (binders || []).forEach(b => {
+    const ai = b.inv && b.inv.ai; if (!ai || typeof ai !== 'object') return;
+    invFold(ai.company).split(' ').forEach(w => w && names.add(w));
+    new Set(invFold([ai.title, ai.doc_type, ai.text, b.binder_title].filter(Boolean).join(' ')).split(' ')).forEach(w => {
+      if (w.length < 4 || /\d/.test(w) || stop.has(w) || names.has(w) || m.has(w)) return;
+      cnt.set(w, (cnt.get(w) || 0) + 1);
+    });
+  });
+  names.forEach(w => cnt.delete(w));
+  return Array.from(cnt.entries()).filter(e => e[1] >= min).sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0])).slice(0, 20).map(e => ({w:e[0], n:e[1]}));
+}
+
+/* ---------------- v12.17 test bench: how well does a reader read OUR spines ---------------- */
+const INV_BENCH_KEEP = 12;
+function invBenchListNorm(l){
+  return (Array.isArray(l) ? l : []).filter(x => x && typeof x === 'object').slice(-INV_BENCH_KEEP).map(x => ({at:String(x.at || ''), provider:String(x.provider || '').slice(0, 40), model:String(x.model || '').slice(0, 80),
+    prompt_v:+x.prompt_v || 1, n:Math.max(0, parseInt(x.n, 10) || 0), ok:Math.max(0, parseInt(x.ok, 10) || 0), ms:Math.max(0, Math.round(+x.ms || 0)), err:Math.max(0, parseInt(x.err, 10) || 0),
+    acc:INV_AI_FIELDS.reduce((o, f) => { const v = x.acc && x.acc[f]; o[f] = v === null || v === undefined || !isFinite(+v) ? null : Math.round(Math.max(0, Math.min(1, +v)) * 100) / 100; return o; }, {}),
+    calib:x.calib === null || x.calib === undefined || !isFinite(+x.calib) ? null : Math.round(Math.max(0, Math.min(1, +x.calib)) * 100) / 100}));
+}
+function invBenchYears(v){ const ys = (String(v || '').match(/\b(18|19|20|21)\d\d\b/g) || []).map(Number); return ys.length ? [Math.min(...ys), Math.max(...ys)] : [0, 0]; }
+/** One confirmed binder (truth) against one reading → per field true / false, or null when neither side has it. */
+function invBenchScore(b, res, inv){
+  b = b || {}; res = res || {};
+  const eq = (x, y) => { const a = invFold(x), c = invFold(y); return a === c || (a.length >= 3 && c.length >= 3 && (a.includes(c) || c.includes(a))); };
+  const words = (x) => new Set(invFold(x).split(' ').filter(w => w.length >= 2));
+  const jac = (x, y) => { const A = words(x), B = words(y); if (!A.size && !B.size) return 1; let k = 0; A.forEach(w => { if (B.has(w)) k++; }); return k / (A.size + B.size - k); };
+  const both = (x, y) => !!String(x || '').trim() || !!String(y || '').trim();
+  const ty = invBenchYears(b.ref_year), ry = [+res.year_from || 0, +res.year_to || +res.year_from || 0];
+  const tt = invVocabMapTags(invNormTags(b.tags), inv).sort().join('|'), rt = invVocabMapTags(res.tags || [], inv).sort().join('|');
+  return {
+    company:both(b.company_name, res.company) ? eq(b.company_name, res.company) : null,
+    title:both(b.binder_title, res.title) ? jac(b.binder_title, res.title) >= 0.5 : null,
+    years:ty[0] || ry[0] ? ty[0] === ry[0] && ty[1] === ry[1] : null,
+    doc_type:both(b.category, res.doc_type) ? eq(b.category, res.doc_type) : null,
+    tags:tt || rt ? tt === rt : null};
+}
+/** Rows {score, conf, ms} → {n, ok (all fields right), acc per field, ms (median), calib = share all-right among the confident readings}. */
+function invBenchSummary(rows, th){
+  rows = (rows || []).filter(r => r && r.score); th = th || INV_AUTO_CONFIRM;
+  const acc = {}; INV_AI_FIELDS.forEach(f => { const v = rows.map(r => r.score[f]).filter(x => x !== null && x !== undefined); acc[f] = v.length ? Math.round(100 * v.filter(Boolean).length / v.length) / 100 : null; });
+  const allOk = (r) => INV_AI_FIELDS.every(f => r.score[f] !== false);
+  const ms = rows.map(r => +r.ms || 0).sort((x, y) => x - y), conf = rows.filter(r => (+r.conf || 0) >= th);
+  return {n:rows.length, ok:rows.filter(allOk).length, acc, ms:ms.length ? ms[Math.floor(ms.length / 2)] : 0, calib:conf.length ? Math.round(100 * conf.filter(allOk).length / conf.length) / 100 : null};
 }
