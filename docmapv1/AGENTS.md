@@ -479,3 +479,14 @@ Field-level details and file formats: `docs/MODELLO-DATI.md`.
   local mode and against a php -S server, box apply + return check, offline outbox, two-desktop sync via package and
   server, v10.0 / v11.1-shaped upgrade, help/guide, no horizontal scroll).
 
+
+## 20. v12.18: «Strumenti» page (door to `strumenti/`)
+
+- **File**: `assets/js/06zs-strumenti.js` (index.html, after `06z-voice.js`), view `strumenti`, entry in `NAV_MORE`
+  group `nm_tools`. Administrators only (`w1Role() === 'admin'`; `topbarHTML` is wrapped to hide the entry, the view
+  answers «riservato» to anyone else).
+- **Talks only to** `GET /api/ping` (no key) and `GET /api/summary` (header `X-Key`) of the Strumenti server; those two are
+  the only routes with CORS there (`strumenti/docmap_strumenti/server.py`, `CORS_PATHS`). Open = `strOpenUrl()` →
+  `<base>#k=<key>&v=<view>` (fragment: the key never reaches a server log; the Strumenti page drops it from the URL).
+- **Storage**: `localStorage.docmap_strumenti = {base, key}`, this device only; never in `S`, backups or sync.
+- **Tests**: `tests/v1218.js` starts a real Strumenti server on a free port. Engine and blocks: `strumenti/README.md`.

@@ -1,0 +1,10 @@
+# Strumenti — librerie Python (tutte con pacchetti pronti per Windows, niente da compilare)
+Pillow>=10.1
+pypdf>=4.0
+openpyxl>=3.1
+numpy>=1.24
+pypdfium2>=4.20
+# Facoltative:
+#   reportlab      testo (TXT/MD) → PDF            .venv\Scripts\python.exe -m pip install reportlab
+#   python-docx    leggere il testo dei .docx      .venv\Scripts\python.exe -m pip install python-docx
+# OCR sul PC: Tesseract (programma a parte, gratuito): vedi docs/STRUMENTI.md › «Leggere le scansioni»

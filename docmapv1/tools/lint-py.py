@@ -13,7 +13,7 @@ import sys
 import py_compile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DIRS = ['hub', 'server-python', 'installer-windows', 'tools']
+DIRS = ['hub', 'server-python', 'installer-windows', 'tools', 'strumenti']
 SKIP_DIRS = {'__pycache__', '.venv', 'venv', 'node_modules', 'dati', 'data'}
 
 

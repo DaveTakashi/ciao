@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{BRAND}} · Strumenti</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="brand"><b>{{BRAND}}</b><span>Strumenti {{VERSION}}</span></div>
+    <nav id="nav">
+      <a href="#ricette" data-view="ricette">Ricette</a>
+      <a href="#prova" data-view="prova">Prova su un file</a>
+      <a href="#lavori" data-view="lavori">Lavori <span class="pill" id="nav-running" hidden></span></a>
+      <a href="#verifica" data-view="verifica">Verifica <span class="pill warn" id="nav-review" hidden></span></a>
+      <a href="#impostazioni" data-view="impostazioni" id="nav-settings">Impostazioni</a>
+    </nav>
+    <div class="side-foot" id="side-foot"></div>
+  </aside>
+  <main id="main">
+    <div id="login" class="card narrow" hidden>
+      <h1>Serve la chiave</h1>
+      <p>Apri gli Strumenti dal collegamento sul desktop o dalla finestra nera (l'indirizzo contiene la chiave), oppure incolla qui la chiave.</p>
+      <input id="login-key" type="password" autocomplete="off" placeholder="chiave o gettone">
+      <button id="login-go" class="btn">Entra</button>
+      <p class="err" id="login-err"></p>
+    </div>
+    <section id="view"></section>
+  </main>
+</div>
+<div id="toast" class="toast" hidden></div>
+<div id="modal" class="modal" hidden><div class="modal-box" id="modal-box"></div></div>
+<script src="/app.js"></script>
+</body>
+</html>

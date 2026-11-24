@@ -1,0 +1,33 @@
+{
+  "format": "docmap-ricetta/1",
+  "version": 1,
+  "id": "pdf-multipagina-in-pagine",
+  "name": "PDF multipagina: un file per pagina",
+  "tags": [
+    "pdf",
+    "pagine"
+  ],
+  "description": "Divide ogni PDF in un PDF per pagina, in una cartella con il nome del file di partenza.",
+  "input": {
+    "patterns": [
+      "*.pdf"
+    ]
+  },
+  "steps": [
+    {
+      "id": "dividi",
+      "block": "split_pages",
+      "with": {
+        "pages": "all",
+        "format": "same"
+      }
+    },
+    {
+      "id": "cartelle",
+      "block": "route",
+      "with": {
+        "to": "{src_name}/{file}"
+      }
+    }
+  ]
+}

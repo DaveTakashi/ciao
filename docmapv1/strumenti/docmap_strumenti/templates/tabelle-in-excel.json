@@ -1,0 +1,35 @@
+{
+  "format": "docmap-ricetta/1",
+  "version": 1,
+  "id": "tabelle-in-excel",
+  "name": "Tabelle CSV / JSON in Excel",
+  "tags": [
+    "tabelle",
+    "conversione"
+  ],
+  "description": "Converte file CSV (separatore riconosciuto da solo), TSV e JSON in Excel, con la prima riga ferma e le colonne larghe giuste.",
+  "input": {
+    "patterns": [
+      "*.csv",
+      "*.tsv",
+      "*.json",
+      "*.jsonl"
+    ]
+  },
+  "steps": [
+    {
+      "id": "converti",
+      "block": "convert",
+      "with": {
+        "to": "xlsx"
+      }
+    },
+    {
+      "id": "cartelle",
+      "block": "route",
+      "with": {
+        "to": "{src_dir|default:}/{name}.xlsx"
+      }
+    }
+  ]
+}

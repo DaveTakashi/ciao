@@ -1,0 +1,62 @@
+{
+  "format": "docmap-ricetta/1",
+  "version": 1,
+  "id": "cerca-parole-report",
+  "name": "Cerca parole in tutti i documenti (report Excel)",
+  "tags": [
+    "ricerca",
+    "ocr"
+  ],
+  "description": "Cerca parole o nomi in tutti i documenti di una cartella (anche scansioni) e scrive un Excel con dove li ha trovati e il testo intorno. Non sposta niente.",
+  "input": {
+    "patterns": [
+      "*.pdf",
+      "*.tif",
+      "*.tiff",
+      "*.jpg",
+      "*.png",
+      "*.txt",
+      "*.md",
+      "*.docx",
+      "*.xlsx",
+      "*.csv"
+    ]
+  },
+  "steps": [
+    {
+      "id": "leggi",
+      "block": "ocr",
+      "with": {
+        "engine": "auto"
+      }
+    },
+    {
+      "id": "cerca",
+      "block": "search",
+      "with": {
+        "keywords": [
+          "contratto",
+          "scadenza"
+        ],
+        "fuzzy": 0.85,
+        "add_tags": true
+      }
+    },
+    {
+      "id": "solo-trovati",
+      "block": "filter",
+      "with": {
+        "when": "trovate is not empty"
+      }
+    },
+    {
+      "id": "report",
+      "block": "report",
+      "with": {
+        "format": "xlsx",
+        "name": "ricerca_{date}_{time}",
+        "only": "ok"
+      }
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "format": "docmap-ricetta/1",
+  "version": 1,
+  "id": "pdf-scansionato-in-fatture",
+  "name": "Un PDF scansionato con tante fatture: una fattura per file",
+  "tags": [
+    "pdf",
+    "segmenti",
+    "fatture"
+  ],
+  "description": "Taglia un PDF lungo dove compare «Fattura n.», legge il numero di ogni fattura e salva un PDF per fattura con il numero nel nome. I casi dubbi vanno a verifica.",
+  "input": {
+    "patterns": [
+      "*.pdf"
+    ]
+  },
+  "steps": [
+    {
+      "id": "taglia",
+      "block": "segment",
+      "with": {
+        "by": "value_change",
+        "pattern": "fattura\\s*n\\.?\\s*([A-Z0-9/-]+)",
+        "field": "numero",
+        "format": "pdf"
+      }
+    },
+    {
+      "id": "leggi",
+      "block": "ocr",
+      "with": {
+        "engine": "auto",
+        "pages": "1"
+      }
+    },
+    {
+      "id": "numero",
+      "block": "extract",
+      "with": {
+        "field": "numero_letto",
+        "method": "regex",
+        "pattern": "fattura\\s*n\\.?\\s*([A-Z0-9/-]+)",
+        "normalize": "upper"
+      }
+    },
+    {
+      "id": "controlla",
+      "block": "check",
+      "with": {
+        "agree": [
+          "numero=numero_letto"
+        ]
+      }
+    },
+    {
+      "id": "verifica",
+      "block": "review",
+      "with": {
+        "which": "flagged",
+        "fields": [
+          "numero"
+        ]
+      }
+    },
+    {
+      "id": "salva",
+      "block": "route",
+      "with": {
+        "to": "fattura_{numero}.pdf"
+      }
+    },
+    {
+      "id": "report",
+      "block": "report",
+      "with": {
+        "format": "xlsx"
+      }
+    }
+  ]
+}

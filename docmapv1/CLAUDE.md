@@ -1,7 +1,7 @@
 # CLAUDE.md — regole fisse per gli agenti su Doc Location (nome tecnico DocMap)
 
 Leggi questo file per primo, poi [`STATO.md`](STATO.md) (dove siamo) e il manuale tecnico adatto alla zona che tocchi.
-Tutto il codice vero è su `main` (app 26.12.17, hub 0.13.0 al 2026-11-24): parti sempre da `main` aggiornato.
+Tutto il codice vero è su `main` (app 26.12.18, hub 0.13.0, Strumenti 0.1.1 al 2026-11-24): parti sempre da `main` aggiornato.
 
 ## Regole che non si discutono
 
@@ -34,6 +34,7 @@ Tutto il codice vero è su `main` (app 26.12.17, hub 0.13.0 al 2026-11-24): part
 | Server web PHP (SiteGround) | `server-php/` | `docs/API-CONTRACT.md`, `docs/SICUREZZA.md` | `server-python/tests/diff_test.py` |
 | Server Python (sede, porting 1:1) | `server-python/` | `server-python/README.md`, `docs/python/PORTING.md` | `python3 -m unittest discover -s tests` |
 | Hub (PC di Dave: clienti, licenze, deploy) | `hub/` | `hub/AGENTE-OPERATIVO.md`, `docs/WIKI-HUB.md` | idem, dentro `hub/` |
+| Strumenti (ricette per i documenti, OCR, verifica) | `strumenti/` | [`strumenti/README.md`](strumenti/README.md), `docs/STRUMENTI.md` | `python3 -m unittest discover -s tests`, dentro `strumenti/` |
 | Installatore Windows | `installer-windows/` | `installer-windows/GUIDA-INSTALLAZIONE.md` | idem, dentro `installer-windows/` |
 | Test, lint e CI (tutte le zone) | `tests/`, `tools/lint-*.{js,py}`, `ci/` + `.github/workflows/` | [`docs/TEST.md`](docs/TEST.md) | `tools/verifica-veloce.sh` |
 
