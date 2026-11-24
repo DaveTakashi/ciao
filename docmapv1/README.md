@@ -1,4 +1,4 @@
-# Doc Location — versione 26.12.17
+# Doc Location — versione 26.12.18
 
 Archivio fisico-digitale dello studio. Ogni faldone ha:
 
@@ -59,6 +59,7 @@ server-php/         il database online condiviso (api.php, setup.php) per SiteGr
 server-python/      lo stesso server in Python, per l'installazione in sede
 installer-windows/  installazione in sede su Windows (C:\DocMap)
 hub/                Doc Location Hub: clienti, licenze, deploy (PC di Dave)
+strumenti/          Strumenti: ricette per cartelle di documenti, OCR, verifica (AVVIA-STRUMENTI.bat; docs/STRUMENTI.md)
 ci/                 test automatici su GitHub (file da attivare)
 tools/              build_deploy.py (cartella da caricare sul sito) e altri strumenti
 tests/              test automatici (solo per chi sviluppa)

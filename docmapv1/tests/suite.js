@@ -499,7 +499,7 @@ const sec = (n) => console.log('\n== ' + n);
   sec('v8 A: navigation, Informazioni, QR reprint');
   // top bar: 3 main tabs, everything else in the "Funzioni avanzate" menu
   v = await p.evaluate(() => ({main:[...document.querySelectorAll('.nav .nav-main [data-a="nav"]')].map(b => b.dataset.v), adv:[...document.querySelectorAll('#nav-more [data-a="nav"]')].map(b => b.dataset.v).sort(), vis:[...document.querySelectorAll('.nav [data-a="nav"]')].filter(b => b.checkVisibility()).length}));
-  ok(v.main.join() === 'archive,inv,print,info' && v.vis === 4 && v.adv.join() === 'ai,database,disposal,export,import,insights,log,newyear,pick,reminders,settings,sync', 'top bar: exactly 4 main tabs (v12.8: Progetti), the rest in the "Funzioni avanzate" menu', v);
+  ok(v.main.join() === 'archive,inv,print,info' && v.vis === 4 && v.adv.join() === 'ai,database,disposal,export,import,insights,log,newyear,pick,reminders,settings,strumenti,sync', 'top bar: exactly 4 main tabs (v12.8: Progetti; v12.18: Strumenti in the menu), the rest in the "Funzioni avanzate" menu', v);
   for (const view of ['import', 'export', 'database', 'ai', 'settings']){
     await p.click('#nav-more summary'); await p.waitForTimeout(120);
     await p.click('#nav-more [data-v="' + view + '"]'); await p.waitForTimeout(200);

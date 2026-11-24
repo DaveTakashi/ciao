@@ -43,7 +43,7 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
 | Verifica veloce (tutto tranne la suite completa) | `bash tools/verifica-veloce.sh` | ~4 min | tutto OK (2026-11-23) |
 | Lint JS / Python | `node tools/lint-js.js`, `python3 tools/lint-py.py` (dentro la verifica veloce) | 5 s | 0 problemi (2026-11-23) |
 | Test app tutti insieme (smoke, unit, aggiornamento, marchio, v12.6 … v12.17) | `cd tests && NODE_PATH=$(npm root -g) node run.js` | ~40 s | 19/19 file OK (2026-11-24) |
-| Suite completa app (Playwright) | `cd tests && NODE_PATH=$(npm root -g) node suite.js` | ~35 min | 1376/1376 (2026-11-24, app 26.12.17 + hub 0.13.0) |
+| Suite completa app (Playwright) | `cd tests && NODE_PATH=$(npm root -g) node suite.js` | ~35 min | 1375/1376 (2026-11-24, app 26.12.18 + hub 0.13.0): primo giro 1374/1376 (elenco del menu e versione nel README, corretti); secondo giro fallisce solo «J UI: registro del server filtrato per codice», che era passato nel primo giro con lo stesso codice (attesa di 250 ms prima del filtro, zona non toccata: da rendere stabile) |
 | CI su GitHub | `.github/workflows/docmap-ci.yml` (= `ci/docmap-ci.yml`), Ubuntu 24.04 | ~5 min | verde sulla PR #10 (2026-11-23); unica cartella fuori da `docmapv1/`, confermata da Dave (D20) |
 
 Come sono fatti i test e come aggiungerne: [`docs/TEST.md`](docs/TEST.md).
