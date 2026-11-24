@@ -53,7 +53,7 @@
 | `project` (v12.8) | GET | viewer | nessun parametro → progetti aperti · `id=<id dell'archivio>` (v12.13: `&detail=1` aggiunge a `scanned` anche `l` scatola, `n` numero stampato, `d` livello documento) | `{"items":[{"id","name","code","prefix","client","status","updated_at"}]}` · `{"project":Archive,"etag","scanned":[{"t":"b"|"l","c":"<short_code>","u":"<updated_at>"}]}` · 404 · §14 |
 | `photo_put` (v12.8) | POST | editor | `{"id":"ph-…","binder_id","mime":"image/jpeg"|"image/png"|"image/webp","data":"<base64>"}` | `{"id","bytes","existed":bool,"at"}` (stesso id = non riscrive) · 413 oltre `photo_max_kb` · §14 |
 | `photo` (v12.8) | GET | viewer | `id=<id della foto>` | `{"id","binder_id","mime","bytes","at","who","data":"<base64>"}` · 404 |
-| `ai_spine` (v12.8) | POST | editor | `{"photo_id"}` oppure `{"data","mime"}` e/o `{"voice"}` · `hints:{tags[],year_from,year_to,client,kind}` (v12.13 `kind`: `spine`·`doc`·`page`) | `{"enabled":false}` senza `ai_provider` · `{"enabled":true,"provider","model","result":SpineResult,"ms"}` · §14 |
+| `ai_spine` (v12.8) | POST | editor | `{"photo_id"}` oppure `{"data","mime"}` e/o `{"voice"}` · `hints:{tags[],year_from,year_to,client,kind}` (v12.13 `kind`: `spine`·`doc`·`page`) | `{"enabled":false}` senza `ai_provider` · `{"enabled":true,"provider","model","result":SpineResult,"ms","prompt_v"}` (v12.17 `prompt_v` = versione del prompt, oggi 2) · §14 |
 | `seen` (v12) | POST | viewer | `{"items":[{"type":"binder","id","code","at","via"}]}` (max 500) | `{"recorded":n,"skipped":n,"server_time":"…"}` · 413 oltre 500 |
 
 Campi aggiunti in v11 (un client v10.1 li ignora): `ping` → `"schema":2,"features":[…]` (v11: `journal`, `device_info`, `locations`; v12: `archives`, `access_log` e schema 3);
@@ -373,7 +373,9 @@ Nessuna migrazione di schema (resta 3); `ping` aggiunge `"inventory"` alle `feat
   `ai_effort` (`low`), `ai_timeout` (30 s). Chiamata Messages API con output strutturato (JSON schema) e, per i modelli
   che lo supportano, fallback lato server; un rifiuto del modello torna come risultato vuoto con fiducia 0.
   `SpineResult` = `{company, title, year_from, year_to, doc_type, tags[] (solo tra hints.tags), notes, text, confidence 0–1,
-  empty_spine}`. Il provider `mock` legge solo `voice` (anni e tag nominati, fiducia 0.9 o 0.2): PHP e Python rispondono uguale.
+  field_conf, empty_spine}`. **v12.17** `field_conf` = `{company, title, years, doc_type, tags}` fiducia 0–1 di ogni campo: quella
+  del modello (chiesta nel prompt e nello schema), altrimenti `confidence`; sempre 0 per un campo vuoto. Campo solo aggiunto:
+  le app vecchie lo ignorano. Il provider `mock` legge solo `voice` (anni e tag nominati, fiducia 0.9 o 0.2): PHP e Python rispondono uguale.
 - Il server **non** applica il risultato: lo fa il telefono (campi vuoti soltanto, stato `proposed` se la fiducia supera
 
 ### 14bis. v12.13 — fasi 3 e 4 dell'inventario, AI agnostica

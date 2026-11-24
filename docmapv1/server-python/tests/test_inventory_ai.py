@@ -149,6 +149,18 @@ class AiOpenAiCompatibleTest(unittest.TestCase):
             self.call({"error": {"message": "model not found"}}, status=404)
         self.assertIn("model not found", e.exception.message)
 
+    def test_field_conf_v1217(self):
+        h = api.ai_hints({"tags": ["Fatture"]})
+        r = api.ai_norm({"company": "Rossi", "title": "", "year_from": 2019, "tags": ["fatture"], "confidence": 0.8,
+                         "field_conf": {"company": 0.95, "title": 0.9, "years": "0.3", "tags": 5}}, h)
+        self.assertEqual(r["field_conf"], {"company": 0.95, "title": 0.0, "years": 0.3, "doc_type": 0.0, "tags": 1.0})
+        r = api.ai_norm({"company": "Rossi", "confidence": 0.7, "field_conf": [1, 2]}, h)
+        self.assertEqual(r["field_conf"]["company"], 0.7)
+        self.assertIn("field_conf", api.ai_schema()["required"])
+        self.assertIn("field_conf", api.ai_prompt("", h))
+        self.assertIn("field_conf", api.DM_AI_JSON_HINT)
+        self.assertEqual(api.DM_AI_PROMPT_V, 2)
+
     def test_hints_kind_and_prompt(self):
         self.assertEqual(api.ai_hints({"kind": "page"})["kind"], "page")
         self.assertEqual(api.ai_hints({"kind": "bad"})["kind"], "spine")

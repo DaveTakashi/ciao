@@ -57,7 +57,7 @@ declare(strict_types=1);
 
 const DM_API = 'docmap-php';
 const DM_API_VERSION = 1;
-const DM_APP_VERSION = '26.12.16';   // v12.4: DocMap release these server files belong to (ping 'app_version'; the app compares it with its own)
+const DM_APP_VERSION = '26.12.17';   // v12.4: DocMap release these server files belong to (ping 'app_version'; the app compares it with its own)
 const DM_TYPES = ['binder', 'client', 'location', 'archive', 'status_event'];   // v11: + location (tree of boxes) · v12: + archive (clusters) + status_event (append-only status log); generic records, no schema change
 const DM_ROLES = ['viewer' => 1, 'editor' => 2, 'admin' => 3];
 const DM_MOBILE_FIELDS = ['archive_state', 'contents_items', 'room_code', 'cabinet_code', 'shelf_code', 'sector_code', 'notes', 'tags', 'location_id', 'location_code'];   // v11: + location (association mode)
@@ -81,7 +81,9 @@ const DM_PHOTO_MIMES = ['image/jpeg', 'image/webp', 'image/png'];
 const DM_AI_PROVIDERS = ['anthropic', 'openai_compatible', 'ollama', 'mock'];   // v12.12: any OpenAI-compatible service, local Ollama / LM Studio
 const DM_AI_KINDS = ['spine', 'doc', 'page'];
 const DM_AI_TAGS_MAX = 40;
-const DM_AI_JSON_HINT = "\nRispondi solo con un oggetto JSON con queste chiavi: company, title, year_from, year_to, doc_type, tags, notes, text, confidence, empty_spine.";
+const DM_AI_PROMPT_V = 2;   // v12.17: version of ai_prompt + ai_schema (2 = field_conf); saved with every reading
+const DM_AI_FIELDS = ['company', 'title', 'years', 'doc_type', 'tags'];
+const DM_AI_JSON_HINT = "\nRispondi solo con un oggetto JSON con queste chiavi: company, title, year_from, year_to, doc_type, tags, notes, text, confidence, field_conf, empty_spine.";
 
 define('DOCMAP_API', true);
 ini_set('display_errors', '0');
@@ -761,8 +763,13 @@ function ai_norm($r, array $hints): array {
   $tags = [];
   foreach ((is_array($r['tags'] ?? null) ? $r['tags'] : []) as $t) foreach ($hints['tags'] as $h) if (is_string($t) && mb_strtolower(trim($t)) === mb_strtolower($h) && !in_array($h, $tags, true)) $tags[] = $h;
   $cf = is_numeric($r['confidence'] ?? null) ? (float)$r['confidence'] : 0.0; $cf = round(max(0.0, min(1.0, $cf)), 2);
-  return ['company' => cut_str($r['company'] ?? '', 120), 'title' => cut_str($r['title'] ?? '', 160), 'year_from' => $yf, 'year_to' => $yt, 'doc_type' => cut_str($r['doc_type'] ?? '', 60),
-    'tags' => $tags, 'notes' => cut_str($r['notes'] ?? '', 300), 'text' => cut_str($r['text'] ?? '', 500), 'confidence' => $cf, 'empty_spine' => !empty($r['empty_spine'])];
+  $o = ['company' => cut_str($r['company'] ?? '', 120), 'title' => cut_str($r['title'] ?? '', 160), 'year_from' => $yf, 'year_to' => $yt, 'doc_type' => cut_str($r['doc_type'] ?? '', 60),
+    'tags' => $tags, 'notes' => cut_str($r['notes'] ?? '', 300), 'text' => cut_str($r['text'] ?? '', 500), 'confidence' => $cf, 'field_conf' => [], 'empty_spine' => !empty($r['empty_spine'])];
+  // v12.17 confidence of each field: the model's own figure, else the overall one; always 0 for an empty field
+  $fc = is_array($r['field_conf'] ?? null) ? $r['field_conf'] : [];
+  $has = ['company' => $o['company'] !== '', 'title' => $o['title'] !== '', 'years' => $yf > 0, 'doc_type' => $o['doc_type'] !== '', 'tags' => count($tags) > 0];
+  foreach (DM_AI_FIELDS as $f) $o['field_conf'][$f] = !$has[$f] ? 0.0 : (is_numeric($fc[$f] ?? null) ? round(max(0.0, min(1.0, (float)$fc[$f])), 2) : $cf);
+  return $o;
 }
 /** Test provider: reads only the dictated words (years, tags named), so PHP and Python answer the same. */
 function ai_mock(string $voice, array $hints): array {
@@ -785,6 +792,7 @@ function ai_prompt(string $voice, array $hints): string {
     . "tags = solo tra questi, se corrispondono: " . ($hints['tags'] ? implode(', ', $hints['tags']) : '(nessuno)') . ";\n"
     . "notes = altre scritte utili; text = trascrizione fedele di tutto il testo leggibile della costa;\n"
     . "confidence = quanto sei sicuro della lettura, da 0 a 1; empty_spine = true se sulla costa non c'e' nulla di leggibile.\n"
+    . "field_conf = quanto sei sicuro di ogni campo, da 0 a 1: company, title, years (gli anni), doc_type, tags (0 se il campo e' vuoto).\n"
     . "Non inventare: se non leggi un campo lascialo vuoto (0 per gli anni).";
   if ($hints['client'] !== '') $p .= "\nL'archivio appartiene al cliente: " . $hints['client'] . '.';
   if ($hints['year_from'] || $hints['year_to']) $p .= "\nGli anni attesi sono tra " . ($hints['year_from'] ?: '?') . ' e ' . ($hints['year_to'] ?: '?') . '.';
@@ -794,9 +802,11 @@ function ai_prompt(string $voice, array $hints): string {
 function ai_schema(): array {
   $s = ['type' => 'string'];
   return ['type' => 'object', 'additionalProperties' => false,
-    'required' => ['company', 'title', 'year_from', 'year_to', 'doc_type', 'tags', 'notes', 'text', 'confidence', 'empty_spine'],
+    'required' => ['company', 'title', 'year_from', 'year_to', 'doc_type', 'tags', 'notes', 'text', 'confidence', 'field_conf', 'empty_spine'],
     'properties' => ['company' => $s, 'title' => $s, 'year_from' => ['type' => 'integer'], 'year_to' => ['type' => 'integer'], 'doc_type' => $s,
-      'tags' => ['type' => 'array', 'items' => $s], 'notes' => $s, 'text' => $s, 'confidence' => ['type' => 'number'], 'empty_spine' => ['type' => 'boolean']]];
+      'tags' => ['type' => 'array', 'items' => $s], 'notes' => $s, 'text' => $s, 'confidence' => ['type' => 'number'],
+      'field_conf' => ['type' => 'object', 'additionalProperties' => false, 'required' => DM_AI_FIELDS, 'properties' => array_fill_keys(DM_AI_FIELDS, ['type' => 'number'])],
+      'empty_spine' => ['type' => 'boolean']]];
 }
 /** Claude Messages API over HTTPS (raw HTTP: api.php is one file with no Composer, so no SDK on shared hosting). */
 function ai_anthropic(array $c, ?array $img, string $voice, array $hints): array {
@@ -884,7 +894,7 @@ function ai_http(string $url, array $headers, string $body, int $timeout): array
   foreach ($http_response_header ?? [] as $h) if (preg_match('#^HTTP/\S+\s+(\d{3})#', $h, $m)) $status = (int)$m[1];
   return [$status, $raw];
 }
-/** ai_spine {photo_id? | data + mime, voice?, hints?:{tags[], year_from, year_to, client, kind}} → {enabled, provider, model, result, ms}. */
+/** ai_spine {photo_id? | data + mime, voice?, hints?:{tags[], year_from, year_to, client, kind}} → {enabled, provider, model, result, ms, prompt_v}. */
 function r_ai_spine(array $c): array {
   $prov = (string)$c['ai_provider'];
   if (!in_array($prov, DM_AI_PROVIDERS, true)) return ['enabled' => false];
@@ -898,9 +908,9 @@ function r_ai_spine(array $c): array {
     $img = ['raw' => $raw, 'mime' => $mime];
   }
   if ($img === null && $voice === '') fail(400, 'invalid', 'photo_id, data or voice required');
-  if ($prov === 'mock') return ['enabled' => true, 'provider' => 'mock', 'model' => 'mock', 'result' => ai_norm(ai_mock($voice, $hints), $hints), 'ms' => 0];
+  if ($prov === 'mock') return ['enabled' => true, 'provider' => 'mock', 'model' => 'mock', 'result' => ai_norm(ai_mock($voice, $hints), $hints), 'ms' => 0, 'prompt_v' => DM_AI_PROMPT_V];
   $t0 = microtime(true); $a = $prov === 'anthropic' ? ai_anthropic($c, $img, $voice, $hints) : ai_openai($c, $prov, $img, $voice, $hints);
-  return ['enabled' => true, 'provider' => $prov, 'model' => $a['model'], 'result' => ai_norm($a['result'], $hints), 'ms' => (int)round((microtime(true) - $t0) * 1000)];
+  return ['enabled' => true, 'provider' => $prov, 'model' => $a['model'], 'result' => ai_norm($a['result'], $hints), 'ms' => (int)round((microtime(true) - $t0) * 1000), 'prompt_v' => DM_AI_PROMPT_V];
 }
 function r_patch(PDO $db, array $c, array $who): array {
   $b = body($c); $id = $b['id'] ?? ''; $patch = $b['patch'] ?? null;

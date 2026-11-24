@@ -32,7 +32,7 @@ dati, nessuna chiave di memoria nuova, **il server non cambia** (`api.php` e `ap
 
 - Il report del progetto mostra i faldoni **contati** accanto a quelli acquisiti; il CSV ha le colonne
   `faldoni_contati` e `faldoni_senza_etichetta`. Il prezzo a faldone usa i faldoni contati quando sono di più.
-- Scheda Strumenti: tabella **Scatole** e **Dati per l'addestramento** (file JSON Lines, foto facoltative).
+- Pagina del progetto: riquadro **Scatole** e **Dati per l'addestramento** (file JSON Lines, foto facoltative).
 - Aiuto: nuova voce «Inventario: tutte le modalità» con la tabella di quando usare quale.
 
 ## File

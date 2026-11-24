@@ -62,17 +62,51 @@ foto), costruito da `invTrainRows` (`02f`) ed esportato da `ivxTrainExport` (`06
 
 ## 5. Dove siamo rispetto al briefing (fase 0, «le fondamenta nel codice»)
 
-Il briefing propone sei fondamenta da mettere nel codice prima della foto unica. Stato al rilascio 26.12.16:
+Il briefing propone sei fondamenta da mettere nel codice prima della foto unica. Stato al rilascio 26.12.17:
 
 | Fondamenta del briefing | Stato | Dove |
 |---|---|---|
-| Schema di riconoscimento unico e versionato (campi, tag, contorno, QR abbinato, fiducia per campo, fornitore/modello/prompt) | **in parte**: `inv.ai` ha testo, campi, fiducia e modello per tutti i fornitori; mancano la fiducia per campo, la versione del prompt e il contorno del dorso | `invAiNorm`, `invAiPrompt` (02f), `ai_spine` (PHP/Python) |
-| Interfaccia «riconoscitore» a pezzi (QR, dorsi, testo, tag; cloud, locale o spento) | **fatto per il QR e la lettura del testo**: registro `invRecognizerAdd` con `qr-anchor`; fornitore AI agnostico (Claude, OpenAI-compatibile, Ollama, spento). Il rilevatore dei dorsi si aggiunge come riconoscitore nuovo | §2 di questo file |
-| Archivio delle verità (foto, proposta AI, valore confermato, chi e quando) ed esportazione standard | **fatto in JSONL** (`docmap-inv-train` v1, §3); l'esportazione COCO dei contorni arriverà con il primo rilevatore di dorsi, perché oggi i contorni non esistono ancora | `invTrainRows`, `ivxTrainExport` |
-| Etichetta da dorso e codice grande, con le modalità di etichettatura del progetto | **fatto**: `inv.plan` (fuori, fuori e dentro, nessuna; faldoni tutti, alcuni, nessuno; codice grande, normale, nascosto) | `ivpLabelHTML`, `ivpPlanHTML` (06q) |
-| Vocabolario dei tag per cliente, con sinonimi, parole escluse e coda «nuovi tag suggeriti» | **da fare**: oggi ci sono i tag rapidi del progetto e dei modelli | prossimo passo |
-| Banco di prova (foto vere con risposte giuste e un comando che misura ogni fornitore) | **da fare**: il file di addestramento con «Solo faldoni confermati» è già il formato del set di prova | prossimo passo |
+| Schema di riconoscimento unico e versionato (campi, tag, contorno, QR abbinato, fiducia per campo, fornitore/modello/prompt) | **fatto per la lettura del testo** (26.12.17): ogni lettura ha `field_conf` per campo, `provider`, `model`, `prompt_v`, uguale per tutti i fornitori e uguale tra PHP, Python e PC. Il contorno del dorso arriverà con il rilevatore dei dorsi | `invAiNorm`, `invAiStamp` (02f), `ai_norm`, `ai_schema`, `DM_AI_PROMPT_V` (server) |
+| Interfaccia «riconoscitore» a pezzi (QR, dorsi, testo, tag; cloud, locale o spento) | **fatto per QR, testo e tag**: registro `invRecognizerAdd` con `qr-anchor`; lettura del testo agnostica (Claude, OpenAI-compatibile, Ollama, spento); tag con il vocabolario (`invAiTags`). Il rilevatore dei dorsi si aggiunge come riconoscitore nuovo | §2, §6 |
+| Archivio delle verità (foto, proposta AI, valore confermato, chi e quando) ed esportazione standard | **fatto in JSONL** (`docmap-inv-train` v1, §3, ora con `field_conf`, `provider`, `prompt_v`); l'esportazione COCO dei contorni arriverà con il primo rilevatore di dorsi | `invTrainRows`, `ivxTrainExport` |
+| Etichetta da dorso e codice grande, con le modalità di etichettatura del progetto | **fatto** (26.12.16): `inv.plan` | `ivpLabelHTML`, `ivpPlanHTML` (06q) |
+| Vocabolario dei tag per cliente, con sinonimi, parole escluse e coda «nuovi tag suggeriti» | **fatto** (26.12.17): `inv.vocab`, suggerimenti calcolati dalle letture (mai nomi) | §6, `06qc-inventory-ai.js` |
+| Banco di prova (foto vere con risposte giuste e un comando che misura ogni fornitore) | **fatto sul PC** (26.12.17): rilegge i faldoni confermati, misura campo per campo, tempo e affidabilità, conserva le prove. Manca un comando da riga di comando per un set di prova fuori dai progetti | §6 |
 
 Il conteggio dei «faldoni senza QR» che il briefing indica come la funzione enterprise più utile esiste già a mano
 (Faldoni nella scatola, Faldone senza etichetta). Quando arriverà il rilevatore dei dorsi, il numero dei dorsi visti
 nella foto della scatola si confronterà con quel conteggio e con i QR letti («8 dorsi visti, 7 QR letti»).
+
+**Prossimi passi tecnici** (fase 1 del briefing): modalità «Foto della scatola» con lettura dei dorsi per ritaglio
+(`invBurstCrop` + `invShotCodes` danno già le strisce), rilevatore dei dorsi come riconoscitore, esportazione COCO,
+banco di prova da riga di comando sul file di addestramento.
+
+## 6. Lettura AI dal 26.12.17: fiducia per campo, vocabolario, banco di prova
+
+**Forma di una lettura** (`inv.ai` di un faldone):
+
+```json
+{"company": "Rossi Srl", "title": "Fatture acquisti", "year_from": 2019, "year_to": 2019, "doc_type": "", "tags": ["IVA"],
+ "notes": "", "text": "ROSSI SRL FATTURE ACQUISTI 2019 IVA", "confidence": 0.9,
+ "field_conf": {"company": 0.95, "title": 0.8, "years": 0.4, "doc_type": 0, "tags": 0.9}, "empty_spine": false,
+ "provider": "anthropic", "model": "…", "prompt_v": 2, "ms": 1800, "at": "2026-11-24T10:00:00.000Z"}
+```
+
+- `field_conf` viene dal modello (prompt e schema la chiedono); se manca vale `confidence` sui campi pieni; un campo vuoto
+  vale sempre 0. Le letture vecchie passano da `invAiFieldConf`.
+- Un campo pieno sotto `INV_FIELD_DOUBT` (0,6) è «da controllare»: giallo nella revisione, stato `review` (`invAiState`),
+  mai confermato in blocco (`ivpSafe`). La voce dell'operatore resta più forte della foto.
+- Cambiare il testo del prompt o la forma della risposta vuol dire **aumentare `DM_AI_PROMPT_V`** in `api.php`, `api.py`
+  e `INV_AI_PROMPT_V` in `02f-inventory.js` (`tests/v1212.js` e `tests/v1217.js` confrontano i tre), così il banco di
+  prova distingue le letture dei due prompt.
+
+**Vocabolario** (`inv.vocab`): `invFold` rende uguali maiuscole, accenti, punti e apostrofi. All'AI vanno i tag e poi i
+sinonimi (`invVocabHintTags`, massimo 40); la risposta e la trascrizione tornano ai tag canonici (`invAiTags`); le parole
+escluse (`INV_STOP_DEFAULT` + quelle del cliente + il marchio) non diventano mai tag. I suggerimenti (`invVocabSuggest`)
+sono parole di almeno 4 lettere, senza cifre, su almeno 3 faldoni, mai parole dei nomi di ditte o persone (GDPR).
+
+**Banco di prova** (`inv.bench`): `invBenchScore` confronta una lettura con i campi confermati (ditta e tipo uguali o
+contenuti, contenuto con parole in comune ≥ 50%, anni uguali, tag uguali dopo il vocabolario; un campo che nessuno dei
+due ha non conta); `invBenchSummary` dà la quota giusta per campo, i faldoni tutti giusti, il tempo mediano e
+l'affidabilità (tra le letture con fiducia ≥ soglia del progetto, quante erano tutte giuste). Per provare un fornitore
+nuovo basta che risponda come `ai_spine` (`ivqAiCall`).
