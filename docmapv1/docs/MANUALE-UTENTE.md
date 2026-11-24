@@ -920,3 +920,18 @@ vedi quanti faldoni e letture AI aspettano, da quanto tempo, quanta memoria è u
 sicurezza** scarica un file con tutto quello che il telefono non ha ancora inviato, foto comprese. Sul PC: Progetti › il
 progetto › scheda **Lavoro** › **Importa dal telefono** e scegli quel file. Puoi importarlo anche due volte: un faldone già
 presente si aggiorna solo se la copia è più recente. Un file di un altro progetto viene rifiutato.
+
+## 37. Inventario: raffica e obiettivo con l'ora di fine (v12.15)
+
+**Raffica.** Nella schermata di inventario del telefono, sotto i tag, accendete **Raffica: più etichette nella stessa
+inquadratura**. Poi inquadrate una fila di coste o una scatola aperta: ogni etichetta nuova diventa un faldone, in
+ordine di numero, e il telefono dice «N faldoni in una volta». Se nell'inquadratura c'è anche l'etichetta della scatola,
+viene presa per prima. Ogni faldone ha come foto la striscia della sua costa, così la lettura AI legge quella giusta.
+Le etichette già fatte che restano nell'inquadratura non suonano. Se inquadrate due scatole insieme la scatola non cambia
+(inquadratene una alla volta). La raffica funziona con Chrome su Android; su iPhone il telefono legge un codice alla
+volta e lo scrive sotto l'interruttore. Il telefono ricorda la scelta per ogni progetto.
+
+**Obiettivo.** In Progetti › il progetto › Modifica scrivete i **Faldoni previsti (obiettivo)**, oppure lasciateli
+scrivere a «Stima un lavoro». Il telefono mostra una barra: quanti ne avete fatti, la percentuale e, appena c'è un ritmo
+misurato, quanto manca e l'ora di fine. La scheda **Lavoro** sul PC mostra lo stesso avanzamento con il ritmo di tutto il
+progetto; se superate l'obiettivo lo dice, così potete aggiornare il preventivo.

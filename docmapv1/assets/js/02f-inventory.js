@@ -91,6 +91,7 @@ function normalizeInv(i){
   o.ai = o.ai !== false;
   o.auto_confirm = Math.max(0.5, Math.min(1, +o.auto_confirm || INV_AUTO_CONFIRM));
   o.notes = String(o.notes || '').slice(0, 2000);
+  o.target = Math.max(0, Math.min(INV_MAX, parseInt(o.target, 10) || 0));   // v12.15: expected binders (+ documents) of the job, 0 = none
   return o;
 }
 function invIsProject(a){ return !!(a && a.inv && typeof a.inv === 'object' && /^[A-Za-z0-9]{4}$/.test(a.inv.prefix || '')); }
@@ -330,11 +331,12 @@ function invFieldsFromAi(r, cur){
 }
 function invTagsJoin(a, b){ return invNormTags([].concat(String(a || '').split(','), b || [])).join(', '); }
 /** A spine photo from a video / canvas → JPEG data URL, long side ≤ max px (default 1280), quality q. */
-function invGrabFrame(src, max, q){
-  const w = src.videoWidth || src.width, h = src.videoHeight || src.height; if (!w || !h) return '';
+function invGrabFrame(src, max, q, crop){
+  const W = src.videoWidth || src.width, H = src.videoHeight || src.height; if (!W || !H) return '';
+  const c = crop && crop.w > 0 && crop.h > 0 ? crop : {x:0, y:0, w:W, h:H}, w = c.w, h = c.h;   // v12.15: crop = the spine of one binder in a burst
   const k = Math.min(1, (max || 1280) / Math.max(w, h)), cv = document.createElement('canvas');
   cv.width = Math.round(w * k); cv.height = Math.round(h * k);
-  cv.getContext('2d').drawImage(src, 0, 0, cv.width, cv.height);
+  cv.getContext('2d').drawImage(src, c.x, c.y, w, h, 0, 0, cv.width, cv.height);
   try { return cv.toDataURL('image/jpeg', q || 0.72); } catch(e){ return ''; }
 }
 
@@ -426,4 +428,36 @@ function invRescueParse(text){
   const recs = j.recs.filter(r => r && typeof r === 'object' && /^inv-[A-Za-z0-9]+$/.test(String(r.id || '')) && (r._type === 'binder' || r._type === 'location'));
   const photos = {}; Object.keys(j.photos || {}).forEach(k => { const v = j.photos[k]; if (/^ph-[A-Za-z0-9-]+$/.test(k) && typeof v === 'string' && /^data:image\/(jpeg|png|webp);base64,/.test(v)) photos[k] = v; });
   return {at:String(j.at || ''), device:String(j.device || ''), who:String(j.who || ''), project:j.project && typeof j.project === 'object' ? {id:String(j.project.id || ''), code:String(j.project.code || ''), name:String(j.project.name || '')} : {id:'', code:'', name:''}, recs, photos};
+}
+
+/* ---------------- v12.15: progress towards the expected total ---------------- */
+/** done / target with the time left at the measured pace (median ms between two binders) and the clock time it ends.
+    Never breaks: no target → null; no pace yet → no ETA. */
+function invProgress(target, done, paceMs, nowMs){
+  target = Math.max(0, parseInt(target, 10) || 0); done = Math.max(0, parseInt(done, 10) || 0);
+  if (!target) return null;
+  const left = Math.max(0, target - done), pct = Math.min(100, Math.round(done / target * 100));
+  const ms = paceMs > 0 && left ? Math.round(left * paceMs) : 0, now = nowMs || Date.now();
+  return {target, done, left, pct, over:done > target ? done - target : 0, ms, at:ms ? new Date(now + ms).toISOString() : '', mins:ms ? Math.max(1, Math.round(ms / 60000)) : 0};
+}
+/** «2 h 15 min» / «40 min» (it) — «2 h 15 min» / «40 min» (en): same short form. */
+function invMinsText(m){ m = Math.max(0, Math.round(m || 0)); const h = Math.floor(m / 60), r = m % 60; return h ? h + ' h' + (r ? ' ' + r + ' min' : '') : r + ' min'; }
+/** v12.15 burst: order of the codes read in one frame (boxes first, then binders in label order); several box labels in
+    the same frame are ambiguous and dropped (the binders still count). Returns {codes, boxes_dropped}. */
+function invBurstOrder(texts){
+  const seen = new Set(), boxes = [], rest = [];
+  (texts || []).forEach(tx => { const v = String(tx || '').trim(); if (!v || seen.has(v)) return; seen.add(v);
+    const p = typeof invParseScan === 'function' ? invParseScan(v) : null, x = p && invParseCode(p.code);
+    if (x && x.kind === 'box') boxes.push(v); else rest.push({v, n:x ? x.n : Infinity}); });
+  rest.sort((a, b) => a.n - b.n);
+  const codes = (boxes.length === 1 ? boxes : []).concat(rest.map(r => r.v));
+  return {codes, boxes_dropped:boxes.length > 1 ? boxes.length : 0};
+}
+/** v12.15 burst: the spine of one binder in a frame with several = a vertical strip around its QR (full height,
+    about twice the QR width, at least 12% of the frame), inside the frame. box = DOMRect-like of the QR. */
+function invBurstCrop(box, W, H){
+  if (!box || !(W > 0) || !(H > 0) || !(box.width > 0)) return null;
+  const cx = box.x + box.width / 2, sw = Math.min(W, Math.max(box.width * 2.2, W * 0.12));
+  const x = Math.max(0, Math.min(W - sw, cx - sw / 2));
+  return {x:Math.round(x), y:0, w:Math.round(sw), h:Math.round(H)};
 }

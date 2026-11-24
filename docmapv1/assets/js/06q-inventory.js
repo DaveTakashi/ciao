@@ -26,6 +26,7 @@ Object.assign(I18N.it, {
   ivp_f_name:'Nome del progetto', ivp_f_name_ph:'es. Inventario Rossi S.r.l. 2024', ivp_f_code:'Codice sulle etichette', ivp_f_code_h:'Breve, solo lettere e numeri: le etichette diventano {c}-0001 (faldoni) e {c}-S001 (scatole).',
   ivp_f_client:'Cliente (facoltativo)', ivp_f_client_h:'Se l\'archivio è di un solo cliente, ogni faldone acquisito lo riceve già scritto.', ivp_f_tags:'Tag rapidi (uno per riga)', ivp_f_years:'Anni attesi (barra degli anni sul telefono)', ivp_f_from:'dal', ivp_f_to:'al',
   ivp_f_mode:'Modalità di lavoro', ivp_f_ai:'Lettura della costa con l\'AI (serve il server online con la chiave AI)', ivp_f_auto:'Proposte sicure da una fiducia di', ivp_f_status:'Stato', ivp_f_notes:'Note',
+  ivp_f_target:'Faldoni previsti (obiettivo)', ivp_f_target_h:'Facoltativo: il telefono e la scheda Lavoro mostrano a che punto siete e quando finite. «Stima un lavoro» lo scrive da solo.',
   ivp_f_boxes:'Etichette per scatole da generare subito', ivp_f_binders:'Etichette per faldoni da generare subito', ivp_e_name:'Scrivi il nome del progetto.', ivp_e_code:'Il codice {c} è già usato da un altro progetto.',
   ivp_created:'Progetto creato: {p}', ivp_saved:'Progetto salvato', ivp_edit:'Modifica', ivp_edit_t:'Progetto: {p}', ivp_new_t:'Nuovo progetto di inventario',
   ivp_batches:'Lotti di etichette', ivp_batch_new:'Genera etichette', ivp_batch_t:'Genera altre etichette — {p}', ivp_batch_kind:'Per', ivp_batch_n:'Quante', ivp_batch_hint:'I numeri continuano dall\'ultimo generato: {b} scatole e {f} faldoni finora. Un numero non viene mai riusato.',
@@ -57,6 +58,7 @@ Object.assign(I18N.en, {
   ivp_f_name:'Project name', ivp_f_name_ph:'e.g. Rossi Ltd inventory 2024', ivp_f_code:'Code on the labels', ivp_f_code_h:'Short, letters and digits only: labels become {c}-0001 (binders) and {c}-S001 (boxes).',
   ivp_f_client:'Client (optional)', ivp_f_client_h:'If the archive belongs to one client, every captured binder gets it already written.', ivp_f_tags:'Quick tags (one per line)', ivp_f_years:'Expected years (year bar on the phone)', ivp_f_from:'from', ivp_f_to:'to',
   ivp_f_mode:'Working mode', ivp_f_ai:'AI reading of the spine (needs the online server with the AI key)', ivp_f_auto:'Safe proposals from a confidence of', ivp_f_status:'Status', ivp_f_notes:'Notes',
+  ivp_f_target:'Expected binders (target)', ivp_f_target_h:'Optional: the phone and the Work card show how far you are and when you finish. «Estimate a job» fills it in.',
   ivp_f_boxes:'Box labels to generate now', ivp_f_binders:'Binder labels to generate now', ivp_e_name:'Type the project name.', ivp_e_code:'Code {c} is already used by another project.',
   ivp_created:'Project created: {p}', ivp_saved:'Project saved', ivp_edit:'Edit', ivp_edit_t:'Project: {p}', ivp_new_t:'New inventory project',
   ivp_batches:'Label batches', ivp_batch_new:'Generate labels', ivp_batch_t:'Generate more labels — {p}', ivp_batch_kind:'For', ivp_batch_n:'How many', ivp_batch_hint:'Numbers continue from the last one generated: {b} boxes and {f} binders so far. A number is never reused.',
@@ -100,7 +102,7 @@ function ivpStats(a){
 function ivpCreate(f){
   const a = archCreate({name:f.name, code:f.code});
   a.levels = [{name:S.lang === 'en' ? 'Box' : 'Scatola', prefix:'S'}];
-  a.inv = normalizeInv({prefix:invNewPrefix(), code:f.code || invSuggestCode(f.name), client:f.client, mode:f.mode, tags:f.tags, year_from:f.year_from, year_to:f.year_to, ai:f.ai, auto_confirm:f.auto_confirm, notes:f.notes, doc:f.doc, price:f.price, template:f.template});
+  a.inv = normalizeInv({prefix:invNewPrefix(), code:f.code || invSuggestCode(f.name), client:f.client, mode:f.mode, tags:f.tags, year_from:f.year_from, year_to:f.year_to, ai:f.ai, auto_confirm:f.auto_confirm, notes:f.notes, doc:f.doc, price:f.price, template:f.template, target:f.target});
   archTouch(a);
   logAct('inventory.create', ivpTarget(a), 'Creato il progetto di inventario ' + a.name + ' (' + a.inv.code + ')', {prefix:a.inv.prefix, code:a.inv.code, client:a.inv.client, mode:a.inv.mode});
   if (f.boxes > 0) ivpBatch(a, 'box', f.boxes, true);
@@ -238,13 +240,14 @@ function ivpFormHTML(a){
       '<div class="field"><label for="ivp-auto">' + esc(t('ivp_f_auto')) + '</label><select class="inp inp-sm" id="ivp-auto">' + [0.7, 0.8, 0.85, 0.9, 0.95].map(v => '<option value="' + v + '"' + (Math.abs(i.auto_confirm - v) < 0.001 ? ' selected' : '') + '>' + Math.round(v * 100) + '%</option>').join('') + '</select></div></div></div>' +
     (a ? '<div class="field"><label for="ivp-status">' + esc(t('ivp_f_status')) + '</label><select class="inp" id="ivp-status">' + opt('open', 'ivp_st_open', i.status) + opt('closed', 'ivp_st_closed', i.status) + '</select><div class="hint">' + esc(t('ivp_closed_d')) + '</div></div>'
        : '<div class="grid g2"><div class="field"><label for="ivp-nb">' + esc(t('ivp_f_boxes')) + '</label><input class="inp" id="ivp-nb" type="number" min="0" max="20000" value="50"></div><div class="field"><label for="ivp-nf">' + esc(t('ivp_f_binders')) + '</label><input class="inp" id="ivp-nf" type="number" min="0" max="20000" value="500"></div></div>') +
+    '<div class="field"><label for="ivp-tg">' + esc(t('ivp_f_target')) + '</label><input class="inp inp-sm" id="ivp-tg" type="number" min="0" max="1000000" value="' + (i.target || '') + '" style="width:140px"><div class="hint">' + esc(t('ivp_f_target_h')) + '</div></div>' +
     prices + '<div class="field"><label for="ivp-notes">' + esc(t('ivp_f_notes')) + '</label><textarea class="inp" id="ivp-notes" rows="2">' + esc(i.notes) + '</textarea></div><div class="err-t small" id="ivp-err"></div></div>';
 }
 function ivpFormRead(){
   const v = (id) => ($('#' + id) || {}).value || '';
   return {name:v('ivp-name').replace(/\s+/g, ' ').trim(), code:invCodeClean(v('ivp-code')), client:v('ivp-client'), tags:invNormTags(v('ivp-tags').split('\n')), year_from:invYear(v('ivp-yf')), year_to:invYear(v('ivp-yt')),
     mode:v('ivp-mode'), ai:!!($('#ivp-ai') || {}).checked, auto_confirm:+v('ivp-auto') || INV_AUTO_CONFIRM, status:v('ivp-status') || 'open', notes:v('ivp-notes'), boxes:parseInt(v('ivp-nb'), 10) || 0, binders:parseInt(v('ivp-nf'), 10) || 0,
-    doc:!!($('#ivp-doc') || {}).checked, price:invPriceNorm(INV_PRICE_KEYS.reduce((o, k) => (o[k] = v('ivp-pr-' + k), o), {})), template:v('ivp-tpl')};
+    doc:!!($('#ivp-doc') || {}).checked, price:invPriceNorm(INV_PRICE_KEYS.reduce((o, k) => (o[k] = v('ivp-pr-' + k), o), {})), template:v('ivp-tpl'), target:parseInt(v('ivp-tg'), 10) || 0};
 }
 function ivpOpenForm(id){
   const a = id ? ivpProj(id) : null;
@@ -262,9 +265,9 @@ function ivpOpenForm(id){
       if (a){
         const before = clone(a.inv);
         archSaveFields(a.id, {name:f.name});
-        Object.assign(a.inv, normalizeInv(Object.assign({}, a.inv, {code:a.inv.batches.length ? a.inv.code : f.code, client:f.client, tags:f.tags, year_from:f.year_from, year_to:f.year_to, mode:f.mode, ai:f.ai, auto_confirm:f.auto_confirm, status:f.status, notes:f.notes, doc:f.doc, price:f.price})));
+        Object.assign(a.inv, normalizeInv(Object.assign({}, a.inv, {code:a.inv.batches.length ? a.inv.code : f.code, client:f.client, tags:f.tags, year_from:f.year_from, year_to:f.year_to, mode:f.mode, ai:f.ai, auto_confirm:f.auto_confirm, status:f.status, notes:f.notes, doc:f.doc, price:f.price, target:f.target})));
         archTouch(a);
-        const ch = ['code', 'client', 'tags', 'year_from', 'year_to', 'mode', 'ai', 'auto_confirm', 'status', 'notes', 'doc', 'price'].filter(k => JSON.stringify(before[k]) !== JSON.stringify(a.inv[k]));
+        const ch = ['code', 'client', 'tags', 'year_from', 'year_to', 'mode', 'ai', 'auto_confirm', 'status', 'notes', 'doc', 'price', 'target'].filter(k => JSON.stringify(before[k]) !== JSON.stringify(a.inv[k]));
         if (ch.length) logAct('inventory.edit', ivpTarget(a), 'Modificato il progetto ' + a.name + ': ' + ch.join(', '), {changed:ch.reduce((o, k) => (o[k] = [before[k], a.inv[k]], o), {})});
         commit(); closeModal(true); toast(t('ivp_saved'));
       } else {

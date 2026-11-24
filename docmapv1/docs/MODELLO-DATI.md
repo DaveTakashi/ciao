@@ -865,6 +865,7 @@ extra:[{id, code}]}` (scade dopo 4 ore senza scansioni).
   id delle foto già ricevute dal server (le più vecchie oltre 30 si tolgono da IndexedDB). **Copia di sicurezza**: JSON
   `{format:'docmap-inv-rescue', v:1, at, device, who, project:{id,code,name}, recs:[faldoni e scatole con id `inv-…`], photos:{'ph-…': data URL immagine}}`;
   il PC accetta solo questo (`invRescueParse`) e registra `inventory.rescue`.
+- **v12.15**: progetto `inv.target` (faldoni + documenti previsti, 0 = nessuno); preferenze del telefono per progetto anche `burst` (sì/no).
 - **Server**: foto in `data_dir/photos/` cifrate (`API-CONTRACT.md` §14).
 
 ## 19. Lavoro annuale (v12.11 — `assets/js/02l-years.js`, `06w-newyear.js`, `06x-retention.js`, `06y-place.js`)
