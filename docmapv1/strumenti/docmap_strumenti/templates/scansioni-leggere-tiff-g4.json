@@ -1,0 +1,40 @@
+{
+  "format": "docmap-ricetta/1",
+  "version": 1,
+  "id": "scansioni-leggere-tiff-g4",
+  "name": "Scansioni leggere: bianco e nero TIFF G4",
+  "tags": [
+    "conversione",
+    "compressione"
+  ],
+  "description": "Raddrizza, pulisce e porta in bianco e nero (TIFF Gruppo 4, il formato d'archivio più leggero): file 5-10 volte più piccoli e OCR migliore.",
+  "input": {
+    "patterns": [
+      "*.pdf",
+      "*.jpg",
+      "*.jpeg",
+      "*.png",
+      "*.tif",
+      "*.tiff"
+    ]
+  },
+  "steps": [
+    {
+      "id": "pulisci",
+      "block": "image",
+      "with": {
+        "deskew": true,
+        "bw": true,
+        "denoise": true,
+        "to": "tiff"
+      }
+    },
+    {
+      "id": "cartelle",
+      "block": "route",
+      "with": {
+        "to": "{src_dir|default:}/{name}.tif"
+      }
+    }
+  ]
+}

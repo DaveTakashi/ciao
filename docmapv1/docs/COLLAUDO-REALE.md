@@ -138,6 +138,15 @@ il numero e l'immagine. Se un passo si blocca, salta al blocco successivo.
 - [ ] G4. Stesso cliente: preventivo Studio Pro con sconto 10%: la scheda dice 80,10 €/mese. Poi **Azzera**: torna al listino.
 - [ ] G5. `python tools\brand.py imposta --nome "Prova Nome"` in una **copia** della cartella del programma, poi apri `index.html` della copia: si chiama «Prova Nome». (Non farlo nella cartella vera.)
 
+## S. Strumenti (30 min, Strumenti 0.1.0) — guida: `STRUMENTI.md`
+
+- [ ] S1. Doppio clic su `strumenti\AVVIA-STRUMENTI.bat`: la prima volta installa, poi si apre il browser con le Ricette.
+- [ ] S2. Installa Tesseract (UB Mannheim, con l'italiano): Impostazioni › Lettura lo trova; **Prova** di «Fatture TIFF in una cartella per numero» su una fattura vera: il numero è giusto.
+- [ ] S3. **Esegui** la stessa ricetta su una cartella di 20–50 fatture vere (una copia): le cartelle per numero sono giuste, i dubbi sono in Verifica. Annota quante erano da correggere: ____
+- [ ] S4. **Verifica** solo con la tastiera (`↓`, `Invio`, `E`, `U`): tempo medio per documento ____ s; «Riprendi» completa il lavoro e il report Excel si apre.
+- [ ] S5. «PDF scansionato in fatture» su un PDF vero di molte fatture: ogni fattura è un PDF a sé.
+- [ ] S6. Sul server di Dave: `serve --remote` con HTTPS e un gettone; dal PC, Impostazioni › Esecuzione remota › Prova, poi un lavoro «sul server»: i risultati tornano nella cartella di arrivo.
+
 ## Dopo il collaudo
 
 Mandami le righe ❌ con le foto. Io correggo, aggiorno questa scheda e `STATO.md` (sezione 4), e ogni problema diventa

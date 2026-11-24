@@ -1,0 +1,74 @@
+{
+  "format": "docmap-ricetta/1",
+  "version": 1,
+  "id": "documenti-per-tipo",
+  "name": "Documenti divisi per tipo (fattura, nota di credito, F24, contratto…)",
+  "tags": [
+    "classifica",
+    "ocr"
+  ],
+  "description": "Legge ogni documento, ne riconosce il tipo dalle parole che contiene e lo mette nella cartella del tipo. Gli incerti vanno a verifica con un tasto per tipo.",
+  "input": {
+    "patterns": [
+      "*.pdf",
+      "*.tif",
+      "*.tiff",
+      "*.jpg",
+      "*.png"
+    ]
+  },
+  "steps": [
+    {
+      "id": "leggi",
+      "block": "ocr",
+      "with": {
+        "engine": "auto",
+        "pages": "1-2"
+      }
+    },
+    {
+      "id": "tipo",
+      "block": "classify",
+      "with": {
+        "classes": "fattura: fattura, invoice, fattura elettronica\nnota_di_credito: nota di credito, nota credito\nf24: modello f24, delega f24, f24\ncontratto: contratto, scrittura privata, sottoscritto\nbanca: estratto conto, saldo contabile, iban",
+        "default": "altro",
+        "field": "tipo",
+        "review_below": 0.5
+      }
+    },
+    {
+      "id": "verifica",
+      "block": "review",
+      "with": {
+        "which": "flagged",
+        "fields": [
+          "tipo"
+        ],
+        "choices": [
+          "fattura",
+          "nota_di_credito",
+          "f24",
+          "contratto",
+          "banca",
+          "altro"
+        ],
+        "choice_field": "tipo"
+      }
+    },
+    {
+      "id": "cartelle",
+      "block": "route",
+      "with": {
+        "to": "{tipo}/{file}",
+        "file": "original"
+      }
+    },
+    {
+      "id": "report",
+      "block": "report",
+      "with": {
+        "format": "xlsx"
+      }
+    }
+  ]
+}

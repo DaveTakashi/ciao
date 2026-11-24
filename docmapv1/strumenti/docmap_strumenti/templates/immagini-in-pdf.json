@@ -1,0 +1,36 @@
+{
+  "format": "docmap-ricetta/1",
+  "version": 1,
+  "id": "immagini-in-pdf",
+  "name": "Immagini e TIFF in PDF (stessa struttura di cartelle)",
+  "tags": [
+    "conversione",
+    "pdf"
+  ],
+  "description": "Converte JPEG, PNG e TIFF (anche multipagina) in PDF, tenendo la struttura delle sottocartelle.",
+  "input": {
+    "patterns": [
+      "*.jpg",
+      "*.jpeg",
+      "*.png",
+      "*.tif",
+      "*.tiff"
+    ]
+  },
+  "steps": [
+    {
+      "id": "converti",
+      "block": "convert",
+      "with": {
+        "to": "pdf"
+      }
+    },
+    {
+      "id": "cartelle",
+      "block": "route",
+      "with": {
+        "to": "{src_dir|default:}/{name}.pdf"
+      }
+    }
+  ]
+}

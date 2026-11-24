@@ -40,6 +40,7 @@
 | [`MANUALE-UTENTE.md`](MANUALE-UTENTE.md) | Manuale per compiti: prima installazione, import clienti, faldoni, stampa e PDF, manifest, ubicazioni e associazione, server SiteGround, telefoni, routine di sincronizzazione, registro e contestazioni, backup, aggiornamenti, problemi. |
 | [`RIFERIMENTO-FUNZIONI.md`](RIFERIMENTO-FUNZIONI.md) | Descrizione di ogni funzione e schermata (il vecchio README), con le novità per versione come storia. |
 | [`GLOSSARIO.md`](GLOSSARIO.md) | Termini italiani, inglesi e nomi nel codice. |
+| [`STRUMENTI.md`](STRUMENTI.md) | Strumenti: ricette per dividere, convertire, leggere (OCR, AI) e smistare cartelle di documenti, verifica veloce da tastiera, esecuzione remota, crediti; parte tecnica con formato delle ricette, blocchi, API e contratto dei servizi esterni. Installazione: [`AGGIORNAMENTO-STRUMENTI-0.1.0.md`](AGGIORNAMENTO-STRUMENTI-0.1.0.md); sviluppo: [`../strumenti/README.md`](../strumenti/README.md). |
 | [`CHECKLIST-COLLAUDO.md`](CHECKLIST-COLLAUDO.md) | Prove manuali che i test automatici non possono fare: stampante vera, PDF in Acrobat, SiteGround, telefoni, lettore USB, giornata con più dispositivi, ripristino, prova di aggiornamento. |
 
 ### Pubblicazione, sicurezza, aggiornamenti

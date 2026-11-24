@@ -1,0 +1,95 @@
+{
+  "format": "docmap-ricetta/1",
+  "version": 1,
+  "id": "fatture-tiff-per-numero",
+  "name": "Fatture TIFF in una cartella per numero",
+  "tags": [
+    "fatture",
+    "tiff",
+    "ocr"
+  ],
+  "description": "Legge ogni TIFF (anche storto o sporco), trova il numero della fattura e la data, chiede a una persona solo i casi incerti, poi copia l'originale in una cartella per numero. Un report Excel riassume tutto.",
+  "input": {
+    "patterns": [
+      "*.tif",
+      "*.tiff"
+    ],
+    "recursive": true
+  },
+  "steps": [
+    {
+      "id": "pulisci",
+      "block": "image",
+      "with": {
+        "deskew": true,
+        "grayscale": true,
+        "autocontrast": true
+      }
+    },
+    {
+      "id": "leggi",
+      "block": "ocr",
+      "with": {
+        "engine": "auto",
+        "min_conf": 0.6
+      }
+    },
+    {
+      "id": "numero",
+      "block": "extract",
+      "with": {
+        "field": "numero",
+        "method": "regex",
+        "pattern": "(?:fattura|ft\\.?|invoice)\\s*(?:n\\.?|nr\\.?|numero|no\\.?)?\\s*[:#°]?\\s*([A-Z]{0,3}[-/]?\\d{1,8}(?:[-/]\\d{2,4})?)",
+        "normalize": "upper,nospace"
+      }
+    },
+    {
+      "id": "data",
+      "block": "extract",
+      "with": {
+        "field": "data",
+        "method": "date",
+        "required": false
+      }
+    },
+    {
+      "id": "controlla",
+      "block": "check",
+      "with": {
+        "required": [
+          "numero"
+        ],
+        "min_conf": 0.6
+      }
+    },
+    {
+      "id": "verifica",
+      "block": "review",
+      "with": {
+        "which": "flagged",
+        "fields": [
+          "numero",
+          "data"
+        ],
+        "instructions": "Controlla il numero della fattura in alto a destra."
+      }
+    },
+    {
+      "id": "cartelle",
+      "block": "route",
+      "with": {
+        "to": "{numero}/{file}",
+        "file": "original"
+      }
+    },
+    {
+      "id": "report",
+      "block": "report",
+      "with": {
+        "format": "xlsx",
+        "name": "fatture_{date}_{time}"
+      }
+    }
+  ]
+}

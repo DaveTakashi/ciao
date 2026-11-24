@@ -1,0 +1,33 @@
+{
+  "format": "docmap-ricetta/1",
+  "version": 1,
+  "id": "tiff-multipagina-in-png",
+  "name": "TIFF multipagina: una immagine PNG per pagina",
+  "tags": [
+    "tiff",
+    "pagine"
+  ],
+  "description": "Ogni pagina di ogni TIFF diventa un PNG, numerato, in una cartella per file.",
+  "input": {
+    "patterns": [
+      "*.tif",
+      "*.tiff"
+    ]
+  },
+  "steps": [
+    {
+      "id": "dividi",
+      "block": "split_pages",
+      "with": {
+        "format": "png"
+      }
+    },
+    {
+      "id": "cartelle",
+      "block": "route",
+      "with": {
+        "to": "{src_name}/{src_name}_{page:03}.{ext}"
+      }
+    }
+  ]
+}

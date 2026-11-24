@@ -1,0 +1,64 @@
+{
+  "format": "docmap-ricetta/1",
+  "version": 1,
+  "id": "assegna-a-mano",
+  "name": "Assegna a mano tipo e tag alle immagini (tasti rapidi)",
+  "tags": [
+    "manuale",
+    "tag"
+  ],
+  "description": "Mostra ogni immagine nella schermata Verifica: con i tasti 1-6 assegni il tipo, con Maiusc+1-4 i tag, Invio conferma e passa alla prossima. Poi le copia nella cartella del tipo.",
+  "input": {
+    "patterns": [
+      "*.jpg",
+      "*.jpeg",
+      "*.png",
+      "*.tif",
+      "*.tiff",
+      "*.pdf"
+    ]
+  },
+  "steps": [
+    {
+      "id": "verifica",
+      "block": "review",
+      "with": {
+        "which": "all",
+        "fields": [
+          "tipo",
+          "nota"
+        ],
+        "choices": [
+          "fattura",
+          "ricevuta",
+          "contratto",
+          "corrispondenza",
+          "foto",
+          "altro"
+        ],
+        "choice_field": "tipo",
+        "tags": [
+          "urgente",
+          "da-firmare",
+          "originale",
+          "copia"
+        ]
+      }
+    },
+    {
+      "id": "cartelle",
+      "block": "route",
+      "with": {
+        "to": "{tipo|default:altro}/{file}",
+        "file": "original"
+      }
+    },
+    {
+      "id": "report",
+      "block": "report",
+      "with": {
+        "format": "xlsx"
+      }
+    }
+  ]
+}

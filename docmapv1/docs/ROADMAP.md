@@ -63,6 +63,7 @@ Ogni fase ha un **cancello**: non si passa alla successiva finché non è vero.
 | F6 | Primi clienti | 3-5 studi + il cliente rivenditore; istanze create a mano con licenza dall'hub | almeno 3 paganti | **pronto il percorso**: `cliente nuovo` nel hub + pacchetto personale + sito + sync automatica, guida `GUIDA-NUOVO-CLIENTE.md`; manca la prova reale su Windows/SiteGround |
 | F7 | Hub v1 | aggiornamenti firmati a ondate con rollback, battito delle istanze, backup cifrati raccolti, pannello rivenditore | aggiornare 10 istanze con un comando; ripristino di prova riuscito | da fare |
 | F8 | Pagamenti e crediti AI | rinnovo in app (pagamento ospitato tipo Stripe Checkout → licenza nuova), fattura elettronica SDI, gateway AI con crediti prepagati e ricarico | primo rinnovo pagato senza intervento manuale | da fare |
+| F8b | **Strumenti** (ricette per i documenti) | `strumenti/`: motore di ricette a blocchi, OCR, AI agnostica, servizi esterni, verifica da tastiera, coda locale o remota con gettoni e crediti (`docs/STRUMENTI.md`) | Dave smista una cartella vera di fatture TIFF con una ricetta pronta | **0.1.0 scritto** (45 test); poi sezione nell'app e piani nell'hub |
 | F9 | VPS UE e cloud | hub e istanze cloud su VPS (o sul server privato di Dave) | migrazione dell'hub senza perdita | futuro |
 | F10 | NFC e RFID | NFC = stesso URL qr7.it (funziona già); RFID come sorgente di eventi | solo su richiesta di un cliente che lo finanzia | futuro |
 

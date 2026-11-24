@@ -2,6 +2,7 @@
 # DocMap — fast checks (~4 min) for agents and CI. Full regression = tests/suite.js (~35 min), before every release.
 #   bash docmapv1/tools/verifica-veloce.sh          (from the repo root or anywhere)
 # Needs: python 3.11+ with fastapi uvicorn cryptography pyftpdlib, php 8 with pdo_sqlite, node + playwright.
+# The tools (strumenti/) install their requirements.txt when missing; tesseract-ocr (+ ita) enables their real-OCR test.
 set -u
 cd "$(dirname "$0")/.."
 fail=0
@@ -9,7 +10,7 @@ step(){ echo; echo "== $1"; }
 # run() inside ( … ) cannot set fail in this shell: it also returns 1, and every ( … ) line adds || fail=1
 run(){ "$@" || { echo "  ✗ FAILED: $*"; fail=1; return 1; }; }
 step "syntax: JavaScript"
-for f in assets/js/*.js docmap.config.js brand.js hub/docmap_hub/ui/app.js; do node --check "$f" || { echo "  ✗ $f"; fail=1; }; done
+for f in assets/js/*.js docmap.config.js brand.js hub/docmap_hub/ui/app.js strumenti/docmap_strumenti/ui/app.js; do node --check "$f" || { echo "  ✗ $f"; fail=1; }; done
 step "lint: JavaScript (globals between files, eslint bug rules)"
 if NODE_PATH="${NODE_PATH:-$(npm root -g)}" node -e "require('eslint')" 2>/dev/null; then
   NODE_PATH="${NODE_PATH:-$(npm root -g)}" run node tools/lint-js.js
@@ -23,6 +24,9 @@ else echo "  (CI not active: .github/workflows/docmap-ci.yml missing)"; fi
 step "syntax: PHP"
 for f in server-php/*.php; do run php -l "$f" >/dev/null; done
 step "hub (Python)";              (cd hub && run python3 -m unittest discover -s tests) || fail=1
+step "strumenti (ricette, blocchi, coda, server, remoto)"
+python3 -c "import PIL, pypdf, openpyxl, numpy, pypdfium2" 2>/dev/null || python3 -m pip install -q -r strumenti/requirements.txt
+(cd strumenti && run python3 -m unittest discover -s tests) || fail=1
 step "server-python";             (cd server-python && run python3 -m unittest discover -s tests) || fail=1
 step "PHP <-> Python parity";     run python3 server-python/tests/diff_test.py
 step "PHP <-> Python licence";    run python3 server-python/tests/diff_licence_test.py

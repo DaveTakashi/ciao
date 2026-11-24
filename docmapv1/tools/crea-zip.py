@@ -34,7 +34,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 import brand as BR   # noqa: E402  (brand.js reader)
 BN = BR.load(ROOT)["product_name"]
 REPO = ROOT.parent
-SKIP = re.compile(r"^(tests/|ci/|hub/tests/|server-python/tests/|installer-windows/tests/)")
+SKIP = re.compile(r"^(tests/|ci/|hub/tests/|server-python/tests/|installer-windows/tests/|strumenti/tests/)")
 FORBIDDEN = re.compile(r"(^|/)(dati-studio/|\.venv/|__pycache__/)|\.(sqlite3?|db|docmap-key|docmap-backup|pem|key)$"
                        r"|(^|/)config\.php$|(^|/)\.env$")
 REQUIRED = [
@@ -44,6 +44,8 @@ REQUIRED = [
     "installer-windows/installa.bat", "installer-windows/installa.ps1", "installer-windows/docmap_tools.py",
     "index.html", "scan.html", "docmap.config.js", "brand.js", "server-php/brand.php", "tools/brand.py",
     "hub/docmap_hub/plans.json", "CHANGELOG.md", "STATO.md",
+    "strumenti/AVVIA-STRUMENTI.bat", "strumenti/requirements.txt", "strumenti/docmap_strumenti/__init__.py",
+    "strumenti/docmap_strumenti/ui/app.js",
 ]
 # (source in docmapv1/, name in guide/)
 GUIDES = [
@@ -64,6 +66,8 @@ GUIDES = [
     ("docs/AGGIORNAMENTO-v12.13-v12.14.md", "AGGIORNAMENTO-v12.13-v12.14.html"),
     ("docs/AGGIORNAMENTO-v12.14-v12.15.md", "AGGIORNAMENTO-v12.14-v12.15.html"),
     ("docs/AGGIORNAMENTO-v12.15-v12.16.md", "AGGIORNAMENTO-v12.15-v12.16.html"),
+    ("docs/STRUMENTI.md", "STRUMENTI.html"),
+    ("docs/AGGIORNAMENTO-STRUMENTI-0.1.0.md", "AGGIORNAMENTO-STRUMENTI-0.1.0.html"),
     ("docs/MARCHIO.md", "MARCHIO.html"),
     ("docs/commerciale/LISTINO.md", "LISTINO.html"),
 ]

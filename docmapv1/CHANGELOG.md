@@ -5,7 +5,15 @@ Formato: versione · data · cosa cambia per chi la usa · dati/server.
 
 ## Da rilasciare
 
-- (niente)
+- **Strumenti 0.1.0** (componente nuovo, `strumenti/`): ricette di blocchi per cartelle di documenti. 20 blocchi
+  (filtra, rinomina, dividi in pagine o in documenti, unisci, converti tra PDF/TIFF/PNG/JPEG/WEBP/testo/Markdown/CSV/Excel/JSON,
+  migliora le scansioni, OCR con Tesseract/AI/servizio, cerca parole, leggi campi tra cui date, importi, P.IVA, CF, IBAN,
+  classifica, cerca in una tabella, controlla e doppia lettura, verifica a mano, AI con qualsiasi fornitore, servizio
+  esterno, metti nelle cartelle, report), 11 ricette pronte, prova su un file senza toccare niente, coda di lavori,
+  **verifica veloce da tastiera** con tasti personalizzabili, valori certificati e registro a catena di impronte,
+  **esecuzione remota** su un server con gettoni per cliente, **crediti** per cliente e mese. Guida `docs/STRUMENTI.md`,
+  installazione `docs/AGGIORNAMENTO-STRUMENTI-0.1.0.md`. Nessuna modifica ad app, sito, server, installatore e hub; nessun
+  dato cambia.
 
 ## 2026-11-23 — qualità e CI (con l'app 26.12.11)
 

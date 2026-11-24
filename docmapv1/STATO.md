@@ -13,6 +13,7 @@
 | Server Python (sede) | pacchetto 1.0.0, parità con PHP 26.12.16 (anche sulla licenza, sull'inventario, sui fornitori AI e su `finder`) | `server-python/docmap_server/__init__.py` | dentro l'installer |
 | Strumenti di installazione Windows | 1.2.0 | `TOOLS_VERSION` in `installer-windows/docmap_tools.py` | dentro lo zip completo (`installer-windows/`); i pacchetti per i clienti li fa l'hub (il vecchio `DocMap-installer-26.12.7.zip` è in `vecchie-versioni/`) |
 | Hub (PC di Dave) | **0.13.0** (marchio per rivenditore e cliente, listino unico `plans.json`, preventivi), registro schema **4** (`registry.py`); meta `hub_version` | `hub/docmap_hub/__init__.py` | `docmapv1/python/DocMap-hub-0.13.0-app-26.12.16.zip` (**zip completo**: hub + app 26.12.16 + sito + server + installatore + guide; fatto e controllato da `tools/crea-zip.py`) |
+| Strumenti (ricette per i documenti) | **0.1.0** (nuovo: 20 blocchi, 11 ricette pronte, coda, verifica da tastiera, remoto, crediti; formato `docmap-ricetta/1`) | `strumenti/docmap_strumenti/__init__.py` | dentro lo zip completo (`strumenti/`, avvio `AVVIA-STRUMENTI.bat`) |
 | Aggiornatore del PC | con l'app | `AGGIORNA-DOCMAP.bat` + `tools/aggiorna-app.ps1` | dentro lo zip dell'app |
 
 Regola: lo **stesso numero 26.12.x** deve comparire in app, `api.php` e server Python. Il server PHP e quello Python
@@ -45,6 +46,17 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
 | CI su GitHub | `.github/workflows/docmap-ci.yml` (= `ci/docmap-ci.yml`), Ubuntu 24.04 | ~5 min | verde sulla PR #10 (2026-11-23); unica cartella fuori da `docmapv1/`, confermata da Dave (D20) |
 
 Come sono fatti i test e come aggiungerne: [`docs/TEST.md`](docs/TEST.md).
+
+### Esito 2026-11-24, Strumenti 0.1.0 (ricette per i documenti)
+
+- Test nuovi, nella verifica veloce: `strumenti/tests` 45/45 (modelli e filtri dei nomi, ricette e versioni, condizioni,
+  ordine naturale dei file, un file rotto non ferma gli altri, prova senza toccare niente, ogni blocco su TIFF/PDF/immagini
+  finti, Tesseract vero se installato, coda, verifica con annulla, registro manomesso scoperto, crediti finiti, gettoni,
+  server con chiave e Host, cartelle, impostazioni mascherate, cliente remoto limitato ai suoi lavori, lavoro remoto
+  completo con verifica dal PC, licenza senza remoto, AI finta openai_compatible e anthropic, servizio esterno).
+- Prova nel browser (Playwright): ricette, editor, prova, esecuzione, verifica con Invio, ripresa, risultati; nessun
+  errore in console, niente scorrimento orizzontale a 390 px.
+- Non provato: Windows vero (`AVVIA-STRUMENTI.bat`, Tesseract per Windows), scansioni vere, server remoto vero (S1–S6).
 
 ### Esito 2026-11-24, app 26.12.16 (scatole e faldoni, tutte le modalità)
 
@@ -291,6 +303,9 @@ Scheda unica da seguire: [`docs/COLLAUDO-REALE.md`](docs/COLLAUDO-REALE.md).
   con **Verifica una scatola › Sposta qui**).
 - Aggiornamento del PC con `AGGIORNA-DOCMAP.bat` (mai provato su Windows reale); server e telefoni come prima.
 - I documenti commerciali (`docs/commerciale/`) sono bozze: prezzi non validati, testi legali da rivedere.
+- Strumenti 0.1.0: programma a sé, non ancora collegato all'app (sezione «Strumenti» per l'amministratore) né all'hub
+  (piani con modalità e crediti in `plans.json`); la CI non installa Tesseract, quindi il test con Tesseract vero si
+  salta su GitHub.
 
 ## 6. Decisioni in vigore
 

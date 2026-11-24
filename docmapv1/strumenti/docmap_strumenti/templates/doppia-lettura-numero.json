@@ -1,0 +1,79 @@
+{
+  "format": "docmap-ricetta/1",
+  "version": 1,
+  "id": "doppia-lettura-numero",
+  "name": "Numero letto due volte (regola + AI) con verifica",
+  "tags": [
+    "controllo",
+    "ai"
+  ],
+  "description": "Il numero del documento si legge con una regola e con l'AI: se le due letture coincidono è sicuro, se no decide una persona. Serve l'AI nelle Impostazioni.",
+  "input": {
+    "patterns": [
+      "*.pdf",
+      "*.tif",
+      "*.tiff",
+      "*.jpg",
+      "*.png"
+    ]
+  },
+  "steps": [
+    {
+      "id": "leggi",
+      "block": "ocr",
+      "with": {
+        "engine": "auto",
+        "pages": "1"
+      }
+    },
+    {
+      "id": "regola",
+      "block": "extract",
+      "with": {
+        "field": "numero_regola",
+        "method": "regex",
+        "pattern": "(?:n\\.?|numero|nr\\.?)\\s*[:#°]?\\s*(\\d{1,8})"
+      }
+    },
+    {
+      "id": "ai",
+      "block": "extract",
+      "with": {
+        "field": "numero_ai",
+        "method": "ai",
+        "prompt": "il numero del documento (fattura, protocollo o pratica)",
+        "use_image": true
+      }
+    },
+    {
+      "id": "confronta",
+      "block": "check",
+      "with": {
+        "agree": [
+          "numero_regola=numero_ai"
+        ],
+        "vote_into": "numero"
+      }
+    },
+    {
+      "id": "verifica",
+      "block": "review",
+      "with": {
+        "which": "flagged",
+        "fields": [
+          "numero",
+          "numero_regola",
+          "numero_ai"
+        ]
+      }
+    },
+    {
+      "id": "cartelle",
+      "block": "route",
+      "with": {
+        "to": "{numero}/{file}",
+        "file": "original"
+      }
+    }
+  ]
+}
