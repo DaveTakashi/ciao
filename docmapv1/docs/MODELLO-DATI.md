@@ -861,6 +861,10 @@ extra:[{id, code}]}` (scade dopo 4 ore senza scansioni).
 - **SQLite**: colonne `archives.inv_json`, `binders.inv_json` (JSON), aggiunte solo se mancano; nessun cambio di `DB_SCHEMA_VERSION`.
 - **Telefono**: `docmap_v26_inv_outbox` (coda: lavori `rec`, `tomb`, `ai`), `docmap_v26_inv_recent` (ultime 300 versioni dei
   faldoni acquisiti), `docmap_v26_inv_prefs` (scatola attiva e «Mantieni» per progetto), IndexedDB `docmap_v26_inv` store `photos`.
+- **Telefono v12.14**: i lavori in coda possono avere `next` (ms: quando riprovare) e `tries`; `docmap_v26_inv_sent` = elenco degli
+  id delle foto già ricevute dal server (le più vecchie oltre 30 si tolgono da IndexedDB). **Copia di sicurezza**: JSON
+  `{format:'docmap-inv-rescue', v:1, at, device, who, project:{id,code,name}, recs:[faldoni e scatole con id `inv-…`], photos:{'ph-…': data URL immagine}}`;
+  il PC accetta solo questo (`invRescueParse`) e registra `inventory.rescue`.
 - **Server**: foto in `data_dir/photos/` cifrate (`API-CONTRACT.md` §14).
 
 ## 19. Lavoro annuale (v12.11 — `assets/js/02l-years.js`, `06w-newyear.js`, `06x-retention.js`, `06y-place.js`)

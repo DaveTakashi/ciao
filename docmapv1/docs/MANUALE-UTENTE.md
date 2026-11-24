@@ -894,3 +894,29 @@ ha la lettura AI accesa, altrimenti il **modello locale** di **Impostazioni › 
 dello studio, indirizzo e nome del modello, pulsante **Prova**). Con il modello locale nessuna foto esce dallo studio. Se il programma si apre da un sito (`https://…`) e non dal file sul PC, Ollama va avviato con la variabile `OLLAMA_ORIGINS` che contiene l'indirizzo del sito (LM Studio: opzione «Enable CORS»), altrimenti il browser blocca la risposta.
 L'AI riempie solo i campi vuoti e non tocca quello che hai scritto tu. Sul server il fornitore (Claude, un servizio
 compatibile OpenAI, Ollama in sede, oppure niente) si sceglie nella configurazione: vedi `AGGIORNAMENTO-v12.12-v12.13.md`.
+
+## 36. Inventario: stima del lavoro e telefono che non perde niente (v12.14)
+
+**Stima un lavoro** (Progetti › elenco dei progetti, sul PC). Sul posto guardi l'archivio e scrivi i **metri di scaffale**
+oppure le **scatole** (con quanti faldoni ci stanno di solito), i documenti per faldone se lavori a livello documento, quante
+persone scansionano, le ore di preparazione e le ore di lavoro al giorno. Il programma mostra subito faldoni stimati, ore,
+giornate, faldoni all'ora, **etichette da stampare** (con la scorta che scegli, di partenza 10%) e l'**importo** con i prezzi
+di Impostazioni › Inventario. I **secondi a faldone** partono dal vostro ritmo vero (la mediana dei progetti già fatti);
+senza progetti passati parte da 8 secondi. **Copia il testo** mette la stima negli appunti per una mail; **Crea il progetto
+con questi numeri** apre un progetto nuovo con le etichette già calcolate. È una stima indicativa, non un preventivo vincolante.
+
+**Il telefono non perde il lavoro.** Ogni faldone scansionato resta nella coda del telefono finché il server non lo conferma.
+
+- **Server occupato, troppe richieste o rete assente**: la coda aspetta e riprova da sola, con pause sempre più lunghe
+  (fino a 5 minuti). Quando torna la rete riparte subito. Il pulsante **↻** riprova adesso.
+- **Accesso scaduto**: la coda si ferma con la scritta «Accesso scaduto»; rientra con il tuo utente e tocca **↻**.
+- **Lettura AI**: se non riesce dopo 3 tentativi si lascia stare; il faldone è salvato lo stesso e puoi leggerlo dal PC.
+- **Memoria del telefono piena**: le nuove acquisizioni si fermano con un messaggio chiaro, invece di perdersi in silenzio.
+  Le foto che il server ha già ricevuto si tolgono dal telefono da sole; quando possibile il programma chiede al browser di
+  proteggere la propria memoria.
+
+**Stato della coda e copia di sicurezza.** Tocca la riga dello stato della coda (in basso nella schermata di inventario):
+vedi quanti faldoni e letture AI aspettano, da quanto tempo, quanta memoria è usata e se è protetta. **Salva copia di
+sicurezza** scarica un file con tutto quello che il telefono non ha ancora inviato, foto comprese. Sul PC: Progetti › il
+progetto › scheda **Lavoro** › **Importa dal telefono** e scegli quel file. Puoi importarlo anche due volte: un faldone già
+presente si aggiorna solo se la copia è più recente. Un file di un altro progetto viene rifiutato.

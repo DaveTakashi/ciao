@@ -131,7 +131,7 @@ function ivpConfirm(list, how){
 function viewInv(){ const a = IVP.open && ivpProj(IVP.open); return a ? ivpDetailHTML(a) : ivpListHTML(); }
 function ivpListHTML(){
   const L = invProjects().slice().sort((x, y) => (x.inv.status === 'closed') - (y.inv.status === 'closed') || naturalCmp(x.name, y.name));
-  return '<div class="page-h"><div><h1>' + esc(t('ivp_h')) + helpDot('inventory') + '</h1><p>' + esc(t('ivp_p')) + '</p></div><div class="row"><button class="btn btn-primary" data-a="ivp-new" id="ivp-new">' + ic('plus') + esc(t('ivp_new')) + '</button></div></div>' +
+  return '<div class="page-h"><div><h1>' + esc(t('ivp_h')) + helpDot('inventory') + '</h1><p>' + esc(t('ivp_p')) + '</p></div><div class="row">' + (typeof ivxEstButtonHTML === 'function' ? ivxEstButtonHTML() : '') + '<button class="btn btn-primary" data-a="ivp-new" id="ivp-new">' + ic('plus') + esc(t('ivp_new')) + '</button></div></div>' +
     (L.length ? '<div class="ivp-cards" id="ivp-cards">' + L.map(a => {
       const s = ivpStats(a), i = a.inv;
       return '<article class="card card-p ivp-card' + (i.status === 'closed' ? ' closed' : '') + '" data-id="' + esc(a.id) + '"><div class="row between"><h2>' + archDot(a) + esc(a.name || i.code) + '</h2><span class="ivp-badge ' + esc(i.status) + '">' + esc(t('ivp_st_' + i.status)) + '</span></div>' +

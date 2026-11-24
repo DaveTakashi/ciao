@@ -22,10 +22,18 @@
 
 const IV_OUTBOX_LS = 'docmap_v26_inv_outbox', IV_RECENT_LS = 'docmap_v26_inv_recent', IV_PREFS_LS = 'docmap_v26_inv_prefs';
 const IV_UNDO_MS = 10000, IV_RECENT_MAX = 300, IV_AMEND_MS = 1200;
+// v12.14: photos already on the server kept on the phone (the newest ones), retry back-off, AI tries
+const IV_SENT_LS = 'docmap_v26_inv_sent', IV_SENT_KEEP = 30, IV_BACKOFF_MAX = 300000, IV_AI_TRIES = 3;
 
 if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
   (function(){
     Object.assign(I18N.it, {
+      iv_full:'Memoria del telefono piena: le nuove acquisizioni sono ferme. Tocca lo stato della coda e salva la copia di sicurezza, poi libera spazio.',
+      iv_low:'Memoria del telefono quasi piena: invia la coda (serve la rete) o salva la copia di sicurezza.', iv_q_auth:'Accesso scaduto: entra di nuovo, la coda resta salvata e riparte da sola.',
+      iv_h_rec:'Faldoni e scatole da inviare', iv_h_ai:'Letture AI in attesa', iv_h_oldest:'Il più vecchio in coda', iv_h_store:'Memoria usata', iv_h_store_v:'{u} MB su {q} MB', iv_h_keep:'Memoria protetta dal browser',
+      iv_h_yes:'sì', iv_h_no:'no (il browser potrebbe liberarla se serve spazio)', iv_h_now:'adesso', iv_h_min:'{n} min fa', iv_h_hours:'{n} ore fa', iv_h_retry:'Riprova adesso', iv_h_rescue:'Salva copia di sicurezza',
+      iv_h_rescue_p:'Il file contiene i faldoni non ancora inviati con le foto. Sul PC: Progetti › il progetto › Lavoro › Importa dal telefono. Si può importare anche due volte: niente doppioni.',
+      iv_h_saved:'Copia salvata: {n} record in {f}',
       iv_title:('' + brandName() + ' — Inventario'), iv_pick_h:'Inventario rapido', iv_pick_p:'Scegli il progetto su cui lavori.', iv_pick_none:'Nessun progetto aperto. Crealo sul PC: Progetti › Nuovo progetto.',
       iv_open:'Apri l\'inventario {p}', iv_label_of:'Questa etichetta è del progetto {p} e non è ancora stata scansionata.',
       iv_cam_on:'Avvia la fotocamera', iv_cam_off:'Ferma la fotocamera', iv_cam_err:'Fotocamera non disponibile: {m}', iv_cam_hint:'Inquadra il QR: prima la scatola, poi un faldone dopo l\'altro, con la costa ben visibile.',
@@ -54,6 +62,12 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       iv_v_err:'Elenco non disponibile: {m}', iv_log_verify:'Verificata la scatola {b}: {f} su {e} trovati', iv_log_move:'Spostato {c} nella scatola {b} (verifica)', iv_log_doc:'Acquisito il documento {c} nel faldone {f}'
     });
     Object.assign(I18N.en, {
+      iv_full:'Phone memory full: new captures are stopped. Tap the queue status and save the rescue copy, then free some space.',
+      iv_low:'Phone memory almost full: send the queue (network needed) or save the rescue copy.', iv_q_auth:'Sign-in expired: sign in again, the queue stays saved and restarts by itself.',
+      iv_h_rec:'Binders and boxes to send', iv_h_ai:'AI readings waiting', iv_h_oldest:'Oldest in the queue', iv_h_store:'Memory used', iv_h_store_v:'{u} MB of {q} MB', iv_h_keep:'Memory protected by the browser',
+      iv_h_yes:'yes', iv_h_no:'no (the browser may clear it when space is needed)', iv_h_now:'now', iv_h_min:'{n} min ago', iv_h_hours:'{n} hours ago', iv_h_retry:'Retry now', iv_h_rescue:'Save rescue copy',
+      iv_h_rescue_p:'The file holds the binders not sent yet, with their photos. On the PC: Projects › the project › Job › Import from the phone. Importing twice is fine: no duplicates.',
+      iv_h_saved:'Copy saved: {n} records in {f}',
       iv_title:('' + brandName() + ' — Inventory'), iv_pick_h:'Rapid inventory', iv_pick_p:'Pick the project you are working on.', iv_pick_none:'No open project. Create it on the PC: Projects › New project.',
       iv_open:'Open the inventory {p}', iv_label_of:'This label belongs to project {p} and has not been scanned yet.',
       iv_cam_on:'Start the camera', iv_cam_off:'Stop the camera', iv_cam_err:'Camera not available: {m}', iv_cam_hint:'Frame the QR: first the box, then one binder after the other, with the spine in view.',
@@ -84,18 +98,20 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
     Object.assign(SC_ICONS, {
       mic:'<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v4"/>',
       tag:'<path d="M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4z"/><circle cx="7.5" cy="7.5" r="1.5"/>',
+      download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
       inv:'<path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/>', cloud:'<path d="M17.5 19H9a7 7 0 1 1 6.7-9h1.8a4.5 4.5 0 1 1 0 9Z"/>'
     });
     ['box', 'cam', 'undo', 'stop', 'scan'].forEach(k => { if (!SC_ICONS[k]) SC_ICONS[k] = SC_ICONS.qr; });
 
     const IV = { pid:'', proj:null, scanned:new Map(), box:null, list:[], last:null, msg:null, cam:null, busy:Promise.resolve(), projects:null,
       tags:new Set(), years:[], keep:false, rec:null, listening:false, undoTimer:0, amendTimer:0, flushing:{rec:false, ai:false}, q:{wait:0, send:0, err:0, errMsg:''}, wake:null, label:null,
-      folder:null, jolly:'binder', verify:null };   // v12.12: open binder (document level), jolly labels, box verification
+      folder:null, jolly:'binder', verify:null,
+      health:false, full:false, auth:false, store:null, low:false, persisted:false, rescued:0 };   // v12.14: phone health   // v12.12: open binder (document level), jolly labels, box verification
     window.IV = IV;   // tests and debugging
 
     /* ---------------- small helpers ---------------- */
     const lsGet = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k) || 'null'); return v == null ? d : v; } catch(e){ return d; } };
-    const lsSet = (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch(e){} };
+    const lsSet = (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); return true; } catch(e){ return false; } };
     const ivWho = () => { const u = SC.P && SC.P.auth.currentUser() || {}; return u.display_name || u.username || 'Mobile'; };
     const ivCan = () => !!(SC.user && SC.P && SC.P.auth.can('edit'));
     function ivDevice(){ let d = ''; try { d = localStorage.getItem('docmap_v26_scan_device') || ''; if (!d){ d = 'phone-' + uuid().slice(0, 8); localStorage.setItem('docmap_v26_scan_device', d); } } catch(e){ d = 'phone'; } return d; }
@@ -103,7 +119,14 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
     function ivTs(prev){ let at = nowISO(); if (prev && at <= prev) at = new Date(Date.parse(prev) + 1).toISOString(); return at; }
     function ivParam(){ const v = String(new URLSearchParams(location.search || '').get('inv') || '').trim(); return /^[A-Za-z0-9._:@-]{1,100}$/.test(v) ? v : ''; }
     const ivOutbox = () => { const q = lsGet(IV_OUTBOX_LS, []); return Array.isArray(q) ? q : []; };
-    const ivOutboxSet = (q) => lsSet(IV_OUTBOX_LS, q.length ? q : null);
+    /** v12.14: the queue is never lost silently. When the phone memory is full the recent cache is trimmed and the write
+        retried; if it still fails, new captures stop with a clear message (the rescue file still saves what is pending). */
+    const ivOutboxSet = (q) => {
+      if (lsSet(IV_OUTBOX_LS, q.length ? q : null)){ if (IV.full){ IV.full = false; } return true; }
+      try { const r = ivRecent(), keys = Object.keys(r).sort((a, b) => String(r[a].updated_at).localeCompare(String(r[b].updated_at))); keys.slice(0, Math.max(0, keys.length - 40)).forEach(k => delete r[k]); localStorage.setItem(IV_RECENT_LS, JSON.stringify(r)); } catch(e){}
+      if (lsSet(IV_OUTBOX_LS, q.length ? q : null)) return true;
+      IV.full = true; return false;
+    };
     function ivRecent(){ const r = lsGet(IV_RECENT_LS, {}); return r && typeof r === 'object' ? r : {}; }
     function ivRecentPut(rec){
       const r = ivRecent(); r[rec.short_code] = rec;
@@ -170,6 +193,7 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       IV.keep = !!pr.keep; IV.tags = new Set(IV.keep ? pr.tags || [] : []); IV.years = IV.keep && Array.isArray(pr.years) ? pr.years : [];
       IV.folder = IV.proj.inv.doc && pr.folder && pr.folder.short_code && IV.scanned.has(pr.folder.short_code) ? pr.folder : null;
       IV.jolly = pr.jolly === 'doc' ? 'doc' : 'binder'; IV.verify = null;
+      ivStorage().then(() => ivQueueStats());
       return true;
     }
     function ivBoxCount(){ return IV.box ? IV.list.filter(x => !x.undone && x.box === IV.box.code).length : 0; }
@@ -199,11 +223,13 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
         const i = q.findIndex(j => j.kind === 'rec' && !j.inflight && j.recs.length === 1 && j.recs[0].id === job.recs[0].id);
         if (i >= 0){ q[i].recs = job.recs; ivOutboxSet(q); return ivFlushSoon(); }
       }
-      q.push(Object.assign({id:uuid(), at:nowISO(), tries:0, p:IV.pid}, job)); ivOutboxSet(q); ivFlushSoon();
+      q.push(Object.assign({id:uuid(), at:nowISO(), tries:0, p:IV.pid}, job)); const ok = ivOutboxSet(q); ivFlushSoon();
+      if (!ok) ivSay('err', t('iv_full'));
+      return ok;
     }
     function ivFlushSoon(){ setTimeout(() => { ivFlush('rec'); ivFlush('ai'); }, 0); ivQueueStats(); }
     function ivQueueStats(){
-      const q = ivOutbox(); IV.q = {wait:q.filter(j => j.wait).length, send:q.filter(j => !j.wait && !j.err).length, err:q.filter(j => j.err).length, errMsg:(q.find(j => j.err) || {}).err || ''};
+      const q = ivOutbox(); IV.q = {wait:q.filter(j => j.wait).length, send:q.filter(j => !j.wait && !j.err).length, err:q.filter(j => j.err).length, errMsg:(q.find(j => j.err) || {}).err || '', oldest:q.reduce((m, j) => !m || j.at < m ? j.at : m, ''), ai:q.filter(j => j.kind === 'ai').length};
       const el = document.getElementById('iv-q'); if (el) el.outerHTML = ivQueueHTML();
     }
     /** One lane at a time ('rec' in order: photo then record; 'ai' in parallel to it). Offline → wait, retried later. */
@@ -212,17 +238,25 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       IV.flushing[lane] = true;
       try {
         for (let guard = 0; guard < 500; guard++){
-          const q = ivOutbox(), job = q.find(j => (lane === 'ai' ? j.kind === 'ai' : j.kind !== 'ai') && !j.err && !j.inflight && (lane !== 'ai' || !q.some(r => r.kind === 'rec' && r.recs && r.recs.some(d => d.short_code === j.code))));
+          const q = ivOutbox(), now = Date.now(), job = q.find(j => (lane === 'ai' ? j.kind === 'ai' : j.kind !== 'ai') && !j.err && !j.inflight && !(j.next > now) && (lane !== 'ai' || !q.some(r => r.kind === 'rec' && r.recs && r.recs.some(d => d.short_code === j.code))));
           if (!job) break;
           ivJobMark(job.id, {inflight:true}); ivQueueStats();
           try {
             await ivRunJob(job);
-            ivJobDone(job.id);
+            ivJobDone(job.id); IV.auth = false;
             if (lane === 'rec') setTimeout(() => ivFlush('ai'), 0);   // an AI reading may have been waiting for this record
           } catch(e){
-            const off = e && e.code === 'offline';
-            ivJobMark(job.id, off ? {inflight:false, wait:true, tries:(job.tries || 0) + 1} : {inflight:false, err:String(e && (e.message || e.code) || e).slice(0, 120), tries:(job.tries || 0) + 1});
-            if (off){ ivQueueStats(); break; }
+            // v12.14: only a real refusal stops a job. Network, server busy (5xx, 429) and timeouts wait and retry with a
+            // growing pause; an expired sign-in waits for the next sign-in; the AI gives up after a few tries (never blocks).
+            const c = (e && e.code) || '', tries = (job.tries || 0) + 1, msg = String(e && (e.message || e.code) || e).slice(0, 120);
+            if (c === 'offline'){ ivJobMark(job.id, {inflight:false, wait:true, tries}); ivQueueStats(); break; }
+            if (lane === 'ai' && tries >= IV_AI_TRIES && c !== 'unauthorized'){ ivJobDone(job.id); ivListSet(job.code, {ai:'fail'}); ivQueueStats(); continue; }
+            if (c === 'server' || c === 'locked' || lane === 'ai'){
+              const wait = Math.min(IV_BACKOFF_MAX, Math.max(5000, (e.data && e.data.retry_in || 0) * 1000, 5000 * Math.pow(2, tries - 1)));
+              ivJobMark(job.id, {inflight:false, wait:true, next:Date.now() + wait, tries, last:msg}); ivQueueStats(); break;
+            }
+            if (c === 'unauthorized'){ IV.auth = true; ivJobMark(job.id, {inflight:false, wait:true, tries, last:msg}); ivQueueStats(); break; }
+            ivJobMark(job.id, {inflight:false, err:msg, tries});
           }
           ivQueueStats(); ivRenderLive();
         }
@@ -238,7 +272,7 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
             const ph = await IVDB.get(pid).catch(() => null);
             if (ph && ph.data && !ph.sent){
               const m = String(ph.data).match(/^data:([^;]+);base64,(.*)$/);
-              if (m){ const r = await SC.P.data.invPhotoPut({id:pid, binder_id:d.id, mime:m[1], data:m[2]}); if (!r.local){ ph.sent = true; IVDB.put(pid, ph).catch(() => {}); } }
+              if (m){ const r = await SC.P.data.invPhotoPut({id:pid, binder_id:d.id, mime:m[1], data:m[2]}); if (!r.local){ ph.sent = true; await IVDB.put(pid, ph).catch(() => {}); ivPhotoSent(pid); } }
             }
           }
           ivJobMark(job.id, {photoSent:true});
@@ -268,6 +302,54 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
         ivListSet(job.code, {ai:'done', st:rec.inv.st, title:rec.binder_title || rec.company_name || ''});
         await SC.P.data.invPush([rec], [], null);
       }
+    }
+
+    /* ---------------- v12.14: health of the phone (queue, memory, rescue file) ---------------- */
+    /** Jobs whose pause is over go back in the line (every 15 s, and when the network comes back). */
+    function ivWake(){
+      const q = ivOutbox(), now = Date.now(); let ch = false;
+      q.forEach(j => { if (j.wait && !(j.next > now) && !(IV.auth && !j.next)){ delete j.wait; delete j.next; ch = true; } });
+      if (ch){ ivOutboxSet(q); ivFlushSoon(); }
+    }
+    /** A photo the server has: remember it; only the newest IV_SENT_KEEP stay on the phone (the server keeps them all). */
+    function ivPhotoSent(id){
+      const l = lsGet(IV_SENT_LS, []), a = Array.isArray(l) ? l.filter(x => x !== id) : [];
+      a.push(id);
+      const drop = a.length > IV_SENT_KEEP + 10 ? a.splice(0, a.length - IV_SENT_KEEP) : [];
+      lsSet(IV_SENT_LS, a);
+      drop.forEach(x => IVDB.del(x).catch(() => {}));
+    }
+    /** Asks the browser not to clear this site's storage, and reads how full it is (both optional, never blocking). */
+    async function ivStorage(){
+      try { if (navigator.storage && navigator.storage.persist && !IV.persisted) IV.persisted = await navigator.storage.persisted() || await navigator.storage.persist(); } catch(e){}
+      try { if (navigator.storage && navigator.storage.estimate){ const e = await navigator.storage.estimate(); IV.store = {usage:e.usage || 0, quota:e.quota || 0}; } } catch(e){}
+      const st = IV.store; IV.low = !!(st && st.quota && (st.usage / st.quota > 0.85 || st.quota - st.usage < 50 * 1048576));
+    }
+    function ivAge(iso){ const ms = Date.now() - Date.parse(iso || ''); if (!isFinite(ms) || ms < 0) return ''; const m = Math.round(ms / 60000); return m < 1 ? t('iv_h_now') : m < 120 ? t('iv_h_min', {n:m}) : t('iv_h_hours', {n:Math.round(m / 60)}); }
+    function ivHealthHTML(){
+      if (!IV.health) return '';
+      const q = IV.q, st = IV.store, mb = (x) => (x / 1048576).toFixed(0);
+      const rows = [[t('iv_h_rec'), String(Math.max(0, q.wait + q.send + q.err - q.ai))], [t('iv_h_ai'), String(q.ai)], [t('iv_h_oldest'), q.oldest ? ivAge(q.oldest) : '—'],
+        [t('iv_h_store'), st && st.quota ? t('iv_h_store_v', {u:mb(st.usage), q:mb(st.quota)}) : '—'], [t('iv_h_keep'), IV.persisted ? t('iv_h_yes') : t('iv_h_no')]];
+      return '<div class="iv-health" id="iv-health"><dl>' + rows.map(x => '<dt>' + esc(x[0]) + '</dt><dd>' + esc(x[1]) + '</dd>').join('') + '</dl>' +
+        '<div class="iv-health-b"><button type="button" class="sc-btn" data-s="iv-retry" id="iv-h-retry">' + esc(t('iv_h_retry')) + '</button>' +
+        '<button type="button" class="sc-btn" data-s="iv-rescue" id="iv-rescue">' + sic('download') + esc(t('iv_h_rescue')) + '</button></div><p class="sc-muted small">' + esc(t('iv_h_rescue_p')) + '</p></div>';
+    }
+    /** Rescue file: every record of this project the server has not confirmed yet, with its photos. */
+    async function ivRescueData(){
+      const q = ivOutbox().filter(j => j.p === IV.pid && j.kind !== 'ai'), recs = new Map(), rc = ivRecent();
+      q.forEach(j => (j.recs || []).forEach(d => recs.set(d.id, d)));
+      IV.list.filter(x => !x.sent && !x.undone).forEach(x => { const d = rc[x.code]; if (d && !recs.has(d.id)) recs.set(d.id, d); });
+      const photos = {};
+      for (const d of recs.values()) for (const id of [d.inv && d.inv.ph, d.inv && d.inv.ph2].filter(Boolean)){ const ph = await IVDB.get(id).catch(() => null); if (ph && ph.data) photos[id] = ph.data; }
+      return {format:INV_RESCUE_FORMAT, v:1, at:nowISO(), device:ivDevice(), who:ivWho(), project:{id:IV.pid, code:IV.proj ? IV.proj.inv.code : '', name:IV.proj ? IV.proj.name || '' : ''}, recs:Array.from(recs.values()), photos};
+    }
+    async function ivRescueSave(){
+      const d = await ivRescueData(), name = (typeof brandFile === 'function' ? brandFile('inventario_' + (d.project.code || 'progetto') + '_' + nowISO().slice(0, 16).replace(/[:T]/g, '-'), 'json') : 'inventario.json');
+      const blob = new Blob([JSON.stringify(d)], {type:'application/json'}), a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+      ivSay('ok', t('iv_h_saved', {n:d.recs.length, f:name})); IV.rescued = d.recs.length; ivRenderLive();
+      return d;
     }
     function ivListSet(code, patch){ const x = IV.list.find(y => y.code === code); if (x) Object.assign(x, patch); }
 
@@ -339,6 +421,7 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
         }
         ivSay('warn', t('iv_dup', {c:num})); return ivRenderLive();
       }
+      if (IV.full && !ivOutboxSet(ivOutbox())){ ivSay('err', t('iv_full')); return ivRenderLive(); }   // v12.14: memory full, nothing is captured that could be lost
       if (lvl === 'doc' && !IV.folder){ ivSay('warn', t('iv_need_folder')); return ivRenderLive(); }
       if (lvl !== 'doc' && inv.mode !== 'capture' && !IV.box){ ivSay('warn', t('iv_need_box')); return ivRenderLive(); }
       // 1. photo of this very frame (the QR and the spine are in it), before anything else
@@ -351,11 +434,18 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       ivRecentPut(b); IV.last = b;
       IV.list.forEach(y => { y.thumb = ''; });   // only the last photo stays in memory
       IV.list.push({code, num, box:doc ? b.inv.box : IV.box ? IV.box.code : '', at:Date.now(), thumb:photo, st:'captured', sent:false, ai:IV.proj.inv.ai && phId ? 'wait' : '', via, lvl, folder:doc ? IV.folder.id : ''});
+      const queued = ivEnqueue({kind:'rec', recs:[b], entry:doc ? ivEntry('inventory.capture', {type:'binder', id:b.id, code:num}, t('iv_log_doc', {c:num, f:IV.folder.code}), {project:IV.pid, short_code:code, folder:IV.folder.code, level:'doc', photo:!!phId, via})
+        : ivEntry('inventory.capture', {type:'binder', id:b.id, code:num}, t('iv_log_cap', {c:num}), {project:IV.pid, short_code:code, box:IV.box ? IV.box.code : '', photo:!!phId, via})});
+      if (!queued){   // v12.14: memory full: undo this capture so the label can be scanned again later (nothing half-saved)
+        IV.scanned.delete(code); IV.list.pop(); IV.last = null;
+        { const r = ivRecent(); if (r[code] === undefined || r[code].id === b.id){ delete r[code]; lsSet(IV_RECENT_LS, r); } }
+        if (phId) IVDB.del(phId).catch(() => {});
+        ivSay('err', t('iv_full')); return ivRender();
+      }
       ivPaceMark(via);
+      if (IV.list.length % 25 === 0) ivStorage();
       if (doc) ivSay('ok', t('iv_doc_ok', {c:num, f:IV.folder.code}));
       else ivSay('ok', IV.box ? t('iv_ok_box', {c:num, b:IV.box.code}) : t('iv_ok', {c:num}));
-      ivEnqueue({kind:'rec', recs:[b], entry:doc ? ivEntry('inventory.capture', {type:'binder', id:b.id, code:num}, t('iv_log_doc', {c:num, f:IV.folder.code}), {project:IV.pid, short_code:code, folder:IV.folder.code, level:'doc', photo:!!phId, via})
-        : ivEntry('inventory.capture', {type:'binder', id:b.id, code:num}, t('iv_log_cap', {c:num}), {project:IV.pid, short_code:code, box:IV.box ? IV.box.code : '', photo:!!phId, via})});
       if (IV.proj.inv.ai && phId) ivEnqueue({kind:'ai', code, ph:phId, voice:'', hints:{tags:IV.proj.inv.tags, year_from:IV.proj.inv.year_from, year_to:IV.proj.inv.year_to, client:IV.proj.inv.client, kind:doc ? 'doc' : 'spine'}});
       if (!doc && inv.doc) ivFolderSet(code, num, b.location_id, b.inv.box);   // document level: the new binder is open for its documents
       ivArmUndo(); ivPrefsSave(); ivRender();
@@ -557,7 +647,9 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
     function ivQueueHTML(){
       const q = IV.q, cls = q.err ? 'err' : q.wait ? 'warn' : q.send ? 'busy' : 'ok';
       const txt = q.err ? t('iv_q_err', {n:q.err, m:q.errMsg}) : q.wait ? t('iv_q_wait', {n:q.wait + q.send}) : q.send ? t('iv_q_send', {n:q.send}) : t('iv_q_ok');
-      return '<div class="iv-q ' + cls + '" id="iv-q" role="status">' + sic(q.err ? 'alert' : q.wait ? 'cloud' : 'check') + '<span>' + esc(txt) + '</span>' + (q.err || q.wait ? '<button type="button" class="iv-q-retry" data-s="iv-retry">↻</button>' : '') + '</div>';
+      const warn = IV.full ? t('iv_full') : IV.auth ? t('iv_q_auth') : IV.low ? t('iv_low') : '';
+      return '<div class="iv-q-w" id="iv-q"><div class="iv-q ' + (IV.full ? 'err' : cls) + '" role="status">' + sic(q.err || IV.full ? 'alert' : q.wait ? 'cloud' : 'check') + '<button type="button" class="iv-q-t" data-s="iv-health" id="iv-q-t" aria-expanded="' + (IV.health ? 'true' : 'false') + '">' + esc(txt) + '</button>' + (q.err || q.wait ? '<button type="button" class="iv-q-retry" data-s="iv-retry">↻</button>' : '') + '</div>' +
+        (warn ? '<div class="iv-q-warn" id="iv-q-warn">' + esc(warn) + '</div>' : '') + ivHealthHTML() + '</div>';
     }
     function ivMsgHTML(){ const m = IV.msg; return m && Date.now() - m.at < 15000 ? '<div class="iv-flash ' + esc(m.kind) + '" id="iv-flash" role="status">' + sic(m.kind === 'ok' ? 'check' : m.kind === 'switch' ? 'box' : 'alert') + '<span>' + esc(m.text) + '</span></div>' : '<div class="iv-flash idle" id="iv-flash">' + esc(t('iv_cam_hint')) + '</div>'; }
     function ivBoxHTML(){
@@ -718,7 +810,9 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       if (a === 'iv-tag') return ivToggleTag(el.dataset.v);
       if (a === 'iv-year') return ivToggleYear(el.dataset.v);
       if (a === 'iv-mic'){ if (Date.now() - pttAt < 1500) return; if (IV.listening) ivVoiceStop(); else ivVoiceStart(); return; }   // pointer presses are handled below
-      if (a === 'iv-retry'){ ivOutboxSet(ivOutbox().map(j => { delete j.err; delete j.wait; delete j.inflight; return j; })); return ivFlushSoon(); }
+      if (a === 'iv-retry'){ IV.auth = false; ivOutboxSet(ivOutbox().map(j => { delete j.err; delete j.wait; delete j.inflight; delete j.next; return j; })); return ivFlushSoon(); }
+      if (a === 'iv-health'){ IV.health = !IV.health; return ivRenderLive(); }
+      if (a === 'iv-rescue') return ivRescueSave();
       if (a === 'iv-done'){ ivCamStop(); const qs = new URLSearchParams(location.search); qs.set('inv', '1'); history.pushState(null, '', 'scan.html?' + qs.toString()); SC.params = scParams(); return scRoute(); }
     }, true);
     // push-to-talk: hold the button (pointer) — a tap toggles (handled by the click above)
@@ -738,13 +832,13 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       const i = document.getElementById('iv-typed'), v = i ? i.value : ''; if (i){ i.value = ''; setTimeout(() => { const j = document.getElementById('iv-typed'); if (j) j.focus(); }, 30); }
       if (String(v).trim()) ivHandle(v, 'phone-typed');
     }, true);
-    window.addEventListener('online', () => { ivOutboxSet(ivOutbox().map(j => { delete j.wait; return j; })); ivFlushSoon(); });
-    setInterval(() => { if (ivOutbox().some(j => j.wait)){ ivOutboxSet(ivOutbox().map(j => { delete j.wait; return j; })); ivFlushSoon(); } }, 20000);
+    window.addEventListener('online', () => { ivOutboxSet(ivOutbox().map(j => { delete j.wait; delete j.next; return j; })); ivFlushSoon(); });
+    setInterval(ivWake, 15000);
     window.addEventListener('pagehide', ivCamStop);
     document.addEventListener('visibilitychange', async () => { if (!document.hidden && IV.cam && !IV.wake && navigator.wakeLock) try { IV.wake = await navigator.wakeLock.request('screen'); } catch(e){} });
     // jobs left inflight by a closed page are retried
     try { const q = ivOutbox(); if (q.some(j => j.inflight)) ivOutboxSet(q.map(j => { delete j.inflight; return j; })); } catch(e){}
     window.IV_API = {ivHandle, ivOpen, ivFlush, ivUndo, ivApplyVoice, ivToggleTag, ivToggleYear, ivOutbox, ivRecent, IV_OUTBOX_LS, IV_RECENT_LS,
-      ivPagePhoto, ivVerifyStart, ivVerifyBox, ivVerifyScan, ivVerifyMove, ivVerifyCapture, ivVerifyClose, ivVerifyResult, ivLevelOf};
+      ivPagePhoto, ivWake, ivPhotoSent, ivStorage, ivRescueData, ivRescueSave, IV_SENT_LS, ivVerifyStart, ivVerifyBox, ivVerifyScan, ivVerifyMove, ivVerifyCapture, ivVerifyClose, ivVerifyResult, ivLevelOf};
   })();
 }
