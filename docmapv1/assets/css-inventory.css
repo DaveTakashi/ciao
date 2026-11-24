@@ -187,3 +187,19 @@
 .iv-prog-bar i{display:block;height:100%;background:var(--green);border-radius:99px;transition:width .3s}
 .ivx-prog{margin-top:12px;display:flex;flex-direction:column;gap:6px}
 .iv-burst-h{display:block;margin:-4px 0 6px 26px}
+/* v12.16: box level on the phone, labelling plan and boxes on the PC */
+.iv-bxp{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--surface)}
+.iv-bxp.none{display:none}
+.iv-bxp-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.iv-bxp-l{display:flex;flex-direction:column;font-weight:600}
+.iv-bxp-l small{font-weight:400;color:var(--muted)}
+.iv-step{display:flex;align-items:center;gap:6px}
+.iv-step .sc-btn{min-width:44px;font-size:20px;padding:6px 0}
+.iv-step input{width:64px;text-align:center;font-size:20px;font-weight:700;padding:6px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text)}
+.iv-bxp-b{display:flex;gap:8px;flex-wrap:wrap}
+.iv-bxp-b .sc-btn{flex:1 1 140px}
+.iv-bx-note{width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text)}
+.ivp-plan{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.ivx-boxes{width:100%;border-collapse:collapse;font-size:13px}
+.ivx-boxes th,.ivx-boxes td{padding:6px 8px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
+.ivx-boxes td.ivq-n{text-align:right}

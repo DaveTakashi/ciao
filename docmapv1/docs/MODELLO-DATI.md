@@ -858,7 +858,7 @@ extra:[{id, code}]}` (scade dopo 4 ore senza scansioni).
   `inv.ph2` seconda foto (prima pagina). Impostazioni del PC: `invPrices`, `invTemplates[{id, name, …campi del modello}]`,
   `invAi {on, url, model}` (non sincronizzate). Verifica di una scatola: riga di registro `inventory.verify`. Telefono:
   `docmap_v26_inv_prefs` ricorda anche la cartella aperta e la scelta jolly.
-- **SQLite**: colonne `archives.inv_json`, `binders.inv_json` (JSON), aggiunte solo se mancano; nessun cambio di `DB_SCHEMA_VERSION`.
+- **SQLite**: colonne `archives.inv_json`, `binders.inv_json` e (v12.16) `locations.inv_json` (JSON), aggiunte solo se mancano; nessun cambio di `DB_SCHEMA_VERSION`.
 - **Telefono**: `docmap_v26_inv_outbox` (coda: lavori `rec`, `tomb`, `ai`), `docmap_v26_inv_recent` (ultime 300 versioni dei
   faldoni acquisiti), `docmap_v26_inv_prefs` (scatola attiva e «Mantieni» per progetto), IndexedDB `docmap_v26_inv` store `photos`.
 - **Telefono v12.14**: i lavori in coda possono avere `next` (ms: quando riprovare) e `tries`; `docmap_v26_inv_sent` = elenco degli
@@ -866,6 +866,13 @@ extra:[{id, code}]}` (scade dopo 4 ore senza scansioni).
   `{format:'docmap-inv-rescue', v:1, at, device, who, project:{id,code,name}, recs:[faldoni e scatole con id `inv-…`], photos:{'ph-…': data URL immagine}}`;
   il PC accetta solo questo (`invRescueParse`) e registra `inventory.rescue`.
 - **v12.15**: progetto `inv.target` (faldoni + documenti previsti, 0 = nessuno); preferenze del telefono per progetto anche `burst` (sì/no).
+- **v12.16**: progetto `inv.plan = {box: 'out'|'inout'|'none', binder: 'all'|'some'|'none', code: 'big'|'normal'|'hidden',
+  short: bool}` (`invPlanNorm`; senza `plan` = `out`/`all`/`normal`/`true`). Scatola del progetto (ubicazione): `l.inv = {count
+  (null o ≥ 0, contati a mano), years, tags, note, shots:[{ph, at, w, h, codes:[{c, x, y, w, h}]}]}` (`invBoxNorm`, ultime 20
+  foto; `x y w h` in frazioni 0…1 della foto). Faldone senza etichetta: faldone normale con short code casuale fuori dal
+  prefisso del progetto (`invNolabelCode`) e `inv.nolabel = 1`. Dati per l'addestramento: JSON Lines, prima riga
+  `{format:'docmap-inv-train', v:1, …}`, poi righe `t:'binder'` (foto, campi confermati `truth`, lettura `ai`) e `t:'shot'`
+  (foto della scatola, posizioni delle etichette); formato completo in `docs/RICONOSCIMENTO.md`.
 - **Server**: foto in `data_dir/photos/` cifrate (`API-CONTRACT.md` §14).
 
 ## 19. Lavoro annuale (v12.11 — `assets/js/02l-years.js`, `06w-newyear.js`, `06x-retention.js`, `06y-place.js`)

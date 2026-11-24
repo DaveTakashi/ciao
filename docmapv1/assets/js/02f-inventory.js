@@ -92,6 +92,7 @@ function normalizeInv(i){
   o.auto_confirm = Math.max(0.5, Math.min(1, +o.auto_confirm || INV_AUTO_CONFIRM));
   o.notes = String(o.notes || '').slice(0, 2000);
   o.target = Math.max(0, Math.min(INV_MAX, parseInt(o.target, 10) || 0));   // v12.15: expected binders (+ documents) of the job, 0 = none
+  o.plan = invPlanNorm(o.plan);   // v12.16: how the archive is labelled (boxes, binders, readable code)
   return o;
 }
 function invIsProject(a){ return !!(a && a.inv && typeof a.inv === 'object' && /^[A-Za-z0-9]{4}$/.test(a.inv.prefix || '')); }
@@ -225,7 +226,9 @@ function invReport(a, binders, locations, logs, settings, pauseMs){
   const perBox = boxes.map(l => {
     const L = bins.filter(b => b.location_id === l.id), ys = [];
     L.forEach(b => (String(b.ref_year || '').match(/\b(1[89]|2[01])\d\d\b/g) || []).forEach(y => ys.push(+y)));
-    return {id:l.id, code:l.name || l.code || l.short_code, n:L.length, y0:ys.length ? Math.min(...ys) : 0, y1:ys.length ? Math.max(...ys) : 0};
+    const bx = invBoxNorm(l.inv); (bx.years.match(/\b(1[89]|2[01])\d\d\b/g) || []).forEach(y => ys.push(+y));   // v12.16: years written on the box
+    const nl = L.filter(b => b.inv && b.inv.nolabel).length;
+    return {id:l.id, code:l.name || l.code || l.short_code, n:L.length, nolabel:nl, count:bx.count, counted:invBoxCounted(bx.count, L.length), shots:bx.shots.length, tags:bx.tags, note:bx.note, y0:ys.length ? Math.min(...ys) : 0, y1:ys.length ? Math.max(...ys) : 0};
   }).sort((x, y) => naturalCmpSafe(x.code, y.code));
   // per operator
   const ops = {};
@@ -243,9 +246,11 @@ function invReport(a, binders, locations, logs, settings, pauseMs){
   const ver = (logs || []).filter(e => e && e.action === 'inventory.verify' && e.details && e.details.project === (a && a.id)).map(e => ({at:e.at, who:e.who, box:e.details.box || '', expected:e.details.expected || 0, found:e.details.found || 0, missing:(e.details.missing || []).length, misplaced:(e.details.misplaced || []).length}))
     .sort((x, y) => String(y.at).localeCompare(String(x.at)));
   const prices = invPrices(i, settings);
-  const bill = invBill({binders:bins.length, boxes:boxes.length, docs:docs.length}, prices);
+  // v12.16 box level: a box counted by hand bills its declared binders (never fewer than the ones captured)
+  const extra = perBox.reduce((sum, x) => sum + Math.max(0, x.counted - x.n), 0);
+  const bill = invBill({binders:bins.length + extra, boxes:boxes.length, docs:docs.length}, prices);
   return {name:(a && a.name) || i.code, code:i.code, client:i.client, mode:i.mode, status:i.status, first:ats[0] || '', last:ats[ats.length - 1] || '',
-    binders:bins.length, docs:docs.length, boxes:boxes.length, states:st, perBox, operators, median_ms:Math.round(invMedian(allGaps)),
+    binders:bins.length, docs:docs.length, boxes:boxes.length, counted:bins.length + extra, nolabel:bins.filter(b => b.inv && b.inv.nolabel).length, states:st, perBox, operators, median_ms:Math.round(invMedian(allGaps)),
     ai:{read:read.length, avg:conf.length ? Math.round(100 * conf.reduce((s, x) => s + x, 0) / conf.length) / 100 : 0, review:st.review, models:Array.from(new Set(read.map(b => b.inv.ai.model || '').filter(Boolean)))},
     labels:{box:i.box_to, binder:i.binder_to, printed, unusedBox, unusedBin}, verifications:ver, prices, bill};
 }
@@ -460,4 +465,100 @@ function invBurstCrop(box, W, H){
   const cx = box.x + box.width / 2, sw = Math.min(W, Math.max(box.width * 2.2, W * 0.12));
   const x = Math.max(0, Math.min(W - sw, cx - sw / 2));
   return {x:Math.round(x), y:0, w:Math.round(sw), h:Math.round(H)};
+}
+
+/* ---------------- v12.16: labelling plan, box level, box photos with the QR positions ---------------- */
+/* The labelling plan says what has a label in this archive, so the phone and the PC propose the right work:
+   box    out (one label outside, default) · inout (two labels per box: outside + inside) · none (boxes not labelled)
+   binder all (every binder labelled, default) · some (some binders labelled, the others added «senza etichetta»)
+          · none (only boxes: count, years, tags and photos per box)
+   code   big · normal (default) · hidden: the readable number printed next to the QR (big helps people and future
+          recognition from a photo) · short: also print the QR code itself (dm26…) in small type. */
+const INV_PLAN_BOX = ['out', 'inout', 'none'], INV_PLAN_BINDER = ['all', 'some', 'none'], INV_PLAN_CODE = ['big', 'normal', 'hidden'];
+const INV_PLAN_DEFAULT = {box:'out', binder:'all', code:'normal', short:true};
+function invPlanNorm(p){
+  p = p && typeof p === 'object' ? p : {};
+  return {box:INV_PLAN_BOX.includes(p.box) ? p.box : INV_PLAN_DEFAULT.box, binder:INV_PLAN_BINDER.includes(p.binder) ? p.binder : INV_PLAN_DEFAULT.binder,
+    code:INV_PLAN_CODE.includes(p.code) ? p.code : INV_PLAN_DEFAULT.code, short:p.short !== false};
+}
+/** Copies of one label: a box labelled inside and outside gets 2 (marked OUT / IN), everything else 1. */
+function invPlanCopies(plan, kind){ return kind === 'box' && invPlanNorm(plan).box === 'inout' ? 2 : 1; }
+/** Short code for a binder that has no label of its own («senza etichetta»): a normal random code (it can get a normal
+    label later), never inside a project label range of the given prefixes. */
+function invNolabelCode(prefixes){
+  const px = new Set(prefixes || []);
+  for (let i = 0; i < 50; i++){
+    const c = 'dm26' + (typeof randChars === 'function' ? randChars(8) : Math.random().toString(36).slice(2, 10).padEnd(8, 'x'));
+    const x = invParseCode(c); if (!(x && px.has(x.prefix)) && !(typeof invCodeTaken === 'function' && invCodeTaken(c))) return c;
+  }
+  return 'dm26' + Date.now().toString(36).slice(-8).padStart(8, 'z');
+}
+/** Box-level data kept on the box location record (l.inv): count by hand (null = not counted), years, tags, note,
+    photos of the open box (shots). Unknown keys are kept for later versions. */
+function invBoxNorm(x){
+  const o = Object.assign({}, x && typeof x === 'object' ? x : {});
+  const c = o.count === null || o.count === undefined || o.count === '' ? null : parseInt(o.count, 10);
+  o.count = Number.isFinite(c) && c >= 0 ? Math.min(c, 100000) : null;
+  o.years = String(o.years || '').replace(/\s+/g, '').slice(0, 20);
+  o.tags = invNormTags(o.tags);
+  o.note = String(o.note || '').slice(0, 500);
+  o.shots = (Array.isArray(o.shots) ? o.shots : []).map(invShotNorm).filter(Boolean).slice(-20);
+  return o;
+}
+/** Binders of a box: the count by hand when there is one, never fewer than the ones captured. */
+function invBoxCounted(count, captured){ return Math.max(count === null || count === undefined ? 0 : count, captured || 0); }
+/** One photo of an open box with where each QR is: {ph, at, w, h, codes:[{c, x, y, w, h}]} with x / y / w / h as
+    fractions of the photo (0..1), so any later model can find the binder of each label in the same photo. */
+function invShotNorm(s){
+  if (!s || typeof s !== 'object' || !/^ph-[A-Za-z0-9-]+$/.test(String(s.ph || ''))) return null;
+  const f = (v) => { v = +v; return Number.isFinite(v) ? Math.max(0, Math.min(1, Math.round(v * 10000) / 10000)) : 0; };
+  const codes = (Array.isArray(s.codes) ? s.codes : []).filter(c => c && /^dm26L?[A-Za-z0-9]{8}$/.test(String(c.c || ''))).slice(0, 80).map(c => ({c:String(c.c), x:f(c.x), y:f(c.y), w:f(c.w), h:f(c.h)}));
+  return {ph:String(s.ph), at:String(s.at || ''), w:Math.max(0, parseInt(s.w, 10) || 0), h:Math.max(0, parseInt(s.h, 10) || 0), codes, by:String(s.by || '').slice(0, 80)};
+}
+/** Codes seen in a camera frame (raw text → DOMRect-like box) → shot codes (short codes, fractions of the frame). */
+function invShotCodes(boxes, W, H){
+  const out = []; if (!boxes || !(W > 0) || !(H > 0)) return out;
+  boxes.forEach((b, raw) => { const p = invParseScan(raw), c = p && p.code; if (!c || !/^dm26L?[A-Za-z0-9]{8}$/.test(c) || !b || out.some(x => x.c === c)) return;
+    out.push({c, x:b.x / W, y:b.y / H, w:b.width / W, h:b.height / H}); });
+  const f = (v) => Math.max(0, Math.min(1, Math.round(v * 10000) / 10000));
+  return out.map(x => ({c:x.c, x:f(x.x), y:f(x.y), w:f(x.w), h:f(x.h)}));
+}
+
+/* ---------------- v12.16: recognisers (extension point for photo recognition) ---------------- */
+/* A recogniser turns one shot into regions: [{c (short code), x, y, w, h (fractions), kind:'spine', score, by}].
+   The built-in «qr-anchor» uses only the QR positions (a vertical strip around each label, as the burst photo).
+   A later model (segmentation of every binder in the photo, OCR of the spine) registers itself with invRecognizerAdd
+   and wins when its score is higher; nothing else in the app changes. See docs/RICONOSCIMENTO.md. */
+const INV_RECOGNIZERS = [];
+function invRecognizerAdd(r){
+  if (!r || typeof r.id !== 'string' || typeof r.run !== 'function') return false;
+  const i = INV_RECOGNIZERS.findIndex(x => x.id === r.id); if (i >= 0) INV_RECOGNIZERS.splice(i, 1);
+  INV_RECOGNIZERS.push({id:r.id, label:String(r.label || r.id), priority:+r.priority || 0, run:r.run}); INV_RECOGNIZERS.sort((a, b) => b.priority - a.priority);
+  return true;
+}
+/** Regions of a shot: for each code the best region among all recognisers (synchronous ones; async models run on their own). */
+function invRecognize(shot, ctx){
+  const s = invShotNorm(shot); if (!s) return [];
+  const best = new Map();
+  INV_RECOGNIZERS.forEach(r => { let out = []; try { out = r.run(s, ctx || {}) || []; } catch(e){ out = []; }
+    (Array.isArray(out) ? out : []).forEach(x => { if (!x || !x.c) return; const cur = best.get(x.c); if (!cur || (+x.score || 0) > (+cur.score || 0)) best.set(x.c, Object.assign({kind:'spine', by:r.id}, x)); }); });
+  return s.codes.map(c => best.get(c.c)).filter(Boolean);
+}
+invRecognizerAdd({id:'qr-anchor', label:'QR', priority:0, run:(s) => s.codes.filter(c => !/^dm26L/.test(c.c)).map(c => {
+  const W = s.w || 1000, H = s.h || 1000, r = invBurstCrop({x:c.x * W, y:c.y * H, width:c.w * W, height:c.h * H}, W, H);
+  return r ? {c:c.c, x:r.x / W, y:r.y / H, w:r.w / W, h:r.h / H, kind:'spine', score:0.3} : null; }).filter(Boolean)});
+
+/* ---------------- v12.16: training data (for a specialised reading model later) ---------------- */
+/** One row per binder of the project with a photo and fields a person confirmed: what the photo shows and the right
+    answer, plus the box shots with the QR positions. Personal data stay in the studio: the export is a file the user
+    decides to share (see docs/RICONOSCIMENTO.md). */
+function invTrainRows(a, binders, locations){
+  const id = a && a.id, rows = [];
+  (binders || []).filter(b => b && b.archive_id === id && b.inv && (b.inv.ph || b.inv.ph2)).forEach(b => {
+    const i = b.inv; rows.push({t:'binder', id:b.id, code:b.short_code, photo:i.ph2 || i.ph, kind:invLevel(b) === 'doc' ? 'doc' : i.ph2 ? 'page' : 'spine', confirmed:i.st === 'confirmed',
+      truth:{company_name:b.company_name || '', binder_title:b.binder_title || '', ref_year:b.ref_year || '', category:b.category || '', multi_code:b.multi_code || '', tags:invNormTags(b.tags)},
+      ai:i.ai && typeof i.ai === 'object' ? {title:i.ai.title || '', year:i.ai.year || '', company:i.ai.company || '', confidence:+i.ai.confidence || 0, model:i.ai.model || ''} : null, nolabel:!!i.nolabel, box:i.box || ''});
+  });
+  (locations || []).filter(l => l && l.archive_id === id && l.inv).forEach(l => invBoxNorm(l.inv).shots.forEach(s => rows.push({t:'shot', box:l.name || l.short_code, photo:s.ph, w:s.w, h:s.h, codes:s.codes})));
+  return rows;
 }

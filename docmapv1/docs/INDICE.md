@@ -1,6 +1,6 @@
 # Indice della documentazione DocMap
 
-> Mappa di tutti i documenti di `docmapv1/` (versione **26.12.15**, hub **0.13.0**): a cosa serve ognuno, chi lo deve leggere e in che
+> Mappa di tutti i documenti di `docmapv1/` (versione **26.12.16**, hub **0.13.0**): a cosa serve ognuno, chi lo deve leggere e in che
 > ordine. I percorsi sono relativi a `docmapv1/`.
 
 ## Per ripartire (tutti)
@@ -61,6 +61,8 @@
 | [`AGGIORNAMENTO-v12.12-v12.13.md`](AGGIORNAMENTO-v12.12-v12.13.md) | **Guida dalla v12.12 alla v12.13**: inventario fasi 3 e 4 (stazione fissa, catena a due, verifica scatole, lettore Bluetooth, documenti, modelli, prezzi, report di fine lavoro) e lettura AI con qualsiasi fornitore (anche locale). Nessuna migrazione, nessuna rotta nuova. |
 | [`AGGIORNAMENTO-v12.13-v12.14.md`](AGGIORNAMENTO-v12.13-v12.14.md) | **Guida dalla v12.13 alla v12.14**: coda del telefono che riprova da sola (server occupato, rete, accesso scaduto), memoria piena senza perdite, copia di sicurezza e importazione sul PC, stima di un lavoro. Nessuna migrazione, server invariato |
 | [`AGGIORNAMENTO-v12.14-v12.15.md`](AGGIORNAMENTO-v12.14-v12.15.md) | **Guida dalla v12.14 alla v12.15**: raffica (più etichette in una inquadratura), obiettivo del progetto con avanzamento e ora di fine. Nessuna migrazione, server invariato |
+| [`AGGIORNAMENTO-v12.15-v12.16.md`](AGGIORNAMENTO-v12.15-v12.16.md) | **Guida dalla v12.15 alla v12.16**: come è etichettato l'archivio, livello scatola, faldoni senza etichetta, foto della scatola aperta, codice leggibile grande, FUORI e DENTRO, dati per l'addestramento. Nessuna migrazione, server invariato |
+| [`RICONOSCIMENTO.md`](RICONOSCIMENTO.md) | **Per chi sviluppa**: cosa salva l'inventario per riconoscere in futuro tutti i faldoni da una foto (posizioni dei QR, riconoscitori, dati per l'addestramento); collega il [briefing sullo stato dell'arte di OCR e AI](https://claude.ai/artifact/6vVNg8CmEyoT7YYzgzs6TL) |
 | [`AGGIORNAMENTO-v12.7-v12.8.md`](AGGIORNAMENTO-v12.7-v12.8.md) | **Guida dalla v12.7 alla v12.8**: Progetti di inventario (etichette, telefono Scatola → Faldoni, revisione, AI facoltativa), indirizzo dei QR configurabile. Migrazioni solo additive. |
 | [`AGGIORNAMENTO-HUB-0.12.0.md`](AGGIORNAMENTO-HUB-0.12.0.md) | DocMap Hub: alla 0.12 (backup automatico a ogni versione nuova, backup controllati, ripristino sicuro, Controllo dell'hub, situazione clienti in Excel). Registro invariato. |
 | [`AGGIORNAMENTO-HUB-0.11.2.md`](AGGIORNAMENTO-HUB-0.11.2.md) | DocMap Hub: alla 0.11.2 (zip completo con «Inizia qui», guide HTML, domande frequenti, RACCOGLI-INFO.bat, zip controllato). |

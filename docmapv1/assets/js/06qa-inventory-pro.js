@@ -32,7 +32,7 @@ Object.assign(I18N.it, {
   ivq_set_ai_on:'Usa il modello locale', ivq_set_ai_url:'Indirizzo del servizio', ivq_set_ai_model:'Modello (con la vista, es. qwen2.5vl:7b)', ivq_set_ai_test:'Prova', ivq_set_ai_ok:'Risponde: {m}', ivq_set_ai_ko:'Non risponde: {m}',
   ivq_set_ai_h2:'Ollama: avvialo con OLLAMA_ORIGINS=* perché accetti le richieste di questa pagina. LM Studio: attiva «CORS» nel server locale.',
   ivq_set_tpl_h:'Modelli di progetto dello studio', ivq_set_tpl_none:'Nessun modello tuo: aprine un progetto e usa «Salva come modello».', ivq_tpl_del:'Elimina',
-  ivq_r_title:'Report di fine lavoro — {p}', ivq_r_period:'Periodo', ivq_r_client:'Cliente', ivq_r_mode:'Modalità', ivq_r_tot:'Totali', ivq_r_states:'Stato della catalogazione', ivq_r_boxes:'Scatole', ivq_r_box:'Scatola', ivq_r_n:'Faldoni', ivq_r_years:'Anni',
+  ivq_r_title:'Report di fine lavoro — {p}', ivq_r_period:'Periodo', ivq_r_client:'Cliente', ivq_r_mode:'Modalità', ivq_r_tot:'Totali', ivq_r_states:'Stato della catalogazione', ivq_r_boxes:'Scatole', ivq_r_box:'Scatola', ivq_r_n:'Faldoni', ivq_r_years:'Anni', ivq_r_counted:'Contati',
   ivq_r_ops:'Operatori', ivq_r_op:'Operatore', ivq_r_pace:'Tempo a faldone (mediana)', ivq_r_first:'Primo', ivq_r_last:'Ultimo', ivq_r_ai:'Lettura AI', ivq_r_ai_v:'{r} letti, fiducia media {c}%, {v} da rivedere', ivq_r_labels:'Etichette',
   ivq_r_labels_v:'{b} scatole e {f} faldoni/documenti generati, {p} stampate; non usate: {ub} scatole, {uf} faldoni/documenti', ivq_r_ver:'Verifiche', ivq_r_bill:'Fatturazione', ivq_r_item:'Voce', ivq_r_qty:'Quantità', ivq_r_unit:'Prezzo', ivq_r_total:'Totale',
   ivq_r_net:'Imponibile', ivq_r_vat:'IVA {p}%', ivq_r_gross:'Totale', ivq_r_note:'Prezzi indicativi: quelli del progetto o, se mancano, quelli di Impostazioni › Inventario. Il documento non è una fattura.',
@@ -51,7 +51,7 @@ Object.assign(I18N.en, {
   ivq_set_ai_on:'Use the local model', ivq_set_ai_url:'Service address', ivq_set_ai_model:'Model (with vision, e.g. qwen2.5vl:7b)', ivq_set_ai_test:'Test', ivq_set_ai_ok:'It answers: {m}', ivq_set_ai_ko:'No answer: {m}',
   ivq_set_ai_h2:'Ollama: start it with OLLAMA_ORIGINS=* so it accepts the requests of this page. LM Studio: turn on "CORS" in the local server.',
   ivq_set_tpl_h:'Studio project templates', ivq_set_tpl_none:'No template of yours: open a project and use "Save as template".', ivq_tpl_del:'Delete',
-  ivq_r_title:'End-of-job report — {p}', ivq_r_period:'Period', ivq_r_client:'Client', ivq_r_mode:'Mode', ivq_r_tot:'Totals', ivq_r_states:'Cataloguing status', ivq_r_boxes:'Boxes', ivq_r_box:'Box', ivq_r_n:'Binders', ivq_r_years:'Years',
+  ivq_r_title:'End-of-job report — {p}', ivq_r_period:'Period', ivq_r_client:'Client', ivq_r_mode:'Mode', ivq_r_tot:'Totals', ivq_r_states:'Cataloguing status', ivq_r_boxes:'Boxes', ivq_r_box:'Box', ivq_r_n:'Binders', ivq_r_years:'Years', ivq_r_counted:'Counted',
   ivq_r_ops:'Operators', ivq_r_op:'Operator', ivq_r_pace:'Time per binder (median)', ivq_r_first:'First', ivq_r_last:'Last', ivq_r_ai:'AI reading', ivq_r_ai_v:'{r} read, average confidence {c}%, {v} to review', ivq_r_labels:'Labels',
   ivq_r_labels_v:'{b} boxes and {f} binders/documents generated, {p} printed; unused: {ub} boxes, {uf} binders/documents', ivq_r_ver:'Checks', ivq_r_bill:'Billing', ivq_r_item:'Item', ivq_r_qty:'Quantity', ivq_r_unit:'Price', ivq_r_total:'Total',
   ivq_r_net:'Net', ivq_r_vat:'VAT {p}%', ivq_r_gross:'Total', ivq_r_note:'Indicative prices: those of the project or, when missing, those of Settings › Inventory. This document is not an invoice.',
@@ -74,7 +74,8 @@ function ivpProHTML(a){
       '<button class="btn" data-a="ivq-tpl" data-id="' + esc(a.id) + '" id="ivq-tpl">' + ic('copy') + esc(t('ivq_tpl_save')) + '</button>' +
       (typeof ivxRescueButtonHTML === 'function' ? ivxRescueButtonHTML(a) : '') + '</div>' + (typeof ivxProgressHTML === 'function' ? ivxProgressHTML(a) : '') + '</div>' +
     '<div class="card card-p"><h2>' + esc(t('ivq_ver_h')) + '</h2>' + ver + '</div></div>' +
-    (live ? '<div class="card card-p ivq-live" style="margin-top:16px" id="ivq-live-card">' + ivqLiveHTML(a) + '</div>' : '');
+    (live ? '<div class="card card-p ivq-live" style="margin-top:16px" id="ivq-live-card">' + ivqLiveHTML(a) + '</div>' : '') +
+    (typeof ivxBoxesHTML === 'function' ? ivxBoxesHTML(a) : '');
 }
 
 /* ---------------- "In diretta" (two-person chain) ---------------- */
@@ -212,8 +213,8 @@ function ivqReportHTML(a, R){
       '<p class="ivq-note">' + esc(t('ivq_r_note')) + '</p>' +
     '<h2>' + esc(t('ivq_r_ops')) + '</h2><table class="ivq-t"><thead><tr><th>' + esc(t('ivq_r_op')) + '</th><th class="ivq-n">' + esc(t('ivq_r_n')) + '</th><th class="ivq-n">' + esc(t('ivp_k_docs')) + '</th><th class="ivq-n">' + esc(t('ivp_f_review')) + '</th><th class="ivq-n">' + esc(t('ivq_r_pace')) + '</th><th>' + esc(t('ivq_r_first')) + '</th><th>' + esc(t('ivq_r_last')) + '</th></tr></thead><tbody>' +
       (R.operators.map(o => '<tr><td>' + esc(o.who) + '</td><td class="ivq-n">' + o.n + '</td><td class="ivq-n">' + o.docs + '</td><td class="ivq-n">' + o.review + '</td><td class="ivq-n">' + esc(ivqSecs(o.median_ms)) + '</td><td>' + d(o.first) + '</td><td>' + d(o.last) + '</td></tr>').join('') || '<tr><td colspan="7">—</td></tr>') + '</tbody></table>' +
-    '<h2>' + esc(t('ivq_r_boxes')) + '</h2><table class="ivq-t"><thead><tr><th>' + esc(t('ivq_r_box')) + '</th><th class="ivq-n">' + esc(t('ivq_r_n')) + '</th><th>' + esc(t('ivq_r_years')) + '</th></tr></thead><tbody>' +
-      (R.perBox.map(x => '<tr><td class="mono">' + esc(x.code) + '</td><td class="ivq-n">' + x.n + '</td><td>' + (x.y0 ? x.y0 + (x.y1 !== x.y0 ? '–' + x.y1 : '') : '—') + '</td></tr>').join('') || '<tr><td colspan="3">—</td></tr>') + '</tbody></table>' +
+    '<h2>' + esc(t('ivq_r_boxes')) + '</h2><table class="ivq-t"><thead><tr><th>' + esc(t('ivq_r_box')) + '</th><th class="ivq-n">' + esc(t('ivq_r_n')) + '</th><th class="ivq-n">' + esc(t('ivq_r_counted')) + '</th><th>' + esc(t('ivq_r_years')) + '</th></tr></thead><tbody>' +
+      (R.perBox.map(x => '<tr><td class="mono">' + esc(x.code) + '</td><td class="ivq-n">' + x.n + '</td><td class="ivq-n">' + x.counted + '</td><td>' + (x.y0 ? x.y0 + (x.y1 !== x.y0 ? '–' + x.y1 : '') : '—') + '</td></tr>').join('') || '<tr><td colspan="3">—</td></tr>') + '</tbody></table>' +
     (R.verifications.length ? '<h2>' + esc(t('ivq_r_ver')) + '</h2><table class="ivq-t"><tbody>' + R.verifications.map(v => '<tr><td class="mono">' + esc(v.box) + '</td><td>' + esc(t('ivq_ver_row', {b:'', f:v.found, e:v.expected}).replace(/^:\s*/, '')) + '</td><td>' + esc(t('ivq_ver_mis', {n:v.missing})) + ', ' + esc(t('ivq_ver_x', {n:v.misplaced})) + '</td><td>' + d(v.at) + '</td></tr>').join('') + '</tbody></table>' : '') +
     '</div>';
 }
@@ -221,14 +222,14 @@ function ivqReportCSV(R){
   const q = (v) => { v = String(v == null ? '' : v); return /[;"\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }, n = (x) => String(x).replace('.', S.lang === 'en' ? '.' : ',');
   const rows = [['sezione', 'voce', 'valore', 'quantita', 'prezzo', 'totale'],
     ['progetto', 'nome', R.name], ['progetto', 'codice', R.code], ['progetto', 'cliente', R.client], ['progetto', 'modalita', R.mode], ['progetto', 'dal', R.first], ['progetto', 'al', R.last],
-    ['totali', 'scatole', R.boxes], ['totali', 'faldoni', R.binders], ['totali', 'documenti', R.docs]];
+    ['totali', 'scatole', R.boxes], ['totali', 'faldoni', R.binders], ['totali', 'faldoni_contati', R.counted], ['totali', 'faldoni_senza_etichetta', R.nolabel], ['totali', 'documenti', R.docs]];
   Object.keys(R.states).forEach(k => rows.push(['stato', k, R.states[k]]));
   rows.push(['tempi', 'mediana_secondi_a_faldone', n((R.median_ms / 1000).toFixed(1))], ['ai', 'letti', R.ai.read], ['ai', 'fiducia_media', n(R.ai.avg)], ['ai', 'da_rivedere', R.ai.review]);
   rows.push(['etichette', 'scatole_generate', R.labels.box], ['etichette', 'faldoni_documenti_generati', R.labels.binder], ['etichette', 'stampate', R.labels.printed], ['etichette', 'scatole_non_usate', R.labels.unusedBox], ['etichette', 'faldoni_documenti_non_usati', R.labels.unusedBin]);
   R.bill.lines.forEach(l => rows.push(['fattura', l.k, '', l.qty, n(l.unit), n(l.total)]));
   rows.push(['fattura', 'imponibile', '', '', '', n(R.bill.net)], ['fattura', 'iva_' + R.bill.vatPct, '', '', '', n(R.bill.vat)], ['fattura', 'totale', '', '', '', n(R.bill.gross)]);
   R.operators.forEach(o => rows.push(['operatore', o.who, o.n, o.docs, n((o.median_ms / 1000).toFixed(1)), o.review]));
-  R.perBox.forEach(x => rows.push(['scatola', x.code, x.n, x.y0 || '', x.y1 || '']));
+  R.perBox.forEach(x => rows.push(['scatola', x.code, x.n, x.counted, x.y0 || '', x.y1 || '']));
   R.verifications.forEach(v => rows.push(['verifica', v.box, v.found + '/' + v.expected, v.missing, v.misplaced, v.at]));
   return '﻿' + rows.map(r => r.map(q).join(';')).join('\r\n') + '\r\n';
 }
