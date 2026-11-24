@@ -716,6 +716,13 @@ def _api_routes():
         ("GET", r(r"/api/customers/([\w-]+)/commerciale"), A.customer_commercial),     # 0.13 brand + quote
         ("POST", r(r"/api/customers/([\w-]+)/commerciale"), A.set_customer_commercial),
         ("POST", r(r"/api/customers/([\w-]+)/delete"), A.customer_delete),
+        # v0.14 Strumenti remote server
+        ("GET", r(r"/api/strumenti"), A.strumenti_view),
+        ("POST", r(r"/api/strumenti"), A.strumenti_config_set),
+        ("POST", r(r"/api/strumenti/ping"), A.strumenti_ping),
+        ("POST", r(r"/api/strumenti/sync"), A.strumenti_sync),
+        ("POST", r(r"/api/instances/([\w-]+)/strumenti/token"), A.strumenti_token),
+        ("POST", r(r"/api/instances/([\w-]+)/strumenti/revoke"), A.strumenti_revoke),
     ]
 
 

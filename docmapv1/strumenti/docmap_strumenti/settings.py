@@ -68,6 +68,7 @@ def save(data_dir: Path, new: dict) -> dict:
         if isinstance(ep, dict) and ep.get("token") == MASK:
             ep["token"] = ((cur.get("endpoints") or {}).get(name) or {}).get("token", "")
     merged = _deep(cur, new)
+    p.parent.mkdir(parents=True, exist_ok=True)
     tmp = p.with_name(".impostazioni.tmp")
     tmp.write_text(json.dumps(merged, ensure_ascii=False, indent=2), "utf-8")
     os.replace(tmp, p)
@@ -84,3 +85,16 @@ def public(s: dict) -> dict:
         if isinstance(ep, dict) and ep.get("token"):
             ep["token"] = MASK
     return out
+
+
+def effective(data_dir: Path) -> dict:
+    """Settings as the engine must apply them: the installed licence (if any) decides the run modes and the monthly
+    credits of this PC (``licensing.entitlements``); ``_ent`` keeps the whole answer. Never saved."""
+    from . import licensing
+    s = load(data_dir)
+    ent = licensing.entitlements(Path(data_dir), s)
+    if ent["enforced"]:
+        s.setdefault("licence", {})["modes"] = ent["modes"]
+        s.setdefault("credits", {})["local_month"] = ent["credits_month"]
+    s["_ent"] = ent
+    return s

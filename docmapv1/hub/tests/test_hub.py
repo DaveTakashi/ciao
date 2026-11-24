@@ -125,7 +125,7 @@ class TestService(TempDir):
             out = hub.issue(PASS, i["id"], "studio", limits={"users": 7}, now=now)
             lic = out["licence"]
             self.assertEqual(lic["expires_at"], "2027-03-31T10:00:00Z")
-            self.assertEqual(lic["limits"], {"users": 7, "binders": 5000, "archives": 3})
+            self.assertEqual(lic["limits"], {"users": 7, "binders": 5000, "archives": 3, "strumenti_credits": 2000})
             self.assertIn("white_label", lic["features"])
             self.assertEqual(lic["branding"], {"product_name": "ArchivioFacile"})
             self.assertEqual(lic["reseller"]["name"], "Rete Studi")
@@ -195,7 +195,7 @@ class TestCli(TempDir):
                           "--no-feature", "ai_credits", "--out", str(lic_path))
         self.assertEqual(rc, 0, e)
         lic = json.loads(lic_path.read_text("utf-8"))["licence"]
-        self.assertEqual(lic["limits"], {"users": 8, "binders": None, "archives": 10})
+        self.assertEqual(lic["limits"], {"users": 8, "binders": None, "archives": 10, "strumenti_credits": 10000})
         self.assertNotIn("ai_credits", lic["features"])
         self.assertIn("white_label", lic["features"])
         self.assertEqual(lic["instance_id"], "11111111-aaaa-bbbb-cccc-000000000001")

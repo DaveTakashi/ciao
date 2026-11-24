@@ -7,13 +7,13 @@
 
 | Componente | Versione | Dove si legge | Zip per Dave (file del progetto) |
 |---|---|---|---|
-| App Doc Location (PC, web, telefono) | **26.12.18** (v12.18: ⚙ › Strumenti per l'amministratore, porta verso il programma delle ricette per i documenti; prima 26.12.17: lettura AI con fiducia per campo e campi da controllare, vocabolario dei tag del cliente con tag suggeriti, banco di prova dei fornitori AI; prima 26.12.16: inventario per scatole e faldoni in tutte le modalità, cioè etichette FUORI e DENTRO, faldoni senza etichetta, conteggio a livello scatola, codice leggibile grande o nascosto, foto della scatola con la posizione delle etichette, dati per l'addestramento; prima 26.12.15: raffica di più etichette nella stessa inquadratura, obiettivo del progetto con avanzamento e ora di fine; prima 26.12.14: coda del telefono che riprova da sola e non perde niente anche con la memoria piena, copia di sicurezza importabile sul PC, stima di un lavoro; prima 26.12.13: inventario fasi 3 e 4, cioè stazione fissa, catena a due, verifica scatole, lettore Bluetooth, documenti, modelli, prezzi, report di fine lavoro, AI con qualsiasi fornitore; prima 26.12.12: nuovo nome Doc Location, marchio in un solo file `brand.js`, lingue dal marchio; prima 26.12.11: nuovo anno in un clic, scarto proposto con verbale, «Dove lo metto?», ricerca a voce) | `APP_VERSION` in `assets/js/02-core.js`; marchio: `brand.js` (`docs/MARCHIO.md`) | dentro lo zip completo `docmapv1/python/DocMap-hub-0.13.0-app-26.12.18.zip` |
+| App Doc Location (PC, web, telefono) | **26.12.18** (v12.18: ⚙ › Strumenti per l'amministratore, porta verso il programma delle ricette per i documenti; prima 26.12.17: lettura AI con fiducia per campo e campi da controllare, vocabolario dei tag del cliente con tag suggeriti, banco di prova dei fornitori AI; prima 26.12.16: inventario per scatole e faldoni in tutte le modalità, cioè etichette FUORI e DENTRO, faldoni senza etichetta, conteggio a livello scatola, codice leggibile grande o nascosto, foto della scatola con la posizione delle etichette, dati per l'addestramento; prima 26.12.15: raffica di più etichette nella stessa inquadratura, obiettivo del progetto con avanzamento e ora di fine; prima 26.12.14: coda del telefono che riprova da sola e non perde niente anche con la memoria piena, copia di sicurezza importabile sul PC, stima di un lavoro; prima 26.12.13: inventario fasi 3 e 4, cioè stazione fissa, catena a due, verifica scatole, lettore Bluetooth, documenti, modelli, prezzi, report di fine lavoro, AI con qualsiasi fornitore; prima 26.12.12: nuovo nome Doc Location, marchio in un solo file `brand.js`, lingue dal marchio; prima 26.12.11: nuovo anno in un clic, scarto proposto con verbale, «Dove lo metto?», ricerca a voce) | `APP_VERSION` in `assets/js/02-core.js`; marchio: `brand.js` (`docs/MARCHIO.md`) | dentro lo zip completo `docmapv1/python/DocMap-hub-0.14.0-app-26.12.18.zip` |
 | Database locale (SQLite nel browser) | schema **9** | `DB_SCHEMA_VERSION` in `assets/js/06-db.js` | — |
 | Server web PHP (`server-php/api.php`) | 26.12.18 (v12.18: solo il numero; v12.17: `ai_spine` restituisce anche `field_conf` e `prompt_v`; v12.16, v12.15 e v12.14: solo il numero; v12.13: `ai_provider` anche `openai_compatible` / `ollama`, `ai_base_url`, `hints.kind`, `project&detail=1`; v12.12: solo il numero, più `brand.php` che legge il marchio per `setup.php`; v12.11: solo il numero; v12.10: rotta pubblica `finder`, solo GET, solo il contatto del faldone smarrito), schema **3**, licenza con `licence_required`; `setup.php` con cartella per sito e modalità JSON; v12.8: rotte `project`, `photo_put`, `photo`, `ai_spine` | `DM_APP_VERSION`, `DM_SCHEMA` | dentro lo zip dell'app (`deploy/`) |
 | Server Python (sede) | pacchetto 1.0.0, parità con PHP 26.12.18 (anche sulla licenza, sull'inventario, sui fornitori AI e su `finder`) | `server-python/docmap_server/__init__.py` | dentro l'installer |
 | Strumenti di installazione Windows | 1.2.0 | `TOOLS_VERSION` in `installer-windows/docmap_tools.py` | dentro lo zip completo (`installer-windows/`); i pacchetti per i clienti li fa l'hub (il vecchio `DocMap-installer-26.12.7.zip` è in `vecchie-versioni/`) |
-| Hub (PC di Dave) | **0.13.0** (marchio per rivenditore e cliente, listino unico `plans.json`, preventivi), registro schema **4** (`registry.py`); meta `hub_version` | `hub/docmap_hub/__init__.py` | `docmapv1/python/DocMap-hub-0.13.0-app-26.12.18.zip` (**zip completo**: hub + app 26.12.18 + sito + Strumenti + server + installatore + guide; fatto e controllato da `tools/crea-zip.py`) |
-| Strumenti (ricette per i documenti) | **0.1.1** (0.1.1: `/api/ping` e `/api/summary` per la pagina dell'app; 0.1.0: 20 blocchi, 11 ricette pronte, coda, verifica da tastiera, remoto, crediti; formato `docmap-ricetta/1`) | `strumenti/docmap_strumenti/__init__.py` | dentro lo zip completo (`strumenti/`, avvio `AVVIA-STRUMENTI.bat`) |
+| Hub (PC di Dave) | **0.14.0** (Strumenti nei piani: crediti al mese e server remoto per piano, gettone del server degli Strumenti per cliente con i crediti che seguono la licenza; prima 0.13.0: marchio per rivenditore e cliente, listino unico `plans.json`, preventivi), registro schema **4** (`registry.py`); meta `hub_version` | `hub/docmap_hub/__init__.py` | `docmapv1/python/DocMap-hub-0.14.0-app-26.12.18.zip` (**zip completo**: hub + app 26.12.18 + sito + Strumenti + server + installatore + guide; fatto e controllato da `tools/crea-zip.py`) |
+| Strumenti (ricette per i documenti) | **0.2.0** (0.2.0: licenza dell'hub, cioè lavori, «sul server» e crediti del mese decisi dal piano, dati mai bloccati; 0.1.1: `/api/ping` e `/api/summary` per la pagina dell'app; 0.1.0: 20 blocchi, 11 ricette pronte, coda, verifica da tastiera, remoto, crediti; formato `docmap-ricetta/1`) | `strumenti/docmap_strumenti/__init__.py` | dentro lo zip completo (`strumenti/`, avvio `AVVIA-STRUMENTI.bat`) |
 | Aggiornatore del PC | con l'app | `AGGIORNA-DOCMAP.bat` + `tools/aggiorna-app.ps1` | dentro lo zip dell'app |
 
 Regola: lo **stesso numero 26.12.x** deve comparire in app, `api.php` e server Python. Il server PHP e quello Python
@@ -40,13 +40,28 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
 
 | Cosa | Comando | Durata | Ultimo esito |
 |---|---|---|---|
-| Verifica veloce (tutto tranne la suite completa) | `bash tools/verifica-veloce.sh` | ~4 min | tutto OK (2026-11-23) |
+| Verifica veloce (tutto tranne la suite completa) | `bash tools/verifica-veloce.sh` | ~4 min | tutto OK (2026-11-24, hub 0.14.0 + Strumenti 0.2.0) |
 | Lint JS / Python | `node tools/lint-js.js`, `python3 tools/lint-py.py` (dentro la verifica veloce) | 5 s | 0 problemi (2026-11-23) |
-| Test app tutti insieme (smoke, unit, aggiornamento, marchio, v12.6 … v12.17) | `cd tests && NODE_PATH=$(npm root -g) node run.js` | ~40 s | 19/19 file OK (2026-11-24) |
-| Suite completa app (Playwright) | `cd tests && NODE_PATH=$(npm root -g) node suite.js` | ~35 min | 1375/1376 (2026-11-24, app 26.12.18 + hub 0.13.0): primo giro 1374/1376 (elenco del menu e versione nel README, corretti); secondo giro fallisce solo «J UI: registro del server filtrato per codice», che era passato nel primo giro con lo stesso codice (attesa di 250 ms prima del filtro, zona non toccata: da rendere stabile) |
+| Test app tutti insieme (smoke, unit, aggiornamento, marchio, v12.6 … v12.17) | `cd tests && NODE_PATH=$(npm root -g) node run.js` | ~40 s | 20/20 file OK (2026-11-24) |
+| Suite completa app (Playwright) | `cd tests && NODE_PATH=$(npm root -g) node suite.js` | ~35 min | **1376/1376** (2026-11-24, app 26.12.18 + hub 0.14.0 + Strumenti 0.2.0), con il test «J UI: registro del server filtrato per codice» reso stabile (aspetta il ricaricamento invece di 250 ms fissi) |
 | CI su GitHub | `.github/workflows/docmap-ci.yml` (= `ci/docmap-ci.yml`), Ubuntu 24.04 | ~5 min | verde sulla PR #10 (2026-11-23); unica cartella fuori da `docmapv1/`, confermata da Dave (D20) |
 
 Come sono fatti i test e come aggiungerne: [`docs/TEST.md`](docs/TEST.md).
+
+### Esito 2026-11-24, hub 0.14.0 + Strumenti 0.2.0 (Strumenti nei piani)
+
+- Test nuovi, nella verifica veloce: `hub/tests/test_v14_strumenti.py` 5/5 (piani con funzioni e crediti; chiave del
+  server degli Strumenti solo cifrata, mai nel registro in chiaro; prova del collegamento; gettone contro un **server
+  degli Strumenti vero in modalità remota**: piano senza remoto rifiutato, gettone mostrato una volta e non conservato,
+  un gettone nuovo annulla il vecchio, sospensione = 0 crediti, riattivazione = crediti del piano, revoca; server non
+  raggiungibile detto chiaro; rotte della pagina). `strumenti/tests` 53/53 (nuovo `test_licence.py`: copia identica del
+  verificatore, senza licenza come prima, piano che decide modalità e crediti, tetto più basso dello studio, casi
+  bloccati, file rifiutati, rotte e blocchi del server, aggiornamento dei crediti di un gettone). Hub e server Python:
+  attese dei limiti aggiornate con `strumenti_credits`.
+- Suite completa: il test «J UI: registro del server filtrato per codice» ora aspetta che il ricaricamento dopo il
+  filtro (250 ms di attesa nel codice) parta e finisca, invece di un'attesa fissa di 250 ms che a volte leggeva prima.
+- Non provato: licenza installata negli Strumenti su Windows, server degli Strumenti remoto vero con HTTPS e gettone
+  dato dall'hub (righe S8–S10 di `COLLAUDO-REALE.md`). Il consumo dei crediti non torna all'hub.
 
 ### Esito 2026-11-24, app 26.12.18 (Strumenti nell'app)
 
@@ -328,8 +343,9 @@ Scheda unica da seguire: [`docs/COLLAUDO-REALE.md`](docs/COLLAUDO-REALE.md).
   con **Verifica una scatola › Sposta qui**).
 - Aggiornamento del PC con `AGGIORNA-DOCMAP.bat` (mai provato su Windows reale); server e telefoni come prima.
 - I documenti commerciali (`docs/commerciale/`) sono bozze: prezzi non validati, testi legali da rivedere.
-- Strumenti: dall'app si aprono e si vedono i lavori da verificare (⚙ › Strumenti), ma l'hub non li conosce ancora
-  (piani con modalità e crediti in `plans.json`, consegna del server remoto); dal sito online il controllo è bloccato
+- Strumenti: dall'app si aprono e si vedono i lavori da verificare (⚙ › Strumenti); dall'hub 0.14 piani, licenza,
+  crediti e gettoni del server remoto (il server remoto si accende ancora a mano; il consumo non torna all'hub per la
+  fattura); dal sito online il controllo è bloccato
   dal browser (CSP `connect-src 'self'`), resta il pulsante «Apri».
 
 ## 6. Decisioni in vigore

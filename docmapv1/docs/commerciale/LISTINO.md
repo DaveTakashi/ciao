@@ -9,12 +9,12 @@
 
 | Piano | Per chi | Incluso | Al mese | All'anno |
 |---|---|---|---|---|
-| **Prova gratuita** (`trial`) | chi vuole provare con i propri faldoni | 1 archivio, fino a 300 faldoni, 2 utenti, telefoni, etichette | **0 €** | 0 € |
-| **Studio** (`studio`) | studio fino a 5 persone | 3 archivi, fino a 5.000 faldoni, 5 utenti, telefoni, etichette, backup | **39 €** | 390 € |
-| **Studio Pro** (`studio_pro`) | studio grande o più sedi | 10 archivi, fino a 20.000 faldoni, 15 utenti, sincronizzazione sede ⇄ online, stati e registro, crediti AI | **89 €** | 890 € |
-| **Archiviazione conto terzi** (`conto_terzi`) | società di archiviazione per conto terzi | 50 archivi, fino a 100.000 faldoni, 30 utenti, prelievi e consegne, crediti AI | **190 €** | 1.900 € |
-| **Appliance (PC dedicato)** (`appliance`) | studio che vuole tutto in sede (mini-PC preconfigurato) | come Studio Pro con 10 utenti, tutto in sede; il mini-PC preconfigurato con backup cifrato si paga a parte + 600 € una tantum | **99 €** | 990 € |
-| **Rivenditore (istanza propria)** (`reseller`) | rivenditore con il proprio marchio (white label) | marchio proprio su app, sito, pacchetti e lettere ai clienti; fino a 10 istanze 290 €/mese, fino a 30 istanze 590 €/mese, oltre 19 €/mese per istanza | **290 €** | 2.900 € |
+| **Prova gratuita** (`trial`) | chi vuole provare con i propri faldoni | 1 archivio, fino a 300 faldoni, 2 utenti, telefoni, etichette, Strumenti con 500 crediti al mese | **0 €** | 0 € |
+| **Studio** (`studio`) | studio fino a 5 persone | 3 archivi, fino a 5.000 faldoni, 5 utenti, telefoni, etichette, backup, Strumenti con 2.000 crediti al mese | **39 €** | 390 € |
+| **Studio Pro** (`studio_pro`) | studio grande o più sedi | 10 archivi, fino a 20.000 faldoni, 15 utenti, sincronizzazione sede ⇄ online, stati e registro, crediti AI, Strumenti con 10.000 crediti al mese anche sul server remoto | **89 €** | 890 € |
+| **Archiviazione conto terzi** (`conto_terzi`) | società di archiviazione per conto terzi | 50 archivi, fino a 100.000 faldoni, 30 utenti, prelievi e consegne, crediti AI, Strumenti con 50.000 crediti al mese anche sul server remoto | **190 €** | 1.900 € |
+| **Appliance (PC dedicato)** (`appliance`) | studio che vuole tutto in sede (mini-PC preconfigurato) | come Studio Pro con 10 utenti, tutto in sede; il mini-PC preconfigurato con backup cifrato si paga a parte, Strumenti in sede con 10.000 crediti al mese + 600 € una tantum | **99 €** | 990 € |
+| **Rivenditore (istanza propria)** (`reseller`) | rivenditore con il proprio marchio (white label) | marchio proprio su app, sito, pacchetti e lettere ai clienti, Strumenti senza limite di crediti; fino a 10 istanze 290 €/mese, fino a 30 istanze 590 €/mese, oltre 19 €/mese per istanza | **290 €** | 2.900 € |
 
 ## Moduli aggiuntivi
 
@@ -24,6 +24,7 @@
 | Consegna e ritiro con firma sul telefono (`handover`) | 9 € | 90 € |  |
 | Spazio online gestito (UE) (`hosting`) | 10 € | 100 € | incluso in Studio Pro, Conto terzi e Rivenditore |
 | Lettura AI delle coste e compilazione dei campi (`ai`) | — | — | crediti prepagati: costo del fornitore AI × 2,5 |
+| Crediti Strumenti in più (pacchetto da 10.000 al mese) (`strumenti_credits`) | 15 € | 150 € | 1 credito = 1 pagina letta con l'OCR; 1 chiamata AI = 10 crediti; 1 chiamata a un servizio = 1 credito (i costi si cambiano negli Strumenti) |
 
 ## Servizi
 

@@ -771,9 +771,10 @@ function issueLicence(insts, plans) {
     body: `${sel('instance_id', 'Installazione', insts)}${sel('plan', 'Piano', Object.entries(plans || {}).map(([k, v]) => [k, `${v} (${k})`]), 'studio')}
       ${fld('months', 'Durata in mesi', { type: 'number', hint: 'Vuoto = durata del piano.', attrs: 'min="1" max="120"' })}
       <div class="frow">${fld('l_users', 'Utenti', { type: 'number', attrs: 'min="-1"' })}${fld('l_binders', 'Faldoni', { type: 'number', attrs: 'min="-1"' })}</div>
-      ${fld('l_archives', 'Archivi', { type: 'number', attrs: 'min="-1"', hint: 'Limiti vuoti = quelli del piano; -1 = illimitato.' })}`,
+      <div class="frow">${fld('l_archives', 'Archivi', { type: 'number', attrs: 'min="-1"' })}${fld('l_strumenti_credits', 'Crediti Strumenti al mese', { type: 'number', attrs: 'min="-1"' })}</div>
+      <div class="hint">Limiti vuoti = quelli del piano; -1 = illimitato.</div>`,
     onSubmit: async (f) => {
-      const r = await api('/api/licences', { instance_id: f.instance_id, plan: f.plan, months: f.months, limits: { users: f.l_users, binders: f.l_binders, archives: f.l_archives } });
+      const r = await api('/api/licences', { instance_id: f.instance_id, plan: f.plan, months: f.months, limits: { users: f.l_users, binders: f.l_binders, archives: f.l_archives, strumenti_credits: f.l_strumenti_credits } });
       closeOverlay(); toast('Licenza emessa e firmata.'); await route(); openLicence(r.id);
     },
   });
@@ -784,7 +785,7 @@ function licTable(list, withCustomer) {
     ${list.map((l) => `<tr class="click" data-lic="${esc(l.id)}">${withCustomer ? `<td><div class="cellname">${av(l.customer_name)}<div><b>${esc(l.customer_name)}</b></div></div></td>` : ''}
       <td>${esc(l.instance_label)}<small style="display:block;color:var(--mut)">${esc(l.project_name || '')}</small></td><td><span class="tag">${esc(l.plan)}</span></td><td>${pill(LIC_STATE, l.state)}</td>
       <td>${fmtDate(l.expires_at)}${l.state !== 'superseded' && l.days_left !== null ? ` <small style="color:var(--mut)">(${l.days_left < 0 ? 'da ' + (-l.days_left) + ' gg' : l.days_left + ' gg'})</small>` : ''}</td>
-      <td style="color:var(--fg2);font-size:13px">${l.limits ? Object.entries(l.limits).map(([k, v]) => `${({ users: 'utenti', binders: 'faldoni', archives: 'archivi' })[k] || k} ${v === null ? '∞' : v}`).join(' · ') : '—'}</td>
+      <td style="color:var(--fg2);font-size:13px">${l.limits ? Object.entries(l.limits).map(([k, v]) => `${({ users: 'utenti', binders: 'faldoni', archives: 'archivi', strumenti_credits: 'crediti Strumenti' })[k] || k} ${v === null ? '∞' : v}`).join(' · ') : '—'}</td>
       <td class="r"><a class="btn sm" href="/download/${esc(l.id)}" title="Scarica il file di licenza">${ic('download')}</a></td></tr>`).join('')}</tbody></table></div>`;
 }
 function bindLicTable(el) { $$('[data-lic]', el).forEach((tr) => (tr.onclick = (e) => { if (!e.target.closest('a')) openLicence(tr.dataset.lic); })); }
@@ -897,7 +898,7 @@ async function openLicence(id) {
   const d = await api(`/api/licences/${encodeURIComponent(id)}`); const l = d.licence, r = d.row, c = d.control || {};
   const row = (k, v) => `<dt>${esc(k)}</dt><dd>${v}</dd>`;
   const MODE = { full: ['ok', 'Valida'], grace: ['warn', 'In tolleranza'], read_only: ['bad', 'Sola lettura'], invalid: ['bad', 'Non valida'] };
-  const FEAT = { sync_server: 'Server condiviso', mobile_scan: 'Scansione da telefono', status_events: 'Stati e movimenti', ai_credits: 'Crediti AI', white_label: 'Marchio del rivenditore' };
+  const FEAT = { sync_server: 'Server condiviso', mobile_scan: 'Scansione da telefono', status_events: 'Stati e movimenti', ai_credits: 'Crediti AI', white_label: 'Marchio del rivenditore', strumenti: 'Strumenti (ricette sui documenti)', strumenti_remote: 'Strumenti sul server remoto' };
   const pub = !c.channel ? '<span style="color:var(--mut)">canale non impostato: il file va consegnato a mano</span>'
     : !c.update_url ? '<span class="pill warn">senza indirizzo del canale</span> <small style="color:var(--mut)">riemettila con «Modifica» → Salva</small>'
       : c.published ? '<span class="pill ok">pubblicata</span> <small style="color:var(--mut)">il server la scarica da solo entro 6 ore</small>' : '<span class="pill warn">da pubblicare</span>';
@@ -907,6 +908,7 @@ async function openLicence(id) {
   if (cur) acts.push(`<button class="btn sm" data-x="push" title="Carica questa licenza sui siti online dell'installazione (FTP)">${ic('rocket')} Invia ai siti</button>`);
   if (cur && c.status === 'active') acts.push(`<button class="btn pri sm" data-x="renew">${ic('refresh')} Rinnova</button>`, `<button class="btn sm" data-x="modify">${ic('edit')} Modifica</button>`, `<button class="btn sm" data-x="suspend">${ic('lock')} Sospendi</button>`);
   if (cur && c.status !== 'active') acts.push(`<button class="btn pri sm" data-x="reactivate">${ic('unlock')} Riattiva</button>`);
+  if (cur && c.status === 'active' && (l.features || []).includes('strumenti_remote')) acts.push(`<button class="btn sm" data-x="stoken" title="Gettone per il server remoto degli Strumenti, con i crediti del piano">${ic('key')} Gettone Strumenti</button>`);
   if (cur && c.status !== 'revoked') acts.push(`<button class="btn ghost sm" data-x="revoke" style="color:var(--bad)">Revoca</button>`);
   const dr = drawer(`Licenza ${esc(l.plan)}`, `<a href="#/clienti/${esc(r.customer_id)}/licenze">${esc(l.customer.name)}</a> · ${esc(r.instance_label || '')}`,
     `${c.status !== 'active' ? `<div class="note warn" style="margin-bottom:12px"><b>${c.status === 'revoked' ? 'Licenza revocata' : 'Licenza sospesa'}.</b> L'installazione è in sola lettura: i dati restano consultabili ed esportabili. ${c.status === 'revoked' ? 'Rinnovi e rinnovo automatico sono bloccati finché non la riattivi.' : 'Con «Riattiva» torna come prima.'}</div>` : ''}
@@ -914,7 +916,7 @@ async function openLicence(id) {
     <div class="sect"><h4>Consegna al server</h4><dl class="kv">${row('Canale', pub)}${c.update_url ? row('Indirizzo', `<span class="mono" style="font-size:12px;word-break:break-all">${esc(c.update_url)}</span>`) : ''}</dl></div>
     <div class="sect"><h4>Rinnovo automatico</h4><p style="margin:0 0 8px;color:var(--fg2);font-size:13px">${ar ? `<span class="pill ok">Attivo</span> licenze da ${ar.days} giorni, rinnovate quando ne mancano ${ar.renew_before}${ar.until ? `, fino al ${fmtDate(ar.until)}` : ''}. Se lo spegni o sospendi, l'installazione va in sola lettura da sola alla fine del periodo (più la tolleranza).` : '<span class="pill mut">Spento</span> Con licenze brevi rinnovate dall\'hub hai il controllo anche senza raggiungere il cliente.'}</p>
       ${cur && c.status === 'active' ? `<button class="btn sm" data-x="autorenew">${ic('refresh')} ${ar ? 'Modifica o spegni' : 'Attiva'}</button>` : ''}</div>
-    <div class="sect"><h4>Limiti e funzioni</h4><dl class="kv">${Object.entries(l.limits || {}).map(([k, v]) => row(({ users: 'Utenti', binders: 'Faldoni', archives: 'Archivi' })[k] || k, v === null ? 'illimitati' : esc(v))).join('')}
+    <div class="sect"><h4>Limiti e funzioni</h4><dl class="kv">${Object.entries(l.limits || {}).map(([k, v]) => row(({ users: 'Utenti', binders: 'Faldoni', archives: 'Archivi', strumenti_credits: 'Crediti Strumenti al mese' })[k] || k, v === null ? 'illimitati' : esc(v))).join('')}
       ${row('Funzioni', (l.features || []).map((f) => `<span class="tag">${esc(FEAT[f] || f)}</span>`).join(' ') || '—')}${l.reseller ? row('Rivenditore', esc(l.reseller.name)) : ''}</dl></div>
     <div class="sect"><h4>Storia di questa installazione</h4>${d.history.map((h) => `<div class="al" data-lic="${esc(h.id)}" style="padding:8px 0">${dot(LIC_STATE[h.state][0] === 'mut' ? 'none' : LIC_STATE[h.state][0])}<div><b>${esc(h.plan)}${h.id === l.licence_id ? ' (questa)' : ''}</b><small>emessa ${fmtDT(h.issued_at)} · ${esc(LIC_STATE[h.state][1])}${h.state !== 'suspended' && h.state !== 'revoked' ? ` · fino al ${fmtDate(h.expires_at)}` : ''}</small></div></div>`).join('')}</div>
     <div class="sect"><h4>Tecnico</h4><dl class="kv">${row('ID', `<span class="mono">${esc(l.licence_id)}</span>`)}${row('Installazione', `<span class="mono">${esc(l.instance_id)}</span>`)}${row('Chiave di firma', `<span class="mono">${esc(l.key_id)}</span>`)}${row('File', `<span class="mono">${esc(d.filename)}</span>`)}</dl></div>`,
@@ -931,6 +933,7 @@ async function openLicence(id) {
   const act = (a, body) => api(`/api/instances/${iid}/licence/${a}`, body || {});
   $$('[data-x]', dr).forEach((b) => (b.onclick = () => {
     const x = b.dataset.x;
+    if (x === 'stoken') return strumentiToken(iid);
     if (x === 'push') return (async () => { try { const r = await withVault(() => api(`/api/instances/${iid}/licence/push`, {})); toast('Invio in corso…'); await pushReport(r.job); } catch (e) { toast(e.message, true); } })();
     if (x === 'renew') return modal({
       title: 'Rinnova o estendi la licenza', submit: 'Firma il rinnovo',
@@ -945,10 +948,11 @@ async function openLicence(id) {
         title: 'Modifica la licenza', submit: 'Firma la modifica',
         body: `<p class="note" style="margin-top:0">L'hub emette una nuova licenza con le stesse date e le modifiche qui sotto; quella attuale viene sostituita. Limiti vuoti = illimitati.</p>
           <div class="frow">${fld('l_users', 'Utenti', { type: 'number', value: v('users'), attrs: 'min="0"' })}${fld('l_binders', 'Faldoni', { type: 'number', value: v('binders'), attrs: 'min="0"' })}${fld('l_archives', 'Archivi', { type: 'number', value: v('archives'), attrs: 'min="0"' })}</div>
+          ${fld('l_strumenti_credits', 'Crediti Strumenti al mese', { type: 'number', value: v('strumenti_credits'), attrs: 'min="0"' })}
           <div class="frow">${fld('expires_at', 'Scadenza', { type: 'date', value: String(l.expires_at).slice(0, 10) })}${fld('grace_days', 'Giorni di tolleranza', { type: 'number', value: String(l.grace_days), attrs: 'min="0" max="365"' })}</div>
           <div class="f"><label>Funzioni</label>${c.features_known.map((f) => `<label class="check"><input type="checkbox" name="feat_${f}" ${(l.features || []).includes(f) ? 'checked' : ''}> <span>${esc(FEAT[f] || f)}</span></label>`).join('')}</div>`,
         onSubmit: async (f) => {
-          const lim2 = {}; for (const k of ['users', 'binders', 'archives']) lim2[k] = f['l_' + k] === '' ? -1 : f['l_' + k];
+          const lim2 = {}; for (const k of ['users', 'binders', 'archives', 'strumenti_credits']) { if (k === 'strumenti_credits' && !(k in lim) && f['l_' + k] === '') continue; lim2[k] = f['l_' + k] === '' ? -1 : f['l_' + k]; }
           const feats = c.features_known.filter((k) => f['feat_' + k]);
           await done(await act('modify', { limits: lim2, features: feats, expires_at: f.expires_at !== String(l.expires_at).slice(0, 10) ? f.expires_at : '', grace_days: f.grace_days }), 'Licenza modificata.');
         },
@@ -1368,6 +1372,7 @@ async function pSettings(page, part) {
       <div class="card" style="grid-column:1/-1" id="host-card"><div class="hd"><h3>${ic('globe')} Hosting predefinito</h3></div><div class="bd" id="host-box">Carico…</div></div>
       <div class="card" style="grid-column:1/-1" id="tpl-card"><div class="hd"><h3>${ic('users')} Modelli cliente</h3><div class="btns"><button class="btn sm" id="tpl-restore">Ripristina i predefiniti</button></div></div><div class="bd flush" id="tpl-box">Carico…</div></div>
       <div class="card" style="grid-column:1/-1"><div class="hd"><h3>${ic('key')} Canale delle licenze</h3></div><div class="bd" id="ch-box">Carico…</div></div>
+      <div class="card" style="grid-column:1/-1" id="stru-card"><div class="hd"><h3>${ic('rocket')} Server remoto degli Strumenti</h3></div><div class="bd" id="stru-box">Carico…</div></div>
       <div class="card" style="grid-column:1/-1"><div class="hd"><h3>${ic('shield')} Controllo dell'hub</h3><div class="btns"><button class="btn sm" id="chk-run">Controlla adesso</button></div></div><div class="bd" id="chk-box">Carico…</div></div>
       <div class="card" style="grid-column:1/-1"><div class="hd"><h3>${ic('download')} Backup dell'hub</h3><div class="btns"><button class="btn sm" id="exp-hub">${ic('lock')} Esporta tutto l'hub (cifrato)</button></div></div><div class="bd" id="bk-box">Carico…</div></div>
       <div class="card"><div class="hd"><h3>${ic('moon')} Aspetto</h3></div><div class="bd">${sel('theme', 'Tema', [['auto', 'Automatico (come Windows)'], ['light', 'Chiaro'], ['dark', 'Scuro']], theme)}</div></div>
@@ -1375,7 +1380,7 @@ async function pSettings(page, part) {
         <div class="btns"><a class="btn sm" href="/clienti">Nuovo cliente guidato</a><a class="btn sm" href="/envs">Istanze &amp; ambienti</a><a class="btn sm" href="/deploy">Deploy</a><a class="btn sm" href="/ports">Porte</a><a class="btn sm" href="/status">Stato</a><a class="btn sm" href="/classico">Licenze (classico)</a></div></div></div>
       <div class="card"><div class="hd"><h3>Informazioni</h3></div><div class="bd"><dl class="kv"><dt>Versione</dt><dd>${esc(s.version)}</dd><dt>Chiave di firma</dt><dd class="mono">${esc(s.key_id || '—')}</dd><dt>Cartella dati</dt><dd class="mono">${esc(s.data_dir || '')}</dd></dl></div></div>
     </div>`;
-  backupsCard($('#bk-box')); channelCard($('#ch-box')); $('#exp-hub').onclick = exportHub;
+  backupsCard($('#bk-box')); channelCard($('#ch-box')); strumentiCard($('#stru-box')); $('#exp-hub').onclick = exportHub;
   checkCard($('#chk-box')); $('#chk-run').onclick = () => checkCard($('#chk-box'));
   hostingCard($('#host-box')); templatesCard($('#tpl-box'));
   $('#tpl-restore').onclick = async () => { try { const r = await api('/api/templates/restore', {}); S.tpl = r; toast(r.added ? `Rimessi ${r.added} modelli.` : 'Ci sono già tutti.'); templatesCard($('#tpl-box')); } catch (e) { toast(e.message, true); } };
@@ -1720,6 +1725,39 @@ async function templatesCard(box) {
       onSubmit: async (f) => { await api(`/api/templates/${t.id}`, f); closeOverlay(); templatesCard(box); },
     });
   });
+}
+
+// ---- v0.14: Strumenti on the provider's remote server (token per installation, credits follow the licence) ----
+async function strumentiCard(box) {
+  let v; try { v = await api('/api/strumenti'); } catch (e) { box.innerHTML = `<div class="note warn">${esc(e.message)}</div>`; return; }
+  const c = v.config;
+  const cr = (n) => (n === null || n === undefined ? 'illimitati' : esc(n));
+  box.innerHTML = `<p style="margin-top:0;color:var(--fg2)">Il tuo server degli Strumenti (<span class="mono">serve --remote</span>) per i clienti il cui piano comprende «Strumenti sul server remoto». Ogni installazione ha un suo gettone; i crediti al mese seguono la licenza: sospesa, revocata o scaduta = 0 crediti, riattivata = di nuovo quelli del piano.</p>
+    <dl class="kv"><dt>Indirizzo</dt><dd class="mono">${c ? esc(c.url) : '—'}</dd><dt>Chiave di amministratore</dt><dd>${c && c.has_key ? '<span class="pill ok">in cassaforte</span>' : '<span class="pill warn">mancante</span>'}</dd></dl>
+    ${v.rows.length ? `<div class="tbl-wrap"><table class="t"><thead><tr><th>Cliente</th><th>Piano</th><th>Crediti al mese</th><th>Allineato</th><th></th></tr></thead><tbody>${v.rows.map((r) => `<tr><td><b>${esc(r.customer)}</b><div style="color:var(--mut);font-size:12.5px">${esc(r.instance_label)}</div></td><td>${esc(r.plan || '—')}</td><td>${cr(r.credits)}${r.entitlement.allowed ? '' : ` <span class="pill warn">${esc(r.entitlement.reason)}</span>`}</td><td>${fmtDT(r.synced_at)}</td><td><button class="btn ghost sm" data-srev="${esc(r.instance_id)}" style="color:var(--bad)">Revoca</button></td></tr>`).join('')}</tbody></table></div>` : '<div class="note">Nessun gettone dato ai clienti. Si dà dalla licenza del cliente: «Gettone Strumenti».</div>'}
+    <div class="btns" style="margin-top:10px"><button class="btn sm" id="stru-set">${ic('edit')} ${c ? 'Modifica' : 'Imposta'}</button>${c && c.has_key ? '<button class="btn sm" id="stru-ping">Prova il collegamento</button>' : ''}${v.rows.length ? `<button class="btn sm" id="stru-sync">${ic('refresh')} Allinea i crediti</button>` : ''}</div>`;
+  $('#stru-set', box).onclick = () => modal({
+    title: 'Server remoto degli Strumenti', submit: 'Salva',
+    body: `${fld('url', 'Indirizzo', { req: true, value: c ? c.url : '', ph: 'https://strumenti.esempio.it' })}
+      ${fld('admin_key', c && c.has_key ? 'Chiave di amministratore (vuoto = resta quella salvata)' : 'Chiave di amministratore', { type: 'password', attrs: 'autocomplete="new-password"', hint: 'Il contenuto di chiave-locale.txt nella cartella dati del server degli Strumenti. Va in cassaforte, cifrata.' })}`,
+    onSubmit: async (f) => { await (f.admin_key ? withVault(() => api('/api/strumenti', f)) : api('/api/strumenti', f)); closeOverlay(); toast('Server degli Strumenti salvato.'); strumentiCard(box); },
+  });
+  const pg = $('#stru-ping', box); if (pg) pg.onclick = async () => { try { const r = await withVault(() => api('/api/strumenti/ping', {})); toast(`Collegamento riuscito (Strumenti ${r.version}).`); } catch (e) { toast(e.message, true); } };
+  const sy = $('#stru-sync', box); if (sy) sy.onclick = async () => { try { const r = await withVault(() => api('/api/strumenti/sync', {})); const bad = Object.values(r.synced || {}).filter((x) => x && x.error); toast(bad.length ? `Non allineati: ${bad.length}. ${bad[0].error}` : 'Crediti allineati alle licenze.', !!bad.length); strumentiCard(box); } catch (e) { toast(e.message, true); } };
+  $$('[data-srev]', box).forEach((b) => (b.onclick = async () => { if (!confirm('Revoco il gettone? Il cliente non potrà più mandare lavori al server remoto finché non ne riceve uno nuovo.')) return; try { await withVault(() => api(`/api/instances/${b.dataset.srev}/strumenti/revoke`, {})); toast('Gettone revocato.'); strumentiCard(box); } catch (e) { toast(e.message, true); } }));
+}
+async function strumentiToken(iid) {
+  if (!confirm('Creo un gettone nuovo per il server remoto degli Strumenti? Se ne esiste già uno, smette di valere.')) return;
+  try {
+    const r = await withVault(() => api(`/api/instances/${iid}/strumenti/token`, {}));
+    modal({
+      title: 'Gettone per il server degli Strumenti', submit: 'Fatto',
+      body: `<p class="note warn" style="margin-top:0">Si vede <b>solo adesso</b>: copialo e dallo al cliente. L'hub non lo conserva.</p>
+        <dl class="kv"><dt>Indirizzo</dt><dd class="mono">${esc(r.url)}</dd><dt>Gettone</dt><dd class="mono" style="word-break:break-all">${esc(r.token)}</dd><dt>Piano</dt><dd>${esc(r.plan)}</dd><dt>Crediti al mese</dt><dd>${r.credits === null ? 'illimitati' : esc(r.credits)}</dd></dl>
+        <p class="note">Il cliente li scrive negli Strumenti: Impostazioni › Esecuzione remota. I crediti seguono la licenza da soli.</p>`,
+      onSubmit: async () => closeOverlay(),
+    });
+  } catch (e) { toast(e.message, true); }
 }
 
 async function boot() {

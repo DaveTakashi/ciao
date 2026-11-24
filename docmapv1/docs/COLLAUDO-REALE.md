@@ -151,6 +151,9 @@ il numero e l'immagine. Se un passo si blocca, salta al blocco successivo.
 - [ ] S6. Sul server di Dave: `serve --remote` con HTTPS e un gettone; dal PC, Impostazioni › Esecuzione remota › Prova, poi un lavoro «sul server»: i risultati tornano nella cartella di arrivo.
 
 - [ ] S7. Nell'app, ⚙ › **Strumenti** (come amministratore): con gli Strumenti spenti spiega come avviarli; avviati, dice «avviati» con la versione; incolla il collegamento con la chiave: compaiono i lavori da verificare e «Apri la verifica» apre la vista Lavori. Con un utente «consultazione» la voce non c'è.
+- [ ] S8. (Strumenti 0.2.0, hub 0.14.0) Sul PC di prova: `strumenti\.venv\Scripts\python -m docmap_strumenti licenza chiave chiave-pubblica.txt`, poi Impostazioni › **Licenza** › il file di una licenza **Studio**: «Licenza in vigore», crediti del mese 2.000, «sul server» non si può scegliere. Sospendi la licenza nell'hub e installa il file nuovo: non parte un lavoro nuovo, ma la verifica e lo scarico dei risultati di un lavoro vecchio funzionano.
+- [ ] S9. Nell'hub, Impostazioni › **Server remoto degli Strumenti**: indirizzo del server di S6 e chiave (`chiave-locale.txt` del server) › «Prova il collegamento» riesce. Licenza **Studio Pro** di un cliente di prova › **Gettone Strumenti**: indirizzo e gettone, scritti negli Strumenti del PC (Esecuzione remota), fanno partire un lavoro «sul server».
+- [ ] S10. Sospendi quella licenza nell'hub (cassaforte aperta): il prossimo lavoro «sul server» si ferma per crediti finiti; Riattiva: riparte. In Impostazioni › Server remoto degli Strumenti la riga del cliente mostra i crediti giusti.
 
 ## Dopo il collaudo
 

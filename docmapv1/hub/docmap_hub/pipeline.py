@@ -203,7 +203,7 @@ Inizia ora: salutami in una riga e fammi la prima domanda.
 
 
 def _limits_txt(lim: dict) -> str:
-    names = {"users": "utenti", "binders": "faldoni", "archives": "archivi"}
+    names = {"users": "utenti", "binders": "faldoni", "archives": "archivi", "strumenti_credits": "crediti Strumenti al mese"}
     return ", ".join(f"{names.get(k, k)} {'illimitati' if v is None else v}" for k, v in lim.items()) or "nessuno"
 
 

@@ -76,7 +76,7 @@ H.run('v12.18 Strumenti nell\'app', async (t) => {
     await p.click('[data-a="st2-check"]');
     await p.waitForSelector('#st2-status[data-s="on"]', {timeout:8000});
     const txt0 = await p.textContent('#st2-status');
-    t.ok(/versione 0\.1/.test(txt0) && /chiave/.test(txt0) && !(await p.$('#st2-review')), 'running, without key: version and how to add the key', txt0);
+    t.ok(/versione 0\.\d/.test(txt0) && /chiave/.test(txt0) && !(await p.$('#st2-review')), 'running, without key: version and how to add the key', txt0);
 
     // paste the link with the key (as AVVIA-STRUMENTI.bat opens it)
     await p.fill('#st2-url', 'http://127.0.0.1:' + port + '/#k=' + key);

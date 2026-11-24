@@ -1,4 +1,4 @@
-# Strumenti: ricette per i documenti (versione 0.1.1)
+# Strumenti: ricette per i documenti (versione 0.2.0)
 
 > Per chi usa gli Strumenti (Dave, operatori, amministratori) e per chi li sviluppa. Parte 1 in italiano semplice,
 > parte 2 tecnica. Il codice sta in `strumenti/`; il manuale per sviluppatori è [`../strumenti/README.md`](../strumenti/README.md).
@@ -105,10 +105,12 @@ Nei nomi di cartelle e file si scrivono le variabili tra graffe: `{numero}/{file
 Un PC lento può mandare il lavoro al **server remoto** (per esempio il server di Dave): Impostazioni › Esecuzione
 remota, indirizzo e gettone. Per ogni ricetta: «qui», «sul server» o «automatico» (sul server se i file superano N MB, o
 sempre). I file partono in uno zip, il server esegue la stessa ricetta, i risultati tornano nella cartella di arrivo; la
-verifica dei documenti si fa lo stesso dal PC. Cosa è permesso lo decide la licenza (`licence.modes`).
+verifica dei documenti si fa lo stesso dal PC. Cosa è permesso lo decide la **licenza** (§1.10): «qui» con la funzione
+Strumenti, «sul server» solo se il piano comprende il server remoto (Studio Pro, Conto terzi, Rivenditore).
 
 Sul server: `python -m docmap_strumenti serve --remote --host 0.0.0.0 --cert cert.pem --key key.pem`, e un **gettone per
-cliente**: `python -m docmap_strumenti token crea --cliente studio-rossi --crediti 5000`. Un cliente con il gettone può
+cliente**. Di solito il gettone lo dà l'**hub** (licenza del cliente › «Gettone Strumenti») e i suoi crediti seguono la
+licenza da soli (sospesa = 0); a mano: `python -m docmap_strumenti token crea --cliente studio-rossi --crediti 5000`. Un cliente con il gettone può
 solo mandare zip e vedere i propri lavori: non vede le cartelle del server, le impostazioni, né i lavori degli altri.
 
 ### 1.8 Crediti
@@ -118,11 +120,30 @@ Ogni azione costosa consuma crediti: pagina elaborata 0, pagina letta con OCR 1,
 ferma con un messaggio chiaro (i file già fatti restano). `consumi` e la scheda Crediti mostrano i consumi per cliente e
 per mese. I prezzi in euro non stanno qui: stanno solo nel listino (`hub/docmap_hub/plans.json`).
 
+Con una licenza installata il tetto del mese sul PC è quello del piano (**Crediti Strumenti al mese**: Prova 500,
+Studio 2.000, Studio Pro 10.000, Conto terzi 50.000, In sede 10.000, Rivenditore illimitati); lo studio può mettere un
+tetto più basso in Impostazioni › Crediti, mai uno più alto. Crediti in più: modulo «Crediti Strumenti in più» del listino.
+
 ### 1.9 Privacy
 
 Con OCR locale (Tesseract) i documenti non lasciano il PC. Con l'AI o un servizio esterno il documento (immagine e/o
 testo) va a quel fornitore: serve la nomina a responsabile (bozze GDPR in `docs/commerciale/`). Ollama sul PC tiene tutto
 in sede. Le chiavi e i gettoni stanno solo in `impostazioni.json` (mai nelle ricette, mai mostrati nel browser).
+
+### 1.10 Licenza
+
+Gli Strumenti leggono la stessa licenza firmata dall'hub (file `.docmap-licence`). Finché non ne installi una tutto
+funziona come nella 0.1. Impostazioni › **Licenza** › scegli il file (oppure `python -m docmap_strumenti licenza installa
+file.docmap-licence`). Da quel momento:
+
+- la funzione **Strumenti** del piano permette lavori nuovi e prove su questo PC;
+- **Strumenti sul server remoto** permette anche «sul server»;
+- con licenza **scaduta oltre la tolleranza, sospesa o revocata** non partono lavori nuovi né prove, ma **verifiche,
+  ripresa di un lavoro in pausa, risultati e scarichi funzionano sempre**: la licenza non blocca mai i tuoi dati.
+
+La prima licenza fissa l'installazione: una licenza di un'altra installazione o più vecchia di quella installata viene
+rifiutata (con «forza» solo se hai cambiato PC). La chiave pubblica dell'hub si mette una volta sola:
+`python -m docmap_strumenti licenza chiave chiave-pubblica.txt` (file `trusted_keys.json` nella cartella del programma).
 
 ## Parte 2 — Tecnica
 
@@ -201,7 +222,9 @@ Locale (header `X-Key`): `GET /api/info`, `blocks`, `templates`, `recipes`, `rec
 `jobs`, `jobs/<id>`, `jobs/<id>/items`, `jobs/<id>/items/<iid>/image`, `jobs/<id>/download`, `jobs/<id>/outputs`,
 `jobs/<id>/audit`, `fs`; `POST /api/validate`, `recipes`, `recipes/<id>/archive`, `sample`, `preview`, `jobs`,
 `jobs/<id>/cancel`, `jobs/<id>/resume`, `jobs/<id>/items/<iid>` (azioni `certify`, `set`, `reject`, `reopen`, `undo`),
-`settings`, `remote/ping`, `tokens`, `audit/verify`.
+`settings`, `remote/ping`, `tokens`, `audit/verify`. Licenza: `GET /api/licence` (diritti in vigore), `POST /api/licence`
+(file della licenza nel corpo, `?forza=1`; solo chiave locale). `POST /api/tokens` con `{tenant, update:true,
+credits_month, plan}` cambia i crediti di un gettone (lo usa l'hub); con `{tenant, revoke:true}` lo revoca.
 
 Remoto (`--remote`, header `Authorization: Bearer <gettone>`): `POST /api/jobs/upload` (zip nel corpo; ricetta in
 `X-Recipe-B64`, nome in `X-Job-Name`, variabili in `X-Vars-B64`), poi `GET /api/jobs/<id>`, `…/items`, `…/download`,
@@ -225,14 +248,16 @@ python -m docmap_strumenti prova <id> file.pdf [--json]
 python -m docmap_strumenti esegui <id> --da cartella --a arrivo [--remoto]
 python -m docmap_strumenti token crea --cliente X [--crediti N] | elenco | revoca --cliente X
 python -m docmap_strumenti consumi | registro
+python -m docmap_strumenti licenza stato | installa file.docmap-licence [--forza] | chiave chiave-pubblica.txt
 ```
 
 ### 2.9 Limiti di questa versione e prossimi passi
 
 - Nell'app c'è la porta (⚙ › Strumenti, `assets/js/06zs-strumenti.js`), che usa solo `/api/ping` (senza chiave) e
-  `/api/summary` (con la chiave): sono gli unici indirizzi con CORS. Non ancora nell'hub: piani con modalità e crediti in
-  `plans.json`, consegna automatica del server remoto.
+  `/api/summary` (con la chiave): sono gli unici indirizzi con CORS. Dalla 0.2.0 (hub 0.14.0) piani, licenza, crediti e
+  gettoni del server remoto vengono dall'hub; il server remoto va ancora acceso e messo online a mano (righe S8–S10).
 - OCR: Tesseract o servizi; un modello proprio per i dattiloscritti si collega come servizio esterno (`ocr.remote_endpoint`).
 - Nell'editor il blocco `extract` mostra tutti i parametri, non solo quelli del metodo scelto.
 - Non provato su Windows vero, con scansioni vere di Dave e con un server remoto vero: righe S1–S6 di
   [`COLLAUDO-REALE.md`](COLLAUDO-REALE.md).
+- Il consumo dei crediti non torna all'hub (si legge sugli Strumenti: `consumi`); fatturare il consumo in più è a mano.
