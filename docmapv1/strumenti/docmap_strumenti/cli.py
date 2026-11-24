@@ -9,6 +9,7 @@
     python -m docmap_strumenti esegui RICETTA --da IN --a OUT    run a recipe on a folder, here, now
     python -m docmap_strumenti token crea --cliente rossi --crediti 5000
     python -m docmap_strumenti consumi | registro | info
+    python -m docmap_strumenti licenza stato | installa FILE [--forza] | chiave FILE-CHIAVE-PUBBLICA
 RICETTA is a saved recipe id or a .json file.
 """
 
@@ -88,6 +89,14 @@ def main(argv: list[str] | None = None) -> int:
     tks.add_parser("elenco")
     tr = tks.add_parser("revoca")
     tr.add_argument("--cliente", required=True)
+    li = sub.add_parser("licenza", help="licenza dell'installazione (dal fornitore)")
+    lis = li.add_subparsers(dest="lcmd", required=True)
+    lis.add_parser("stato")
+    lin = lis.add_parser("installa")
+    lin.add_argument("file")
+    lin.add_argument("--forza", action="store_true", help="anche se è di un'altra installazione o più vecchia")
+    lik = lis.add_parser("chiave", help="aggiunge la chiave pubblica del fornitore (file di export-public-key dell'hub)")
+    lik.add_argument("file")
     sub.add_parser("consumi", help="crediti usati per cliente e mese")
     sub.add_parser("registro", help="controlla che il registro delle verifiche non sia stato modificato")
     sub.add_parser("info", help="motori disponibili su questo PC")
@@ -122,7 +131,36 @@ def main(argv: list[str] | None = None) -> int:
     if a.cmd == "esporta":
         print(json.dumps(_recipe(a.ricetta, d), ensure_ascii=False, indent=2))
         return 0
-    s = S.load(d)
+    s = S.effective(d)
+    if a.cmd == "licenza":
+        from . import licensing as LI
+        if a.lcmd == "chiave":
+            obj = json.loads(Path(a.file).read_text("utf-8-sig"))
+            keys = obj.get("keys") if isinstance(obj, dict) and "keys" in obj else obj
+            for kid, val in (keys or {}).items():
+                print(f"chiave {kid} aggiunta in {LI.write_trusted_key(kid, val)}")
+            return 0
+        if a.lcmd == "installa":
+            try:
+                LI.install(d, S.load(d), Path(a.file).read_bytes(), force=a.forza)
+            except LI.LicenceInstallError as e:
+                print("NON installata:", e)
+                return 1
+            s = S.effective(d)
+        e = s["_ent"]
+        if not e["enforced"]:
+            print("Nessuna licenza installata: valgono le Impostazioni (modalità " + ", ".join(e["modes"]) + ").")
+            return 0
+        lic = e["licence"] or {}
+        print(("OK " if e["can_run"] else "BLOCCATA ") + (e["message"] or ""))
+        if lic:
+            cm = e["credits_month"]
+            print(f"piano {lic.get('plan')} · {lic.get('customer')} · scade {lic.get('expires_at')} · modalità "
+                  f"{', '.join(e['modes']) or 'nessuna'} · crediti/mese {'illimitati' if cm is None else cm}")
+        return 0 if e["can_run"] else 1
+    if a.cmd in ("prova", "esegui") and not s["_ent"]["can_run"]:
+        print("Licenza:", s["_ent"]["message"])
+        return 1
     if a.cmd == "prova":
         res = E.preview(_recipe(a.ricetta, d), Path(a.file), s)
         if a.json:
@@ -143,6 +181,9 @@ def main(argv: list[str] | None = None) -> int:
     if a.cmd == "esegui":
         rec = _recipe(a.ricetta, d)
         store = J.Store(d)
+        if a.remoto and "remote" not in s["_ent"]["modes"]:
+            print("La licenza non comprende l'esecuzione remota.")
+            return 1
         if a.remoto:
             from . import remote as RM
             job = store.create(rec, str(Path(a.da).resolve()), str(Path(a.a).resolve()), "local", "remote")

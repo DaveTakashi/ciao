@@ -3421,8 +3421,11 @@ const sec = (n) => console.log('\n== ' + n);
         await A.fill('#jr-f-code', ''); await A.waitForTimeout(350);
         ok(Jv >= 1 && Jv < await A.evaluate(() => document.querySelectorAll('#jr-tbl tbody tr').length), 'J UI: the binder-code filter narrows the list', Jv);
         await A.click('#jr-src [data-v="srv"]'); await A.waitForFunction(() => !JR.srv.loading && JR.srv.loaded, null, {timeout:8000}).catch(() => {});
-        await A.fill('#jr-f-code', 'JRX'); await A.waitForTimeout(250);
-        await A.waitForFunction(() => !JR.srv.loading, null, {timeout:8000}).catch(() => {});
+        // the code filter reloads from the server after a 250 ms debounce: wait for that reload to start, then to end
+        // (a fixed 250 ms wait raced with the debounce and sometimes read the list before the reload: n = 0)
+        await A.fill('#jr-f-code', 'JRX');
+        await A.waitForFunction(() => JR.srv.loading, null, {timeout:3000, polling:10}).catch(() => {});
+        await A.waitForFunction(() => !JR.srv.loading && JR.srv.loaded && JR.srv.items.length > 0, null, {timeout:8000}).catch(() => {});
         Jv = await A.evaluate(() => ({n:JR.srv.items.length, rows:document.querySelectorAll('#jr-tbl tbody tr').length, txt:(document.getElementById('jr-tbl') || {}).innerText || ''}));
         await A.locator('#jr-card').screenshot({path:Jpath.join(__dirname, 'shots', 'j_card_server.png')});
         ok(Jv.n >= 3 && Jv.rows === Jv.n && /PC Ufficio B/.test(Jv.txt) && /PC Ufficio A/.test(Jv.txt), 'J UI: the server journal (admin) filtered by code shows entries of both PCs with device names', {n:Jv.n});

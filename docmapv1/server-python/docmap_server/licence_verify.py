@@ -75,8 +75,12 @@ KNOWN_FEATURES = (
     "status_events",
     "ai_credits",
     "white_label",
+    "strumenti",         # hub 0.14: the Strumenti (recipes for documents) may run on the customer's PC
+    "strumenti_remote",  # hub 0.14: ... and may send jobs to the provider's remote Strumenti server
 )
-LIMIT_KEYS = ("users", "binders", "archives")
+#: ``strumenti_credits`` (hub 0.14): Strumenti credits per calendar month (None = unlimited). Older verifiers
+#: and servers simply ignore it (limits is an open object).
+LIMIT_KEYS = ("users", "binders", "archives", "strumenti_credits")
 
 REQUIRED_FIELDS = (
     "licence_id",

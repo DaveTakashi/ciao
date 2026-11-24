@@ -213,6 +213,15 @@ class Store:
                           (_h(tok),)).fetchone()
         return dict(r) if r else None
 
+    def token_update(self, tenant: str, credits_month: int | None, plan: str | None = None) -> int:
+        """New monthly credits (and plan) for the active tokens of a tenant; the token itself does not change."""
+        with self.db() as c:
+            if plan is not None:
+                return c.execute("UPDATE tokens SET credits_month = ?, plan = ? WHERE tenant = ? AND revoked IS NULL",
+                                 (credits_month, str(plan), tenant)).rowcount
+            return c.execute("UPDATE tokens SET credits_month = ? WHERE tenant = ? AND revoked IS NULL",
+                             (credits_month, tenant)).rowcount
+
     def token_revoke(self, tenant: str) -> int:
         with self.db() as c:
             return c.execute("UPDATE tokens SET revoked = ? WHERE tenant = ? AND revoked IS NULL", (now(), tenant)).rowcount

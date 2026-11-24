@@ -9,7 +9,7 @@ verifica a mano veloce, coda di lavori locale o remota, crediti. Guida per chi l
 ```bash
 python3 -m pip install -r requirements.txt
 python3 -m docmap_strumenti serve --open            # http://127.0.0.1:8091/#k=<chiave locale>
-python3 -m unittest discover -s tests               # 45 test, ~30 s (il test Tesseract si salta se manca)
+python3 -m unittest discover -s tests               # 53 test, ~30 s (il test Tesseract si salta se manca)
 ```
 
 Su Windows `AVVIA-STRUMENTI.bat` crea `.venv`, installa i requisiti e apre il browser.
@@ -28,6 +28,8 @@ Su Windows `AVVIA-STRUMENTI.bat` crea `.venv`, installa i requisiti e apre il br
 | `validators.py` | date, importi, P.IVA, codice fiscale, IBAN |
 | `jobs.py` | `Store` (SQLite: jobs, ledger, tokens, audit), `Queue`, `review_apply()` |
 | `remote.py` | esecuzione su un altro server (`run_remote`) |
+| `licensing.py` | licenza dell'hub: verifica, installazione, `entitlements()` (lavori, modalità, crediti) |
+| `licence_verify.py` | copia **identica** di `hub/docmap_hub/licence.py`: non modificarla qui, ricopiala |
 | `server.py` | API HTTP + pagina `ui/` |
 | `cli.py` | riga di comando |
 
@@ -54,6 +56,10 @@ def stamp(it, p, ctx):              # kind="map": una chiamata per documento; ki
 4. Un test in `tests/test_blocks.py` con i file finti di `tests/fixtures.py`; poi `bash ../tools/verifica-veloce.sh`.
 
 ## Regole
+
+- Licenza: `settings.effective()` applica i diritti della licenza (modalità, tetto dei crediti) sopra
+  `impostazioni.json`; `server.need_licence()` ferma solo prove, lavori nuovi e caricamenti, mai verifiche e risultati.
+  Chiavi di fiducia solo in `trusted_keys.json` accanto al codice (`settings.licence.public_keys` solo per i test).
 
 - Una ricetta salvata non si modifica: si salva una versione nuova. Le ricette pronte (`templates/*.json`) devono passare
   `recipe.validate` (test `test_templates_all_valid`).

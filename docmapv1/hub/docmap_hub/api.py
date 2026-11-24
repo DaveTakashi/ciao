@@ -1112,6 +1112,12 @@ def _after_licence(app, res: dict) -> dict:
         job = app.jobs.start("Pubblicazione della licenza", "licence-publish", {},
                              lambda h, j: LG.publish(h, vk, [iid], log=j.log))
         out["publish_job"] = job.id
+    # v0.14: the credits of the remote Strumenti token follow the licence (suspension = 0 credits at once)
+    from . import strumenti as ST
+    if iid in ST.issued(reg):
+        job = app.jobs.start("Crediti Strumenti aggiornati", "strumenti-sync", {},
+                             lambda h, j: {"strumenti": ST.sync(h, vk, iid)})
+        out["strumenti_job"] = job.id
     return out
 
 
@@ -1430,3 +1436,49 @@ def customer_kit(app, cid: str, body: dict) -> dict:
         return {"kit": {"job": job.id, "name": job.kit[0]}}
     job = app.jobs.start(f"Kit di consegna: {cust['name']}", "customer-kit", {}, run)
     return {"job": job.id}
+
+
+# ---------------------------------------------------------------------------
+# v0.14: Strumenti on the provider's remote server (token per installation, credits follow the licence)
+# ---------------------------------------------------------------------------
+
+def strumenti_view(app) -> dict:
+    from . import strumenti as ST
+    return {**ST.view(app.hub.registry), "vault": app.vault_key is not None}
+
+
+def strumenti_config_set(app, body: dict) -> dict:
+    from . import strumenti as ST
+    app.need_unlocked()
+    key = (body.get("admin_key") or "").strip()
+    ST.set_config(app.hub.registry, app.need_vault() if key else app.vault_key, body.get("url") or "", key)
+    return strumenti_view(app)
+
+
+def strumenti_ping(app, body: dict) -> dict:
+    from . import strumenti as ST
+    app.need_unlocked()
+    return ST.ping(app.hub.registry, app.need_vault())
+
+
+def strumenti_token(app, iid: str, body: dict) -> dict:
+    """New token for the installation: returned ONCE, the hub keeps only that it was issued."""
+    from . import strumenti as ST
+    app.need_unlocked()
+    return ST.issue_token(app.hub, app.need_vault(), iid)
+
+
+def strumenti_sync(app, body: dict) -> dict:
+    from . import strumenti as ST
+    app.need_unlocked()
+    vk = app.need_vault()
+    iid = (body or {}).get("instance_id")
+    res = {iid: ST.sync(app.hub, vk, iid)} if iid else ST.sync_all(app.hub, vk)
+    return {"synced": res, **strumenti_view(app)}
+
+
+def strumenti_revoke(app, iid: str, body: dict) -> dict:
+    from . import strumenti as ST
+    app.need_unlocked()
+    n = ST.revoke(app.hub, app.need_vault(), iid)
+    return {"revoked": n, **strumenti_view(app)}

@@ -70,6 +70,7 @@ GUIDES = [
     ("docs/AGGIORNAMENTO-v12.17-v12.18.md", "AGGIORNAMENTO-v12.17-v12.18.html"),
     ("docs/STRUMENTI.md", "STRUMENTI.html"),
     ("docs/AGGIORNAMENTO-STRUMENTI-0.1.0.md", "AGGIORNAMENTO-STRUMENTI-0.1.0.html"),
+    ("docs/AGGIORNAMENTO-STRUMENTI-0.2.0.md", "AGGIORNAMENTO-STRUMENTI-0.2.0.html"),
     ("docs/MARCHIO.md", "MARCHIO.html"),
     ("docs/commerciale/LISTINO.md", "LISTINO.html"),
 ]

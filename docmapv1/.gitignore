@@ -1,3 +1,4 @@
 __pycache__/
 *.pyc
 .venv/
+strumenti/docmap_strumenti/trusted_keys.json

@@ -263,7 +263,7 @@ class LicenceTests(unittest.TestCase):
         lic = b["licence"]
         self.assertEqual((lic["mode"], lic["writable"], lic["licence"]["plan"], lic["licence"]["customer"]["name"]),
                          ("full", True, "studio", "Studio Licenza Srl"))
-        self.assertEqual(lic["limits"], {"users": 3, "binders": 3, "archives": 1})
+        self.assertEqual(lic["limits"], {"users": 3, "binders": 3, "archives": 1, "strumenti_credits": 2000})
         s, b = self.on.call("ping", tok=None)
         self.assertEqual(b["licence"]["mode"], "full")
         self.assertNotIn("licence", b["licence"])                      # no customer data in the public ping

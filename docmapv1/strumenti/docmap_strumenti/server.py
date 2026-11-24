@@ -32,6 +32,7 @@ from . import providers as PR
 from . import recipe as RC
 from . import registry as R
 from . import remote as RM
+from . import licensing as LI
 from . import settings as S
 from .branding import brand_name
 
@@ -64,7 +65,7 @@ class App:
         self._seed_templates()
 
     def settings(self) -> dict:
-        return S.load(self.dir)
+        return S.effective(self.dir)      # the installed licence decides modes and monthly credits
 
     def _seed_templates(self) -> None:
         """First start: the example recipes become the user's recipes (never overwritten afterwards)."""
@@ -268,7 +269,8 @@ def make_handler(app: App, allowed_hosts: set[str]):
                 info = {"version": __version__, "brand": brand_name(), "remote_mode": app.remote_mode, "admin": admin,
                         "tenant": who["tenant"], "user": who["user"], "credits": {"used_month": used, "limit_month": lim,
                                                                                   "costs": app.store.costs(s)},
-                        "modes": (s.get("licence") or {}).get("modes") or ["local"]}
+                        "modes": (s.get("licence") or {}).get("modes") or ["local"],
+                        "licence": {k: s["_ent"].get(k) for k in ("enforced", "can_run", "message", "mode", "licence")}}
                 if admin:
                     info["engines"] = {"tesseract": bool(PR.tesseract_cmd(s)), "tesseract_langs": PR.tesseract_langs(s),
                                        "pdfium": M.has_pdfium(), "ai": (s.get("ai") or {}).get("provider") or "",
@@ -301,6 +303,7 @@ def make_handler(app: App, allowed_hosts: set[str]):
                 self._body_to_file(d / name, int(s.get("max_upload_mb") or 2048))
                 return self._json({"sample": f"{d.name}/{name}"})
             if p == ["preview"] and m == "POST":
+                need_licence(s)
                 b = self._body_json()
                 rec = b.get("recipe")
                 if not rec and b.get("recipe_id"):
@@ -326,12 +329,21 @@ def make_handler(app: App, allowed_hosts: set[str]):
                 need_admin()
                 if m == "POST":
                     return self._json({"settings": S.public(S.save(app.dir, self._body_json().get("settings") or {}))})
-                return self._json({"settings": S.public(s)})
+                return self._json({"settings": S.public(S.load(app.dir))})
             if p == ["remote", "ping"]:
                 need_admin()
                 return self._json({"remote": RM.ping(s)})
             if p == ["usage"]:
                 return self._json({"usage": app.store.usage(None if admin else who["tenant"])})
+            if p == ["licence"]:
+                need_admin()
+                if m == "POST":
+                    try:
+                        LI.install(app.dir, S.load(app.dir), self._raw_body(), force=q.get("forza") == "1")
+                    except LI.LicenceInstallError as e:
+                        raise HttpError(400, str(e)) from None
+                    return self._json({"licence": app.settings()["_ent"]})
+                return self._json({"licence": s["_ent"]})
             if p == ["tokens"]:
                 need_admin()
                 if m == "POST":
@@ -340,6 +352,10 @@ def make_handler(app: App, allowed_hosts: set[str]):
                         raise HttpError(400, "nome del cliente non valido")
                     if b.get("revoke"):
                         return self._json({"revoked": app.store.token_revoke(b["tenant"])})
+                    if b.get("update"):       # the hub changes the monthly credits of a customer (plan, suspension)
+                        cm = b.get("credits_month")
+                        n = app.store.token_update(b["tenant"], int(cm) if cm not in (None, "") else None, b.get("plan"))
+                        return self._json({"updated": n})
                     cm = b.get("credits_month")
                     tok = app.store.token_create(b["tenant"], b.get("label") or "", b.get("plan") or "",
                                                  int(cm) if cm not in (None, "") else None)
@@ -413,6 +429,7 @@ def make_handler(app: App, allowed_hosts: set[str]):
                 rec = b.get("recipe") or app.recipes.get(str(b.get("recipe_id") or ""),
                                                          int(b["version"]) if str(b.get("version") or "").isdigit() else None)
                 rec = RC.validate(rec)
+                need_licence(s)
                 inp = Path(str(b.get("input_dir") or "")).expanduser()
                 if not inp.is_dir():
                     raise HttpError(400, "cartella di partenza non trovata")
@@ -429,6 +446,7 @@ def make_handler(app: App, allowed_hosts: set[str]):
                 app.queue.poke()
                 return self._json({"job": job})
             if p == ["upload"] and m == "POST":
+                need_licence(s)
                 rec = json.loads(_b64(self.headers.get("X-Recipe-B64")) or "null")
                 rec = RC.validate(rec)
                 name = _b64(self.headers.get("X-Job-Name")) or rec["name"]
@@ -510,6 +528,13 @@ def make_handler(app: App, allowed_hosts: set[str]):
             raise HttpError(404, "indirizzo API sconosciuto")
 
     return H
+
+
+def need_licence(s: dict) -> None:
+    """New jobs and previews only with a licence that allows them (never blocks reviews, results or downloads)."""
+    ent = s.get("_ent") or {}
+    if ent.get("enforced") and not ent.get("can_run"):
+        raise HttpError(403, ent.get("message") or "licenza non valida per gli Strumenti")
 
 
 def choose_mode(run_on: str, s: dict, inp: Path, rec: dict) -> str:

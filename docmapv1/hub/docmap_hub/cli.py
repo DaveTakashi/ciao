@@ -368,6 +368,9 @@ def _push_hint(hub: Hub, iid: str) -> None:
     if any(e["kind"] == "web-php" for e in hub.registry.list_environments(iid)):
         inst = hub.registry.get_instance(iid)
         out(f"Siti online: per applicarla SUBITO  python -m docmap_hub licence push \"{inst['label']}\"")
+    from . import strumenti as ST
+    if iid in ST.issued(hub.registry):   # v0.14
+        out(f"Server degli Strumenti: crediti allineati alla licenza con  python -m docmap_hub strumenti aggiorna {iid}")
 
 
 def cmd_licence_revoke(hub: Hub, args) -> int:
@@ -1540,6 +1543,82 @@ def cmd_auto(hub: Hub, args) -> int:
 
 
 # ---------------------------------------------------------------------------
+# v0.14: Strumenti on the provider's remote server
+# ---------------------------------------------------------------------------
+
+def cmd_strumenti_stato(hub: Hub, args) -> int:
+    from . import strumenti as ST
+    v = ST.view(hub.registry)
+    c = v["config"]
+    out(f"Server degli Strumenti: {c['url'] + (' (chiave salvata)' if c['has_key'] else ' (manca la chiave)') if c else 'non impostato'}")
+    if not v["rows"]:
+        out("Nessun gettone dato ai clienti.")
+    for r in v["rows"]:
+        e = r["entitlement"]
+        cr = "illimitati" if r.get("credits") is None else r["credits"]
+        out(f"  {r['instance_id']:24s} {r['customer'][:28]:28s} piano {r.get('plan') or '-':12s} crediti/mese {cr}"
+            f"  agg. {str(r.get('synced_at') or '')[:16]}" + ("" if e["allowed"] else f"  [{e['reason']}]"))
+    return 0
+
+
+def cmd_strumenti_imposta(hub: Hub, args) -> int:
+    from . import strumenti as ST
+    key = ""
+    if args.chiave:
+        key = os.environ.get("DOCMAP_HUB_STRUMENTI_KEY") or getpass.getpass(
+            "Chiave di amministratore del server degli Strumenti (chiave-locale.txt, non si vede): ")
+    vk = get_vault_key(hub, args) if key else None
+    c = ST.set_config(hub.registry, vk, args.url, key)
+    out(f"Server degli Strumenti: {c['url']} ({'chiave salvata' if c['has_key'] else 'manca la chiave: --chiave'})"
+        if c else "Server degli Strumenti tolto.")
+    return 0
+
+
+def cmd_strumenti_prova(hub: Hub, args) -> int:
+    from . import strumenti as ST
+    r = ST.ping(hub.registry, get_vault_key(hub, args))
+    out(f"Collegamento riuscito: {r['url']} (Strumenti {r['version']}, modalità per i clienti, chiave di amministratore).")
+    return 0
+
+
+def cmd_strumenti_gettone(hub: Hub, args) -> int:
+    from . import strumenti as ST
+    r = ST.issue_token(hub, get_vault_key(hub, args), args.instance)
+    cr = "illimitati" if r["credits"] is None else r["credits"]
+    out(f"Gettone per {r['tenant']} (piano {r['plan']}, crediti al mese {cr}). Si vede SOLO ora: dallo al cliente.")
+    out(f"  Indirizzo: {r['url']}")
+    out(f"  Gettone:   {r['token']}")
+    out("Il cliente lo inserisce negli Strumenti: Impostazioni › Esecuzione remota.")
+    return 0
+
+
+def cmd_strumenti_aggiorna(hub: Hub, args) -> int:
+    from . import strumenti as ST
+    vk = get_vault_key(hub, args)
+    res = {args.instance: ST.sync(hub, vk, args.instance)} if args.instance else ST.sync_all(hub, vk)
+    if not res:
+        out("Nessun gettone dato ai clienti da questo hub.")
+    bad = 0
+    for iid, r in res.items():
+        if r is None:
+            out(f"  {iid}: nessun gettone dato da questo hub")
+        elif r.get("error"):
+            bad += 1
+            out(f"  {iid}: ERRORE {r['error']}")
+        else:
+            out(f"  {iid}: crediti al mese {'illimitati' if r['credits'] is None else r['credits']}"
+                + (f" ({r['reason']})" if r.get("reason") else ""))
+    return 1 if bad else 0
+
+
+def cmd_strumenti_revoca(hub: Hub, args) -> int:
+    from . import strumenti as ST
+    n = ST.revoke(hub, get_vault_key(hub, args), args.instance)
+    out(f"Gettoni revocati sul server degli Strumenti: {n}.")
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # Parser
 # ---------------------------------------------------------------------------
 
@@ -1940,6 +2019,19 @@ def build_parser() -> argparse.ArgumentParser:
     q.add_argument("--togli", action="store_true")
     ls = [a for a in sub.choices["licence"]._actions if isinstance(a, argparse._SubParsersAction)][0]
     q = add("push", cmd_licence_push, "carica subito la licenza attuale sui siti online dell'installazione (FTP)", ls)
+    q.add_argument("instance")
+    p = add("strumenti", cmd_strumenti_stato, "server remoto degli Strumenti: gettoni dei clienti e crediti del piano")
+    ts = p.add_subparsers(dest="sub", metavar="azione")
+    add("stato", cmd_strumenti_stato, "indirizzo del server e gettoni dati ai clienti", ts)
+    q = add("imposta", cmd_strumenti_imposta, "indirizzo del server degli Strumenti (e chiave di amministratore)", ts)
+    q.add_argument("--url", required=True, help="es. https://strumenti.esempio.it (vuoto per togliere)")
+    q.add_argument("--chiave", action="store_true", help="chiede la chiave (o DOCMAP_HUB_STRUMENTI_KEY)")
+    add("prova", cmd_strumenti_prova, "prova il collegamento con la chiave salvata", ts)
+    q = add("gettone", cmd_strumenti_gettone, "gettone nuovo per un'installazione (il vecchio smette di valere)", ts)
+    q.add_argument("instance")
+    q = add("aggiorna", cmd_strumenti_aggiorna, "i crediti dei gettoni seguono la licenza in vigore", ts)
+    q.add_argument("instance", nargs="?")
+    q = add("revoca", cmd_strumenti_revoca, "il gettone dell'installazione smette di valere", ts)
     q.add_argument("instance")
     return ap
 

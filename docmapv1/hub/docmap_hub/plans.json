@@ -23,16 +23,18 @@
       "limits": {
         "users": 2,
         "binders": 300,
-        "archives": 1
+        "archives": 1,
+        "strumenti_credits": 500
       },
       "features": [
-        "mobile_scan"
+        "mobile_scan",
+        "strumenti"
       ],
       "price": {
         "monthly_eur": 0,
         "yearly_eur": 0,
         "for": "chi vuole provare con i propri faldoni",
-        "included": "1 archivio, fino a 300 faldoni, 2 utenti, telefoni, etichette"
+        "included": "1 archivio, fino a 300 faldoni, 2 utenti, telefoni, etichette, Strumenti con 500 crediti al mese"
       }
     },
     "studio": {
@@ -42,16 +44,18 @@
       "limits": {
         "users": 5,
         "binders": 5000,
-        "archives": 3
+        "archives": 3,
+        "strumenti_credits": 2000
       },
       "features": [
-        "mobile_scan"
+        "mobile_scan",
+        "strumenti"
       ],
       "price": {
         "monthly_eur": 39,
         "yearly_eur": 390,
         "for": "studio fino a 5 persone",
-        "included": "3 archivi, fino a 5.000 faldoni, 5 utenti, telefoni, etichette, backup"
+        "included": "3 archivi, fino a 5.000 faldoni, 5 utenti, telefoni, etichette, backup, Strumenti con 2.000 crediti al mese"
       }
     },
     "studio_pro": {
@@ -61,19 +65,22 @@
       "limits": {
         "users": 15,
         "binders": 20000,
-        "archives": 10
+        "archives": 10,
+        "strumenti_credits": 10000
       },
       "features": [
         "mobile_scan",
         "sync_server",
         "status_events",
-        "ai_credits"
+        "ai_credits",
+        "strumenti",
+        "strumenti_remote"
       ],
       "price": {
         "monthly_eur": 89,
         "yearly_eur": 890,
         "for": "studio grande o più sedi",
-        "included": "10 archivi, fino a 20.000 faldoni, 15 utenti, sincronizzazione sede ⇄ online, stati e registro, crediti AI"
+        "included": "10 archivi, fino a 20.000 faldoni, 15 utenti, sincronizzazione sede ⇄ online, stati e registro, crediti AI, Strumenti con 10.000 crediti al mese anche sul server remoto"
       }
     },
     "conto_terzi": {
@@ -83,19 +90,22 @@
       "limits": {
         "users": 30,
         "binders": 100000,
-        "archives": 50
+        "archives": 50,
+        "strumenti_credits": 50000
       },
       "features": [
         "mobile_scan",
         "sync_server",
         "status_events",
-        "ai_credits"
+        "ai_credits",
+        "strumenti",
+        "strumenti_remote"
       ],
       "price": {
         "monthly_eur": 190,
         "yearly_eur": 1900,
         "for": "società di archiviazione per conto terzi",
-        "included": "50 archivi, fino a 100.000 faldoni, 30 utenti, prelievi e consegne, crediti AI"
+        "included": "50 archivi, fino a 100.000 faldoni, 30 utenti, prelievi e consegne, crediti AI, Strumenti con 50.000 crediti al mese anche sul server remoto"
       }
     },
     "appliance": {
@@ -105,19 +115,21 @@
       "limits": {
         "users": 10,
         "binders": 20000,
-        "archives": 5
+        "archives": 5,
+        "strumenti_credits": 10000
       },
       "features": [
         "mobile_scan",
         "sync_server",
-        "status_events"
+        "status_events",
+        "strumenti"
       ],
       "price": {
         "monthly_eur": 99,
         "yearly_eur": 990,
         "setup_eur": 600,
         "for": "studio che vuole tutto in sede (mini-PC preconfigurato)",
-        "included": "come Studio Pro con 10 utenti, tutto in sede; il mini-PC preconfigurato con backup cifrato si paga a parte"
+        "included": "come Studio Pro con 10 utenti, tutto in sede; il mini-PC preconfigurato con backup cifrato si paga a parte, Strumenti in sede con 10.000 crediti al mese"
       }
     },
     "reseller": {
@@ -127,20 +139,23 @@
       "limits": {
         "users": 50,
         "binders": null,
-        "archives": null
+        "archives": null,
+        "strumenti_credits": null
       },
       "features": [
         "mobile_scan",
         "sync_server",
         "status_events",
         "ai_credits",
-        "white_label"
+        "white_label",
+        "strumenti",
+        "strumenti_remote"
       ],
       "price": {
         "monthly_eur": 290,
         "yearly_eur": 2900,
         "for": "rivenditore con il proprio marchio (white label)",
-        "included": "marchio proprio su app, sito, pacchetti e lettere ai clienti",
+        "included": "marchio proprio su app, sito, pacchetti e lettere ai clienti, Strumenti senza limite di crediti",
         "tiers": [
           {
             "up_to_instances": 10,
@@ -175,6 +190,12 @@
     "ai": {
       "label": "Lettura AI delle coste e compilazione dei campi",
       "note": "crediti prepagati: costo del fornitore AI × 2,5"
+    },
+    "strumenti_credits": {
+      "label": "Crediti Strumenti in più (pacchetto da 10.000 al mese)",
+      "monthly_eur": 15,
+      "yearly_eur": 150,
+      "note": "1 credito = 1 pagina letta con l'OCR; 1 chiamata AI = 10 crediti; 1 chiamata a un servizio = 1 credito (i costi si cambiano negli Strumenti)"
     }
   },
   "services": {

@@ -79,7 +79,9 @@ async function boot2() {
 }
 function footer() {
   const c = ST.info.credits || {};
-  $('#side-foot').innerHTML = `${esc(ST.info.user)}${ST.info.remote_mode ? ' · server remoto' : ''}<br>Crediti del mese: <b>${c.used_month || 0}</b>${c.limit_month != null ? ' / ' + c.limit_month : ''}`;
+  const li = ST.info.licence || {};
+  $('#side-foot').innerHTML = `${esc(ST.info.user)}${ST.info.remote_mode ? ' · server remoto' : ''}<br>Crediti del mese: <b>${c.used_month || 0}</b>${c.limit_month != null ? ' / ' + c.limit_month : ''}` +
+    (li.enforced && !li.can_run ? `<br><b class="err" id="lic-stop">Licenza: ${esc(li.message || 'non valida')}</b>` : '');
 }
 function route() {
   const v = (location.hash.replace('#', '').split('/')[0]) || 'ricette';
@@ -585,7 +587,7 @@ async function viewSettings(tab) {
   tab = tab || 'lettura';
   const s = (await api('/api/settings')).settings;
   const info = await api('/api/info');
-  const tabs = { lettura: 'OCR', ai: 'AI', servizi: 'Servizi esterni', remoto: 'Esecuzione remota', crediti: 'Crediti e clienti', tasti: 'Tasti della verifica', sistema: 'Sistema' };
+  const tabs = { lettura: 'OCR', ai: 'AI', servizi: 'Servizi esterni', remoto: 'Esecuzione remota', crediti: 'Crediti e clienti', licenza: 'Licenza', tasti: 'Tasti della verifica', sistema: 'Sistema' };
   $('#view').innerHTML = `<h1>Impostazioni</h1><p class="sub">Valgono per questo PC (o per questo server). Le chiavi restano qui, mai nelle ricette.</p>
     <div class="tabs">${Object.entries(tabs).map(([k, v]) => `<button data-tab="${k}" class="${k === tab ? 'on' : ''}">${esc(v)}</button>`).join('')}</div><div class="card" id="st-b"></div>
     <div class="row end"><span class="grow mut" id="st-m"></span><button class="btn" id="st-save">Salva</button></div>`;
@@ -630,6 +632,23 @@ async function viewSettings(tab) {
       <p class="hint">1…9 assegnano i valori rapidi e Maiusc+1…9 i tag: sono fissi. <button class="btn small sec" id="k-def">Ripristina i tasti di partenza</button></p>`;
     $$('[data-key]').forEach(el => el.addEventListener('keydown', ev => { if (ev.key === 'Tab') return; ev.preventDefault(); const k = ev.key === ' ' ? 'Space' : ev.key; if (k === 'Backspace') { el.value = ''; return; } const cur = el.value.split(',').map(x => x.trim()).filter(Boolean); if (!cur.includes(k)) cur.push(k); el.value = cur.slice(-2).join(', '); }));
     $('#k-def').addEventListener('click', () => { $$('[data-key]').forEach(el => { el.value = KEYS_DEFAULT[el.dataset.key].join(', '); }); });
+  }
+  if (tab === 'licenza') {
+    const L = (await api('/api/licence')).licence, l = L.licence || {};
+    const cm = L.credits_month;
+    B.innerHTML = !L.enforced ? `<p>Nessuna licenza installata: gli Strumenti funzionano con le impostazioni di questo PC.</p>`
+      : `<p id="lic-state">${L.can_run ? '<b class="okc">Attiva</b>' : '<b class="err">Bloccata</b>'} · ${esc(L.message || '')}</p>
+        <table><tr><th>Piano</th><td>${esc(l.plan || '-')}</td></tr><tr><th>Intestata a</th><td>${esc(l.customer || '-')}</td></tr>
+        <tr><th>Scade</th><td>${esc(fmtDate(l.expires_at))}</td></tr><tr><th>Dove possono girare i lavori</th><td>${esc((L.modes || []).map(m => m === 'local' ? 'su questo PC' : 'sul server remoto').join(', ') || 'da nessuna parte')}</td></tr>
+        <tr><th>Crediti al mese</th><td>${cm == null ? 'senza limite' : esc(cm)}</td></tr></table>`;
+    B.innerHTML += `<h3>Installa una licenza</h3><p class="hint">Il file <code>.docmap-licence</code> che ti manda il fornitore. Le verifiche, i risultati e i download restano sempre disponibili, anche con una licenza scaduta.</p>
+      <div class="row"><input type="file" id="lic-f" accept=".docmap-licence,application/json" style="width:auto"><button class="btn sec small" id="lic-go">Installa</button></div><p id="lic-r"></p>`;
+    $('#lic-go').addEventListener('click', async () => {
+      const f = $('#lic-f').files[0]; if (!f) return;
+      try { await api('/api/licence', { method: 'POST', body: f }); ST.info = await api('/api/info'); footer(); toast('Licenza installata'); go('impostazioni/licenza'); }
+      catch (er) { $('#lic-r').innerHTML = `<span class="err">${esc(er.message)}</span>`; }
+    });
+    $('#st-save').hidden = true;
   }
   if (tab === 'sistema') {
     const au = await api('/api/audit/verify');

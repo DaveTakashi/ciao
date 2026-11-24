@@ -655,6 +655,28 @@ cliente: tipo, indirizzo, versione dell'app, «aggiornato» (rispetto alla versi
 «risponde» (ultimo controllo), ultimo deploy, piano, scadenza e stato della licenza (attiva, in scadenza entro 30
 giorni, scaduta, sospesa, revocata). Separatore `;`, si apre con un doppio clic in Excel. Nessuna password o codice.
 
+### 6.19 Strumenti per i clienti: crediti del piano e server remoto (0.14)
+
+Ogni piano dice tre cose sugli Strumenti (`plans.json`, listino): funzione **Strumenti** (lavori sul PC del cliente),
+funzione **Strumenti sul server remoto** (Studio Pro, Conto terzi, Rivenditore) e **Crediti Strumenti al mese**
+(Prova 500, Studio 2.000, Studio Pro e In sede 10.000, Conto terzi 50.000, Rivenditore illimitati). Si cambiano per
+un cliente come gli altri limiti: «Emetti licenza» o «Modifica» (campo «Crediti Strumenti al mese»), oppure
+`licence issue --instance … --plan studio --strumenti_credits 3000`. Il cliente installa il file della licenza negli Strumenti (Impostazioni ›
+Licenza) e il piano vale da subito.
+
+**Server remoto** (il tuo, per i clienti che mandano i lavori a te):
+1. Sul server: `python -m docmap_strumenti serve --remote --host 0.0.0.0 --cert c.pem --key k.pem`.
+2. Nell'hub: Impostazioni › **Server remoto degli Strumenti** › Imposta: indirizzo e chiave di amministratore (contenuto
+   di `chiave-locale.txt` nella cartella dati di quel server; va in cassaforte, cifrata). «Prova il collegamento».
+3. Licenza del cliente › **Gettone Strumenti** (cassaforte aperta): indirizzo e gettone si vedono **una volta sola**;
+   mandali al cliente, che li scrive in Impostazioni › Esecuzione remota. Un gettone nuovo annulla il vecchio.
+4. Da lì i crediti **seguono la licenza**: quando sospendi, revochi, riattivi, modifichi o rinnovi con la cassaforte
+   aperta, l'hub aggiorna subito il gettone (sospesa, revocata, scaduta o senza server remoto = 0 crediti). Con la
+   cassaforte chiusa: «Allinea i crediti» o `strumenti aggiorna` appena puoi.
+
+Il consumo resta sul server degli Strumenti (`python -m docmap_strumenti consumi`): i crediti in più si fatturano a mano
+con il modulo «Crediti Strumenti in più».
+
 ## 7. La pagina web del hub (il gestionale)
 
 Doppio clic su `C:\DocMapHub\hub\run_windows.bat` → si apre il browser sulla pagina del hub (solo da questo PC). La
@@ -774,10 +796,13 @@ Codici di uscita: `0` riuscito, `1` errore (messaggio su stderr che inizia con "
 | `verifica-backup` | un backup si può ripristinare? (predefinito: l'ultimo) (0.12) | `[nome]`, `--tutti` |
 | `ripristina-backup` | rimette un backup, pagina chiusa; i dati di adesso vanno da parte (0.12) | `[nome o percorso]`, `--ultimo`, `--si` |
 | `cliente situazione` | una riga per sito/server: versione, controllo, licenza (0.12) | `--csv FILE` |
+| `strumenti stato` | server degli Strumenti e gettoni dati ai clienti (0.14) | |
+| `strumenti imposta` | indirizzo e chiave di amministratore del server degli Strumenti (0.14) | `--url`, `--chiave` |
+| `strumenti prova` / `gettone ISTANZA` / `aggiorna [ISTANZA]` / `revoca ISTANZA` | collegamento, gettone nuovo (si vede una volta), crediti allineati alla licenza, revoca (0.14) | |
 | `web` | pagina locale (porta 47823 o la successiva libera, ricordata) | `--port`, `--no-browser` |
 
 Variabili d'ambiente utili: `DOCMAP_HUB_DIR` (cartella dati), `DOCMAP_HUB_PASSPHRASE`, `DOCMAP_HUB_VAULT_PASSPHRASE`,
-`DOCMAP_HUB_FTP_PASSWORD`, `DOCMAP_HUB_BRIDGE_TOKEN`, `DOCMAP_HUB_VAULT_NEW_PASSPHRASE`, `DOCMAP_HUB_NO_AUTO=1`
+`DOCMAP_HUB_FTP_PASSWORD`, `DOCMAP_HUB_BRIDGE_TOKEN`, `DOCMAP_HUB_STRUMENTI_KEY`, `DOCMAP_HUB_VAULT_NEW_PASSPHRASE`, `DOCMAP_HUB_NO_AUTO=1`
 (ignora l'accesso automatico).
 
 ---
