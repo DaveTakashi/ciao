@@ -150,6 +150,8 @@ il numero e l'immagine. Se un passo si blocca, salta al blocco successivo.
 - [ ] S5. «PDF scansionato in fatture» su un PDF vero di molte fatture: ogni fattura è un PDF a sé.
 - [ ] S6. Sul server di Dave: `serve --remote` con HTTPS e un gettone; dal PC, Impostazioni › Esecuzione remota › Prova, poi un lavoro «sul server»: i risultati tornano nella cartella di arrivo.
 
+- [ ] S7. Nell'app, ⚙ › **Strumenti** (come amministratore): con gli Strumenti spenti spiega come avviarli; avviati, dice «avviati» con la versione; incolla il collegamento con la chiave: compaiono i lavori da verificare e «Apri la verifica» apre la vista Lavori. Con un utente «consultazione» la voce non c'è.
+
 ## Dopo il collaudo
 
 Mandami le righe ❌ con le foto. Io correggo, aggiorno questa scheda e `STATO.md` (sezione 4), e ogni problema diventa

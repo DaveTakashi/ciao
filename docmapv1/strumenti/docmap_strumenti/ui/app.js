@@ -53,7 +53,11 @@ document.addEventListener('click', e => { if (e.target.id === 'modal') closeModa
 function showLogin() { $('#login').hidden = false; $('#view').hidden = true; }
 async function boot() {
   const m = location.hash.match(/k=([^&]+)/);
-  if (m) { ST.key = decodeURIComponent(m[1]); try { sessionStorage.setItem('dms-key', ST.key); } catch (e) { /* private mode */ } history.replaceState(null, '', location.pathname + '#ricette'); }
+  if (m) {
+    const v = (location.hash.match(/&v=([a-z]+)/) || [])[1];   // the main app may ask for a view: #k=…&v=lavori
+    ST.key = decodeURIComponent(m[1]); try { sessionStorage.setItem('dms-key', ST.key); } catch (e) { /* private mode */ }
+    history.replaceState(null, '', location.pathname + '#' + (v || 'ricette'));
+  }
   if (!ST.key) { try { ST.key = sessionStorage.getItem('dms-key') || ''; } catch (e) { ST.key = ''; } }
   $('#login-go').addEventListener('click', () => { ST.key = $('#login-key').value.trim(); try { sessionStorage.setItem('dms-key', ST.key); } catch (e) { /* */ } boot2(); });
   $('#login-key').addEventListener('keydown', e => { if (e.key === 'Enter') $('#login-go').click(); });

@@ -95,7 +95,7 @@ def make_handler(app: App, allowed_hosts: set[str]):
             self.send_header("Referrer-Policy", "no-referrer")
             self.send_header("Content-Security-Policy", CSP)
             self.send_header("X-Frame-Options", "DENY")
-            for k, v in (extra or {}).items():
+            for k, v in {**self._cors(), **(extra or {})}.items():
                 self.send_header(k, v)
             if self.command == "POST" and not getattr(self, "_consumed", False):
                 self.send_header("Connection", "close")      # unread body: never reuse this connection
@@ -173,6 +173,23 @@ def make_handler(app: App, allowed_hosts: set[str]):
                             "plan": t.get("plan"), "credits_month": t.get("credits_month")}
             raise HttpError(401, "chiave mancante o sbagliata")
 
+        # The main app (another page: file:// or the studio's site) may ask only two things across origins:
+        # /api/ping (no key: is it running, which version) and /api/summary (with the local key: jobs to review).
+        CORS_PATHS = ("/api/ping", "/api/summary")
+
+        def _cors(self) -> dict:
+            if urllib.parse.urlsplit(self.path).path not in self.CORS_PATHS:
+                return {}
+            return {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET",
+                    "Access-Control-Allow-Headers": "X-Key", "Access-Control-Allow-Private-Network": "true",
+                    "Access-Control-Max-Age": "600"}
+
+        def do_OPTIONS(self):
+            cors = self._cors()
+            if not cors:
+                return self._send(404, b"", "text/plain")
+            self._send(204, b"", "text/plain", cors)
+
         def do_HEAD(self):
             self.do_GET()
 
@@ -191,6 +208,8 @@ def make_handler(app: App, allowed_hosts: set[str]):
                 self._consumed = method != "POST"
                 if method == "POST" and path not in ("/api/sample", "/api/jobs/upload"):
                     self._raw_body()                              # always read: keep-alive needs a clean stream
+                if method == "GET" and path == "/api/ping":
+                    return self._ping()
                 who = self._who()
                 parts = [p for p in path.split("/") if p][1:]   # after "api"
                 return self._api(method, parts, q, who)
@@ -201,6 +220,12 @@ def make_handler(app: App, allowed_hosts: set[str]):
                 self._json({"error": str(e)}, 400)
             except (BrokenPipeError, ConnectionResetError):
                 pass
+
+        def _ping(self):
+            host = (self.headers.get("Host") or "").split(":")[0].lower()
+            if allowed_hosts and host not in allowed_hosts:
+                raise HttpError(403, "indirizzo non consentito")
+            self._json({"ok": True, "app": "docmap-strumenti", "version": __version__, "remote_mode": app.remote_mode})
 
         def _static(self, path: str):
             host = (self.headers.get("Host") or "").split(":")[0].lower()
@@ -228,6 +253,15 @@ def make_handler(app: App, allowed_hosts: set[str]):
                 if not admin:
                     raise HttpError(403, "riservato all'amministratore di questo PC")
 
+            if p == ["summary"]:
+                need_admin()
+                jobs = app.store.list(None, 50)
+                todo = [j for j in jobs if j["status"] == "waiting_review"]
+                short = [{k: j.get(k) for k in ("id", "name", "status", "created", "finished", "progress", "totals", "error")}
+                         for j in jobs[:5]]
+                return self._json({"version": __version__, "jobs": short, "running": sum(j["status"] in ("queued", "running") for j in jobs),
+                                   "waiting_review": len(todo), "review_items": sum(int((j.get("totals") or {}).get("review") or 0) for j in todo),
+                                   "credits_month": app.store.used("local")})
             if p == ["info"]:
                 used = app.store.used(who["tenant"])
                 lim = app.store.limit(who["tenant"], s)

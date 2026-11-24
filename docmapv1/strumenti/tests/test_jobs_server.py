@@ -190,6 +190,29 @@ class ServerTest(unittest.TestCase):
         self.assertGreaterEqual(len(r["recipes"]), 10)       # the example recipes are the user's from the start
         self.assertEqual(len(self.s.call("/api/blocks")[1]["blocks"]), 20)
 
+    def test_ping_and_summary_for_the_main_app(self):
+        req = urllib.request.Request(self.s.url + "/api/ping")       # no key: only "is it running"
+        with urllib.request.urlopen(req, timeout=10) as r:
+            self.assertEqual(r.headers["Access-Control-Allow-Origin"], "*")
+            j = json.loads(r.read())
+        self.assertEqual((j["ok"], j["app"]), (True, "docmap-strumenti"))
+        self.assertNotIn("key", json.dumps(j))
+        self.assertEqual(self.s.call("/api/ping", headers={"Host": "evil.example"})[0], 403)
+        pre = urllib.request.Request(self.s.url + "/api/summary", method="OPTIONS")
+        with urllib.request.urlopen(pre, timeout=10) as r:
+            self.assertEqual(r.status, 204)
+            self.assertIn("X-Key", r.headers["Access-Control-Allow-Headers"])
+            self.assertEqual(r.headers["Access-Control-Allow-Private-Network"], "true")
+        self.assertEqual(self.s.call("/api/summary", key="")[0], 401)
+        st, sm = self.s.call("/api/summary")
+        self.assertEqual((st, sm["waiting_review"], sm["jobs"]), (200, 0, []))
+        try:
+            urllib.request.urlopen(urllib.request.Request(self.s.url + "/api/info", method="OPTIONS"), timeout=10)
+            self.fail("CORS only for ping and summary")
+        except urllib.error.HTTPError as e:
+            self.assertEqual(e.code, 404)
+            self.assertIsNone(e.headers["Access-Control-Allow-Origin"])
+
     def test_preview_upload_job_review_download(self):
         st, r = self.s.call("/api/recipes", {"recipe": REVIEW_RECIPE})
         rid = r["recipe"]["id"]

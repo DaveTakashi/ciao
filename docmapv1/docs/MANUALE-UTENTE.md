@@ -983,3 +983,20 @@ verranno più proposte. Nomi di persone e ditte non vengono mai suggeriti.
 ogni campo quante letture erano giuste, quanti faldoni erano tutti giusti, i secondi a faldone e l'**affidabilità**.
 Ripetete la prova con un altro fornitore e confrontate le righe prima di decidere quale usare. Nessun faldone viene
 cambiato.
+
+## 40. Strumenti: ricette per cartelle di documenti (v12.18)
+
+Gli **Strumenti** sono un programma a parte, sul PC dell'amministratore, che lavora su cartelle di documenti: divide PDF
+e TIFF, converte, legge il testo (OCR, anche i dattiloscritti), trova numeri, date, P.IVA e importi, mette ogni file
+nella cartella giusta e fa un report Excel. Una persona controlla con la tastiera solo i documenti incerti.
+
+1. **Avvio**: doppio clic su `strumenti\AVVIA-STRUMENTI.bat` (la prima volta prepara tutto in qualche minuto). Si apre
+   il browser con le ricette. Per leggere le scansioni installate Tesseract con l'italiano (guida `STRUMENTI.html`).
+2. **Dall'app**: ⚙ › **Strumenti** (solo l'amministratore la vede). Dice se gli Strumenti sono avviati e li apre. Incollate
+   una volta il collegamento con la chiave (quello che apre `AVVIA-STRUMENTI.bat`) per vedere qui quanti lavori
+   aspettano una verifica e aprire direttamente la verifica. Il collegamento resta solo su quel PC.
+3. **Ricette**: ce ne sono 11 pronte (per esempio «Fatture TIFF in una cartella per numero»). Prima di usarne una su una
+   cartella vera, **Prova** su un file: vedete cosa fa ogni passo senza toccare niente.
+4. **Verifica**: `↓`/`↑` per scorrere, `Invio` certifica, `E` modifica, `1`–`9` sceglie, `X` scarta, `U` annulla.
+
+Guida completa: [`STRUMENTI.md`](STRUMENTI.md).

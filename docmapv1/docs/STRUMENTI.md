@@ -1,4 +1,4 @@
-# Strumenti: ricette per i documenti (versione 0.1.0)
+# Strumenti: ricette per i documenti (versione 0.1.1)
 
 > Per chi usa gli Strumenti (Dave, operatori, amministratori) e per chi li sviluppa. Parte 1 in italiano semplice,
 > parte 2 tecnica. Il codice sta in `strumenti/`; il manuale per sviluppatori è [`../strumenti/README.md`](../strumenti/README.md).
@@ -21,7 +21,8 @@ Ogni lavoro si descrive con una **ricetta**: una lista di **passi**, ognuno è u
 impostazioni. Combinando i blocchi si coprono centinaia di casi. Ci sono **11 ricette pronte** da copiare e adattare.
 
 Gli Strumenti sono un programma a parte (non cambiano l'archivio né i suoi dati). Si aprono nel browser del PC.
-Il collegamento con l'app (sezione «Strumenti» per l'amministratore) arriverà in una versione successiva.
+Dall'app (dalla 26.12.18): ⚙ › **Strumenti**, solo per l'amministratore. Dice se sono avviati, li apre e mostra i lavori
+che aspettano una verifica (incollando una volta il collegamento con la chiave, che resta solo su quel PC).
 
 ### 1.2 Avvio su Windows
 
@@ -193,6 +194,9 @@ Per l'OCR remoto (`op: "ocr"`): `{"text": "…", "conf": 0.88, "words": […]}`.
 
 ### 2.6 API del server
 
+Per l'app (CORS): `GET /api/ping` (senza chiave: `{ok, app, version}`), `GET /api/summary` (chiave: lavori da
+verificare, ultimi 5 lavori, crediti del mese).
+
 Locale (header `X-Key`): `GET /api/info`, `blocks`, `templates`, `recipes`, `recipes/<id>`, `settings`, `usage`,
 `jobs`, `jobs/<id>`, `jobs/<id>/items`, `jobs/<id>/items/<iid>/image`, `jobs/<id>/download`, `jobs/<id>/outputs`,
 `jobs/<id>/audit`, `fs`; `POST /api/validate`, `recipes`, `recipes/<id>/archive`, `sample`, `preview`, `jobs`,
@@ -225,8 +229,9 @@ python -m docmap_strumenti consumi | registro
 
 ### 2.9 Limiti di questa versione e prossimi passi
 
-- Non ancora nell'app né nell'hub: la sezione «Strumenti» per l'amministratore (anche nella vista del cliente), i piani
-  con modalità e crediti in `plans.json` e la consegna automatica del server remoto dall'hub vengono dopo la PR #20.
+- Nell'app c'è la porta (⚙ › Strumenti, `assets/js/06zs-strumenti.js`), che usa solo `/api/ping` (senza chiave) e
+  `/api/summary` (con la chiave): sono gli unici indirizzi con CORS. Non ancora nell'hub: piani con modalità e crediti in
+  `plans.json`, consegna automatica del server remoto.
 - OCR: Tesseract o servizi; un modello proprio per i dattiloscritti si collega come servizio esterno (`ocr.remote_endpoint`).
 - Nell'editor il blocco `extract` mostra tutti i parametri, non solo quelli del metodo scelto.
 - Non provato su Windows vero, con scansioni vere di Dave e con un server remoto vero: righe S1–S6 di
