@@ -294,9 +294,10 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
         catch(e){ if (e && e.code === 'offline') throw e; }
         const res = r.result || {}, rec = Object.assign({}, cur), proj = IV.proj && IV.proj.id === job.p ? IV.proj : null;
         Object.assign(rec, invFieldsFromAi(res, rec));
-        if (res.tags && res.tags.length) rec.tags = invTagsJoin(rec.tags, res.tags);
+        const tg = proj ? invAiTags(res, proj.inv) : (res.tags || []);   // v12.17: synonyms → the client's tags, excluded words dropped
+        if (tg.length) rec.tags = invTagsJoin(rec.tags, tg);
         const th = proj ? proj.inv.auto_confirm : INV_AUTO_CONFIRM;
-        rec.inv = Object.assign({}, rec.inv, {ai:Object.assign({}, res, {model:r.model || '', ms:r.ms || 0, at:nowISO()}), st:rec.inv.st === 'confirmed' ? 'confirmed' : (res.confidence >= th && !res.empty_spine) || rec.inv.voice ? 'proposed' : 'review'});
+        rec.inv = Object.assign({}, rec.inv, {ai:invAiStamp(Object.assign({}, res, {tags:tg}), r), st:invAiState(res, th, rec.inv.voice, rec.inv.st)});
         rec.updated_at = ivTs(cur.updated_at);
         ivRecentPut(rec);
         if (IV.last && IV.last.short_code === rec.short_code) IV.last = rec;
@@ -419,7 +420,7 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       const queued = ivEnqueue({kind:'rec', recs:[b], entry:ivEntry('inventory.capture', {type:'binder', id:b.id, code:num}, t('iv_log_cap', {c:num}), {project:IV.pid, short_code:code, box:IV.box.code, photo:!!phId, via:'phone-nolabel', nolabel:true})});
       if (!queued){ IV.scanned.delete(code); IV.list.pop(); IV.last = null; { const r = ivRecent(); delete r[code]; lsSet(IV_RECENT_LS, r); } if (phId) IVDB.del(phId).catch(() => {}); ivSay('err', t('iv_full')); return ivRender(); }
       ivPaceMark('phone-nolabel');
-      if (IV.proj.inv.ai && phId) ivEnqueue({kind:'ai', code, ph:phId, voice:'', hints:{tags:IV.proj.inv.tags, year_from:IV.proj.inv.year_from, year_to:IV.proj.inv.year_to, client:IV.proj.inv.client, kind:'spine'}});
+      if (IV.proj.inv.ai && phId) ivEnqueue({kind:'ai', code, ph:phId, voice:'', hints:{tags:invVocabHintTags(IV.proj.inv), year_from:IV.proj.inv.year_from, year_to:IV.proj.inv.year_to, client:IV.proj.inv.client, kind:'spine'}});
       ivSay('ok', t('iv_bx_nl_ok', {c:num, b:IV.box.code})); ivArmUndo(); ivPrefsSave(); ivRender();
     }
     function ivBoxPanelHTML(){
@@ -556,7 +557,7 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       if (IV.list.length % 25 === 0) ivStorage();
       if (doc) ivSay('ok', t('iv_doc_ok', {c:num, f:IV.folder.code}));
       else ivSay('ok', IV.box ? t('iv_ok_box', {c:num, b:IV.box.code}) : t('iv_ok', {c:num}));
-      if (IV.proj.inv.ai && phId) ivEnqueue({kind:'ai', code, ph:phId, voice:'', hints:{tags:IV.proj.inv.tags, year_from:IV.proj.inv.year_from, year_to:IV.proj.inv.year_to, client:IV.proj.inv.client, kind:doc ? 'doc' : 'spine'}});
+      if (IV.proj.inv.ai && phId) ivEnqueue({kind:'ai', code, ph:phId, voice:'', hints:{tags:invVocabHintTags(IV.proj.inv), year_from:IV.proj.inv.year_from, year_to:IV.proj.inv.year_to, client:IV.proj.inv.client, kind:doc ? 'doc' : 'spine'}});
       if (!doc && inv.doc) ivFolderSet(code, num, b.location_id, b.inv.box);   // document level: the new binder is open for its documents
       ivArmUndo(); ivPrefsSave(); ivRender();
     }
@@ -626,7 +627,7 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       try { await IVDB.put(pid, {id:pid, mime:'image/jpeg', data:photo, at:nowISO(), binder_id:b.id, project:IV.pid}); } catch(e){ return; }
       ivAmend(c => { c.inv = Object.assign({}, c.inv, {ph2:pid}); });
       clearTimeout(IV.amendTimer); const c = ivRecent()[b.short_code]; if (c && !c._gone) ivEnqueue({kind:'rec', recs:[c], amend:true});   // the photo leaves now
-      if (IV.proj.inv.ai) ivEnqueue({kind:'ai', code:b.short_code, ph:pid, voice:(b.inv && b.inv.voice) || '', hints:{tags:IV.proj.inv.tags, year_from:IV.proj.inv.year_from, year_to:IV.proj.inv.year_to, client:IV.proj.inv.client, kind:'page'}});
+      if (IV.proj.inv.ai) ivEnqueue({kind:'ai', code:b.short_code, ph:pid, voice:(b.inv && b.inv.voice) || '', hints:{tags:invVocabHintTags(IV.proj.inv), year_from:IV.proj.inv.year_from, year_to:IV.proj.inv.year_to, client:IV.proj.inv.client, kind:'page'}});
       ivListSet(b.short_code, {thumb:photo, ai:IV.proj.inv.ai ? 'wait' : ''});
       ivSay('ok', t('iv_page_ok', {c:b.speaking_code})); ivRender();
     }

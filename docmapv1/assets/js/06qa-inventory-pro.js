@@ -75,7 +75,7 @@ function ivpProHTML(a){
       (typeof ivxRescueButtonHTML === 'function' ? ivxRescueButtonHTML(a) : '') + '</div>' + (typeof ivxProgressHTML === 'function' ? ivxProgressHTML(a) : '') + '</div>' +
     '<div class="card card-p"><h2>' + esc(t('ivq_ver_h')) + '</h2>' + ver + '</div></div>' +
     (live ? '<div class="card card-p ivq-live" style="margin-top:16px" id="ivq-live-card">' + ivqLiveHTML(a) + '</div>' : '') +
-    (typeof ivxBoxesHTML === 'function' ? ivxBoxesHTML(a) : '');
+    (typeof ivxBoxesHTML === 'function' ? ivxBoxesHTML(a) : '') + (typeof ivyAiHTML === 'function' ? ivyAiHTML(a) : '');
 }
 
 /* ---------------- "In diretta" (two-person chain) ---------------- */
@@ -130,17 +130,39 @@ async function ivqAiLocalCall(conf, dataUrl, voice, hints){
   if (!r.ok || !j) throw new Error((j && j.error && (j.error.message || j.error)) || ('HTTP ' + r.status));
   const msg = j.choices && j.choices[0] && j.choices[0].message, res = invAiParseText(msg && typeof msg.content === 'string' ? msg.content : '');
   if (!res) throw new Error('answer not readable');
-  return {enabled:true, provider:'local', model:String(j.model || conf.model), result:invAiNorm(res, h)};
+  return {enabled:true, provider:'local', model:String(j.model || conf.model), result:invAiNorm(res, h), prompt_v:INV_AI_PROMPT_V};
 }
 /** Applies one AI result to a binder (same rules as the phone: empty fields only, never a Codice Multi). */
 function ivqAiApply(a, b, r){
-  const res = r.result || {};
+  const res = r.result || {}, tg = invAiTags(res, a.inv);   // v12.17: synonyms → the client's tags, excluded words dropped
   Object.assign(b, invFieldsFromAi(res, b));
-  if (res.tags && res.tags.length) b.tags = invTagsJoin(b.tags, res.tags);
-  const st = ivpState(b);
-  b.inv = Object.assign({}, b.inv, {ai:Object.assign({}, res, {model:r.model || '', provider:r.provider || '', at:nowISO(), via:'pc'}),
-    st:st === 'confirmed' ? 'confirmed' : (res.confidence >= a.inv.auto_confirm && !res.empty_spine) || b.inv.voice ? 'proposed' : 'review'});
+  if (tg.length) b.tags = invTagsJoin(b.tags, tg);
+  b.inv = Object.assign({}, b.inv, {ai:invAiStamp(Object.assign({}, res, {tags:tg}), r, {via:'pc'}), st:invAiState(res, a.inv.auto_confirm, b.inv.voice, ivpState(b))});
   ivpTouch(b);
+}
+/** Kind of photo the AI reads for a binder (document, inside of a binder with an empty spine, spine). */
+function ivqAiKind(b){ return invLevel(b) === 'doc' ? 'doc' : b.inv.ph2 ? 'page' : 'spine'; }
+/** One reading of a binder's photo: the server first (sending the photo when only this PC has it), else the local model.
+    W.useSrv is switched off when the server has no AI, so the next binders go straight to the local model. */
+async function ivqAiCall(b, hints, conf, local, W){
+  W = W || {useSrv:!!conf};
+  const ph = b.inv.ph2 || b.inv.ph; let r = null;
+  if (W.useSrv && conf){
+    try {
+      r = await srvClient(conf).call('ai_spine', {method:'POST', body:{photo_id:ph, voice:b.inv.voice || '', hints}, timeout:120000});
+      if (r && !r.enabled) r = null;
+    } catch(e){
+      if (e.code === 'not_found'){   // the photo is only on this PC: send it with the request
+        const u = await ivpPhotoGet(ph), m = String(u || '').match(/^data:([^;]+);base64,(.*)$/);
+        if (m) r = await srvClient(conf).call('ai_spine', {method:'POST', body:{data:m[2], mime:m[1], voice:b.inv.voice || '', hints}, timeout:120000});
+        if (r && !r.enabled) r = null;
+      } else throw e;
+    }
+    if (!r){ W.useSrv = false; if (!local) throw new Error(t('ivq_ai_none')); }
+  }
+  if (!r && local){ const u = await ivpPhotoGet(ph); r = await ivqAiLocalCall(local, typeof u === 'string' ? u : '', b.inv.voice || '', hints); }
+  if (!r) throw new Error(t('ivq_ai_none'));
+  return r;
 }
 async function ivqAiRun(id){
   const a = ivpProj(id); if (!a || IVQ.ai) return;
@@ -148,29 +170,14 @@ async function ivqAiRun(id){
   if (!conf && !local){ toast(t('ivq_ai_none'), 'warn', 8000); return; }
   const todo = ivqAiTodo(a); if (!todo.length) return;
   const R = IVQ.ai = {id, total:todo.length, done:0, err:0, stop:false, last:''}; ivpRefresh();
-  const hints0 = {tags:a.inv.tags, year_from:a.inv.year_from, year_to:a.inv.year_to, client:a.inv.client};
+  const hints0 = {tags:invVocabHintTags(a.inv), year_from:a.inv.year_from, year_to:a.inv.year_to, client:a.inv.client};
   let useSrv = !!conf;
   for (const b0 of todo){
     if (R.stop) break;
     const b = S.binders.find(x => x.id === b0.id); if (!b || !b.inv || b.inv.ai) continue;
-    const hints = Object.assign({}, hints0, {kind:invLevel(b) === 'doc' ? 'doc' : b.inv.ph2 ? 'page' : 'spine'}), ph = b.inv.ph2 || b.inv.ph;
+    const hints = Object.assign({}, hints0, {kind:ivqAiKind(b)});
     try {
-      let r = null;
-      if (useSrv){
-        try {
-          r = await srvClient(conf).call('ai_spine', {method:'POST', body:{photo_id:ph, voice:b.inv.voice || '', hints}, timeout:120000});
-          if (r && !r.enabled) r = null;
-        } catch(e){
-          if (e.code === 'not_found'){   // the photo is only on this PC: send it with the request
-            const u = await ivpPhotoGet(ph), m = String(u || '').match(/^data:([^;]+);base64,(.*)$/);
-            if (m) r = await srvClient(conf).call('ai_spine', {method:'POST', body:{data:m[2], mime:m[1], voice:b.inv.voice || '', hints}, timeout:120000});
-            if (r && !r.enabled) r = null;
-          } else throw e;
-        }
-        if (!r){ useSrv = false; if (!local) throw new Error(t('ivq_ai_none')); }
-      }
-      if (!r && local){ const u = await ivpPhotoGet(ph); r = await ivqAiLocalCall(local, typeof u === 'string' ? u : '', b.inv.voice || '', hints); }
-      if (!r) throw new Error(t('ivq_ai_none'));
+      const W = {useSrv}, r = await ivqAiCall(b, hints, conf, local, W); useSrv = W.useSrv;
       ivqAiApply(a, b, r); R.done++;
       if (R.done % 5 === 0) commit();
     } catch(e){ R.err++; R.last = String(e && (e.message || e.code) || e).slice(0, 160); if (/ivq_ai_none|Nessuna AI|No AI/.test(R.last)) break; }
