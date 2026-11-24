@@ -138,7 +138,47 @@ function ivxProgressHTML(a){
   return '<div class="ivx-prog" id="ivx-prog"><div class="iv-prog-bar"><i style="width:' + pr.pct + '%"></i></div><div class="small">' + esc(t('ivx_prog', {d:pr.done, t:pr.target, p:pr.pct})) + (tail ? ' · ' + esc(tail) : '') + '</div></div>';
 }
 
-const IVX_ACTIONS = { 'ivx-est': () => ivxOpenEstimate(), 'ivx-imp': (el) => ivxOpenRescue(el.dataset.id) };
+/* ---------------- v12.16: boxes of the project (box level) + training data ---------------- */
+Object.assign(I18N.it, {ivx_bx_h:'Scatole', ivx_bx_p:'Faldoni acquisiti e contati a mano, anni, tag, note e foto della scatola aperta (con la posizione di ogni etichetta).', ivx_bx_none:'Nessuna scatola ancora.',
+  ivx_bx_c:'Scatola', ivx_bx_n:'Acquisiti', ivx_bx_nl:'senza etichetta', ivx_bx_cnt:'Contati', ivx_bx_y:'Anni', ivx_bx_t:'Tag e note', ivx_bx_sh:'Foto', ivx_bx_more:'… e altre {n}',
+  ivx_train:'Dati per l\'addestramento', ivx_train_t:'Esporta i dati per addestrare un modello di lettura', ivx_train_p:'Un file JSON Lines con una riga per foto: cosa mostra la foto, i campi confermati da una persona (la risposta giusta) e, per le foto delle scatole, dove sta ogni etichetta. Contiene dati dei clienti: va condiviso solo con chi tratta i dati per lo studio (vedi le bozze per il legale).',
+  ivx_train_ph:'Includi le foto (file più grande)', ivx_train_only:'Solo faldoni confermati', ivx_train_go:'Scarica il file', ivx_train_done:'{n} righe in {f}', ivx_train_none:'Nessuna foto da esportare in questo progetto.'});
+Object.assign(I18N.en, {ivx_bx_h:'Boxes', ivx_bx_p:'Binders captured and counted by hand, years, tags, notes and photos of the open box (with where each label is).', ivx_bx_none:'No box yet.',
+  ivx_bx_c:'Box', ivx_bx_n:'Captured', ivx_bx_nl:'without a label', ivx_bx_cnt:'Counted', ivx_bx_y:'Years', ivx_bx_t:'Tags and notes', ivx_bx_sh:'Photos', ivx_bx_more:'… and {n} more',
+  ivx_train:'Training data', ivx_train_t:'Export the data to train a reading model', ivx_train_p:'A JSON Lines file with one row per photo: what the photo shows, the fields a person confirmed (the right answer) and, for box photos, where each label is. It holds client data: share it only with whoever processes data for the studio (see the drafts for the lawyer).',
+  ivx_train_ph:'Include the photos (bigger file)', ivx_train_only:'Confirmed binders only', ivx_train_go:'Download the file', ivx_train_done:'{n} rows in {f}', ivx_train_none:'No photo to export in this project.'});
+function ivxBoxesHTML(a){
+  const R = invReport(a, S.binders || [], S.locations || [], [], S.settings || {}, 120000), L = R.perBox, MAX = 200;
+  const rows = L.slice(0, MAX).map(x => '<tr><td class="mono">' + esc(x.code) + '</td><td class="ivq-n">' + x.n + (x.nolabel ? ' <span class="tiny muted">(' + x.nolabel + ' ' + esc(t('ivx_bx_nl')) + ')</span>' : '') + '</td><td class="ivq-n">' + (x.count === null ? '—' : x.count) + '</td>' +
+    '<td>' + (x.y0 ? x.y0 + (x.y1 !== x.y0 ? '–' + x.y1 : '') : '—') + '</td><td class="small">' + esc([x.tags.join(', '), x.note].filter(Boolean).join(' · ') || '—') + '</td><td class="ivq-n">' + (x.shots || '—') + '</td></tr>').join('');
+  return '<div class="card card-p" style="margin-top:16px" id="ivx-boxes-card"><div class="row" style="justify-content:space-between"><h2>' + esc(t('ivx_bx_h')) + ' <span class="tiny muted">' + L.length + '</span></h2>' +
+      '<button class="btn btn-sm" data-a="ivx-train" data-id="' + esc(a.id) + '" id="ivx-train">' + ic('download') + esc(t('ivx_train')) + '</button></div><p class="small muted">' + esc(t('ivx_bx_p')) + '</p>' +
+    (L.length ? '<div style="overflow-x:auto"><table class="ivx-boxes" id="ivx-boxes"><thead><tr><th>' + esc(t('ivx_bx_c')) + '</th><th class="ivq-n">' + esc(t('ivx_bx_n')) + '</th><th class="ivq-n">' + esc(t('ivx_bx_cnt')) + '</th><th>' + esc(t('ivx_bx_y')) + '</th><th>' + esc(t('ivx_bx_t')) + '</th><th class="ivq-n">' + esc(t('ivx_bx_sh')) + '</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      (L.length > MAX ? '<p class="tiny muted">' + esc(t('ivx_bx_more', {n:L.length - MAX})) + '</p>' : '') : '<p class="small muted">' + esc(t('ivx_bx_none')) + '</p>') + '</div>';
+}
+function ivxOpenTrain(id){
+  const a = ivpProj(id); if (!a) return;
+  openModal({title:t('ivx_train_t'), body:'<div class="stack" id="ivx-train-m"><p class="small">' + esc(t('ivx_train_p')) + '</p>' +
+      '<label class="row small"><input type="checkbox" id="ivx-train-only" checked> ' + esc(t('ivx_train_only')) + '</label><label class="row small"><input type="checkbox" id="ivx-train-ph"> ' + esc(t('ivx_train_ph')) + '</label></div>',
+    buttons:[{label:t('cancel'), cls:'btn', action:'modal-close'}, {label:t('ivx_train_go'), cls:'btn btn-primary', icon:'download', fn:async () => {
+      const only = !!($('#ivx-train-only') || {}).checked, ph = !!($('#ivx-train-ph') || {}).checked; closeModal(true);
+      const r = await ivxTrainExport(a, {only, photos:ph}); toast(r.n ? t('ivx_train_done', {n:r.n, f:r.name}) : t('ivx_train_none'), r.n ? 'ok' : 'warn');
+    }}]});
+}
+/** Rows of invTrainRows as JSON Lines (photos embedded as data URLs only when asked); logs inventory.train_export. */
+async function ivxTrainExport(a, o){
+  o = o || {};
+  const rows = invTrainRows(a, S.binders || [], S.locations || []).filter(r => !o.only || r.t !== 'binder' || r.confirmed);
+  if (!rows.length) return {n:0, name:''};
+  if (o.photos) for (const r of rows){ const u = await ivpPhotoGet(r.photo); if (u) r.data = u; }
+  const name = brandFile('addestramento_' + slugify(a.inv.code) + '_' + nowISO().slice(0, 10), 'jsonl');
+  download(name, rows.map(r => JSON.stringify(Object.assign({format:'docmap-inv-train', v:1, project:a.inv.code}, r))).join('\n') + '\n', 'application/x-ndjson');
+  logAct('inventory.train_export', ivpTarget(a), 'Esportati ' + rows.length + ' esempi per l\'addestramento dal progetto ' + a.name, {rows:rows.length, photos:!!o.photos, only:!!o.only});
+  commit();
+  return {n:rows.length, name};
+}
+
+const IVX_ACTIONS = { 'ivx-est': () => ivxOpenEstimate(), 'ivx-imp': (el) => ivxOpenRescue(el.dataset.id), 'ivx-train': (el) => ivxOpenTrain(el.dataset.id) };
 if (typeof ACTIONS === 'object') Object.assign(ACTIONS, IVX_ACTIONS);
 else document.addEventListener('DOMContentLoaded', () => { if (typeof ACTIONS === 'object') Object.assign(ACTIONS, IVX_ACTIONS); });
 
@@ -166,4 +206,34 @@ document.addEventListener('DOMContentLoaded', () => {
       '<li><b>Burst</b> (phone, Chrome on Android): turn it on below the tags and frame a row of spines; each new label becomes a binder, in number order, with the photo of its own spine. Labels already done stay silent; two boxes in the same frame are ignored.</li>' +
       '<li><b>Target</b>: the expected binders of the project (Edit, or «Estimate a job»). The phone and the Work card show how far you are and, at your pace, the time left and the end time.</li>' +
       '<li><b>Rescue copy</b>: tap the queue status, then «Save rescue copy»: a file with everything the phone has not sent yet. On the PC, in the project Work card, «Import from phone» loads it (twice is fine, no duplicates).</li></ul>'} });
+});
+
+/* ---------------- help topic (v12.16): every way of labelling and working ---------------- */
+document.addEventListener('DOMContentLoaded', () => {
+  if (typeof HELP_TOPICS === 'undefined' || HELP_TOPICS.some(x => x.id === 'inventory-modes')) return;
+  const inv = HELP_TOPICS.find(x => x.id === 'inventory'); if (inv && !inv.related.includes('inventory-modes')) inv.related.unshift('inventory-modes');
+  HELP_TOPICS.push({ id:'inventory-modes', guide:null, tags:['start'], related:['inventory', 'inventory-pro', 'inventory-safe'],
+    kw:{it:'modalità etichette scatola dentro fuori faldone senza etichetta livello scatola contare conteggio foto scatola aperta codice leggibile grande nascosto addestramento modello riconoscimento',
+        en:'modes labels box inside outside binder without label box level count photo open box readable code big hidden training model recognition'},
+    title:{it:'Inventario: tutti i modi di etichettare e lavorare', en:'Inventory: every way of labelling and working'},
+    body:{it:'<p>Nel progetto (Modifica) scegli <b>come è etichettato l\'archivio</b>; il telefono propone il lavoro giusto.</p>' +
+      '<table class="help-t"><tr><th>Scatole</th><th>Faldoni</th><th>Come si lavora</th></tr>' +
+      '<tr><td>un\'etichetta fuori</td><td>tutti</td><td>Scansiona la scatola, poi ogni faldone (anche in <b>Raffica</b>).</td></tr>' +
+      '<tr><td>fuori e dentro</td><td>tutti</td><td>Due etichette uguali per scatola (FUORI e DENTRO): si legge sullo scaffale e da aperta.</td></tr>' +
+      '<tr><td>fuori</td><td>alcuni</td><td>I faldoni con l\'etichetta si scansionano; gli altri con <b>Faldone senza etichetta</b> e la foto della costa.</td></tr>' +
+      '<tr><td>fuori</td><td>nessuno</td><td><b>Livello scatola</b>: per ogni scatola il numero di faldoni, gli anni, i tag, una nota e la foto della scatola aperta.</td></tr>' +
+      '<tr><td>nessuna</td><td>tutti</td><td>Modalità «Cattura ora, cataloga dopo»: i faldoni si catturano senza scatola.</td></tr></table>' +
+      '<ul><li><b>Foto della scatola aperta</b>: salva la foto con la posizione di ogni etichetta; le etichette non ancora acquisite diventano faldoni subito, ognuno con la striscia della sua costa.</li>' +
+      '<li><b>Codice leggibile</b> sull\'etichetta: grande (consigliato), normale o nascosto, e se scrivere anche il codice del QR. Si sceglie nel progetto o al momento di stampare.</li>' +
+      '<li>Nella scheda Lavoro: l\'elenco delle <b>scatole</b> (acquisiti, contati, anni, tag, foto) e <b>Dati per l\'addestramento</b>, un file per allenare in futuro un modello di lettura specializzato.</li></ul>',
+      en:'<p>In the project (Edit) choose <b>how the archive is labelled</b>; the phone proposes the right work.</p>' +
+      '<table class="help-t"><tr><th>Boxes</th><th>Binders</th><th>How it works</th></tr>' +
+      '<tr><td>one label outside</td><td>all</td><td>Scan the box, then each binder (also in <b>Burst</b>).</td></tr>' +
+      '<tr><td>outside and inside</td><td>all</td><td>Two identical labels per box (OUT and IN): read on the shelf and when open.</td></tr>' +
+      '<tr><td>outside</td><td>some</td><td>Labelled binders are scanned; the others with <b>Binder without a label</b> and a photo of the spine.</td></tr>' +
+      '<tr><td>outside</td><td>none</td><td><b>Box level</b>: for each box the number of binders, years, tags, a note and a photo of the open box.</td></tr>' +
+      '<tr><td>none</td><td>all</td><td>«Capture now, catalogue later» mode: binders are captured without a box.</td></tr></table>' +
+      '<ul><li><b>Photo of the open box</b>: saves the photo with where each label is; labels not captured yet become binders at once, each with the strip of its own spine.</li>' +
+      '<li><b>Readable code</b> on the label: big (recommended), normal or hidden, and whether to print the QR code too. Chosen in the project or when printing.</li>' +
+      '<li>In the Work card: the list of <b>boxes</b> (captured, counted, years, tags, photos) and <b>Training data</b>, a file to train a specialised reading model later.</li></ul>'} });
 });

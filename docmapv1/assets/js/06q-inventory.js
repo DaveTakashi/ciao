@@ -26,6 +26,15 @@ Object.assign(I18N.it, {
   ivp_f_name:'Nome del progetto', ivp_f_name_ph:'es. Inventario Rossi S.r.l. 2024', ivp_f_code:'Codice sulle etichette', ivp_f_code_h:'Breve, solo lettere e numeri: le etichette diventano {c}-0001 (faldoni) e {c}-S001 (scatole).',
   ivp_f_client:'Cliente (facoltativo)', ivp_f_client_h:'Se l\'archivio è di un solo cliente, ogni faldone acquisito lo riceve già scritto.', ivp_f_tags:'Tag rapidi (uno per riga)', ivp_f_years:'Anni attesi (barra degli anni sul telefono)', ivp_f_from:'dal', ivp_f_to:'al',
   ivp_f_mode:'Modalità di lavoro', ivp_f_ai:'Lettura della costa con l\'AI (serve il server online con la chiave AI)', ivp_f_auto:'Proposte sicure da una fiducia di', ivp_f_status:'Stato', ivp_f_notes:'Note',
+  ivp_plan:'Come è etichettato l\'archivio', ivp_plan_box:'Scatole', ivp_plan_bin:'Faldoni', ivp_plan_code:'Codice leggibile sull\'etichetta',
+  ivp_pl_box_out:'Un\'etichetta fuori', ivp_pl_box_inout:'Due etichette: fuori e dentro', ivp_pl_box_none:'Nessuna etichetta',
+  ivp_pl_bin_all:'Tutti etichettati', ivp_pl_bin_some:'Alcuni etichettati', ivp_pl_bin_none:'Nessuno: si conta la scatola',
+  ivp_pl_code_big:'Grande (consigliato)', ivp_pl_code_normal:'Normale', ivp_pl_code_hidden:'Nascosto (solo QR)', ivp_pl_short:'Scrivi anche il codice del QR (dm26…) in piccolo',
+  ivp_pl_box_out_h:'Si scansiona l\'etichetta della scatola e poi quello che c\'è dentro.', ivp_pl_box_inout_h:'Ogni scatola ha due etichette uguali (FUORI e DENTRO): si legge da fuori sullo scaffale e da dentro quando è aperta.',
+  ivp_pl_box_none_h:'Le scatole non hanno etichetta: i faldoni si catturano senza scatola (modalità «Cattura ora»).',
+  ivp_pl_bin_all_h:'Ogni faldone si scansiona dalla sua etichetta.', ivp_pl_bin_some_h:'I faldoni con l\'etichetta si scansionano; gli altri si aggiungono con «Faldone senza etichetta» e una foto della costa.',
+  ivp_pl_bin_none_h:'Per ogni scatola si scrivono quanti faldoni ci sono, gli anni e i tag, con la foto della scatola aperta.',
+  ivp_pr_copies:'Etichette per ogni scatola', ivp_copy_out:'FUORI', ivp_copy_in:'DENTRO',
   ivp_f_target:'Faldoni previsti (obiettivo)', ivp_f_target_h:'Facoltativo: il telefono e la scheda Lavoro mostrano a che punto siete e quando finite. «Stima un lavoro» lo scrive da solo.',
   ivp_f_boxes:'Etichette per scatole da generare subito', ivp_f_binders:'Etichette per faldoni da generare subito', ivp_e_name:'Scrivi il nome del progetto.', ivp_e_code:'Il codice {c} è già usato da un altro progetto.',
   ivp_created:'Progetto creato: {p}', ivp_saved:'Progetto salvato', ivp_edit:'Modifica', ivp_edit_t:'Progetto: {p}', ivp_new_t:'Nuovo progetto di inventario',
@@ -58,6 +67,15 @@ Object.assign(I18N.en, {
   ivp_f_name:'Project name', ivp_f_name_ph:'e.g. Rossi Ltd inventory 2024', ivp_f_code:'Code on the labels', ivp_f_code_h:'Short, letters and digits only: labels become {c}-0001 (binders) and {c}-S001 (boxes).',
   ivp_f_client:'Client (optional)', ivp_f_client_h:'If the archive belongs to one client, every captured binder gets it already written.', ivp_f_tags:'Quick tags (one per line)', ivp_f_years:'Expected years (year bar on the phone)', ivp_f_from:'from', ivp_f_to:'to',
   ivp_f_mode:'Working mode', ivp_f_ai:'AI reading of the spine (needs the online server with the AI key)', ivp_f_auto:'Safe proposals from a confidence of', ivp_f_status:'Status', ivp_f_notes:'Notes',
+  ivp_plan:'How the archive is labelled', ivp_plan_box:'Boxes', ivp_plan_bin:'Binders', ivp_plan_code:'Readable code on the label',
+  ivp_pl_box_out:'One label outside', ivp_pl_box_inout:'Two labels: outside and inside', ivp_pl_box_none:'No label',
+  ivp_pl_bin_all:'All labelled', ivp_pl_bin_some:'Some labelled', ivp_pl_bin_none:'None: the box is counted',
+  ivp_pl_code_big:'Big (recommended)', ivp_pl_code_normal:'Normal', ivp_pl_code_hidden:'Hidden (QR only)', ivp_pl_short:'Also print the QR code (dm26…) in small type',
+  ivp_pl_box_out_h:'Scan the box label, then what is inside.', ivp_pl_box_inout_h:'Every box has two identical labels (OUT and IN): read from outside on the shelf and from inside when open.',
+  ivp_pl_box_none_h:'Boxes have no label: binders are captured without a box («Capture now» mode).',
+  ivp_pl_bin_all_h:'Every binder is scanned from its own label.', ivp_pl_bin_some_h:'Labelled binders are scanned; the others are added with «Binder without a label» and a photo of the spine.',
+  ivp_pl_bin_none_h:'For each box write how many binders it holds, the years and the tags, with a photo of the open box.',
+  ivp_pr_copies:'Labels for each box', ivp_copy_out:'OUT', ivp_copy_in:'IN',
   ivp_f_target:'Expected binders (target)', ivp_f_target_h:'Optional: the phone and the Work card show how far you are and when you finish. «Estimate a job» fills it in.',
   ivp_f_boxes:'Box labels to generate now', ivp_f_binders:'Binder labels to generate now', ivp_e_name:'Type the project name.', ivp_e_code:'Code {c} is already used by another project.',
   ivp_created:'Project created: {p}', ivp_saved:'Project saved', ivp_edit:'Edit', ivp_edit_t:'Project: {p}', ivp_new_t:'New inventory project',
@@ -102,7 +120,7 @@ function ivpStats(a){
 function ivpCreate(f){
   const a = archCreate({name:f.name, code:f.code});
   a.levels = [{name:S.lang === 'en' ? 'Box' : 'Scatola', prefix:'S'}];
-  a.inv = normalizeInv({prefix:invNewPrefix(), code:f.code || invSuggestCode(f.name), client:f.client, mode:f.mode, tags:f.tags, year_from:f.year_from, year_to:f.year_to, ai:f.ai, auto_confirm:f.auto_confirm, notes:f.notes, doc:f.doc, price:f.price, template:f.template, target:f.target});
+  a.inv = normalizeInv({prefix:invNewPrefix(), code:f.code || invSuggestCode(f.name), client:f.client, mode:f.mode, tags:f.tags, year_from:f.year_from, year_to:f.year_to, ai:f.ai, auto_confirm:f.auto_confirm, notes:f.notes, doc:f.doc, price:f.price, template:f.template, target:f.target, plan:f.plan});
   archTouch(a);
   logAct('inventory.create', ivpTarget(a), 'Creato il progetto di inventario ' + a.name + ' (' + a.inv.code + ')', {prefix:a.inv.prefix, code:a.inv.code, client:a.inv.client, mode:a.inv.mode});
   if (f.boxes > 0) ivpBatch(a, 'box', f.boxes, true);
@@ -240,14 +258,31 @@ function ivpFormHTML(a){
       '<div class="field"><label for="ivp-auto">' + esc(t('ivp_f_auto')) + '</label><select class="inp inp-sm" id="ivp-auto">' + [0.7, 0.8, 0.85, 0.9, 0.95].map(v => '<option value="' + v + '"' + (Math.abs(i.auto_confirm - v) < 0.001 ? ' selected' : '') + '>' + Math.round(v * 100) + '%</option>').join('') + '</select></div></div></div>' +
     (a ? '<div class="field"><label for="ivp-status">' + esc(t('ivp_f_status')) + '</label><select class="inp" id="ivp-status">' + opt('open', 'ivp_st_open', i.status) + opt('closed', 'ivp_st_closed', i.status) + '</select><div class="hint">' + esc(t('ivp_closed_d')) + '</div></div>'
        : '<div class="grid g2"><div class="field"><label for="ivp-nb">' + esc(t('ivp_f_boxes')) + '</label><input class="inp" id="ivp-nb" type="number" min="0" max="20000" value="50"></div><div class="field"><label for="ivp-nf">' + esc(t('ivp_f_binders')) + '</label><input class="inp" id="ivp-nf" type="number" min="0" max="20000" value="500"></div></div>') +
+    ivpPlanHTML(a ? i.plan : Object.assign({}, i.plan, {code:'big'})) +
     '<div class="field"><label for="ivp-tg">' + esc(t('ivp_f_target')) + '</label><input class="inp inp-sm" id="ivp-tg" type="number" min="0" max="1000000" value="' + (i.target || '') + '" style="width:140px"><div class="hint">' + esc(t('ivp_f_target_h')) + '</div></div>' +
     prices + '<div class="field"><label for="ivp-notes">' + esc(t('ivp_f_notes')) + '</label><textarea class="inp" id="ivp-notes" rows="2">' + esc(i.notes) + '</textarea></div><div class="err-t small" id="ivp-err"></div></div>';
+}
+/** v12.16: labelling plan of the archive (what has a label) + readable code on the labels, with what it means for the work. */
+function ivpPlanHTML(pl){
+  pl = invPlanNorm(pl);
+  const sel = (id, list, cur, pre) => '<select class="inp" id="' + id + '">' + list.map(k => '<option value="' + k + '"' + (k === cur ? ' selected' : '') + '>' + esc(t(pre + k)) + '</option>').join('') + '</select>';
+  return '<div class="field" id="ivp-plan"><label>' + esc(t('ivp_plan')) + '</label><div class="ivp-plan">' +
+    '<div><span class="small">' + esc(t('ivp_plan_box')) + '</span>' + sel('ivp-pl-box', INV_PLAN_BOX, pl.box, 'ivp_pl_box_') + '</div>' +
+    '<div><span class="small">' + esc(t('ivp_plan_bin')) + '</span>' + sel('ivp-pl-bin', INV_PLAN_BINDER, pl.binder, 'ivp_pl_bin_') + '</div>' +
+    '<div><span class="small">' + esc(t('ivp_plan_code')) + '</span>' + sel('ivp-pl-code', INV_PLAN_CODE, pl.code, 'ivp_pl_code_') +
+      '<label class="row small"><input type="checkbox" id="ivp-pl-short"' + (pl.short ? ' checked' : '') + '> ' + esc(t('ivp_pl_short')) + '</label></div></div>' +
+    '<div class="hint" id="ivp-plan-h">' + esc(ivpPlanText(pl)) + '</div></div>';
+}
+/** How the work goes with this plan, in one sentence per part (shown under the choice and in the help). */
+function ivpPlanText(pl){
+  pl = invPlanNorm(pl);
+  return [t('ivp_pl_box_' + pl.box + '_h'), t('ivp_pl_bin_' + pl.binder + '_h')].join(' ');
 }
 function ivpFormRead(){
   const v = (id) => ($('#' + id) || {}).value || '';
   return {name:v('ivp-name').replace(/\s+/g, ' ').trim(), code:invCodeClean(v('ivp-code')), client:v('ivp-client'), tags:invNormTags(v('ivp-tags').split('\n')), year_from:invYear(v('ivp-yf')), year_to:invYear(v('ivp-yt')),
     mode:v('ivp-mode'), ai:!!($('#ivp-ai') || {}).checked, auto_confirm:+v('ivp-auto') || INV_AUTO_CONFIRM, status:v('ivp-status') || 'open', notes:v('ivp-notes'), boxes:parseInt(v('ivp-nb'), 10) || 0, binders:parseInt(v('ivp-nf'), 10) || 0,
-    doc:!!($('#ivp-doc') || {}).checked, price:invPriceNorm(INV_PRICE_KEYS.reduce((o, k) => (o[k] = v('ivp-pr-' + k), o), {})), template:v('ivp-tpl'), target:parseInt(v('ivp-tg'), 10) || 0};
+    doc:!!($('#ivp-doc') || {}).checked, price:invPriceNorm(INV_PRICE_KEYS.reduce((o, k) => (o[k] = v('ivp-pr-' + k), o), {})), template:v('ivp-tpl'), target:parseInt(v('ivp-tg'), 10) || 0, plan:invPlanNorm({box:v('ivp-pl-box'), binder:v('ivp-pl-bin'), code:v('ivp-pl-code'), short:!!($('#ivp-pl-short') || {checked:true}).checked})};
 }
 function ivpOpenForm(id){
   const a = id ? ivpProj(id) : null;
@@ -255,19 +290,21 @@ function ivpOpenForm(id){
     onMount:(ov) => { const n = ov.querySelector('#ivp-name'), c = ov.querySelector('#ivp-code'); let touched = !!(a && a.inv.code);
       const tp = ov.querySelector('#ivp-tpl');
       if (tp) tp.addEventListener('change', () => { const x = invTemplates(S.settings).find(y => y.id === tp.value); if (x) ivpTplFill(ov, invTplFields(x)); });
+      ['ivp-pl-box', 'ivp-pl-bin'].forEach(id => { const el = ov.querySelector('#' + id); if (el) el.addEventListener('change', () => { const h = ov.querySelector('#ivp-plan-h'); if (h) h.textContent = ivpPlanText({box:ov.querySelector('#ivp-pl-box').value, binder:ov.querySelector('#ivp-pl-bin').value}); }); });
       if (c) c.addEventListener('input', () => { touched = true; c.value = invCodeClean(c.value); const h = ov.querySelector('#ivp-code-h'); if (h) h.textContent = t('ivp_f_code_h', {c:c.value || 'ROSSI24'}); });
       if (n && c && !c.readOnly) n.addEventListener('input', () => { if (!touched){ c.value = invSuggestCode(n.value); const h = ov.querySelector('#ivp-code-h'); if (h) h.textContent = t('ivp_f_code_h', {c:c.value || 'ROSSI24'}); } }); },
     buttons:[{label:t('cancel'), cls:'btn', action:'modal-close'}, {label:a ? t('save') : t('ivp_new'), cls:'btn btn-primary', icon:'check', fn:() => {
       const f = ivpFormRead(), err = $('#ivp-err');
+      if (f.plan.box === 'none' && f.mode === 'box') f.mode = 'capture';   // v12.16: boxes without a label → binders are captured without a box
       if (!f.name){ if (err) err.textContent = t('ivp_e_name'); return; }
       f.code = f.code || invSuggestCode(f.name);
       if (invProjects().some(x => x !== a && x.inv.code === f.code)){ if (err) err.textContent = t('ivp_e_code', {c:f.code}); return; }
       if (a){
         const before = clone(a.inv);
         archSaveFields(a.id, {name:f.name});
-        Object.assign(a.inv, normalizeInv(Object.assign({}, a.inv, {code:a.inv.batches.length ? a.inv.code : f.code, client:f.client, tags:f.tags, year_from:f.year_from, year_to:f.year_to, mode:f.mode, ai:f.ai, auto_confirm:f.auto_confirm, status:f.status, notes:f.notes, doc:f.doc, price:f.price, target:f.target})));
+        Object.assign(a.inv, normalizeInv(Object.assign({}, a.inv, {code:a.inv.batches.length ? a.inv.code : f.code, client:f.client, tags:f.tags, year_from:f.year_from, year_to:f.year_to, mode:f.mode, ai:f.ai, auto_confirm:f.auto_confirm, status:f.status, notes:f.notes, doc:f.doc, price:f.price, target:f.target, plan:f.plan})));
         archTouch(a);
-        const ch = ['code', 'client', 'tags', 'year_from', 'year_to', 'mode', 'ai', 'auto_confirm', 'status', 'notes', 'doc', 'price', 'target'].filter(k => JSON.stringify(before[k]) !== JSON.stringify(a.inv[k]));
+        const ch = ['code', 'client', 'tags', 'year_from', 'year_to', 'mode', 'ai', 'auto_confirm', 'status', 'notes', 'doc', 'price', 'target', 'plan'].filter(k => JSON.stringify(before[k]) !== JSON.stringify(a.inv[k]));
         if (ch.length) logAct('inventory.edit', ivpTarget(a), 'Modificato il progetto ' + a.name + ': ' + ch.join(', '), {changed:ch.reduce((o, k) => (o[k] = [before[k], a.inv[k]], o), {})});
         commit(); closeModal(true); toast(t('ivp_saved'));
       } else {
@@ -316,17 +353,18 @@ function ivpOpenPhone(id){
 function ivpBatchCodes(a, b){ const out = []; for (let n = b.from; n <= b.to; n++) out.push({kind:b.kind, n, code:invLabelCode(a.inv.prefix, b.kind, n), num:invNumber(a.inv, b.kind, n)}); return out; }
 /** One inventory label in a reading frame f (mm): QR + big number + SCATOLA / FALDONE + project (+ client). */
 function ivpLabelHTML(a, it, f){
+  const pl = invPlanNorm(a.inv.plan), hid = pl.code === 'hidden', bigK = pl.code === 'big' ? 1.45 : 1;   // v12.16: readable code big / normal / hidden
   const pad = Math.max(1.5, Math.min(4, Math.min(f.w, f.h) * 0.06)), land = f.w >= f.h * 1.15;
-  const q = land ? Math.min(f.h - 2 * pad, f.w * 0.46) : Math.min(f.w - 2 * pad, f.h * 0.52);
+  const q = land ? Math.min(f.h - 2 * pad, f.w * (bigK > 1 ? 0.38 : 0.46)) : Math.min(f.w - 2 * pad, f.h * (bigK > 1 ? 0.46 : 0.52));   // big code: a little less QR, more number
   const tw = land ? f.w - q - 3 * pad : f.w - 2 * pad, th = land ? f.h - 2 * pad : f.h - q - 3 * pad;
-  const big = Math.max(2.2, Math.min(th * 0.34, tw / (it.num.length * 0.6))), kw = Math.max(1.6, Math.min(big * 0.42, th * 0.16)), sm = Math.max(1.5, Math.min(kw * 0.95, th * 0.13));
+  const big = Math.max(2.2, Math.min(th * 0.34 * bigK, tw / (it.num.length * (bigK > 1 ? 0.56 : 0.6)))), kw = Math.max(1.6, Math.min(big * 0.42, th * 0.16)), sm = Math.max(1.5, Math.min(kw * 0.95, th * 0.13));
   const svg = DMQR.svg(shortUrl(it.code), {ecl:S.settings.qrEcc || 'M', quiet:1, fg:'#000'});
   const txt = '<div style="position:absolute;' + (land ? 'left:' + MM(q + 2 * pad) + ';top:' + MM(pad) : 'left:' + MM(pad) + ';top:' + MM(q + 2 * pad)) + ';width:' + MM(tw) + ';height:' + MM(th) + ';display:flex;flex-direction:column;justify-content:center;overflow:hidden;font-family:\'DM Inter\',Arial,sans-serif;color:#000">' +
-    '<div style="font-size:' + MM(kw) + ';font-weight:800;letter-spacing:.12em">' + esc(t('ivp_kw_' + (INV_BATCH_KINDS.includes(it.kind) ? it.kind : 'binder'))) + '</div>' +
-    '<div class="ivp-num" style="font-size:' + MM(big) + ';font-weight:800;line-height:1.05;white-space:nowrap;font-family:\'DM Mono\',monospace">' + esc(it.num) + '</div>' +
+    '<div style="font-size:' + MM(kw) + ';font-weight:800;letter-spacing:.12em">' + esc(t('ivp_kw_' + (INV_BATCH_KINDS.includes(it.kind) ? it.kind : 'binder'))) + (it.copy ? ' · ' + esc(t('ivp_copy_' + it.copy)) : '') + '</div>' +
+    (hid ? '' : '<div class="ivp-num" style="font-size:' + MM(big) + ';font-weight:800;line-height:1.05;white-space:nowrap;font-family:\'DM Mono\',monospace">' + esc(it.num) + '</div>') +
     '<div style="font-size:' + MM(sm) + ';font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(a.name || a.inv.code) + '</div>' +
     (a.inv.client ? '<div style="font-size:' + MM(sm * 0.9) + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(a.inv.client) + '</div>' : '') +
-    '<div style="font-size:' + MM(Math.max(1.3, sm * 0.7)) + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:\'DM Mono\',monospace">' + esc(it.code) + '</div></div>';
+    (pl.short ? '<div class="ivp-sc" style="font-size:' + MM(Math.max(1.3, sm * 0.7)) + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:\'DM Mono\',monospace">' + esc(it.code) + '</div>' : '') + '</div>';
   return '<div class="ivp-lab" data-code="' + esc(it.code) + '" style="position:absolute;left:0;top:0;width:' + MM(f.w) + ';height:' + MM(f.h) + ';background:#fff"><div style="position:absolute;left:' + MM(pad) + ';top:' + MM(pad) + ';width:' + MM(q) + ';height:' + MM(q) + '">' + svg + '</div>' + txt + '</div>';
 }
 function ivpSlotHTML(a, it, g){
@@ -350,19 +388,36 @@ function ivpSheets(a, items, start){
 }
 function ivpOpenPrint(id, bid){
   const a = ivpProj(id), b = a && a.inv.batches.find(x => x.id === bid); if (!b) return;
-  const items = ivpBatchCodes(a, b), N = slotCount(), preset = findPreset(S.print.presetId);
+  const base = ivpBatchCodes(a, b), N = slotCount(), preset = findPreset(S.print.presetId);
+  const pl0 = invPlanNorm(a.inv.plan), copies = () => b.kind === 'box' && (($('#ivp-pr-cp') || {}).value || (pl0.box === 'inout' ? '2' : '1')) === '2' ? 2 : 1;
+  const expand = () => copies() === 2 ? base.reduce((o, it) => o.concat([Object.assign({}, it, {copy:'out'}), Object.assign({}, it, {copy:'in'})]), []) : base;
+  let items = expand();
   const pages = (st) => Math.ceil((items.length + Math.max(0, st - 1)) / N);
   openModal({title:t('ivp_print_t', {a:items[0].num, z:items[items.length - 1].num}), body:'<div class="stack" id="ivp-pr"><p class="small" id="ivp-pr-p">' + esc(t('ivp_print_p', {s:preset ? preset.name : S.print.presetId, n:items.length, p:pages(1)})) + '</p>' +
       '<div class="field"><label for="ivp-pr-from">' + esc(t('ivp_print_from')) + '</label><input class="inp inp-sm" id="ivp-pr-from" type="number" min="1" max="' + N + '" value="1" style="width:90px"></div>' +
-      '<div class="ivp-pr-prev">' + ivpLabelPreview(a, items[0]) + '</div></div>',
+      '<div class="grid g2"><div class="field"><label for="ivp-pr-code">' + esc(t('ivp_plan_code')) + '</label><select class="inp" id="ivp-pr-code">' + INV_PLAN_CODE.map(k => '<option value="' + k + '"' + (k === pl0.code ? ' selected' : '') + '>' + esc(t('ivp_pl_code_' + k)) + '</option>').join('') + '</select>' +
+        '<label class="row small"><input type="checkbox" id="ivp-pr-short"' + (pl0.short ? ' checked' : '') + '> ' + esc(t('ivp_pl_short')) + '</label></div>' +
+        (b.kind === 'box' ? '<div class="field"><label for="ivp-pr-cp">' + esc(t('ivp_pr_copies')) + '</label><select class="inp" id="ivp-pr-cp"><option value="1"' + (pl0.box !== 'inout' ? ' selected' : '') + '>' + esc(t('ivp_pl_box_out')) + '</option><option value="2"' + (pl0.box === 'inout' ? ' selected' : '') + '>' + esc(t('ivp_pl_box_inout')) + '</option></select></div>' : '') + '</div>' +
+      '<div class="ivp-pr-prev" id="ivp-pr-prev">' + ivpLabelPreview(a, items[0]) + '</div></div>',
+    onMount:(ov) => {
+      const upd = () => { const keep = a.inv.plan; a.inv.plan = ivpPrintPlan(a, b); items = expand(); const pv = ov.querySelector('#ivp-pr-prev'); if (pv) pv.innerHTML = ivpLabelPreview(a, items[0]); const pp = ov.querySelector('#ivp-pr-p'); if (pp) pp.textContent = t('ivp_print_p', {s:preset ? preset.name : S.print.presetId, n:items.length, p:pages(1)}); a.inv.plan = keep; };
+      ['ivp-pr-code', 'ivp-pr-short', 'ivp-pr-cp'].forEach(id => { const el = ov.querySelector('#' + id); if (el) el.addEventListener('change', upd); });
+    },
     buttons:[{label:t('cancel'), cls:'btn', action:'modal-close'}, {label:t('ivp_print_go'), cls:'btn btn-primary', icon:'printer', fn:async () => {
       const st = Math.max(1, Math.min(N, parseInt(($('#ivp-pr-from') || {}).value, 10) || 1));
+      const plan = ivpPrintPlan(a, b); items = expand();   // v12.16: the choice made here becomes the plan of the project
+      if (JSON.stringify(plan) !== JSON.stringify(invPlanNorm(a.inv.plan))){ a.inv.plan = plan; archTouch(a); }
       closeModal(true);
       await doPrint('labels', ivpSheets(a, items, st).join(''));
       b.printed_at = nowISO(); b.format = S.print.presetId; archTouch(a);
       logAct('inventory.print', ivpTarget(a), 'Stampate ' + items.length + ' etichette dell\'inventario ' + a.name + ' (' + items[0].num + ' – ' + items[items.length - 1].num + ')', {batch:b.id, preset:S.print.presetId, from:b.from, to:b.to, kind:b.kind});
       commit(); ivpRefresh();
     }}]});
+}
+/** Plan of the project with the readable-code choices of the print window. */
+function ivpPrintPlan(a, b){
+  const pl = invPlanNorm(a.inv.plan), c = $('#ivp-pr-code'), sh = $('#ivp-pr-short'), cp = $('#ivp-pr-cp');
+  return invPlanNorm(Object.assign({}, pl, {code:c ? c.value : pl.code, short:sh ? !!sh.checked : pl.short}, b && b.kind === 'box' && cp ? {box:cp.value === '2' ? 'inout' : (pl.box === 'inout' ? 'out' : pl.box)} : {}));
 }
 function ivpLabelPreview(a, it){
   const f = frameGeo(S.print.geometry), k = Math.min(1, 90 / Math.max(f.w, f.h));
@@ -378,19 +433,20 @@ function ivpManifest(id, bid){
 
 /* ---------------- SQLite: inv_json columns (added once, only if missing) ---------------- */
 function ivpDbMigrate(db){
-  ['archives', 'binders'].forEach(tb => { try { if (!dbQuery('PRAGMA table_info(' + tb + ')', null, db).some(r => r.name === 'inv_json')) db.exec('ALTER TABLE ' + tb + ' ADD COLUMN inv_json TEXT'); } catch(e){} });
+  ['archives', 'binders', 'locations'].forEach(tb => { try { if (!dbQuery('PRAGMA table_info(' + tb + ')', null, db).some(r => r.name === 'inv_json')) db.exec('ALTER TABLE ' + tb + ' ADD COLUMN inv_json TEXT'); } catch(e){} });
 }
 function ivpDbSync(db){
   try {
     ivpDbMigrate(db);
     const ua = db.prepare('UPDATE archives SET inv_json = ? WHERE id = ?'); (S.archives || []).forEach(a => { if (a.inv) ua.run([JSON.stringify(a.inv), a.id]); }); ua.free();
     const ub = db.prepare('UPDATE binders SET inv_json = ? WHERE id = ?'); S.binders.forEach(b => { if (b.inv) ub.run([JSON.stringify(b.inv), b.id]); }); ub.free();
+    const ul = db.prepare('UPDATE locations SET inv_json = ? WHERE id = ?'); (S.locations || []).forEach(l => { if (l.inv) ul.run([JSON.stringify(l.inv), l.id]); }); ul.free();   // v12.16: box level
   } catch(e){ console.warn('inv db', e); }
 }
 function ivpDbRead(db, W){
   const map = (tb) => { try { if (!dbQuery('PRAGMA table_info(' + tb + ')', null, db).some(r => r.name === 'inv_json')) return null; return new Map(dbQuery('SELECT id, inv_json FROM ' + tb + ' WHERE inv_json IS NOT NULL', null, db).map(r => [r.id, r.inv_json])); } catch(e){ return null; } };
   const put = (list, m) => { if (!m || !Array.isArray(list)) return; list.forEach(x => { const j = m.get(x.id); if (j) try { const v = JSON.parse(j); if (v && typeof v === 'object') x.inv = v; } catch(e){} }); };
-  put(W.archives, map('archives')); put(W.binders, map('binders'));
+  put(W.archives, map('archives')); put(W.binders, map('binders')); put(W.locations, map('locations'));
 }
 
 /* ---------------- actions + events ---------------- */

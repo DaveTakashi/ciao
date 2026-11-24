@@ -96,6 +96,7 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       iv_v_err:'List not available: {m}', iv_log_verify:'Box {b} checked: {f} of {e} found', iv_log_move:'{c} moved to box {b} (check)', iv_log_doc:'Document {c} captured in binder {f}'
     });
     Object.assign(SC_ICONS, {
+      plus:SC_ICONS.plus || '<path d="M12 5v14"/><path d="M5 12h14"/>',
       mic:'<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v4"/>',
       tag:'<path d="M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4z"/><circle cx="7.5" cy="7.5" r="1.5"/>',
       download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
@@ -267,8 +268,8 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
     async function ivRunJob(job){
       if (job.kind === 'rec'){
         for (const d of job.recs){
-          if (d._type !== 'binder' || !d.inv || job.photoSent) continue;
-          for (const pid of [d.inv.ph, d.inv.ph2].filter(Boolean)){   // v12.12: ph2 = photo of the first page
+          if (!d.inv || job.photoSent || (d._type !== 'binder' && d._type !== 'location')) continue;
+          for (const pid of ivPhotoIds(d)){   // v12.12: ph2 = photo of the first page · v12.16: photos of the open box
             const ph = await IVDB.get(pid).catch(() => null);
             if (ph && ph.data && !ph.sent){
               const m = String(ph.data).match(/^data:([^;]+);base64,(.*)$/);
@@ -341,7 +342,7 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       q.forEach(j => (j.recs || []).forEach(d => recs.set(d.id, d)));
       IV.list.filter(x => !x.sent && !x.undone).forEach(x => { const d = rc[x.code]; if (d && !recs.has(d.id)) recs.set(d.id, d); });
       const photos = {};
-      for (const d of recs.values()) for (const id of [d.inv && d.inv.ph, d.inv && d.inv.ph2].filter(Boolean)){ const ph = await IVDB.get(id).catch(() => null); if (ph && ph.data) photos[id] = ph.data; }
+      for (const d of recs.values()) for (const id of ivPhotoIds(d)){ const ph = await IVDB.get(id).catch(() => null); if (ph && ph.data) photos[id] = ph.data; }
       return {format:INV_RESCUE_FORMAT, v:1, at:nowISO(), device:ivDevice(), who:ivWho(), project:{id:IV.pid, code:IV.proj ? IV.proj.inv.code : '', name:IV.proj ? IV.proj.name || '' : ''}, recs:Array.from(recs.values()), photos};
     }
     async function ivRescueSave(){
@@ -352,6 +353,84 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       return d;
     }
     function ivListSet(code, patch){ const x = IV.list.find(y => y.code === code); if (x) Object.assign(x, patch); }
+
+    /* ---------------- v12.16: box level, binders without a label, photo of the open box ---------------- */
+    Object.assign(I18N.it, {iv_bx_h:'Scatola {c}', iv_bx_count:'Faldoni nella scatola', iv_bx_count_h:'contati a mano · {n} acquisiti', iv_bx_shot:'Foto della scatola aperta', iv_bx_nolabel:'Faldone senza etichetta',
+      iv_bx_note_ph:'Nota sulla scatola (es. bagnata, da rifare)', iv_bx_saved:'Scatola {c}: {n} faldoni', iv_bx_shot_ok:'Foto della scatola: {n} etichette riconosciute', iv_bx_shot_none:'Foto della scatola salvata (nessuna etichetta riconosciuta)',
+      iv_bx_need_cam:'Accendi la fotocamera per la foto', iv_bx_nl_ok:'{c} senza etichetta, nella scatola {b}', iv_bx_level:'Livello scatola: tag e anni valgono per la scatola',
+      iv_plan_box_out:'Etichetta fuori dalla scatola', iv_plan_box_inout:'Etichette fuori e dentro la scatola', iv_plan_box_none:'Scatole senza etichetta', iv_plan_bin_all:'Ogni faldone ha la sua etichetta', iv_plan_bin_some:'Solo alcuni faldoni hanno l\'etichetta', iv_plan_bin_none:'Faldoni senza etichetta: si conta la scatola'});
+    Object.assign(I18N.en, {iv_bx_h:'Box {c}', iv_bx_count:'Binders in the box', iv_bx_count_h:'counted by hand · {n} captured', iv_bx_shot:'Photo of the open box', iv_bx_nolabel:'Binder without a label',
+      iv_bx_note_ph:'Note on the box (e.g. wet, to redo)', iv_bx_saved:'Box {c}: {n} binders', iv_bx_shot_ok:'Box photo: {n} labels recognised', iv_bx_shot_none:'Box photo saved (no label recognised)',
+      iv_bx_need_cam:'Turn the camera on for the photo', iv_bx_nl_ok:'{c} without a label, in box {b}', iv_bx_level:'Box level: tags and years are for the box',
+      iv_plan_box_out:'Label outside the box', iv_plan_box_inout:'Labels outside and inside the box', iv_plan_box_none:'Boxes without a label', iv_plan_bin_all:'Every binder has its label', iv_plan_bin_some:'Only some binders have a label', iv_plan_bin_none:'Binders without a label: the box is counted'});
+    const ivPlan = () => invPlanNorm(IV.proj && IV.proj.inv.plan);
+    /** Box level: only the boxes are labelled, the quick tags / years describe the open box. */
+    const ivBoxLevel = () => !!(IV.box && ivPlan().binder === 'none');
+    function ivPhotoIds(d){ const i = d && d.inv || {}; return [i.ph, i.ph2].concat((Array.isArray(i.shots) ? i.shots : []).map(s => s && s.ph)).filter(Boolean); }
+    /** The record of the open box (recent cache, else rebuilt the same way it was created on the first scan). */
+    function ivBoxRec(){
+      if (!IV.box) return null;
+      const r = ivRecent()[IV.box.short_code];
+      return r && !r._gone ? Object.assign({}, r) : Object.assign(ivNewBox(IV.box.short_code, IV.box.n), {id:IV.box.id});
+    }
+    function ivBoxInv(){ const l = ivBoxRec(); return invBoxNorm(l && l.inv); }
+    /** Changes the box-level data of the open box (one record version per burst of taps, like ivAmend). */
+    function ivBoxAmend(fn, now){
+      const l = ivBoxRec(); if (!l) return;
+      const x = invBoxNorm(l.inv); fn(x); x.p = IV.pid; x.by = ivWho(); x.at = nowISO();
+      l.inv = x; l._type = 'location'; l.updated_at = ivTs(l.updated_at); ivRecentPut(l);
+      clearTimeout(IV.boxTimer);
+      const send = () => { const c = ivRecent()[l.short_code]; if (c && !c._gone) ivEnqueue({kind:'rec', recs:[c], amend:true, entry:ivEntry('inventory.box_count', {type:'location', id:c.id, code:c.name}, t('iv_bx_saved', {c:c.name, n:invBoxCounted(invBoxNorm(c.inv).count, ivBoxCount())}), {project:IV.pid, short_code:c.short_code, count:invBoxNorm(c.inv).count})}); };
+      if (now) send(); else IV.boxTimer = setTimeout(send, IV_AMEND_MS);
+    }
+    function ivBoxSetCount(n){ n = Math.max(0, Math.min(100000, parseInt(n, 10) || 0)); ivBoxAmend(x => { x.count = n; }); ivRenderLive(); }
+    /** Photo of the open box: the whole frame + where each label is (foundation for recognising every binder from
+        one photo); labels of binders not captured yet are captured now (as a burst, each with its own spine strip). */
+    async function ivBoxShot(){
+      if (!IV.box) return;
+      if (!IV.cam || !IV.cam.video){ ivSay('warn', t('iv_bx_need_cam')); return ivRenderLive(); }
+      const v = IV.cam.video, W = v.videoWidth || v.width, H = v.videoHeight || v.height;
+      const data = invGrabFrame(v, 1600, 0.75); if (!data) return;
+      const k = Math.min(1, 1600 / Math.max(W, H)), ph = 'ph-' + IV.box.short_code + '-s' + Date.now().toString(36);
+      try { await IVDB.put(ph, {id:ph, mime:'image/jpeg', data, at:nowISO(), box_id:IV.box.id, project:IV.pid}); } catch(e){ ivSay('err', t('iv_full')); return ivRenderLive(); }
+      const raw = IV.cam.boxes instanceof Map ? IV.cam.boxes : new Map(), codes = invShotCodes(raw, W, H);
+      ivBoxAmend(x => { x.shots = x.shots.concat([{ph, at:nowISO(), w:Math.round(W * k), h:Math.round(H * k), codes, by:ivWho()}]).slice(-20); }, true);
+      const mine = codes.filter(c => { const x = invParseCode(c.c); return x && x.prefix === IV.proj.inv.prefix && x.kind === 'binder' && !IV.scanned.has(c.c); });
+      ivSay('ok', codes.length ? t('iv_bx_shot_ok', {n:codes.length}) : t('iv_bx_shot_none'));
+      if (mine.length){ const list = Array.from(raw.keys()).filter(r => { const p = invParseScan(r); return p && mine.some(c => c.c === p.code); }); const was = IV.burst; IV.burst = true; await ivCodes(list); IV.burst = was; }
+      ivRender();
+    }
+    /** A binder with no label of its own, in the open box: photo of the spine, a normal random code (printable later). */
+    async function ivNolabel(){
+      if (!IV.box || !IV.proj) return;
+      if (!ivCan()){ ivSay('err', t('iv_ro')); return ivRenderLive(); }
+      if (IV.full && !ivOutboxSet(ivOutbox())){ ivSay('err', t('iv_full')); return ivRenderLive(); }
+      const code = invNolabelCode([IV.proj.inv.prefix]), k = IV.list.filter(x => !x.undone && x.box === IV.box.code && x.nolabel).length + 1;
+      const num = IV.box.code + '/' + String(k).padStart(2, '0') + '-' + code.slice(-3).toUpperCase();
+      let photo = '', phId = '';
+      if (IV.cam && IV.cam.video){ photo = invGrabFrame(IV.cam.video, 1280, 0.72); if (photo){ phId = 'ph-' + code + '-' + Date.now().toString(36); try { await IVDB.put(phId, {id:phId, mime:'image/jpeg', data:photo, at:nowISO(), binder_id:'inv-' + code, project:IV.pid}); } catch(e){ phId = ''; } } }
+      if (!IV.keep){ IV.tags = new Set(); IV.years = []; }
+      const b = ivNewBinder(code, 0, phId, 'binder');
+      b.speaking_code = num; b.inv = Object.assign({}, b.inv, {nolabel:1, k});
+      IV.scanned.set(code, {t:'b', c:code, u:b.updated_at, l:b.location_id || ''});
+      ivRecentPut(b); IV.last = b;
+      IV.list.forEach(y => { y.thumb = ''; });
+      IV.list.push({code, num, box:IV.box.code, at:Date.now(), thumb:photo, st:'captured', sent:false, ai:IV.proj.inv.ai && phId ? 'wait' : '', via:'phone-nolabel', lvl:'binder', folder:'', nolabel:true});
+      const queued = ivEnqueue({kind:'rec', recs:[b], entry:ivEntry('inventory.capture', {type:'binder', id:b.id, code:num}, t('iv_log_cap', {c:num}), {project:IV.pid, short_code:code, box:IV.box.code, photo:!!phId, via:'phone-nolabel', nolabel:true})});
+      if (!queued){ IV.scanned.delete(code); IV.list.pop(); IV.last = null; { const r = ivRecent(); delete r[code]; lsSet(IV_RECENT_LS, r); } if (phId) IVDB.del(phId).catch(() => {}); ivSay('err', t('iv_full')); return ivRender(); }
+      ivPaceMark('phone-nolabel');
+      if (IV.proj.inv.ai && phId) ivEnqueue({kind:'ai', code, ph:phId, voice:'', hints:{tags:IV.proj.inv.tags, year_from:IV.proj.inv.year_from, year_to:IV.proj.inv.year_to, client:IV.proj.inv.client, kind:'spine'}});
+      ivSay('ok', t('iv_bx_nl_ok', {c:num, b:IV.box.code})); ivArmUndo(); ivPrefsSave(); ivRender();
+    }
+    function ivBoxPanelHTML(){
+      if (!IV.box || IV.verify) return '<div class="iv-bxp none" id="iv-bxp"></div>';
+      const x = ivBoxInv(), n = ivBoxCount(), c = x.count === null ? n : x.count, plan = ivPlan();
+      return '<section class="iv-bxp" id="iv-bxp"><div class="iv-bxp-row"><span class="iv-bxp-l">' + esc(t('iv_bx_count')) + '<small>' + esc(t('iv_bx_count_h', {n})) + '</small></span>' +
+        '<div class="iv-step"><button type="button" class="sc-btn" data-s="iv-bx-dec" aria-label="−">−</button><input id="iv-bx-n" inputmode="numeric" value="' + c + '" data-s="iv-bx-n" aria-label="' + esc(t('iv_bx_count')) + '"><button type="button" class="sc-btn" data-s="iv-bx-inc" aria-label="+">+</button></div></div>' +
+        '<div class="iv-bxp-b"><button type="button" class="sc-btn" data-s="iv-bx-shot" id="iv-bx-shot">' + sic('cam') + esc(t('iv_bx_shot')) + (x.shots.length ? ' (' + x.shots.length + ')' : '') + '</button>' +
+        (plan.binder !== 'all' ? '<button type="button" class="sc-btn" data-s="iv-bx-nl" id="iv-bx-nl">' + sic('plus') + esc(t('iv_bx_nolabel')) + '</button>' : '') + '</div>' +
+        (plan.binder === 'none' ? '<small class="sc-muted" id="iv-bx-level">' + esc(t('iv_bx_level')) + '</small><input class="iv-bx-note" id="iv-bx-note" data-s="iv-bx-note" value="' + esc(x.note) + '" placeholder="' + esc(t('iv_bx_note_ph')) + '">' : '') + '</section>';
+    }
 
     /* v12.15: burst (several labels in one frame) and progress towards the expected total */
     Object.assign(I18N.it, {iv_burst:'Raffica: più etichette nella stessa inquadratura', iv_burst_h:'Inquadra una fila di coste: ogni etichetta nuova diventa un faldone, una dopo l\'altra.',
@@ -422,8 +501,9 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       const closed = IV.box && IV.box.short_code !== code ? ivBoxSummary(IV.box) : '';
       if (IV.folder && IV.box && IV.box.short_code !== code) IV.folder = null;   // a new box closes the open binder
       IV.box = {id:seen && seen.id ? seen.id : 'inv-' + code, code:num, short_code:code, n};
+      if (ivPlan().binder === 'none'){ const bx = ivBoxInv(); IV.tags = new Set(bx.tags); IV.years = (bx.years.match(/\d{4}/g) || []).map(Number); }
       if (!seen){
-        const l = ivNewBox(code, n); IV.box.id = l.id;
+        const l = ivNewBox(code, n); IV.box.id = l.id; ivRecentPut(l);
         IV.scanned.set(code, {t:'l', c:code, u:l.updated_at, id:l.id});
         ivEnqueue({kind:'rec', recs:[l], entry:ivEntry('inventory.box', {type:'location', id:l.id, code:num}, t('iv_log_box', {c:num}), {project:IV.pid, short_code:code})});
         ivSay('switch', (closed ? closed + ' · ' : '') + t('iv_box_new', {c:num}));
@@ -515,12 +595,14 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
     }
     function ivToggleTag(tag){
       const on = !IV.tags.has(tag); if (on) IV.tags.add(tag); else IV.tags.delete(tag);
+      if (ivBoxLevel()){ ivBoxAmend(x => { x.tags = Array.from(IV.tags); }); ivPrefsSave(); return ivRender(); }
       ivAmend(c => { const list = invNormTags(String(c.tags || '').split(',')); const i = list.findIndex(x => x.toLowerCase() === tag.toLowerCase()); if (on && i < 0) list.push(tag); if (!on && i >= 0) list.splice(i, 1); c.tags = list.join(', '); });
       ivPrefsSave(); ivRender();
     }
     function ivToggleYear(y){
       y = +y; const i = IV.years.indexOf(y); if (i >= 0) IV.years.splice(i, 1); else IV.years.push(y);
       if (IV.years.length > 2){ const a = IV.years.slice().sort((p, q) => p - q); IV.years = [a[0], a[a.length - 1]]; }
+      if (ivBoxLevel()){ ivBoxAmend(x => { x.years = ivYearStr(IV.years); }); ivPrefsSave(); return ivRender(); }
       ivAmend(c => { c.ref_year = ivYearStr(IV.years); });
       ivPrefsSave(); ivRender();
     }
@@ -753,7 +835,7 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       return '<main class="sc-main iv-main' + (inv.mode === 'station' && !V ? ' iv-station' : '') + '" id="iv-main"><div class="iv-head"><div><h1 id="iv-name">' + esc(P.name || inv.code) + '</h1><small>' + esc(inv.code) + (inv.client ? ' · ' + esc(inv.client) : '') + ' · ' + esc(V ? t('iv_v_h') : t('iv_mode_' + inv.mode)) + '</small></div>' +
           '<div class="iv-head-b">' + (V ? '' : '<button type="button" class="sc-btn" data-s="iv-verify" id="iv-verify-b">' + sic('check') + esc(t('iv_v_start')) + '</button>') + '<button type="button" class="sc-btn" data-s="iv-done" id="iv-done">' + esc(t('iv_done')) + '</button></div></div>' +
         ivQueueHTML() + ivProgHTML() + (inv.ai || V ? '' : '<div class="iv-ai-off sc-muted">' + esc(t('iv_ai_off')) + '</div>') + hint +
-        (V ? '' : ivBoxHTML() + ivFolderHTML()) + '<div class="iv-cam' + (IV.cam ? ' on' : '') + '" id="iv-video">' + (IV.cam ? '' : '<button type="button" class="sc-btn sc-primary sc-block" data-s="iv-cam" id="iv-cam">' + sic('cam') + esc(t('iv_cam_on')) + '</button>') + '</div>' +
+        (V ? '' : ivBoxHTML() + ivBoxPanelHTML() + ivFolderHTML()) + '<div class="iv-cam' + (IV.cam ? ' on' : '') + '" id="iv-video">' + (IV.cam ? '' : '<button type="button" class="sc-btn sc-primary sc-block" data-s="iv-cam" id="iv-cam">' + sic('cam') + esc(t('iv_cam_on')) + '</button>') + '</div>' +
         ivMsgHTML() + (V ? ivVerifyHTML() : ivLastHTML() + ivControlsHTML()) +
         (IV.cam ? '<button type="button" class="sc-btn sc-block" data-s="iv-cam" id="iv-cam-off">' + sic('stop') + esc(t('iv_cam_off')) + '</button>' : '') +
         '<form class="sa-typed" data-s="iv-typed-form"><label class="sc-field"><span>' + esc(t('iv_typed')) + '</span><input id="iv-typed" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="' + esc(t('iv_typed_ph')) + '"></label></form>' +
@@ -770,7 +852,7 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       const swap = (id, html) => { const el = document.getElementById(id); if (el) el.outerHTML = html; };
       swap('iv-flash', ivMsgHTML());
       if (IV.verify){ swap('iv-verify', ivVerifyHTML()); ivQueueStats(); return; }
-      swap('iv-box', ivBoxHTML()); swap('iv-last', ivLastHTML()); swap('iv-prog', ivProgHTML()); swap('iv-folder', ivFolderHTML());
+      swap('iv-box', ivBoxHTML()); { const f = document.activeElement; if (!(f && (f.id === 'iv-bx-n' || f.id === 'iv-bx-note'))) swap('iv-bxp', ivBoxPanelHTML()); } swap('iv-last', ivLastHTML()); swap('iv-prog', ivProgHTML()); swap('iv-folder', ivFolderHTML());
       const l = document.querySelector('.iv-list'); if (l) l.outerHTML = ivListHTML(); else { const m = document.getElementById('iv-main'); if (m && IV.list.length) m.insertAdjacentHTML('beforeend', ivListHTML()); }
       ivQueueStats();
     }
@@ -838,6 +920,9 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       if (a === 'iv-v-move') return ivVerifyMove(el.dataset.c);
       if (a === 'iv-v-move-all'){ const r = ivVerifyResult(); return r.misplaced.reduce((p, x) => p.then(() => ivVerifyMove(x.c)), Promise.resolve()); }
       if (a === 'iv-v-cap') return ivVerifyCapture(el.dataset.c);
+      if (a === 'iv-bx-inc' || a === 'iv-bx-dec'){ const c = ivBoxInv().count, base = c === null ? ivBoxCount() : c; return ivBoxSetCount(base + (a === 'iv-bx-inc' ? 1 : -1)); }
+      if (a === 'iv-bx-shot') return ivBoxShot();
+      if (a === 'iv-bx-nl') return ivNolabel();
       if (a === 'iv-tag') return ivToggleTag(el.dataset.v);
       if (a === 'iv-year') return ivToggleYear(el.dataset.v);
       if (a === 'iv-mic'){ if (Date.now() - pttAt < 1500) return; if (IV.listening) ivVoiceStop(); else ivVoiceStart(); return; }   // pointer presses are handled below
@@ -855,7 +940,7 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
       pttAt = Date.now(); if (IV.listening){ pttDown = 0; ivVoiceStop(); } else { pttDown = pttAt; ivVoiceStart(); }
     }, true);
     document.addEventListener('pointerup', () => { if (!pttDown) return; const held = Date.now() - pttDown; pttDown = 0; pttAt = Date.now(); if (held > 600) ivVoiceStop(); }, true);
-    document.addEventListener('change', (e) => { const el = e.target; if (el && el.dataset && el.dataset.s === 'iv-keep'){ IV.keep = !!el.checked; ivPrefsSave(); } if (el && el.dataset && el.dataset.s === 'iv-burst'){ IV.burst = !!el.checked; ivPrefsSave(); ivRender(); } }, true);
+    document.addEventListener('change', (e) => { const el = e.target; if (el && el.dataset && el.dataset.s === 'iv-keep'){ IV.keep = !!el.checked; ivPrefsSave(); } if (el && el.dataset && el.dataset.s === 'iv-bx-n'){ ivBoxSetCount(el.value); } if (el && el.dataset && el.dataset.s === 'iv-bx-note'){ const v = el.value; ivBoxAmend(x => { x.note = v; }); } if (el && el.dataset && el.dataset.s === 'iv-burst'){ IV.burst = !!el.checked; ivPrefsSave(); ivRender(); } }, true);
     document.addEventListener('submit', (e) => {
       const f = e.target; if (f.dataset.s !== 'iv-typed-form' && f.dataset.s !== 'iv-note-form') return;
       e.preventDefault(); e.stopImmediatePropagation();
@@ -869,7 +954,7 @@ if (typeof SC !== 'undefined' && typeof scRoute === 'function'){
     document.addEventListener('visibilitychange', async () => { if (!document.hidden && IV.cam && !IV.wake && navigator.wakeLock) try { IV.wake = await navigator.wakeLock.request('screen'); } catch(e){} });
     // jobs left inflight by a closed page are retried
     try { const q = ivOutbox(); if (q.some(j => j.inflight)) ivOutboxSet(q.map(j => { delete j.inflight; return j; })); } catch(e){}
-    window.IV_API = {ivCodes, ivProgHTML, ivHandle, ivOpen, ivFlush, ivUndo, ivApplyVoice, ivToggleTag, ivToggleYear, ivOutbox, ivRecent, IV_OUTBOX_LS, IV_RECENT_LS,
+    window.IV_API = {ivBoxShot, ivNolabel, ivBoxSetCount, ivBoxInv, ivBoxRec, ivPhotoIds, ivCodes, ivProgHTML, ivHandle, ivOpen, ivFlush, ivUndo, ivApplyVoice, ivToggleTag, ivToggleYear, ivOutbox, ivRecent, IV_OUTBOX_LS, IV_RECENT_LS,
       ivPagePhoto, ivWake, ivPhotoSent, ivStorage, ivRescueData, ivRescueSave, IV_SENT_LS, ivVerifyStart, ivVerifyBox, ivVerifyScan, ivVerifyMove, ivVerifyCapture, ivVerifyClose, ivVerifyResult, ivLevelOf};
   })();
 }

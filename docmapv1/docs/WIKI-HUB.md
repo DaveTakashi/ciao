@@ -1,6 +1,6 @@
 # Wiki di Doc Location Hub
 
-Vale per **hub 0.13.0**, **Doc Location 26.12.15 (app v12.15)** e **strumenti di installazione 1.2.0**. Data: 23 novembre 2026.
+Vale per **hub 0.13.0**, **Doc Location 26.12.16 (app v12.16)** e **strumenti di installazione 1.2.0**. Data: 23 novembre 2026.
 
 > **Novità 0.13.** Nuovo nome **Doc Location** e **white label**: il nome viene da `brand.js`; ogni rivenditore e ogni cliente può avere nome, sigla, logo, colore e contatti suoi (scheda del cliente › **Marchio e prezzo**, `marchio imposta`), scritti dall'hub in ogni sito e pacchetto. **Listino unico** `plans.json` (`listino`) e **preventivo per cliente** (`cliente preventivo`). Guida: `MARCHIO.md`. Aggiornamento: `AGGIORNAMENTO-HUB-0.13.0.md`.
 >

@@ -28,7 +28,7 @@ step "PHP <-> Python parity";     run python3 server-python/tests/diff_test.py
 step "PHP <-> Python licence";    run python3 server-python/tests/diff_licence_test.py
 step "zip completo (tools/crea-zip.py)"; ZD=$(mktemp -d); run python3 tools/crea-zip.py --out "$ZD" >/dev/null
 step "installer-windows";         (cd installer-windows && run python3 -m unittest discover -s tests) || fail=1
-step "app: test Playwright (smoke, unit, aggiornamento, v12.6 … v12.15), più file insieme (tests/run.js)"
+step "app: test Playwright (smoke, unit, aggiornamento, v12.6 … v12.16), più file insieme (tests/run.js)"
 # smoke · unit (pure functions, 2 time zones) · upgrade (real previous releases from git → current: no data lost)
 # v126 licence + sync · v128 inventory · v129 PWA + stopwatch · v129b theme + Ctrl+K · v1210 picks + signed hand-over
 # v1210b lost-item QR · v1210c forecasts · v1210d «Oggi», undo, empty states · v1210e return reminders
@@ -36,6 +36,7 @@ step "app: test Playwright (smoke, unit, aggiornamento, v12.6 … v12.15), più 
 # v1212 inventory phases 3-4: station, chain, verify, scanner, documents, templates, prices, report, local AI
 # v1214 sturdier inventory: busy server pauses, full phone memory, rescue copy, estimate before the job
 # v1215 faster inventory: burst of several labels per frame, target with the expected end time
+# v1216 box level and binder level: labelling plan, count per box, binders without a label, box photo with QR positions, training data
 (cd tests && NODE_PATH="${NODE_PATH:-$(npm root -g)}" run node run.js) || fail=1
 echo
 if [ $fail = 0 ]; then echo "VERIFICA VELOCE: tutto OK"; else echo "VERIFICA VELOCE: ci sono errori (vedi ✗ sopra)"; fi

@@ -935,3 +935,32 @@ volta e lo scrive sotto l'interruttore. Il telefono ricorda la scelta per ogni p
 scrivere a «Stima un lavoro». Il telefono mostra una barra: quanti ne avete fatti, la percentuale e, appena c'è un ritmo
 misurato, quanto manca e l'ora di fine. La scheda **Lavoro** sul PC mostra lo stesso avanzamento con il ritmo di tutto il
 progetto; se superate l'obiettivo lo dice, così potete aggiornare il preventivo.
+
+## 38. Inventario: scatole e faldoni, tutte le modalità (v12.16)
+
+**Scegliete come è etichettato l'archivio.** In Progetti › il progetto › Modifica, nel riquadro **Come è etichettato
+l'archivio**:
+
+| Scelta | Quando usarla |
+|---|---|
+| Scatole: un'etichetta fuori | Il caso normale: si legge la scatola, poi i faldoni dentro. |
+| Scatole: due etichette, FUORI e DENTRO | Le scatole stanno sugli scaffali e vengono anche aperte: stampate due etichette uguali per ogni scatola, una va fuori e una dentro. |
+| Scatole: nessuna etichetta | Faldoni sciolti o scatole che non si etichettano: si cattura faldone per faldone. |
+| Faldoni: tutti etichettati | Ogni faldone ha la sua etichetta (consigliato). |
+| Faldoni: alcuni etichettati | Si etichettano solo i faldoni importanti; gli altri si aggiungono con **Faldone senza etichetta**. |
+| Faldoni: nessuno, si conta la scatola | Inventario veloce a livello di scatola: quanti faldoni, anni, tag e una foto. |
+
+**Codice leggibile.** Scegliete **Grande** (consigliato: si legge da lontano), **Normale** o **Nascosto** (sull'etichetta
+resta solo il QR). La casella **Scrivi anche il codice del QR (dm26…) in piccolo** aggiunge o toglie il codice tecnico.
+Le stesse scelte sono nella finestra di stampa, con l'anteprima; per le scatole con due etichette la stampa fa da sola
+la copia FUORI e la copia DENTRO.
+
+**Sul telefono.** Dopo l'etichetta della scatola compare il riquadro della scatola. Scrivete quanti **faldoni ci sono
+nella scatola** (con − e +), scattate la **foto della scatola aperta** (le etichette che si vedono vengono prese subito)
+e, per i faldoni senza etichetta, toccate **Faldone senza etichetta**: il faldone nasce con un codice nuovo e la foto
+della costa, e la lettura AI lo compila come gli altri. Se l'etichetta servirà, la stampate dopo dal PC.
+
+**Sul PC.** Il report mostra i faldoni contati accanto a quelli acquisiti e il prezzo usa i contati quando sono di più.
+Nella scheda Strumenti la tabella **Scatole** riassume conteggi, anni, tag, note e foto. **Dati per l'addestramento**
+scarica un file con le foto e le risposte confermate da una persona, utile per allenare un modello di lettura: contiene
+dati dei clienti, va dato solo a chi li tratta per lo studio.
