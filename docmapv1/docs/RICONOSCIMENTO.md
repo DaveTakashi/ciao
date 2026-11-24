@@ -2,7 +2,9 @@
 
 Per chi sviluppa. Descrive cosa salva oggi l'inventario per arrivare, più avanti, a riconoscere **tutti i faldoni di una
 scatola da un'unica foto** e a un **modello di lettura specializzato** (coste, prime pagine, tag giusti e sbagliati).
-Il briefing sullo stato dell'arte e sulle scelte (modelli, addestramento, costi) è un documento a parte.
+Il **briefing sullo stato dell'arte** (modelli di segmentazione e lettura, addestramento, costi, scelte consigliate) è un
+documento a parte: <https://claude.ai/artifact/6vVNg8CmEyoT7YYzgzs6TL>. Questo file dice cosa c'è già nel codice e come
+agganciarci quelle scelte senza cambiare i dati.
 
 ## 1. Cosa salva già il telefono
 
@@ -57,3 +59,20 @@ foto), costruito da `invTrainRows` (`02f`) ed esportato da `ivxTrainExport` (`06
 - Campi nuovi solo in aggiunta (`shots`, `regions`, …): le versioni vecchie li conservano senza usarli.
 - Il codice leggibile grande sull'etichetta (Impostazioni del progetto › Codice leggibile: grande) aiuta anche l'OCR
   quando il QR è rovinato o troppo piccolo nella foto.
+
+## 5. Dove siamo rispetto al briefing (fase 0, «le fondamenta nel codice»)
+
+Il briefing propone sei fondamenta da mettere nel codice prima della foto unica. Stato al rilascio 26.12.16:
+
+| Fondamenta del briefing | Stato | Dove |
+|---|---|---|
+| Schema di riconoscimento unico e versionato (campi, tag, contorno, QR abbinato, fiducia per campo, fornitore/modello/prompt) | **in parte**: `inv.ai` ha testo, campi, fiducia e modello per tutti i fornitori; mancano la fiducia per campo, la versione del prompt e il contorno del dorso | `invAiNorm`, `invAiPrompt` (02f), `ai_spine` (PHP/Python) |
+| Interfaccia «riconoscitore» a pezzi (QR, dorsi, testo, tag; cloud, locale o spento) | **fatto per il QR e la lettura del testo**: registro `invRecognizerAdd` con `qr-anchor`; fornitore AI agnostico (Claude, OpenAI-compatibile, Ollama, spento). Il rilevatore dei dorsi si aggiunge come riconoscitore nuovo | §2 di questo file |
+| Archivio delle verità (foto, proposta AI, valore confermato, chi e quando) ed esportazione standard | **fatto in JSONL** (`docmap-inv-train` v1, §3); l'esportazione COCO dei contorni arriverà con il primo rilevatore di dorsi, perché oggi i contorni non esistono ancora | `invTrainRows`, `ivxTrainExport` |
+| Etichetta da dorso e codice grande, con le modalità di etichettatura del progetto | **fatto**: `inv.plan` (fuori, fuori e dentro, nessuna; faldoni tutti, alcuni, nessuno; codice grande, normale, nascosto) | `ivpLabelHTML`, `ivpPlanHTML` (06q) |
+| Vocabolario dei tag per cliente, con sinonimi, parole escluse e coda «nuovi tag suggeriti» | **da fare**: oggi ci sono i tag rapidi del progetto e dei modelli | prossimo passo |
+| Banco di prova (foto vere con risposte giuste e un comando che misura ogni fornitore) | **da fare**: il file di addestramento con «Solo faldoni confermati» è già il formato del set di prova | prossimo passo |
+
+Il conteggio dei «faldoni senza QR» che il briefing indica come la funzione enterprise più utile esiste già a mano
+(Faldoni nella scatola, Faldone senza etichetta). Quando arriverà il rilevatore dei dorsi, il numero dei dorsi visti
+nella foto della scatola si confronterà con quel conteggio e con i QR letti («8 dorsi visti, 7 QR letti»).
