@@ -53,7 +53,7 @@ async function dmDecodeQRCanvas(cv){
 class DMCamScanner {
   constructor(o){
     o = o || {};
-    this.onCode = o.onCode || (() => {}); this.dedupeMs = o.dedupeMs || DM_CAM_DEDUPE_MS; this.interval = o.interval || 180;
+    this.onCode = o.onCode || (() => {}); this.onCodes = typeof o.onCodes === 'function' ? o.onCodes : null; this.seen = new Map();   // v12.15 burst: several codes per frame this.dedupeMs = o.dedupeMs || DM_CAM_DEDUPE_MS; this.interval = o.interval || 180;
     this.video = document.createElement('video'); this.video.className = 'dm-cam'; this.video.muted = true; this.video.autoplay = true;
     this.video.setAttribute('playsinline', ''); this.video.setAttribute('muted', '');
     this.stream = null; this.running = false; this.last = ''; this.lastAt = 0; this.engine = ''; this.timer = 0; this.cv = null;
@@ -72,7 +72,7 @@ class DMCamScanner {
     if (typeof window.BarcodeDetector === 'function'){
       try {
         const f = window.BarcodeDetector.getSupportedFormats ? await window.BarcodeDetector.getSupportedFormats() : ['qr_code'];
-        if (f.includes('qr_code')){ const d = new window.BarcodeDetector({formats:['qr_code']}); this.engine = 'native'; return async (v) => { const r = await d.detect(v); return r && r.length ? r[0].rawValue : ''; }; }
+        if (f.includes('qr_code')){ const d = new window.BarcodeDetector({formats:['qr_code']}); this.engine = 'native'; this.detectAll = async (v) => { const r = (await d.detect(v)) || []; this.boxes = new Map(r.filter(x => x.rawValue).map(x => [x.rawValue, x.boundingBox])); return r.map(x => x.rawValue).filter(Boolean); }; return async (v) => { const r = await this.detectAll(v); return r[0] || ''; }; }
       } catch(e){}
     }
     const jsQR = await dmLoadJsQR(); this.engine = 'jsqr';
@@ -90,7 +90,10 @@ class DMCamScanner {
     if (!this.running) return;
     this.timer = setTimeout(async () => {
       if (!this.running) return;
-      try { if (this.video.readyState >= 2){ const txt = await this.detect(this.video); if (txt) this.emit(txt); } } catch(e){}
+      try { if (this.video.readyState >= 2){
+        if (this.onCodes && this.detectAll) this.emitAll(await this.detectAll(this.video));
+        else { const txt = await this.detect(this.video); if (txt) this.emit(txt); }
+      } } catch(e){}
       this.tick();
     }, this.interval);
   }
@@ -100,6 +103,14 @@ class DMCamScanner {
     if (txt === this.last && now - this.lastAt < this.dedupeMs){ this.lastAt = now; return; }
     this.last = txt; this.lastAt = now;
     try { this.onCode(txt); } catch(e){ console.warn('scan', e); }
+  }
+  /** v12.15: every code of one frame, each skipped while it stays in view (same dedupe as emit, per code). */
+  emitAll(list){
+    const now = Date.now(), fresh = [];
+    (list || []).forEach(txt => { const at = this.seen.get(txt); this.seen.set(txt, now); if (!at || now - at >= this.dedupeMs) fresh.push(txt); });
+    if (this.seen.size > 500) this.seen.forEach((at, k) => { if (now - at > this.dedupeMs) this.seen.delete(k); });
+    if (!fresh.length) return;
+    try { this.onCodes(fresh, list); } catch(e){ console.warn('scan', e); }
   }
   /** Put the live video in a box (re-attaching after a re-render keeps it playing). */
   attach(box){ if (!box) return; if (this.video.parentNode !== box){ box.innerHTML = ''; box.appendChild(this.video); } try { const p = this.video.play(); if (p && p.catch) p.catch(() => {}); } catch(e){} }

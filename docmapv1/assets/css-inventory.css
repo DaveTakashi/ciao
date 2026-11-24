@@ -179,3 +179,11 @@
 .ivq-est-out .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
 .ivq-est-out .kpi{border:1px solid var(--border);border-radius:10px;padding:8px 10px}
 .ivq-est-out .kpi b{display:block;font-size:20px} .ivq-est-out .kpi small{color:var(--text-2,#666)}
+/* v12.15: progress towards the expected total (phone + Lavoro card) and burst toggle */
+.iv-prog{display:flex;flex-direction:column;gap:4px;padding:2px 2px 0}
+.iv-prog.none{display:none}
+.iv-prog small,.ivx-prog .small{color:var(--muted)}
+.iv-prog-bar{height:8px;border-radius:99px;background:var(--border);overflow:hidden}
+.iv-prog-bar i{display:block;height:100%;background:var(--green);border-radius:99px;transition:width .3s}
+.ivx-prog{margin-top:12px;display:flex;flex-direction:column;gap:6px}
+.iv-burst-h{display:block;margin:-4px 0 6px 26px}

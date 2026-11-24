@@ -103,6 +103,8 @@ il numero e l'immagine. Se un passo si blocca, salta al blocco successivo.
 - [ ] D31. **Rete che va e viene** (v12.14): sul telefono, inventario in corso, spegnete il Wi-Fi e i dati e scansionate 5 faldoni; la riga della coda dice «in attesa di rete». Riaccendete la rete: entro un minuto la coda si svuota da sola, senza toccare ↻. Sul PC i 5 faldoni ci sono tutti.
 - [ ] D32. **Copia di sicurezza** (v12.14): senza rete scansionate 3 faldoni, toccate la riga della coda › **Salva copia di sicurezza** e mandate il file al PC (mail o cavo). Sul PC: progetto › Lavoro › **Importa dal telefono**: i 3 faldoni compaiono con la foto. Importate di nuovo lo stesso file: nessun doppione.
 - [ ] D33. **Stima un lavoro** (v12.14): sul PC, Progetti › **Stima un lavoro**, scrivete i metri di uno scaffale vero; confrontate faldoni stimati e contati a mano, poi **Crea il progetto con questi numeri** e controllate le etichette proposte.
+- [ ] D34. **Raffica** (v12.15, telefono Android con Chrome): accendete «Raffica» sotto i tag, aprite una scatola con 10 faldoni etichettati e inquadrate la fila di coste. Contate quanti faldoni entrano in una passata, quanti secondi servono per la scatola intera e se le foto mostrano la costa giusta di ogni faldone. Su iPhone deve dire che la raffica legge un codice alla volta.
+- [ ] D35. **Obiettivo e ora di fine** (v12.15): progetto con i faldoni previsti; dopo 20 faldoni il telefono mostra quanto manca e l'ora di fine. Confrontate l'ora prevista con quella vera a fine giornata; nella scheda Lavoro del PC la stessa percentuale.
 - [ ] D6. Il telefono in sede (stessa rete Wi-Fi del PC di prova) apre DocMap con il certificato dello studio.
 
 ## E. Stampa (30 min) — guida: `CHECKLIST-COLLAUDO.md` §1, `MANUALE-UTENTE.md` §19

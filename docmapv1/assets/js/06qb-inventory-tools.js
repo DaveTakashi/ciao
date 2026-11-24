@@ -64,7 +64,7 @@ function ivxOpenEstimate(){
     buttons:[{label:t('ivx_copy'), cls:'btn', icon:'copy', fn:() => { const E = ivxEstCalc(), txt = ivxEstText(E); try { navigator.clipboard.writeText(txt); } catch(e){} toast(t('ivx_copied')); }},
       {label:t('ivx_create'), cls:'btn btn-primary', icon:'plus', fn:() => {
         const E = ivxEstCalc(); closeModal(true); ivpOpenForm();
-        setTimeout(() => { const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = String(v); }; set('ivp-nb', E.labels.box); set('ivp-nf', E.labels.binder + E.labels.doc); if (E.docs){ const d = document.getElementById('ivp-doc'); if (d) d.checked = true; } }, 0);
+        setTimeout(() => { const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = String(v); }; set('ivp-nb', E.labels.box); set('ivp-nf', E.labels.binder + E.labels.doc); set('ivp-tg', E.binders + E.docs); if (E.docs){ const d = document.getElementById('ivp-doc'); if (d) d.checked = true; } }, 0);
       }}]});
 }
 
@@ -124,6 +124,20 @@ function ivxRescueLoad(a, text, prev){
   return d;
 }
 
+/* ---------------- v12.15: progress towards the expected total (Lavoro card) ---------------- */
+Object.assign(I18N.it, {ivx_prog:'{d} di {t} faldoni previsti · {p}%', ivx_prog_eta:'al ritmo misurato mancano circa {m} di lavoro', ivx_prog_over:'{n} oltre il previsto: aggiorna l\'obiettivo o il preventivo', ivx_prog_done:'obiettivo raggiunto', ivx_prog_none:'Nessun obiettivo: scrivi i faldoni previsti in Modifica (o usa «Stima un lavoro»).'});
+Object.assign(I18N.en, {ivx_prog:'{d} of {t} expected binders · {p}%', ivx_prog_eta:'at the measured pace about {m} of work left', ivx_prog_over:'{n} over the estimate: update the target or the quote', ivx_prog_done:'target reached', ivx_prog_none:'No target: type the expected binders in Edit (or use «Estimate a job»).'});
+function ivxProgress(a){
+  const R = invReport(a, S.binders || [], S.locations || [], (typeof LOG !== 'undefined' && LOG.entries) || [], S.settings || {}, 120000);
+  return invProgress(a.inv.target, (R.binders || 0) + (R.docs || 0), R.median_ms || 0);
+}
+function ivxProgressHTML(a){
+  const pr = ivxProgress(a);
+  if (!pr) return '<p class="tiny muted" id="ivx-prog">' + esc(t('ivx_prog_none')) + '</p>';
+  const tail = pr.over ? t('ivx_prog_over', {n:pr.over}) : !pr.left ? t('ivx_prog_done') : pr.mins ? t('ivx_prog_eta', {m:invMinsText(pr.mins)}) : '';
+  return '<div class="ivx-prog" id="ivx-prog"><div class="iv-prog-bar"><i style="width:' + pr.pct + '%"></i></div><div class="small">' + esc(t('ivx_prog', {d:pr.done, t:pr.target, p:pr.pct})) + (tail ? ' · ' + esc(tail) : '') + '</div></div>';
+}
+
 const IVX_ACTIONS = { 'ivx-est': () => ivxOpenEstimate(), 'ivx-imp': (el) => ivxOpenRescue(el.dataset.id) };
 if (typeof ACTIONS === 'object') Object.assign(ACTIONS, IVX_ACTIONS);
 else document.addEventListener('DOMContentLoaded', () => { if (typeof ACTIONS === 'object') Object.assign(ACTIONS, IVX_ACTIONS); });
@@ -133,19 +147,23 @@ document.addEventListener('DOMContentLoaded', () => {
   if (typeof HELP_TOPICS === 'undefined' || HELP_TOPICS.some(x => x.id === 'inventory-safe')) return;
   const inv = HELP_TOPICS.find(x => x.id === 'inventory'); if (inv && !inv.related.includes('inventory-safe')) inv.related.push('inventory-safe');
   HELP_TOPICS.push({ id:'inventory-safe', guide:null, tags:['start'], related:['inventory', 'inventory-pro'],
-    kw:{it:'stima preventivo metri scaffale scatole giornate etichette copia di sicurezza memoria piena telefono coda server occupato rete accesso scaduto importa',
-        en:'estimate quote metres shelf boxes days labels rescue copy safety copy memory full phone queue busy server network sign-in expired import'},
+    kw:{it:'raffica fila coste più etichette obiettivo previsti fine prevista avanzamento stima preventivo metri scaffale scatole giornate etichette copia di sicurezza memoria piena telefono coda server occupato rete accesso scaduto importa',
+        en:'burst row spines several labels target expected end time progress estimate quote metres shelf boxes days labels rescue copy safety copy memory full phone queue busy server network sign-in expired import'},
     title:{it:'Inventario: stima del lavoro e telefono sempre al sicuro', en:'Inventory: job estimate and a phone that never loses work'},
     body:{it:'<p><b>Stima un lavoro</b> (elenco dei progetti): scrivi i metri di scaffale o le scatole che vedi sul posto; ottieni faldoni, ore, giornate, etichette da stampare e importo con i prezzi di Impostazioni › Inventario. I secondi a faldone partono dal vostro ritmo misurato nei progetti passati. «Crea il progetto con questi numeri» prepara le etichette giuste.</p>' +
       '<ul><li><b>Server occupato o rete assente</b>: il telefono aspetta e riprova da solo, con pause sempre più lunghe (fino a 5 minuti). Niente si perde; ↻ riprova subito.</li>' +
       '<li><b>Accesso scaduto</b>: la coda si ferma e lo dice; rientra con il tuo utente e tocca ↻.</li>' +
       '<li><b>Lettura AI</b>: se non riesce dopo 3 tentativi si lascia stare; il faldone è comunque salvato.</li>' +
       '<li><b>Memoria del telefono piena</b>: le nuove acquisizioni si fermano con un messaggio chiaro, invece di perdersi. Le foto già inviate al server vengono tolte dal telefono da sole.</li>' +
+      '<li><b>Raffica</b> (telefono, Chrome su Android): accendila sotto i tag e inquadra una fila di coste; ogni etichetta nuova diventa un faldone, in ordine di numero, con la foto della sua costa. Le etichette già fatte restano in silenzio; due scatole nella stessa inquadratura vengono ignorate.</li>' +
+      '<li><b>Obiettivo</b>: i faldoni previsti del progetto (Modifica, o «Stima un lavoro»). Il telefono e la scheda Lavoro mostrano a che punto siete e, al vostro ritmo, quanto manca e l\'ora di fine.</li>' +
       '<li><b>Copia di sicurezza</b>: tocca lo stato della coda e poi «Salva copia di sicurezza»: un file con tutto quello che il telefono non ha ancora inviato. Sul PC, nella scheda Lavoro del progetto, «Importa dal telefono» lo carica (si può fare due volte senza doppioni).</li></ul>',
       en:'<p><b>Estimate a job</b> (project list): type the shelf metres or the boxes you see on site; you get binders, hours, days, labels to print and the amount with the prices of Settings › Inventory. Seconds per binder start from your pace measured in past projects. «Create the project with these numbers» prepares the right labels.</p>' +
       '<ul><li><b>Busy server or no network</b>: the phone waits and retries by itself, with longer and longer pauses (up to 5 minutes). Nothing is lost; ↻ retries now.</li>' +
       '<li><b>Sign-in expired</b>: the queue stops and says so; sign in again and tap ↻.</li>' +
       '<li><b>AI reading</b>: if it fails 3 times it is dropped; the binder is saved anyway.</li>' +
       '<li><b>Phone memory full</b>: new captures stop with a clear message instead of being lost. Photos the server already has are removed from the phone by themselves.</li>' +
+      '<li><b>Burst</b> (phone, Chrome on Android): turn it on below the tags and frame a row of spines; each new label becomes a binder, in number order, with the photo of its own spine. Labels already done stay silent; two boxes in the same frame are ignored.</li>' +
+      '<li><b>Target</b>: the expected binders of the project (Edit, or «Estimate a job»). The phone and the Work card show how far you are and, at your pace, the time left and the end time.</li>' +
       '<li><b>Rescue copy</b>: tap the queue status, then «Save rescue copy»: a file with everything the phone has not sent yet. On the PC, in the project Work card, «Import from phone» loads it (twice is fine, no duplicates).</li></ul>'} });
 });
