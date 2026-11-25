@@ -65,7 +65,10 @@ class App:
         self._seed_templates()
 
     def settings(self) -> dict:
-        return S.effective(self.dir)      # the installed licence decides modes and monthly credits
+        s = S.effective(self.dir)         # the installed licence decides modes and monthly credits
+        from .ai import plugins
+        plugins.load(s, self.dir)         # extra providers / OCR engines (only files changed since the last time)
+        return s
 
     def _seed_templates(self) -> None:
         """First start: the example recipes become the user's recipes (never overwritten afterwards)."""
@@ -280,17 +283,17 @@ def make_handler(app: App, allowed_hosts: set[str]):
                 return self._json(info)
             if p == ["ai"] and m == "GET":
                 need_admin()
-                from . import ai_registry as AR, workstations as WS
-                return self._json({**AR.describe(s), "workstations": WS.status(s, refresh=q.get("refresh") == "1")})
+                from . import ai as AR, ocr_engines as OE, workstations as WS
+                return self._json({**AR.describe(s), "ocr": OE.describe(s), "workstations": WS.status(s, refresh=q.get("refresh") == "1")})
             if p == ["ai", "test"] and m == "POST":
                 need_admin()
-                from . import ai_registry as AR
+                from . import ai as AR
                 prof = str(self._body_json().get("profile") or "") or None
                 try:
-                    r = AR.call(s, "Prova di collegamento. Rispondi con JSON {\"ok\": true, \"modello\": \"il tuo nome\"}.", None, None, prof)
+                    r = AR.call(s, "Prova di collegamento. Rispondi con JSON {\"ok\": true, \"confidence\": 1}.", None, None, prof)
                 except PR.ProviderError as e:
                     return self._json({"ok": False, "error": str(e), "attempts": getattr(e, "attempts", None)})
-                return self._json({"ok": True, **{k: r.get(k) for k in ("provider", "model", "profile", "ms", "usage", "attempts", "workstation")}})
+                return self._json({"ok": True, **{k: r.get(k) for k in ("provider", "model", "profile", "ms", "usage", "attempts", "workstation", "steps", "members")}})
             if p == ["blocks"]:
                 return self._json({"blocks": R.catalog()})
             if p == ["templates"]:
@@ -545,7 +548,7 @@ def make_handler(app: App, allowed_hosts: set[str]):
 
 
 def AR_profiles(s: dict) -> list:
-    from . import ai_registry as AR
+    from . import ai as AR
     return list(AR.profiles(s))
 
 

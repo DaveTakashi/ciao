@@ -5,5 +5,5 @@ A recipe (JSON, format ``docmap-ricetta/1``) is a list of steps; every step uses
 remote worker (the hub / a central server) through the same HTTP API. Design: docs/STRUMENTI.md.
 """
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 RECIPE_FORMAT = "docmap-ricetta/1"

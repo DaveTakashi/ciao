@@ -1,4 +1,4 @@
-# Strumenti: ricette per i documenti (versione 0.3.0)
+# Strumenti: ricette per i documenti (versione 0.4.0)
 
 > Per chi usa gli Strumenti (Dave, operatori, amministratori) e per chi li sviluppa. Parte 1 in italiano semplice,
 > parte 2 tecnica. Il codice sta in `strumenti/`; il manuale per sviluppatori è [`../strumenti/README.md`](../strumenti/README.md).
@@ -35,7 +35,7 @@ che aspettano una verifica (incollando una volta il collegamento con la chiave, 
 **OCR con Tesseract (consigliato).** Senza Tesseract gli Strumenti leggono il testo dei PDF digitali, dei file di testo e
 delle tabelle, e possono usare l'AI o un servizio esterno; per le scansioni serve un motore OCR. Su Windows: installare
 Tesseract (installer «UB Mannheim»), con la lingua **italiana**. Gli Strumenti lo trovano da soli in
-`C:\Program Files\Tesseract-OCR\`; altrimenti si scrive il percorso in Impostazioni › Lettura.
+`C:\Program Files\Tesseract-OCR\`; altrimenti si scrive il percorso in Impostazioni › OCR.
 
 ### 1.3 Le schermate
 
@@ -113,7 +113,9 @@ cliente**. Di solito il gettone lo dà l'**hub** (licenza del cliente › «Gett
 licenza da soli (sospesa = 0); a mano: `python -m docmap_strumenti token crea --cliente studio-rossi --crediti 5000`. Un cliente con il gettone può
 solo mandare zip e vedere i propri lavori: non vede le cartelle del server, le impostazioni, né i lavori degli altri.
 
-### 1.7b AI: fornitori, profili e workstation (0.3.0)
+### 1.7b AI: fornitori, profili e workstation (0.3.0), più modelli insieme e OCR a moduli (0.4.0)
+
+Dalla 0.4.0 un profilo può essere anche una **cascata** (prima il modello locale, il migliore solo se la lettura è incerta) o un **confronto** (più modelli leggono insieme, vale il valore su cui sono d'accordo); Impostazioni › AI › **Compiti** dice quale profilo fa OCR, estrazione, classificazione e analisi. Impostazioni › **OCR** mostra i motori (testo del file, Tesseract, PaddleOCR, servizio, AI) con lo stato, l'ordine dell'automatico e la soglia sotto cui si passa al successivo. Fornitori e motori in più si aggiungono come **plugin**. Per misurare chi legge meglio: `python -m docmap_strumenti ai confronta`. Tutto in [`AI-FORNITORI.md`](AI-FORNITORI.md).
 
 Impostazioni › **AI**: il profilo predefinito (come prima), le chiavi di Claude, OpenAI e Gemini, i **profili** (per esempio `ocr` sulla tua workstation con riserva `predefinito`, `qualita` con il modello migliore) e **Prova** per ognuno. Impostazioni › **Workstation**: le tue macchine con la GPU (indirizzo e gettone del gateway) e «Controlla adesso». Nelle ricette, il blocco «Analizza con l'AI» ha il campo **Profilo AI**. Tutto spiegato in [`AI-FORNITORI.md`](AI-FORNITORI.md).
 
@@ -226,7 +228,7 @@ Locale (header `X-Key`): `GET /api/info`, `blocks`, `templates`, `recipes`, `rec
 `jobs`, `jobs/<id>`, `jobs/<id>/items`, `jobs/<id>/items/<iid>/image`, `jobs/<id>/download`, `jobs/<id>/outputs`,
 `jobs/<id>/audit`, `fs`; `POST /api/validate`, `recipes`, `recipes/<id>/archive`, `sample`, `preview`, `jobs`,
 `jobs/<id>/cancel`, `jobs/<id>/resume`, `jobs/<id>/items/<iid>` (azioni `certify`, `set`, `reject`, `reopen`, `undo`),
-`settings`, `remote/ping`, `tokens`, `audit/verify`. AI (0.3.0): `GET /api/ai` (fornitori, profili senza segreti, workstation; `?refresh=1` le ricontrolla), `POST /api/ai/test` `{profile}`. Licenza: `GET /api/licence` (diritti in vigore), `POST /api/licence`
+`settings`, `remote/ping`, `tokens`, `audit/verify`. AI (0.3.0, 0.4.0): `GET /api/ai` (fornitori, profili senza segreti con strategia, compiti, plugin, motori OCR in `ocr`, workstation; `?refresh=1` le ricontrolla), `POST /api/ai/test` `{profile}`. Licenza: `GET /api/licence` (diritti in vigore), `POST /api/licence`
 (file della licenza nel corpo, `?forza=1`; solo chiave locale). `POST /api/tokens` con `{tenant, update:true,
 credits_month, plan}` cambia i crediti di un gettone (lo usa l'hub); con `{tenant, revoke:true}` lo revoca.
 
@@ -260,7 +262,7 @@ python -m docmap_strumenti licenza stato | installa file.docmap-licence [--forza
 - Nell'app c'è la porta (⚙ › Strumenti, `assets/js/06zs-strumenti.js`), che usa solo `/api/ping` (senza chiave) e
   `/api/summary` (con la chiave): sono gli unici indirizzi con CORS. Dalla 0.2.0 (hub 0.14.0) piani, licenza, crediti e
   gettoni del server remoto vengono dall'hub; il server remoto va ancora acceso e messo online a mano (righe S8–S10).
-- OCR: Tesseract, servizi o un modello AI (profilo `ocr`, anche sulla tua workstation dalla 0.3.0); un OCR proprio si collega anche come servizio esterno (`ocr.remote_endpoint`).
+- OCR: registro di motori (`ocr_engines.py`: testo del file, Tesseract, PaddleOCR, servizio, AI) con ordine e soglia; un OCR proprio si collega come servizio esterno (`ocr.remote_endpoint`) o come plugin (`AI-FORNITORI.md` §8).
 - Nell'editor il blocco `extract` mostra tutti i parametri, non solo quelli del metodo scelto.
 - Non provato su Windows vero, con scansioni vere di Dave e con un server remoto vero: righe S1–S6 di
   [`COLLAUDO-REALE.md`](COLLAUDO-REALE.md).

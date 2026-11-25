@@ -14,6 +14,10 @@
     "openai": {"aliases": {}, "models": {}},
     "gemini": {"aliases": {}, "models": {}},
     "openai_compatible": {"aliases": {}, "models": {}},
+    "mistral": {"aliases": {}, "models": {}},
+    "openrouter": {"aliases": {}, "models": {}},
+    "lmstudio": {"aliases": {}, "models": {}},
+    "llamacpp": {"aliases": {}, "models": {}},
     "vllm": {
       "aliases": {"inkling-2-mini": "thinkingmachines/Inkling-2-Mini", "ocr": "thinkingmachines/Inkling-2-Mini"},
       "models": {

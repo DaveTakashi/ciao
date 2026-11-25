@@ -273,6 +273,8 @@ class ServerAiTest(unittest.TestCase):
                 self.assertIn("gemini", [p["id"] for p in d["providers"]])
                 self.assertNotIn("SEGRETO", json.dumps(d))
                 self.assertEqual(d["workstations"], [])
+                self.assertIn("tesseract", [e["id"] for e in d["ocr"]["engines"]])
+                self.assertIn("cascade", d["strategies"])
                 st, t = s.call("/api/ai/test", {"profile": "ocr"})
                 self.assertEqual((t["ok"], t["profile"], t["model"]), (True, "ocr", "m-ocr"))
                 st, t = s.call("/api/ai/test", {"profile": "nessuno"})

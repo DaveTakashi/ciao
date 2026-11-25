@@ -9,7 +9,7 @@ verifica a mano veloce, coda di lavori locale o remota, crediti. Guida per chi l
 ```bash
 python3 -m pip install -r requirements.txt
 python3 -m docmap_strumenti serve --open            # http://127.0.0.1:8091/#k=<chiave locale>
-python3 -m unittest discover -s tests               # 53 test, ~30 s (il test Tesseract si salta se manca)
+python3 -m unittest discover -s tests               # 89 test, ~30 s (il test Tesseract si salta se manca)
 ```
 
 Su Windows `AVVIA-STRUMENTI.bat` crea `.venv`, installa i requisiti e apre il browser.
@@ -24,8 +24,12 @@ Su Windows `AVVIA-STRUMENTI.bat` crea `.venv`, installa i requisiti e apre il br
 | `engine.py` | `Engine` (passi, stato su disco, ripresa dopo la verifica, file in parallelo), `Context`, `preview()` |
 | `blocks/*.py` | i 20 blocchi |
 | `media.py` | PDF, TIFF, immagini, tabelle (lettura e scrittura) |
-| `providers.py` | OCR (Tesseract, AI, servizio), servizi HTTP; `ai_json()` passa al registro AI |
-| `ai_registry.py` + `ai_models.json` | AI agnostica: adattatori (anthropic, openai, gemini, openai_compatible, vllm, ollama, workstation, mock), alias dei modelli, profili con riserva, `call()` (docs/AI-FORNITORI.md) |
+| `providers.py` | punto d'ingresso dei blocchi: `ai_json()` e `ocr_ai()` (passano da `ai/`), Tesseract, servizi HTTP |
+| `ai/` + `ai_models.json` | AI agnostica (docs/AI-FORNITORI.md): `base.py` (Provider, Request, AIError, registro), `providers/` (un modulo per famiglia: anthropic, openai_chat con openai/mistral/openrouter/compatibili/vllm/ollama/lmstudio/llamacpp, gemini, local con workstation e mock), `catalogue.py` (alias e capacità), `router.py` (profili, compiti, riserva, cascata, confronto), `plugins.py` |
+| `ocr_engines.py` | registro dei motori OCR (text, tesseract, paddleocr, remote, ai, mock), `register_ocr` |
+| `ai_cli.py` | `python -m docmap_strumenti ai fornitori / profili / prova / confronta` |
+| `ai_registry.py` | nome della 0.3.0, rimanda ad `ai/` |
+| `esempi-plugin/` | esempi di plugin (fornitore, motore EasyOCR), provati dai test |
 | `workstations.py` | pool delle workstation con il gateway: controllo di stato, scelta della più libera, salto di quelle spente (docs/WORKSTATION-API.md) |
 | `validators.py` | date, importi, P.IVA, codice fiscale, IBAN |
 | `jobs.py` | `Store` (SQLite: jobs, ledger, tokens, audit), `Queue`, `review_apply()` |

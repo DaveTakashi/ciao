@@ -596,23 +596,40 @@ async function viewSettings(tab) {
   const B = $('#st-b');
   const inp = (path, label, val, hint, type) => `<div><label>${esc(label)}</label><input data-s="${path}" ${type ? `type="${type}"` : ''} value="${esc(val == null ? '' : val)}">${hint ? `<p class="hint">${esc(hint)}</p>` : ''}</div>`;
   const sel = (path, label, val, opts) => `<div><label>${esc(label)}</label><select data-s="${path}">${opts.map(([v, l]) => `<option value="${esc(v)}" ${String(val) === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></div>`;
-  if (tab === 'lettura') B.innerHTML = `<p>Tesseract: ${e.tesseract ? `<b class="okc">installato</b> (lingue: ${esc((e.tesseract_langs || []).join(', '))})` : '<b class="err">non installato</b> — vedi la guida per installarlo (gratuito)'} · PDF → immagini: ${e.pdfium ? '<b class="okc">sì</b>' : '<b class="warnc">serve pypdfium2</b>'}</p>
-    <div class="step-b" style="padding:0">${sel('ocr.engine', 'Motore predefinito', s.ocr.engine, [['auto', 'automatico'], ['tesseract', 'Tesseract sul PC'], ['remote', 'servizio OCR remoto'], ['ai', 'modello AI']])}
-    ${inp('ocr.lang', 'Lingue', s.ocr.lang, 'es. ita+eng')}${inp('ocr.tesseract_cmd', 'Percorso di Tesseract', s.ocr.tesseract_cmd, 'vuoto = cercalo da solo')}
-    ${inp('ocr.remote_endpoint', 'Servizio OCR remoto', s.ocr.remote_endpoint, 'nome di un servizio esterno (scheda Servizi esterni)')}${inp('threads', 'File insieme', s.threads, 'quanti file lavorare in parallelo (2-4 su un PC normale)')}</div>`;
+  if (tab === 'lettura') {
+    const A = await api('/api/ai');
+    const O = A.ocr || { engines: [], auto_order: [] };
+    const engs = [['auto', 'automatico (ordine qui sotto)']].concat(O.engines.filter(x => x.id !== 'mock').map(x => [x.id, x.label]));
+    B.innerHTML = `<p>Tesseract: ${e.tesseract ? `<b class="okc">installato</b> (lingue: ${esc((e.tesseract_langs || []).join(', '))})` : '<b class="err">non installato</b> — vedi la guida per installarlo (gratuito)'} · PDF → immagini: ${e.pdfium ? '<b class="okc">sì</b>' : '<b class="warnc">serve pypdfium2</b>'}</p>
+    <table><tr><th>Motore</th><th>Dove</th><th>Stato</th><th>Note</th></tr>${O.engines.filter(x => x.id !== 'mock').map(x => `<tr><td><b>${esc(x.id)}</b> ${esc(x.label)}</td><td>${x.local ? 'tue macchine' : 'secondo il profilo AI'}</td><td>${x.available ? '<b class="okc">pronto</b>' : '<span class="mut">non disponibile</span>'}</td><td class="hint">${esc(x.doc)}</td></tr>`).join('')}</table>
+    <div class="step-b" style="padding:0;margin-top:10px">${sel('ocr.engine', 'Motore predefinito («auto» nelle ricette)', s.ocr.engine, engs)}
+    ${inp('ocr.auto_order', 'Ordine di «automatico»', (s.ocr.auto_order && s.ocr.auto_order.length ? s.ocr.auto_order : O.auto_order).join(', '), 'si usa il primo motore pronto, es. text, tesseract, paddleocr, remote, ai')}
+    ${inp('ocr.escalate_below', 'Passa al motore successivo sotto questa affidabilità', s.ocr.escalate_below, '0 = mai; es. 0.8: Tesseract prima, poi l\'AI solo per le pagine difficili (tiene la lettura migliore)')}
+    ${inp('ocr.ai_profile', 'Profilo AI del motore «ai»', s.ocr.ai_profile, 'vuoto = compito «ocr» della scheda AI, poi il profilo predefinito')}
+    ${inp('ocr.lang', 'Lingue', s.ocr.lang, 'es. ita+eng')}${inp('ocr.paddle_lang', 'Lingua di PaddleOCR', s.ocr.paddle_lang, 'es. it, en, latin')}${inp('ocr.tesseract_cmd', 'Percorso di Tesseract', s.ocr.tesseract_cmd, 'vuoto = cercalo da solo')}
+    ${inp('ocr.remote_endpoint', 'Servizio OCR remoto', s.ocr.remote_endpoint, 'nome di un servizio esterno (scheda Servizi esterni)')}${inp('threads', 'File insieme', s.threads, 'quanti file lavorare in parallelo (2-4 su un PC normale)')}</div>
+    <p class="hint">Per misurare quale lettore va meglio sui tuoi documenti: <code>python -m docmap_strumenti ai confronta --cartella CAMPIONI --con ocr:tesseract,ocr:paddleocr,ai:ocr</code> (guida AI-FORNITORI.md).</p>`;
+  }
   if (tab === 'ai') {
     const A = await api('/api/ai');
     const provs = [['', 'spenta']].concat(A.providers.map(p => [p.id, p.label]));
     const keys = s.ai.keys || {};
+    const keyProvs = [...new Map(A.providers.filter(p => p.needs_key).map(p => [p.key_name, p])).values()];
+    const tasks = s.ai.tasks || {};
+    const pnames = ['predefinito'].concat(Object.keys(s.ai.profiles || {}));
+    const TASKS = [['ocr', 'Lettura del testo (OCR)'], ['extract', 'Estrazione dei campi'], ['classify', 'Classificazione'], ['analyze', 'Analisi libera (blocco AI)']];
     B.innerHTML = `<h2>Profilo predefinito</h2><div class="step-b" style="padding:0">${sel('ai.provider', 'Fornitore', s.ai.provider, provs)}
     ${inp('ai.model', 'Modello', s.ai.model, 'nome vero o alias: best, balanced, fast, ocr (vuoto = claude-haiku-5-5 per Claude)')}${inp('ai.base_url', 'Indirizzo del servizio', s.ai.base_url, 'solo per compatibile OpenAI, vLLM, Ollama o un indirizzo diverso')}
     ${inp('ai.api_key', 'Chiave', s.ai.api_key, 'resta su questo PC', 'password')}${inp('ai.timeout', 'Attesa massima (secondi)', s.ai.timeout)}</div>
     <h2 style="margin-top:16px">Chiavi dei fornitori</h2><p class="hint">Valgono per tutti i profili di quel fornitore che non hanno una chiave propria.</p>
-    <div class="step-b" style="padding:0">${['anthropic', 'openai', 'gemini'].map(k => inp('ai.keys.' + k, k === 'anthropic' ? 'Anthropic (Claude)' : k === 'openai' ? 'OpenAI' : 'Google Gemini', keys[k] || '', '', 'password')).join('')}</div>
-    <h2 style="margin-top:16px">Profili</h2><p class="hint">Un profilo è «chi legge cosa»: per esempio <b>ocr</b> sulla tua workstation, <b>qualita</b> con il modello migliore. Se un fornitore è occupato o spento passa al profilo di riserva.</p>
-    <table id="pf-t"><tr><th>Nome</th><th>Fornitore</th><th>Modello</th><th>Indirizzo</th><th>Riserva</th><th></th></tr>${Object.entries(s.ai.profiles || {}).map(([n, v]) => pfRow(n, v, provs)).join('')}</table>
+    <div class="step-b" style="padding:0">${keyProvs.map(p => inp('ai.keys.' + p.key_name, p.label, keys[p.key_name] || '', '', 'password')).join('')}</div>
+    <h2 style="margin-top:16px">Profili</h2><p class="hint">Un profilo è «chi legge cosa». <b>Un modello</b>: un fornitore e un modello, con i profili di riserva se è occupato o spento. <b>Cascata</b>: prova i profili elencati in ordine e si ferma appena l'affidabilità supera la soglia (prima il modello locale, quello migliore solo quando serve). <b>Confronto</b>: i profili elencati leggono insieme, in parallelo; vale il valore su cui sono d'accordo in almeno «soglia» (es. 2).</p>
+    <table id="pf-t"><tr><th>Nome</th><th>Tipo</th><th>Fornitore</th><th>Modello</th><th>Indirizzo</th><th>Riserva / profili usati</th><th>Soglia</th><th></th></tr>${Object.entries(s.ai.profiles || {}).map(([n, v]) => pfRow(n, v, provs)).join('')}</table>
     <button class="btn sec small" id="pf-add" style="margin-top:8px">+ Profilo</button>
     ${inp('ai.default_profile', 'Profilo usato quando una ricetta non ne sceglie uno', s.ai.default_profile, 'vuoto = predefinito')}
+    <h2 style="margin-top:16px">Compiti</h2><p class="hint">Quale profilo fa cosa, quando la ricetta non ne sceglie uno (vuoto = un profilo con lo stesso nome del compito, se c'è, altrimenti quello predefinito). Salva dopo aver aggiunto un profilo per vederlo qui.</p>
+    <div class="step-b" style="padding:0">${TASKS.map(([k, l]) => sel('ai.tasks.' + k, l, tasks[k] || '', [['', '—']].concat(pnames.map(n => [n, n])))).join('')}</div>
+    ${(A.plugins.files || []).length ? `<h2 style="margin-top:16px">Moduli aggiuntivi</h2><p class="hint">Cartella ${esc(A.plugins.dir || '')}</p><ul>${A.plugins.files.map(f => `<li>${esc(f.name)} ${f.ok ? '<b class="okc">caricato</b>' : `<span class="err">${esc(f.error)}</span>`}</li>`).join('')}</ul>` : ''}
     <h2 style="margin-top:16px">Prova</h2><div class="row">${A.profiles.map(p => `<button class="btn small sec" data-aitest="${esc(p.name)}">${esc(p.name)}${p.provider ? ' · ' + esc(p.provider) : ''}</button>`).join('')}</div><p id="ai-r" class="mono"></p>
     <p class="hint">Mandare documenti a un servizio AI esterno (Claude, OpenAI, Gemini) richiede la nomina a sub-responsabile (GDPR art. 28): con Ollama, vLLM o le tue workstation i documenti restano sulle tue macchine.</p>`;
     $('#pf-add').addEventListener('click', () => { $('#pf-t').insertAdjacentHTML('beforeend', pfRow('', {}, provs)); bindEp(); });
@@ -621,7 +638,7 @@ async function viewSettings(tab) {
       try {
         await saveSettings(true);
         const r = await api('/api/ai/test', { body: { profile: b.dataset.aitest } });
-        $('#ai-r').innerHTML = r.ok ? `<b class="okc">risponde</b> · ${esc(r.provider)} · ${esc(r.model)}${r.workstation ? ' · ' + esc(r.workstation) : ''} · ${r.ms} ms${(r.attempts || []).length ? ' · ha risposto il profilo «' + esc(r.profile) + '» dopo: ' + esc(r.attempts.map(x => x.profile + ' (' + x.error + ')').join('; ')) : ''}` : `<span class="err">${esc(r.error)}</span>`;
+        $('#ai-r').innerHTML = r.ok ? `<b class="okc">risponde</b> · ${esc(r.provider)} · ${esc(r.model)}${r.workstation ? ' · ' + esc(r.workstation) : ''} · ${r.ms} ms${(r.steps || []).length ? ' · cascata: ' + esc(r.steps.map(x => x.profile + ' ' + (x.confidence == null ? '?' : Math.round(x.confidence * 100) + '%')).join(' → ')) : ''}${(r.members || []).length ? ' · confronto tra ' + esc(r.members.map(x => x.profile).join(', ')) : ''}${(r.attempts || []).length ? ' · ha risposto il profilo «' + esc(r.profile) + '» dopo: ' + esc(r.attempts.map(x => x.profile + ' (' + x.error + ')').join('; ')) : ''}` : `<span class="err">${esc(r.error)}</span>`;
       } catch (er) { $('#ai-r').innerHTML = `<span class="err">${esc(er.message)}</span>`; }
     }));
     bindEp();
@@ -701,9 +718,13 @@ async function viewSettings(tab) {
   $('#st-save').addEventListener('click', () => saveSettings(false));
 }
 function epRow(n, v) { return `<tr data-ep><td><input data-e="name" value="${esc(n)}"></td><td><input data-e="url" value="${esc(v.url || '')}"></td><td><input data-e="token" type="password" value="${esc(v.token || '')}"></td><td><input data-e="timeout" value="${esc(v.timeout || 120)}" style="width:80px"></td><td><button class="btn ghost" data-epx>✕</button></td></tr>`; }
+const PF_OWN = ['name', 'strategy', 'provider', 'model', 'base_url', 'fallback', 'steps', 'members', 'min_conf', 'min_agree'];
 function pfRow(n, v, provs) {
-  const rest = Object.fromEntries(Object.entries(v).filter(([k]) => !['name', 'provider', 'model', 'base_url', 'fallback'].includes(k)));
-  return `<tr data-pf><td><input data-f="name" value="${esc(n)}" style="width:110px"></td><td><select data-f="provider">${provs.map(([k, l]) => `<option value="${esc(k)}" ${(v.provider || '') === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></td><td><input data-f="model" value="${esc(v.model || '')}"></td><td><input data-f="base_url" value="${esc(v.base_url || '')}"></td><td><input data-f="fallback" value="${esc([].concat(v.fallback || []).join(', '))}" style="width:110px"></td><td><button class="btn ghost" data-epx>✕</button><input type="hidden" data-f="rest" value="${esc(JSON.stringify(rest))}"></td></tr>`;
+  const rest = Object.fromEntries(Object.entries(v).filter(([k]) => !PF_OWN.includes(k)));
+  const st = v.strategy || 'single';
+  const list = st === 'cascade' ? v.steps : st === 'consensus' ? v.members : v.fallback;
+  const thr = st === 'cascade' ? v.min_conf : st === 'consensus' ? v.min_agree : '';
+  return `<tr data-pf><td><input data-f="name" value="${esc(n)}" style="width:110px"></td><td><select data-f="strategy" style="min-width:120px">${[['single', 'un modello'], ['cascade', 'cascata'], ['consensus', 'confronto']].map(([k, l]) => `<option value="${k}" ${st === k ? 'selected' : ''}>${l}</option>`).join('')}</select></td><td><select data-f="provider">${provs.map(([k, l]) => `<option value="${esc(k)}" ${(v.provider || '') === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></td><td><input data-f="model" value="${esc(v.model || '')}"></td><td><input data-f="base_url" value="${esc(v.base_url || '')}"></td><td><input data-f="list" value="${esc([].concat(list || []).join(', '))}" style="width:130px" placeholder="profili, separati da virgola"></td><td><input data-f="thr" value="${esc(thr == null ? '' : thr)}" style="width:55px" placeholder="${st === 'consensus' ? '2' : st === 'cascade' ? '0.8' : ''}"></td><td><button class="btn ghost" data-epx>✕</button><input type="hidden" data-f="rest" value="${esc(JSON.stringify(rest))}"></td></tr>`;
 }
 function wsRow(v) { return `<tr data-ws><td><input data-w="name" value="${esc(v.name || '')}" style="width:110px"></td><td><input data-w="url" value="${esc(v.url || '')}" placeholder="http://10.8.0.2:8095"></td><td><input data-w="token" type="password" value="${esc(v.token || '')}"></td><td><input data-w="weight" value="${esc(v.weight || 1)}" style="width:60px"></td><td><input type="checkbox" data-w="enabled" ${v.enabled === false ? '' : 'checked'}></td><td><button class="btn ghost" data-epx>✕</button></td></tr>`; }
 function bindEp() { $$('[data-epx]').forEach(b => { b.onclick = () => b.closest('tr').remove(); }); }
@@ -713,7 +734,8 @@ async function saveSettings(quiet) {
   $$('[data-s]').forEach(el => {
     let v = el.type === 'checkbox' ? el.checked : el.value;
     if (el.dataset.list) v = el.value.split('\n').map(x => x.trim()).filter(Boolean);
-    else if (typeof v === 'string' && /^(threads|workers|max_upload_mb|remote\.auto_mb|ai\.timeout|credits\.|workstations\.(health_s|down_s|timeout))/.test(el.dataset.s)) v = v.trim() === '' ? null : Number(v);
+    else if (el.dataset.s === 'ocr.auto_order') v = v.split(',').map(x => x.trim()).filter(Boolean);
+    else if (typeof v === 'string' && /^(threads|workers|max_upload_mb|remote\.auto_mb|ai\.timeout|credits\.|workstations\.(health_s|down_s|timeout)|ocr\.escalate_below)/.test(el.dataset.s)) v = v.trim() === '' ? null : Number(v);
     set(el.dataset.s, v);
   });
   if ($('#ep-t')) { out.endpoints = {}; $$('[data-ep]').forEach(tr => { const g = k => $(`[data-e="${k}"]`, tr).value.trim(); if (g('name')) out.endpoints[g('name')] = { url: g('url'), token: g('token'), timeout: Number(g('timeout')) || 120 }; }); }
@@ -723,8 +745,16 @@ async function saveSettings(quiet) {
       const g = k => $(`[data-f="${k}"]`, tr).value.trim();
       if (!g('name')) return;
       let rest = {}; try { rest = JSON.parse(g('rest') || '{}'); } catch (e) { rest = {}; }
-      out.ai.profiles[g('name')] = Object.assign(rest, { provider: g('provider'), model: g('model'), base_url: g('base_url'), fallback: g('fallback').split(',').map(x => x.trim()).filter(Boolean) });
+      const st = g('strategy'), list = g('list').split(',').map(x => x.trim()).filter(Boolean), thr = g('thr');
+      const pf = Object.assign(rest, { strategy: st, provider: g('provider'), model: g('model'), base_url: g('base_url') });
+      if (st === 'cascade') { pf.steps = list; if (thr !== '') pf.min_conf = Number(thr); }
+      else if (st === 'consensus') { pf.members = list; if (thr !== '') pf.min_agree = parseInt(thr, 10); }
+      else { pf.fallback = list; delete pf.strategy; }
+      out.ai.profiles[g('name')] = pf;
     });
+  }
+  if (out.ai && out.ai.tasks) {
+    out.ai.tasks = Object.fromEntries(Object.entries(out.ai.tasks).filter(([, v]) => v));
   }
   if ($('#ws-t')) {
     out.workstations = out.workstations || {};

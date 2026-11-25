@@ -10,6 +10,7 @@
     python -m docmap_strumenti token crea --cliente rossi --crediti 5000
     python -m docmap_strumenti consumi | registro | info
     python -m docmap_strumenti licenza stato | installa FILE [--forza] | chiave FILE-CHIAVE-PUBBLICA
+    python -m docmap_strumenti ai fornitori | profili | prova [PROFILO] [--file IMG] | confronta --cartella DIR --con ai:x,ocr:y
 RICETTA is a saved recipe id or a .json file.
 """
 
@@ -100,6 +101,18 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("consumi", help="crediti usati per cliente e mese")
     sub.add_parser("registro", help="controlla che il registro delle verifiche non sia stato modificato")
     sub.add_parser("info", help="motori disponibili su questo PC")
+    ai = sub.add_parser("ai", help="fornitori AI, profili, motori OCR, prova e confronto (docs/AI-FORNITORI.md)")
+    ais = ai.add_subparsers(dest="acmd", required=True)
+    ais.add_parser("fornitori", help="fornitori AI con sottomodelli e alias, motori OCR")
+    ais.add_parser("profili", help="profili, strategie, compiti, plugin")
+    apv = ais.add_parser("prova", help="una chiamata a un profilo (con --file: lettura OCR di un'immagine)")
+    apv.add_argument("profilo", nargs="?", default=None)
+    apv.add_argument("--file")
+    acf = ais.add_parser("confronta", help="più lettori sulla stessa cartella: tempi, affidabilità, accordo, vero")
+    acf.add_argument("--cartella", required=True)
+    acf.add_argument("--con", required=True, help="es. ai:ocr,ai:qualita,ocr:tesseract,ocr:paddleocr")
+    acf.add_argument("--out", help="file CSV con il dettaglio")
+    acf.add_argument("--max", type=int, default=0, help="al massimo N file")
     a = ap.parse_args(argv)
     d = ensure(a.dati)
 
@@ -132,6 +145,17 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(_recipe(a.ricetta, d), ensure_ascii=False, indent=2))
         return 0
     s = S.effective(d)
+    from .ai import plugins
+    plugins.load(s, d)
+    if a.cmd == "ai":
+        from . import ai_cli as AC
+        if a.acmd == "fornitori":
+            return AC.cmd_fornitori(s)
+        if a.acmd == "profili":
+            return AC.cmd_profili(s)
+        if a.acmd == "prova":
+            return AC.cmd_prova(s, a.profilo, a.file)
+        return AC.cmd_confronta(s, a.cartella, a.con, a.out, a.max)
     if a.cmd == "licenza":
         from . import licensing as LI
         if a.lcmd == "chiave":

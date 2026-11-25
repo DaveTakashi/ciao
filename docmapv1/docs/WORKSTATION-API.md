@@ -3,7 +3,7 @@
 Il gateway (`docmapv1/workstation/`, versione 0.1.0) gira su ogni workstation con la GPU e mette davanti ai server
 dei modelli (vLLM, Ollama, llama.cpp, SGLang… tutto quello che parla il dialetto OpenAI Chat Completions) una porta
 sola, protetta e uguale per tutte le macchine. Chi lo usa: il fornitore `workstation` degli Strumenti
-(`workstations.py`); domani anche il sito e il server di sede (`docs/AI-FORNITORI.md` §5 A). Codice e commenti in
+(`workstations.py`); domani anche il sito e il server di sede (`docs/AI-FORNITORI.md` §10, passo A). Codice e commenti in
 inglese, messaggi di errore in italiano.
 
 ## Autenticazione e rete

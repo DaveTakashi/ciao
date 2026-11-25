@@ -7,11 +7,12 @@ import re
 import unicodedata
 
 from .. import media as M
+from .. import ocr_engines as OE
 from .. import providers as PR
 from ..items import REVIEW
 from ..registry import P, block
 
-ENGINES = ["auto", "text", "tesseract", "ai", "remote", "mock"]
+ENGINES = OE.ENGINE_CHOICES   # auto + every registered engine (plugins included): ocr_engines.py
 
 
 def _mock_text(it, ctx, page) -> str:
@@ -31,59 +32,76 @@ def _mock_text(it, ctx, page) -> str:
 
 
 def page_text(it, page: int, ctx, engine: str = "auto", lang: str = "", psm: int = 3, dpi: int = 300,
-              min_chars: int = 20) -> tuple[str, dict]:
-    """Text of ONE page of the item's file with the chosen engine. Returns (text, info)."""
+              min_chars: int = 20, profile: str = "") -> tuple[str, dict]:
+    """Text of ONE page of the item's file with the chosen engine (registry ``ocr_engines``). Returns (text, info).
+    ``auto``: the text inside the file if there is enough, then the engines of ``ocr.auto_order`` that are available;
+    with ``ocr.escalate_below`` > 0 the next engine reads again while the confidence stays below it (best kept)."""
     s = ctx.settings
-    e = engine
     path = it.p
-    if e in ("auto", "text") and it.kind in ("pdf", "text", "table", "doc"):
+    if engine in ("", "auto"):   # «auto» in a recipe = the engine chosen in Settings › OCR (itself «auto» by default)
+        engine = str((s.get("ocr") or {}).get("engine") or "auto")
+    if engine in ("auto", "text") and it.kind in ("pdf", "text", "table", "doc"):
         t = PR.native_text(path, page if it.kind == "pdf" else None)
-        if e == "text" or len(t.strip()) >= min_chars:
+        if engine == "text" or len(t.strip()) >= min_chars:
             return t, {"conf": 1.0 if t.strip() else 0.0, "by": "text"}
-    if e == "text":
+    if engine == "text":
         return "", {"conf": 0.0, "by": "text"}
-    if e == "mock":
+    if engine == "mock":
         ctx.meter("ocr_page")
         t = _mock_text(it, ctx, page)
         return t, {"conf": float((s.get("ocr") or {}).get("mock_conf", 0.9)), "by": "mock"}
-    if e == "auto":
-        if PR.tesseract_cmd(s):
-            e = "tesseract"
-        elif (s.get("ocr") or {}).get("remote_endpoint") and (s.get("endpoints") or {}).get((s.get("ocr") or {})["remote_endpoint"]):
-            e = "remote"
-        elif PR.ai_enabled(s):
-            e = "ai"
-        else:
-            raise PR.ProviderError("nessun OCR disponibile: installa Tesseract o configura un servizio (Impostazioni)")
     if it.kind not in ("pdf", "image"):
-        return "", {"conf": 0.0, "by": e}
-    ctx.meter("ocr_page")
-    if e == "tesseract":
-        img = M.page_image(path, page, dpi) if it.kind == "pdf" or M.page_count(path) > 1 else M.open_frames(path)[0]
-        r = PR.ocr_tesseract(img, s, lang, psm)
-    elif e == "ai":
-        ctx.meter("ai_call")
-        r = PR.ocr_ai(path, page, s)
-    elif e == "remote":
-        ctx.meter("http_call")
-        r = PR.ocr_remote(path, page, s, lang)
-    else:
-        raise ValueError(f"motore OCR sconosciuto: {e}")
-    return r["text"], r
+        return "", {"conf": 0.0, "by": engine}
+    opts = {"lang": lang, "psm": psm, "dpi": dpi, "profile": profile}
+    if engine != "auto":
+        e = OE.ENGINES.get(engine)
+        if not e:
+            raise ValueError(f"motore OCR sconosciuto: {engine}")
+        return _read(e, it, page, ctx, opts)
+    cands = [OE.ENGINES[n] for n in OE.order(s) if n != "text" and OE.ENGINES[n].available(s)]
+    if not cands:
+        raise PR.ProviderError("nessun OCR disponibile: installa Tesseract o configura un servizio o l'AI (Impostazioni)")
+    below = float((s.get("ocr") or {}).get("escalate_below") or 0)
+    best, tried = None, []
+    for e in cands:
+        try:
+            t, info = _read(e, it, page, ctx, opts)
+        except PR.ProviderError as err:
+            tried.append(f"{e.id}: {err}")
+            if best is None and e is cands[-1]:
+                raise PR.ProviderError("; ".join(tried)) from None
+            continue
+        if best is None or (info.get("conf") or 0) > (best[1].get("conf") or 0):
+            best = (t, info)
+        if not below or (info.get("conf") is not None and info["conf"] >= below):
+            break
+    if best is None:
+        raise PR.ProviderError("; ".join(tried))
+    if len(tried) or below:
+        best[1]["tried"] = tried
+    return best
+
+
+def _read(e, it, page, ctx, opts) -> tuple[str, dict]:
+    for m in e.meters:
+        ctx.meter(m)
+    r = e.read(it.p, page, ctx.settings, opts)
+    return r.get("text") or "", r
 
 
 @block("ocr", "Leggi il testo (OCR)", "lettura",
        help="Legge il testo di ogni pagina: prima quello già dentro il file (PDF digitali, Word, Excel, TXT), poi l'OCR "
             "(Tesseract sul PC, un servizio OCR tuo sul server, o un modello AI per dattiloscritti e scansioni difficili). "
             "Salva il testo e la sua affidabilità per i passi dopo.",
-       params=[P("engine", "choice", "auto", "Motore", "auto = testo del file → Tesseract → servizio → AI", choices=ENGINES),
+       params=[P("engine", "choice", "auto", "Motore", "auto = testo del file → Tesseract → PaddleOCR → servizio → AI (ordine in Impostazioni › OCR)", choices=ENGINES),
                P("lang", "str", "", "Lingue", "es. ita+eng (vuoto = Impostazioni)"),
                P("pages", "str", "all", "Pagine da leggere", "all, 1, 1-2, -1 (ultima)"),
                P("psm", "int", 3, "Disposizione (Tesseract)", "3 = automatica, 6 = un blocco, 11 = testo sparso", min=0, max=13),
                P("dpi", "int", 300, "Risoluzione di lettura", min=100, max=600),
                P("min_chars", "int", 20, "Testo minimo per fidarsi del file", min=0),
                P("min_conf", "float", 0.0, "Affidabilità minima", "sotto questa soglia il file va a verifica (0 = mai)", min=0, max=1),
-               P("save_txt", "bool", False, "Salva anche il testo (.txt) accanto")],
+               P("save_txt", "bool", False, "Salva anche il testo (.txt) accanto"),
+               P("profile", "str", "", "Profilo AI (motore AI)", "vuoto = Impostazioni › OCR; es. ocr, confronto")],
        meters=["ocr_page", "ai_call", "http_call"])
 def ocr(it, p, ctx):
     from .pages import parse_ranges
@@ -93,7 +111,7 @@ def ocr(it, p, ctx):
     words = None
     for n in pages:
         ctx.check()
-        t, info = page_text(it, n, ctx, p["engine"], p["lang"], p["psm"], p["dpi"], p["min_chars"])
+        t, info = page_text(it, n, ctx, p["engine"], p["lang"], p["psm"], p["dpi"], p["min_chars"], p.get("profile") or "")
         texts.append(t)
         if info.get("conf") is not None:
             confs.append(float(info["conf"]))
