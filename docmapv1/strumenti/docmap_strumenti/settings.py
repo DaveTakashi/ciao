@@ -11,10 +11,16 @@ DEFAULTS: dict = {
     "threads": 2,                       # files processed at the same time by heavy blocks (OCR, AI, conversion)
     "workers": 1,                       # jobs run at the same time
     "ocr": {"engine": "auto", "lang": "ita+eng", "tesseract_cmd": "", "remote_endpoint": "", "timeout": 300,
-            "ai_profile": "ocr"},           # AI profile used by the «ai» OCR engine (missing profile = predefinito)
+            "ai_profile": "",               # AI profile of the «ai» OCR engine ("" = ai.tasks.ocr → profile «ocr» → default)
+            "auto_order": [],               # engines tried by «auto» ([] = text, tesseract, paddleocr, remote, ai)
+            "escalate_below": 0,            # «auto»: next engine while the confidence is below this (0 = first that works)
+            "paddle_lang": "it"},
     # provider/model/base_url/api_key = profile «predefinito» (0.1-0.2); profiles, keys per provider, aliases: 0.3.0
     "ai": {"provider": "", "model": "", "base_url": "", "api_key": "", "timeout": 90,
-           "default_profile": "", "profiles": {}, "keys": {}, "aliases": {}},
+           "default_profile": "", "profiles": {}, "keys": {}, "aliases": {},
+           "tasks": {},                 # 0.4.0: task → profile (ocr, extract, classify, analyze, spine…)
+           "models": {},                # 0.4.0: capabilities of models not in ai_models.json ({provider: {id: {vision}}})
+           "plugins_dir": ""},          # 0.4.0: folder of plugins ("" = <data folder>/plugins)
     "workstations": {"pool": [], "health_s": 30, "down_s": 60, "timeout": 180},   # your GPU machines (workstations.py)
     "endpoints": {},                    # name -> {"url", "token", "timeout", "max_mb"}
     "remote": {"url": "", "token": "", "auto_mb": 200, "always": False, "poll_s": 3},
@@ -35,7 +41,7 @@ def path(data_dir: Path) -> Path:
 def _deep(a: dict, b: dict) -> dict:
     out = copy.deepcopy(a)
     for k, v in (b or {}).items():
-        if isinstance(v, dict) and isinstance(out.get(k), dict) and k not in ("endpoints", "profiles"):
+        if isinstance(v, dict) and isinstance(out.get(k), dict) and k not in ("endpoints", "profiles", "tasks"):
             out[k] = _deep(out[k], v)
         else:
             out[k] = copy.deepcopy(v)
@@ -52,9 +58,9 @@ def load(data_dir: Path) -> dict:
     # environment variables win (handy on a server): DOCMAP_AI_API_KEY, DOCMAP_REMOTE_TOKEN
     if os.environ.get("DOCMAP_AI_API_KEY"):
         s["ai"]["api_key"] = os.environ["DOCMAP_AI_API_KEY"]
-    for prov in ("anthropic", "openai", "gemini"):   # DOCMAP_AI_KEY_ANTHROPIC / _OPENAI / _GEMINI
-        if os.environ.get("DOCMAP_AI_KEY_" + prov.upper()):
-            s["ai"].setdefault("keys", {})[prov] = os.environ["DOCMAP_AI_KEY_" + prov.upper()]
+    for k, v in os.environ.items():   # DOCMAP_AI_KEY_ANTHROPIC / _OPENAI / _GEMINI / _MISTRAL / _OPENROUTER / …
+        if k.startswith("DOCMAP_AI_KEY_") and v and len(k) > 14:
+            s["ai"].setdefault("keys", {})[k[14:].lower()] = v
     if os.environ.get("DOCMAP_REMOTE_TOKEN"):
         s["remote"]["token"] = os.environ["DOCMAP_REMOTE_TOKEN"]
     return s

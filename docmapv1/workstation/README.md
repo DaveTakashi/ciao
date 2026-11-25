@@ -17,13 +17,10 @@ Cosa vuol dire con 12 GB di VRAM:
 - **Un lavoro alla volta sulla GPU**: nell'esempio i backend stanno nello stesso gruppo `gpu0` con 1 posto
   (`slot_groups`), così Ollama e un altro motore non si contendono la scheda; le altre richieste aspettano in coda
   (oltre `max_waiting` ricevono 429 e chi chiama passa alla riserva, per esempio Claude).
-- **Modelli quantizzati (GGUF) con Ollama o llama.cpp**. Secondo il produttore Inkling 2 Mini vuole 32 GB di VRAM
-  per il modello pieno; su 12 GB si usa una versione quantizzata con una parte del modello nella RAM normale:
-  funziona ma è più lento. È un modello a esperti (pochi miliardi di parametri attivi per parola), il caso in cui
-  tenere una parte nella RAM costa meno. Da misurare con le coste vere (righe S11-S14 del collaudo).
-- `timeout` alto (600 s nell'esempio) e `max_parallel: 1` per Ollama.
-- vLLM con il modello pieno non entra in 12 GB: resta nell'esempio come seconda strada, vuota, per quando ci sarà
-  una scheda più grande.
+- **Inkling 2 Mini gira bene e veloce sui 12 GB** (prova di Dave del 2026-11-25): è un modello a esperti con circa
+  3,4 miliardi di parametri attivi per parola. Formato (GGUF o altro) e motore (Ollama, llama.cpp, vLLM) si scelgono
+  dopo le misure con le coste vere (`ai confronta`, righe S11-S14 del collaudo): per il gateway sono solo backend.
+- `timeout` alto (600 s nell'esempio) e `max_parallel: 1` per Ollama finché non si misura quanto regge in parallelo.
 
 **Domani**: due macchine **gemelle** sempre accese (H24) che servono le chiamate AI di **tutti i progetti di Dave**,
 non solo di questo. Il gateway è già fatto per questo (§6).
@@ -35,7 +32,10 @@ non solo di questo. Il gateway è già fatto per questo (§6).
 pubblicato al nome che usa Ollama (`{"inkling-2-mini": "<nome in Ollama>"}`). Un GGUF scaricato a parte si importa
 in Ollama con un `Modelfile` (`FROM ./file.gguf`, poi `ollama create`).
 
-**Con vLLM** (scheda da 32 GB o più, modello pieno; il produttore indica circa 32 GB di VRAM):
+**Con llama.cpp** (GGUF): `llama-server -m modello.gguf --port 8080` (con `--mmproj` per le immagini); nel file
+`workstation.json` un backend in più con `url` `http://127.0.0.1:8080/v1`. Dagli Strumenti si può anche chiamare diretto con il fornitore `llamacpp`.
+
+**Con vLLM** (se dalle misure conviene: più letture insieme sulla stessa scheda):
 
 ```bash
 docker run --gpus all --ipc=host -p 127.0.0.1:8000:8000 \

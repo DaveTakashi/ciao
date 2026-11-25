@@ -43,8 +43,10 @@ def ai(it, p, ctx):
     if p["use_image"] and it.kind in ("image", "pdf"):
         img = PR.image_payload(it.p, it.page if it.ext == "pdf" and it.page else 1)
     ctx.meter("ai_call")
-    r = PR.ai_json(ctx.settings, prompt, img, schema, profile=p.get("profile") or None)
+    r = PR.ai_json(ctx.settings, prompt, img, schema, profile=p.get("profile") or None, task="analyze")
     res, by = r["result"], "ai:" + str(r["model"])
+    if isinstance(res.get("_consensus"), dict):   # several models compared: keep who agreed, for the review
+        it.meta["ai_consensus"] = res["_consensus"]
     for f in p["fields"]:
         x = res.get(f)
         if isinstance(x, dict):

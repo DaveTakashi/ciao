@@ -5,7 +5,7 @@
   ``mock`` (tests), ``auto`` (text → tesseract → ai, the first that gives text).
 * AI: ``anthropic``, ``openai``, ``gemini``, ``openai_compatible`` (Mistral, Azure, OpenRouter, LM Studio…), ``vllm``,
   ``ollama`` (local), ``workstation`` (your GPU machines), ``mock``, with named profiles and fallbacks
-  (``ai_registry.py``). Same JSON answer for all of them.
+  (package ``ai``). Same JSON answer for all of them.
 * HTTP endpoints: named in the settings (``endpoints``), called by the «http» block and by the remote OCR.
 """
 
@@ -75,9 +75,9 @@ def parse_json_text(txt: str):
 
 # -- AI ------------------------------------------------------------------------------------------------------------
 
-def ai_enabled(settings: dict, profile: str | None = None) -> bool:
-    from . import ai_registry as AR
-    return AR.enabled(settings, profile)
+def ai_enabled(settings: dict, profile: str | None = None, task: str = "") -> bool:
+    from . import ai
+    return ai.enabled(settings, profile, task)
 
 
 def image_payload(path: Path, page: int | None = None, max_px: int = 1800) -> tuple[bytes, str]:
@@ -92,12 +92,12 @@ def image_payload(path: Path, page: int | None = None, max_px: int = 1800) -> tu
 
 
 def ai_json(settings: dict, prompt: str, image: tuple[bytes, str] | None = None, schema: dict | None = None,
-            profile: str | None = None) -> dict:
-    """Asks the AI profile (``predefinito`` = the old single AI setting) and returns ``{"model", "result": {…},
-    "provider", "profile", "usage", "ms", "attempts"}``. Raises ProviderError with a clear message. Providers, models,
-    profiles and fallbacks: ``ai_registry.py`` (docs/AI-FORNITORI.md)."""
-    from . import ai_registry as AR
-    return AR.call(settings, prompt, image, schema, profile)
+            profile: str | None = None, task: str = "") -> dict:
+    """Asks the right AI profile (named one → ``ai.tasks[task]`` → default → ``predefinito``) and returns
+    ``{"model", "result": {…}, "provider", "profile", "usage", "ms", "attempts"}``. Raises ProviderError with a clear
+    message. Providers, profiles, cascade, consensus, plugins: package ``ai`` (docs/AI-FORNITORI.md)."""
+    from . import ai
+    return ai.call(settings, prompt, image, schema, profile, task)
 
 
 def _err_msg(j, status) -> str:
@@ -177,13 +177,14 @@ AI_OCR_PROMPT = ("Trascrivi fedelmente tutto il testo leggibile di questa pagina
                  "riga per riga, senza riassumere né correggere. Rispondi con JSON {\"text\": \"…\", \"confidence\": 0..1}.")
 
 
-def ocr_ai(path: Path, page: int | None, settings: dict) -> dict:
-    # profile «ocr» if there is one (e.g. a vision model on your workstation), else the default AI
-    r = ai_json(settings, AI_OCR_PROMPT, image_payload(path, page), profile=(settings.get("ocr") or {}).get("ai_profile") or "ocr")
+def ocr_ai(path: Path, page: int | None, settings: dict, profile: str | None = None) -> dict:
+    # the step's profile, else ocr.ai_profile, else ai.tasks["ocr"], else a profile named «ocr», else the default AI
+    prof = profile or (settings.get("ocr") or {}).get("ai_profile") or None
+    r = ai_json(settings, AI_OCR_PROMPT, image_payload(path, page), profile=prof, task="ocr")
     res = r["result"]
     conf = res.get("confidence")
     return {"text": str(res.get("text") or ""), "conf": float(conf) if isinstance(conf, (int, float)) else None,
-            "by": "ai:" + str(r["model"])}
+            "by": "ai:" + str(r["model"]), "profile": r.get("profile"), "provider": r.get("provider")}
 
 
 def endpoint(settings: dict, name: str) -> dict:

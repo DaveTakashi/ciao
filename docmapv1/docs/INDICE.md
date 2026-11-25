@@ -1,6 +1,6 @@
 # Indice della documentazione DocMap
 
-> Mappa di tutti i documenti di `docmapv1/` (versione **26.12.18**, hub **0.13.0**, Strumenti **0.3.0**): a cosa serve ognuno, chi lo deve leggere e in che
+> Mappa di tutti i documenti di `docmapv1/` (versione **26.12.18**, hub **0.13.0**, Strumenti **0.4.0**): a cosa serve ognuno, chi lo deve leggere e in che
 > ordine. I percorsi sono relativi a `docmapv1/`.
 
 ## Per ripartire (tutti)
@@ -40,7 +40,7 @@
 | [`MANUALE-UTENTE.md`](MANUALE-UTENTE.md) | Manuale per compiti: prima installazione, import clienti, faldoni, stampa e PDF, manifest, ubicazioni e associazione, server SiteGround, telefoni, routine di sincronizzazione, registro e contestazioni, backup, aggiornamenti, problemi. |
 | [`RIFERIMENTO-FUNZIONI.md`](RIFERIMENTO-FUNZIONI.md) | Descrizione di ogni funzione e schermata (il vecchio README), con le novità per versione come storia. |
 | [`GLOSSARIO.md`](GLOSSARIO.md) | Termini italiani, inglesi e nomi nel codice. |
-| [`AI-FORNITORI.md`](AI-FORNITORI.md) | AI agnostica: fornitori (Claude, OpenAI, Gemini, compatibili, vLLM, Ollama, le tue workstation), alias dei modelli, profili con riserva, workstation; ricerca su Inkling 2 Mini e il «loop»; autocritica dell'AI e prossimi passi. Aggiornamento: [`AGGIORNAMENTO-STRUMENTI-0.3.0.md`](AGGIORNAMENTO-STRUMENTI-0.3.0.md). |
+| [`AI-FORNITORI.md`](AI-FORNITORI.md) | AI e OCR agnostici: moduli dei fornitori (Claude, OpenAI, Gemini, Mistral, OpenRouter, compatibili, vLLM, Ollama, LM Studio, llama.cpp, le tue workstation), alias e capacità dei modelli, profili con riserva, **cascata** e **confronto**, compiti, motori OCR senza AI (Tesseract, PaddleOCR, servizio), `ai confronta`, plugin; ricerca su Inkling 2 Mini e il «loop»; stato e prossimi passi. Aggiornamenti: [`AGGIORNAMENTO-STRUMENTI-0.4.0.md`](AGGIORNAMENTO-STRUMENTI-0.4.0.md), [`AGGIORNAMENTO-STRUMENTI-0.3.0.md`](AGGIORNAMENTO-STRUMENTI-0.3.0.md). |
 | [`WORKSTATION-API.md`](WORKSTATION-API.md) | Protocollo del gateway sulle workstation con la GPU (`docmap-workstation/1`): gettone, salute, modelli, chat compatibile OpenAI, lettura semplice, errori. Installazione: [`../workstation/README.md`](../workstation/README.md). |
 | [`STRUMENTI.md`](STRUMENTI.md) | Strumenti: ricette per dividere, convertire, leggere (OCR, AI) e smistare cartelle di documenti, verifica veloce da tastiera, esecuzione remota, crediti; parte tecnica con formato delle ricette, blocchi, API e contratto dei servizi esterni. Installazione: [`AGGIORNAMENTO-STRUMENTI-0.1.0.md`](AGGIORNAMENTO-STRUMENTI-0.1.0.md), licenza e crediti del piano: [`AGGIORNAMENTO-STRUMENTI-0.2.0.md`](AGGIORNAMENTO-STRUMENTI-0.2.0.md); sviluppo: [`../strumenti/README.md`](../strumenti/README.md). |
 | [`CHECKLIST-COLLAUDO.md`](CHECKLIST-COLLAUDO.md) | Prove manuali che i test automatici non possono fare: stampante vera, PDF in Acrobat, SiteGround, telefoni, lettore USB, giornata con più dispositivi, ripristino, prova di aggiornamento. |

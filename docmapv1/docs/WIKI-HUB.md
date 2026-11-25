@@ -677,7 +677,9 @@ Licenza) e il piano vale da subito.
 Il consumo resta sul server degli Strumenti (`python -m docmap_strumenti consumi`): i crediti in più si fatturano a mano
 con il modulo «Crediti Strumenti in più».
 
-### 6.20 AI con qualsiasi fornitore e le tue workstation (Strumenti 0.3.0)
+### 6.20 AI con qualsiasi fornitore e le tue workstation (Strumenti 0.3.0, 0.4.0)
+
+Dalla 0.4.0: più modelli insieme (profili **cascata** e **confronto**), **compiti** (quale profilo fa cosa), fornitori Mistral, OpenRouter, LM Studio e llama.cpp, OCR senza AI a moduli (Tesseract, PaddleOCR, servizio) con soglia per passare all'AI solo dove serve, plugin, e `python -m docmap_strumenti ai confronta` per misurare chi legge meglio. Guida: `docs/AI-FORNITORI.md`.
 
 Gli Strumenti (sul PC del cliente o sul server remoto) parlano con **Claude, OpenAI, Gemini**, servizi compatibili, **vLLM**, **Ollama** e le **tue workstation con la GPU**. Si sceglie in Strumenti › Impostazioni › AI con i **profili** (per esempio `ocr` sulla workstation con riserva Claude) e **Prova**. Per una workstation nuova (Kubuntu): installa il modello e il **gateway** seguendo `workstation/README.md` (guida `WORKSTATION-INSTALLAZIONE.html` nello zip), crea un gettone (`python3 -m docmap_workstation token-nuovo --nome strumenti`), poi Strumenti › Impostazioni › **Workstation** › indirizzo + gettone › «Controlla adesso». Più workstation = più righe: ogni lettura va alla più libera che ha il modello. Quando esce un modello nuovo basta cambiare l'alias (`ai_models.json` o Impostazioni), non il codice. Dettagli: `docs/AI-FORNITORI.md`. L'hub per ora non gestisce le workstation (le chiavi stanno negli Strumenti).
 

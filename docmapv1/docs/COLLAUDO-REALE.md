@@ -154,11 +154,14 @@ il numero e l'immagine. Se un passo si blocca, salta al blocco successivo.
 - [ ] S8. (Strumenti 0.2.0, hub 0.14.0) Sul PC di prova: `strumenti\.venv\Scripts\python -m docmap_strumenti licenza chiave chiave-pubblica.txt`, poi Impostazioni › **Licenza** › il file di una licenza **Studio**: «Licenza in vigore», crediti del mese 2.000, «sul server» non si può scegliere. Sospendi la licenza nell'hub e installa il file nuovo: non parte un lavoro nuovo, ma la verifica e lo scarico dei risultati di un lavoro vecchio funzionano.
 - [ ] S9. Nell'hub, Impostazioni › **Server remoto degli Strumenti**: indirizzo del server di S6 e chiave (`chiave-locale.txt` del server) › «Prova il collegamento» riesce. Licenza **Studio Pro** di un cliente di prova › **Gettone Strumenti**: indirizzo e gettone, scritti negli Strumenti del PC (Esecuzione remota), fanno partire un lavoro «sul server».
 - [ ] S10. Sospendi quella licenza nell'hub (cassaforte aperta): il prossimo lavoro «sul server» si ferma per crediti finiti; Riattiva: riparte. In Impostazioni › Server remoto degli Strumenti la riga del cliente mostra i crediti giusti.
-- [ ] S11. (Strumenti 0.3.0) Sulla workstation Kubuntu: vLLM con Inkling 2 Mini (`workstation/README.md` §1), poi il gateway: `python3 -m docmap_workstation controlla` dice OK e mostra la GPU.
+- [ ] S11. (Strumenti 0.3.0) Sulla workstation Kubuntu: Inkling 2 Mini con il motore scelto (Ollama, llama.cpp o vLLM: `workstation/README.md` §1), poi il gateway: `python3 -m docmap_workstation controlla` dice OK e mostra la GPU.
 - [ ] S12. Strumenti › Impostazioni › **Workstation**: indirizzo e gettone › «Controlla adesso»: ok, modello `inkling-2-mini`, coda e GPU.
 - [ ] S13. Impostazioni › AI › profilo `ocr` (Le mie workstation, `inkling-2-mini`, riserva `predefinito`) › **Prova**: risponde la workstation. Spegni il gateway e riprova: risponde la riserva.
 - [ ] S14. Ricetta con OCR «modello AI» su 20 scansioni vere: testo giusto? tempo per pagina ____ s; confronta con Tesseract e con Claude.
 - [ ] S15. Chiavi vere di OpenAI e Gemini (se le hai): un profilo per ognuno › **Prova** risponde.
+- [ ] S16. (Strumenti 0.4.0) Impostazioni › AI: profilo **cascata** (`locale` = workstation, poi `qualita` = Claude, soglia 0.8) › **Prova**: dice quali passi ha fatto. Compito «Lettura del testo (OCR)» = cascata; una ricetta con OCR «modello AI» su 20 scansioni: quante pagine hanno chiesto a Claude? ____
+- [ ] S17. Profilo **confronto** con due modelli diversi (es. workstation + Gemini) sul blocco «Analizza con l'AI»: i campi su cui non sono d'accordo vanno in verifica gialli.
+- [ ] S18. Su 30 coste vere con il testo giusto accanto (`nome.vero.txt`): `python -m docmap_strumenti ai confronta --cartella CAMPIONI --con ocr:tesseract,ai:locale,ai:qualita --out risultati.csv`; manda `risultati.csv` (somiglianza al vero e tempi per lettore).
 
 ## Dopo il collaudo
 

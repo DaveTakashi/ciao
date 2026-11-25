@@ -8,6 +8,7 @@ from pathlib import Path
 from PIL import ImageStat
 
 from .. import media as M
+from ..ocr_engines import ENGINE_CHOICES
 from ..items import item_vars, render
 from ..registry import P, block
 from .files import unique_path
@@ -109,7 +110,7 @@ def is_blank(img, threshold: float = 0.999, margin: float = 0.06) -> bool:
                  "per «keyword»: la pagina che la contiene inizia un documento; per «value_change»: il gruppo (…) è il valore"),
                P("blank_threshold", "float", 0.999, "Quanto bianca (pagina vuota)", "0.999 = meno di un punto nero su mille", min=0.9, max=1),
                P("drop_separators", "bool", True, "Togli le pagine bianche di separazione"),
-               P("engine", "choice", "auto", "Lettura del testo", choices=["auto", "text", "tesseract", "ai", "remote", "mock"]),
+               P("engine", "choice", "auto", "Lettura del testo", choices=ENGINE_CHOICES),
                P("format", "choice", "same", "Formato dei documenti", choices=FORMATS),
                P("dpi", "int", 300, "Risoluzione (PDF → immagine)", min=50, max=1200),
                P("field", "field", "", "Salva il valore in un campo", "per «value_change»: es. numero"),

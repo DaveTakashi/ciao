@@ -143,7 +143,8 @@ def extract_values(it, p) -> tuple[list, float]:
                P("use_image", "bool", False, "L'AI guarda anche l'immagine"),
                P("default", "str", "", "Valore se non trova", "vuoto = lascia vuoto"),
                P("required", "bool", True, "Obbligatorio", "se manca, il file va a verifica"),
-               P("ambiguous_review", "bool", True, "Valori diversi → verifica")],
+               P("ambiguous_review", "bool", True, "Valori diversi → verifica"),
+               P("profile", "str", "", "Profilo AI (metodo AI)", "vuoto = Impostazioni › AI › Compiti")],
        meters=["ai_call"])
 def extract(it, p, ctx):
     if p["method"] == "ai":
@@ -184,7 +185,8 @@ def extract_ai(it, p, ctx):
     img = PR.image_payload(it.p, it.page if it.ext == "pdf" else 1) if p["use_image"] and it.kind in ("image", "pdf") else None
     r = PR.ai_json(ctx.settings, prompt, img, {"type": "object", "properties": {"value": {"type": "string"},
                                                                                  "confidence": {"type": "number"}},
-                                               "required": ["value", "confidence"], "additionalProperties": False})
+                                               "required": ["value", "confidence"], "additionalProperties": False},
+                   profile=p.get("profile") or None, task="extract")
     res = r["result"]
     v = _norm(res.get("value"), p["normalize"])
     conf = res.get("confidence") if isinstance(res.get("confidence"), (int, float)) else 0.5
@@ -221,7 +223,8 @@ def parse_classes(spec) -> list[dict]:
                P("default", "str", "altro", "Classe se nessuna corrisponde"),
                P("field", "field", "tipo", "Salva anche nel campo"),
                P("review_below", "float", 0.5, "Verifica sotto", "affidabilità sotto cui chiede a una persona", min=0, max=1),
-               P("fuzzy", "float", 0.0, "Tolleranza errori OCR", min=0, max=1)],
+               P("fuzzy", "float", 0.0, "Tolleranza errori OCR", min=0, max=1),
+               P("profile", "str", "", "Profilo AI (metodo AI)", "vuoto = Impostazioni › AI › Compiti")],
        meters=["ai_call"])
 def classify(it, p, ctx):
     from .reading import find_keyword
@@ -233,7 +236,7 @@ def classify(it, p, ctx):
         ctx.meter("ai_call")
         r = PR.ai_json(ctx.settings, "Classifica questo documento in una di queste classi: " + ", ".join(names) +
                        f" (o «{p['default']}» se nessuna va bene). Rispondi con JSON {{\"class\": \"…\", \"confidence\": 0..1}}."
-                       "\n\nTesto:\n" + it.text[:10000])
+                       "\n\nTesto:\n" + it.text[:10000], profile=p.get("profile") or None, task="classify")
         c = str(r["result"].get("class") or p["default"])
         conf = float(r["result"].get("confidence") or 0.5)
         if c not in names + [p["default"]]:

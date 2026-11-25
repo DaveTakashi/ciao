@@ -116,7 +116,7 @@ def _down(w: dict, settings: dict, err: str) -> None:
 
 def call_chat(settings: dict, req: dict, model: str, p: dict) -> dict:
     """Sends an OpenAI-style chat request to the best workstation, then to the next ones if it is busy or down."""
-    from .ai_registry import AIError, RETRY_STATUS, chat_answer
+    from .ai import AIError, RETRY_STATUS, chat_answer
     pin = p.get("workstations") if isinstance(p.get("workstations"), list) else None
     cands = candidates(settings, model, pin)
     if not cands:
