@@ -11,7 +11,7 @@ from .files import unique_path
 
 
 @block("ai", "Analizza con l'AI", "esterni",
-       help="Chiede a un modello AI (Claude, servizio compatibile OpenAI, Ollama sul PC: si sceglie nelle Impostazioni) "
+       help="Chiede a un modello AI (Claude, OpenAI, Gemini, servizio compatibile, Ollama, le tue workstation: si sceglie nelle Impostazioni) "
             "di leggere il documento e compilare più campi insieme, con l'affidabilità di ognuno. Sotto la soglia, il "
             "file va a verifica. Consuma crediti.",
        params=[P("fields", "list", [], "Campi da compilare", "es. cliente, numero, data, totale", required=True),
@@ -21,7 +21,8 @@ from .files import unique_path
                P("use_text", "bool", True, "Usa il testo letto"),
                P("classes", "list", [], "Classi possibili", "se l'AI deve anche classificare"),
                P("tags", "list", [], "Tag possibili", "l'AI sceglie tra questi"),
-               P("review_below", "float", 0.7, "Verifica sotto", min=0, max=1)],
+               P("review_below", "float", 0.7, "Verifica sotto", min=0, max=1),
+               P("profile", "str", "", "Profilo AI", "vuoto = predefinito; es. qualita, veloce, ocr (Impostazioni › AI)")],
        meters=["ai_call"])
 def ai(it, p, ctx):
     props = {f: {"type": "object", "properties": {"value": {"type": "string"}, "confidence": {"type": "number"}},
@@ -42,7 +43,7 @@ def ai(it, p, ctx):
     if p["use_image"] and it.kind in ("image", "pdf"):
         img = PR.image_payload(it.p, it.page if it.ext == "pdf" and it.page else 1)
     ctx.meter("ai_call")
-    r = PR.ai_json(ctx.settings, prompt, img, schema)
+    r = PR.ai_json(ctx.settings, prompt, img, schema, profile=p.get("profile") or None)
     res, by = r["result"], "ai:" + str(r["model"])
     for f in p["fields"]:
         x = res.get(f)

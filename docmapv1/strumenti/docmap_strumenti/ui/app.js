@@ -587,7 +587,7 @@ async function viewSettings(tab) {
   tab = tab || 'lettura';
   const s = (await api('/api/settings')).settings;
   const info = await api('/api/info');
-  const tabs = { lettura: 'OCR', ai: 'AI', servizi: 'Servizi esterni', remoto: 'Esecuzione remota', crediti: 'Crediti e clienti', licenza: 'Licenza', tasti: 'Tasti della verifica', sistema: 'Sistema' };
+  const tabs = { lettura: 'OCR', ai: 'AI', workstation: 'Workstation', servizi: 'Servizi esterni', remoto: 'Esecuzione remota', crediti: 'Crediti e clienti', licenza: 'Licenza', tasti: 'Tasti della verifica', sistema: 'Sistema' };
   $('#view').innerHTML = `<h1>Impostazioni</h1><p class="sub">Valgono per questo PC (o per questo server). Le chiavi restano qui, mai nelle ricette.</p>
     <div class="tabs">${Object.entries(tabs).map(([k, v]) => `<button data-tab="${k}" class="${k === tab ? 'on' : ''}">${esc(v)}</button>`).join('')}</div><div class="card" id="st-b"></div>
     <div class="row end"><span class="grow mut" id="st-m"></span><button class="btn" id="st-save">Salva</button></div>`;
@@ -600,10 +600,50 @@ async function viewSettings(tab) {
     <div class="step-b" style="padding:0">${sel('ocr.engine', 'Motore predefinito', s.ocr.engine, [['auto', 'automatico'], ['tesseract', 'Tesseract sul PC'], ['remote', 'servizio OCR remoto'], ['ai', 'modello AI']])}
     ${inp('ocr.lang', 'Lingue', s.ocr.lang, 'es. ita+eng')}${inp('ocr.tesseract_cmd', 'Percorso di Tesseract', s.ocr.tesseract_cmd, 'vuoto = cercalo da solo')}
     ${inp('ocr.remote_endpoint', 'Servizio OCR remoto', s.ocr.remote_endpoint, 'nome di un servizio esterno (scheda Servizi esterni)')}${inp('threads', 'File insieme', s.threads, 'quanti file lavorare in parallelo (2-4 su un PC normale)')}</div>`;
-  if (tab === 'ai') B.innerHTML = `<div class="step-b" style="padding:0">${sel('ai.provider', 'Fornitore', s.ai.provider, [['', 'spenta'], ['anthropic', 'Claude (Anthropic)'], ['openai_compatible', 'compatibile OpenAI (OpenAI, Mistral, Azure, OpenRouter, vLLM, LM Studio…)'], ['ollama', 'Ollama sul PC'], ['mock', 'finta (solo prove)']])}
-    ${inp('ai.model', 'Modello', s.ai.model, 'vuoto = claude-haiku-5-5 per Claude; obbligatorio per gli altri')}${inp('ai.base_url', 'Indirizzo del servizio', s.ai.base_url, 'solo per compatibile OpenAI / Ollama')}
+  if (tab === 'ai') {
+    const A = await api('/api/ai');
+    const provs = [['', 'spenta']].concat(A.providers.map(p => [p.id, p.label]));
+    const keys = s.ai.keys || {};
+    B.innerHTML = `<h2>Profilo predefinito</h2><div class="step-b" style="padding:0">${sel('ai.provider', 'Fornitore', s.ai.provider, provs)}
+    ${inp('ai.model', 'Modello', s.ai.model, 'nome vero o alias: best, balanced, fast, ocr (vuoto = claude-haiku-5-5 per Claude)')}${inp('ai.base_url', 'Indirizzo del servizio', s.ai.base_url, 'solo per compatibile OpenAI, vLLM, Ollama o un indirizzo diverso')}
     ${inp('ai.api_key', 'Chiave', s.ai.api_key, 'resta su questo PC', 'password')}${inp('ai.timeout', 'Attesa massima (secondi)', s.ai.timeout)}</div>
-    <p class="hint">Mandare documenti a un servizio AI esterno richiede la nomina a sub-responsabile (GDPR art. 28): con Ollama tutto resta sul PC.</p>`;
+    <h2 style="margin-top:16px">Chiavi dei fornitori</h2><p class="hint">Valgono per tutti i profili di quel fornitore che non hanno una chiave propria.</p>
+    <div class="step-b" style="padding:0">${['anthropic', 'openai', 'gemini'].map(k => inp('ai.keys.' + k, k === 'anthropic' ? 'Anthropic (Claude)' : k === 'openai' ? 'OpenAI' : 'Google Gemini', keys[k] || '', '', 'password')).join('')}</div>
+    <h2 style="margin-top:16px">Profili</h2><p class="hint">Un profilo è «chi legge cosa»: per esempio <b>ocr</b> sulla tua workstation, <b>qualita</b> con il modello migliore. Se un fornitore è occupato o spento passa al profilo di riserva.</p>
+    <table id="pf-t"><tr><th>Nome</th><th>Fornitore</th><th>Modello</th><th>Indirizzo</th><th>Riserva</th><th></th></tr>${Object.entries(s.ai.profiles || {}).map(([n, v]) => pfRow(n, v, provs)).join('')}</table>
+    <button class="btn sec small" id="pf-add" style="margin-top:8px">+ Profilo</button>
+    ${inp('ai.default_profile', 'Profilo usato quando una ricetta non ne sceglie uno', s.ai.default_profile, 'vuoto = predefinito')}
+    <h2 style="margin-top:16px">Prova</h2><div class="row">${A.profiles.map(p => `<button class="btn small sec" data-aitest="${esc(p.name)}">${esc(p.name)}${p.provider ? ' · ' + esc(p.provider) : ''}</button>`).join('')}</div><p id="ai-r" class="mono"></p>
+    <p class="hint">Mandare documenti a un servizio AI esterno (Claude, OpenAI, Gemini) richiede la nomina a sub-responsabile (GDPR art. 28): con Ollama, vLLM o le tue workstation i documenti restano sulle tue macchine.</p>`;
+    $('#pf-add').addEventListener('click', () => { $('#pf-t').insertAdjacentHTML('beforeend', pfRow('', {}, provs)); bindEp(); });
+    $$('[data-aitest]').forEach(b => b.addEventListener('click', async () => {
+      $('#ai-r').textContent = '…';
+      try {
+        await saveSettings(true);
+        const r = await api('/api/ai/test', { body: { profile: b.dataset.aitest } });
+        $('#ai-r').innerHTML = r.ok ? `<b class="okc">risponde</b> · ${esc(r.provider)} · ${esc(r.model)}${r.workstation ? ' · ' + esc(r.workstation) : ''} · ${r.ms} ms${(r.attempts || []).length ? ' · ha risposto il profilo «' + esc(r.profile) + '» dopo: ' + esc(r.attempts.map(x => x.profile + ' (' + x.error + ')').join('; ')) : ''}` : `<span class="err">${esc(r.error)}</span>`;
+      } catch (er) { $('#ai-r').innerHTML = `<span class="err">${esc(er.message)}</span>`; }
+    }));
+    bindEp();
+  }
+  if (tab === 'workstation') {
+    const W = s.workstations || {};
+    B.innerHTML = `<p>Le tue macchine con la GPU (per esempio la workstation Kubuntu), ognuna con il gateway installato (cartella <code>workstation/</code>). Si usano con il fornitore «Le mie workstation»: ogni lettura va alla più libera che ha il modello; se una è spenta o occupata passa alla successiva.</p>
+      <table id="ws-t"><tr><th>Nome</th><th>Indirizzo</th><th>Gettone</th><th>Peso</th><th>Attiva</th><th></th></tr>${(W.pool || []).map(wsRow).join('')}</table>
+      <button class="btn sec small" id="ws-add" style="margin-top:8px">+ Workstation</button>
+      <div class="step-b" style="padding:0;margin-top:10px">${inp('workstations.health_s', 'Controllo dello stato ogni (secondi)', W.health_s)}${inp('workstations.down_s', 'Dopo un errore, salta per (secondi)', W.down_s)}${inp('workstations.timeout', 'Attesa massima di una lettura (secondi)', W.timeout)}</div>
+      <button class="btn sec" id="ws-chk" style="margin-top:10px">Controlla adesso</button><div id="ws-r"></div>`;
+    $('#ws-add').addEventListener('click', () => { $('#ws-t').insertAdjacentHTML('beforeend', wsRow({ enabled: true, weight: 1 })); bindEp(); });
+    $('#ws-chk').addEventListener('click', async () => {
+      $('#ws-r').textContent = '…';
+      try {
+        await saveSettings(true);
+        const r = await api('/api/ai?refresh=1');
+        $('#ws-r').innerHTML = r.workstations.length ? `<table><tr><th>Nome</th><th>Stato</th><th>Modelli</th><th>Coda</th><th>GPU</th></tr>${r.workstations.map(w => `<tr><td>${esc(w.name)}</td><td>${w.ok ? `<b class="okc">ok</b> ${w.ms} ms` : `<span class="err">${esc(w.error || 'spenta')}</span>`}</td><td>${esc(w.models.join(', '))}</td><td>${w.ok ? `${w.queue.running || 0} in corso, ${w.queue.waiting || 0} in attesa / ${w.queue.max_parallel || 0}` : ''}</td><td>${esc((w.gpus || []).map(g => `${g.name} ${g.mem_used_mb}/${g.mem_total_mb} MB`).join(', '))}</td></tr>`).join('')}</table>` : '<p class="hint">Nessuna workstation.</p>';
+      } catch (er) { $('#ws-r').innerHTML = `<span class="err">${esc(er.message)}</span>`; }
+    });
+    bindEp();
+  }
   if (tab === 'servizi') {
     const eps = s.endpoints || {};
     B.innerHTML = `<p>Servizi tuoi (per esempio un server Python con un OCR potente o un controllo anagrafico), usati dal blocco «Servizio esterno» e dall'OCR remoto. Ricevono JSON con il file in base64 e rispondono JSON (vedi la guida).</p>
@@ -661,6 +701,11 @@ async function viewSettings(tab) {
   $('#st-save').addEventListener('click', () => saveSettings(false));
 }
 function epRow(n, v) { return `<tr data-ep><td><input data-e="name" value="${esc(n)}"></td><td><input data-e="url" value="${esc(v.url || '')}"></td><td><input data-e="token" type="password" value="${esc(v.token || '')}"></td><td><input data-e="timeout" value="${esc(v.timeout || 120)}" style="width:80px"></td><td><button class="btn ghost" data-epx>✕</button></td></tr>`; }
+function pfRow(n, v, provs) {
+  const rest = Object.fromEntries(Object.entries(v).filter(([k]) => !['name', 'provider', 'model', 'base_url', 'fallback'].includes(k)));
+  return `<tr data-pf><td><input data-f="name" value="${esc(n)}" style="width:110px"></td><td><select data-f="provider">${provs.map(([k, l]) => `<option value="${esc(k)}" ${(v.provider || '') === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></td><td><input data-f="model" value="${esc(v.model || '')}"></td><td><input data-f="base_url" value="${esc(v.base_url || '')}"></td><td><input data-f="fallback" value="${esc([].concat(v.fallback || []).join(', '))}" style="width:110px"></td><td><button class="btn ghost" data-epx>✕</button><input type="hidden" data-f="rest" value="${esc(JSON.stringify(rest))}"></td></tr>`;
+}
+function wsRow(v) { return `<tr data-ws><td><input data-w="name" value="${esc(v.name || '')}" style="width:110px"></td><td><input data-w="url" value="${esc(v.url || '')}" placeholder="http://10.8.0.2:8095"></td><td><input data-w="token" type="password" value="${esc(v.token || '')}"></td><td><input data-w="weight" value="${esc(v.weight || 1)}" style="width:60px"></td><td><input type="checkbox" data-w="enabled" ${v.enabled === false ? '' : 'checked'}></td><td><button class="btn ghost" data-epx>✕</button></td></tr>`; }
 function bindEp() { $$('[data-epx]').forEach(b => { b.onclick = () => b.closest('tr').remove(); }); }
 async function saveSettings(quiet) {
   const out = {};
@@ -668,10 +713,23 @@ async function saveSettings(quiet) {
   $$('[data-s]').forEach(el => {
     let v = el.type === 'checkbox' ? el.checked : el.value;
     if (el.dataset.list) v = el.value.split('\n').map(x => x.trim()).filter(Boolean);
-    else if (typeof v === 'string' && /^(threads|workers|max_upload_mb|remote\.auto_mb|ai\.timeout|credits\.)/.test(el.dataset.s)) v = v.trim() === '' ? null : Number(v);
+    else if (typeof v === 'string' && /^(threads|workers|max_upload_mb|remote\.auto_mb|ai\.timeout|credits\.|workstations\.(health_s|down_s|timeout))/.test(el.dataset.s)) v = v.trim() === '' ? null : Number(v);
     set(el.dataset.s, v);
   });
   if ($('#ep-t')) { out.endpoints = {}; $$('[data-ep]').forEach(tr => { const g = k => $(`[data-e="${k}"]`, tr).value.trim(); if (g('name')) out.endpoints[g('name')] = { url: g('url'), token: g('token'), timeout: Number(g('timeout')) || 120 }; }); }
+  if ($('#pf-t')) {
+    out.ai = out.ai || {}; out.ai.profiles = {};
+    $$('[data-pf]').forEach(tr => {
+      const g = k => $(`[data-f="${k}"]`, tr).value.trim();
+      if (!g('name')) return;
+      let rest = {}; try { rest = JSON.parse(g('rest') || '{}'); } catch (e) { rest = {}; }
+      out.ai.profiles[g('name')] = Object.assign(rest, { provider: g('provider'), model: g('model'), base_url: g('base_url'), fallback: g('fallback').split(',').map(x => x.trim()).filter(Boolean) });
+    });
+  }
+  if ($('#ws-t')) {
+    out.workstations = out.workstations || {};
+    out.workstations.pool = $$('[data-ws]').map(tr => { const g = k => $(`[data-w="${k}"]`, tr); return { name: g('name').value.trim(), url: g('url').value.trim(), token: g('token').value.trim(), weight: Number(g('weight').value) || 1, enabled: g('enabled').checked }; }).filter(w => w.url);
+  }
   if ($('[data-key]')) { out.shortcuts = {}; $$('[data-key]').forEach(el => { out.shortcuts[el.dataset.key] = el.value.split(',').map(x => x.trim()).filter(Boolean); }); ST.shortcuts = out.shortcuts; }
   try { await api('/api/settings', { body: { settings: out } }); if (!quiet) toast('Impostazioni salvate'); } catch (e) { toast(e.message, 4000); throw e; }
 }

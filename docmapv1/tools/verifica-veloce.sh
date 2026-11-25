@@ -27,6 +27,7 @@ step "hub (Python)";              (cd hub && run python3 -m unittest discover -s
 step "strumenti (ricette, blocchi, coda, server, remoto)"
 python3 -c "import PIL, pypdf, openpyxl, numpy, pypdfium2" 2>/dev/null || python3 -m pip install -q -r strumenti/requirements.txt
 (cd strumenti && run python3 -m unittest discover -s tests) || fail=1
+step "workstation (gateway sulle macchine con la GPU)"; (cd workstation && run python3 -m unittest discover -s tests) || fail=1
 step "server-python";             (cd server-python && run python3 -m unittest discover -s tests) || fail=1
 step "PHP <-> Python parity";     run python3 server-python/tests/diff_test.py
 step "PHP <-> Python licence";    run python3 server-python/tests/diff_licence_test.py

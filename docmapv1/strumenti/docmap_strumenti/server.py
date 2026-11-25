@@ -274,9 +274,23 @@ def make_handler(app: App, allowed_hosts: set[str]):
                 if admin:
                     info["engines"] = {"tesseract": bool(PR.tesseract_cmd(s)), "tesseract_langs": PR.tesseract_langs(s),
                                        "pdfium": M.has_pdfium(), "ai": (s.get("ai") or {}).get("provider") or "",
+                                       "ai_profiles": sorted(AR_profiles(s)), "workstations": len((s.get("workstations") or {}).get("pool") or []),
                                        "remote": bool((s.get("remote") or {}).get("url")),
                                        "endpoints": sorted((s.get("endpoints") or {}).keys())}
                 return self._json(info)
+            if p == ["ai"] and m == "GET":
+                need_admin()
+                from . import ai_registry as AR, workstations as WS
+                return self._json({**AR.describe(s), "workstations": WS.status(s, refresh=q.get("refresh") == "1")})
+            if p == ["ai", "test"] and m == "POST":
+                need_admin()
+                from . import ai_registry as AR
+                prof = str(self._body_json().get("profile") or "") or None
+                try:
+                    r = AR.call(s, "Prova di collegamento. Rispondi con JSON {\"ok\": true, \"modello\": \"il tuo nome\"}.", None, None, prof)
+                except PR.ProviderError as e:
+                    return self._json({"ok": False, "error": str(e), "attempts": getattr(e, "attempts", None)})
+                return self._json({"ok": True, **{k: r.get(k) for k in ("provider", "model", "profile", "ms", "usage", "attempts", "workstation")}})
             if p == ["blocks"]:
                 return self._json({"blocks": R.catalog()})
             if p == ["templates"]:
@@ -528,6 +542,11 @@ def make_handler(app: App, allowed_hosts: set[str]):
             raise HttpError(404, "indirizzo API sconosciuto")
 
     return H
+
+
+def AR_profiles(s: dict) -> list:
+    from . import ai_registry as AR
+    return list(AR.profiles(s))
 
 
 def need_licence(s: dict) -> None:

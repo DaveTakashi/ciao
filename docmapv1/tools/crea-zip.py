@@ -34,7 +34,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 import brand as BR   # noqa: E402  (brand.js reader)
 BN = BR.load(ROOT)["product_name"]
 REPO = ROOT.parent
-SKIP = re.compile(r"^(tests/|ci/|hub/tests/|server-python/tests/|installer-windows/tests/|strumenti/tests/)")
+SKIP = re.compile(r"^(tests/|ci/|hub/tests/|server-python/tests/|installer-windows/tests/|strumenti/tests/|workstation/tests/)")
 FORBIDDEN = re.compile(r"(^|/)(dati-studio/|\.venv/|__pycache__/)|\.(sqlite3?|db|docmap-key|docmap-backup|pem|key)$"
                        r"|(^|/)config\.php$|(^|/)\.env$")
 REQUIRED = [
@@ -45,7 +45,8 @@ REQUIRED = [
     "index.html", "scan.html", "docmap.config.js", "brand.js", "server-php/brand.php", "tools/brand.py",
     "hub/docmap_hub/plans.json", "CHANGELOG.md", "STATO.md",
     "strumenti/AVVIA-STRUMENTI.bat", "strumenti/requirements.txt", "strumenti/docmap_strumenti/__init__.py",
-    "strumenti/docmap_strumenti/ui/app.js",
+    "strumenti/docmap_strumenti/ui/app.js", "strumenti/docmap_strumenti/ai_models.json",
+    "workstation/README.md", "workstation/docmap_workstation/gateway.py", "workstation/workstation.esempio.json",
 ]
 # (source in docmapv1/, name in guide/)
 GUIDES = [
@@ -71,6 +72,10 @@ GUIDES = [
     ("docs/STRUMENTI.md", "STRUMENTI.html"),
     ("docs/AGGIORNAMENTO-STRUMENTI-0.1.0.md", "AGGIORNAMENTO-STRUMENTI-0.1.0.html"),
     ("docs/AGGIORNAMENTO-STRUMENTI-0.2.0.md", "AGGIORNAMENTO-STRUMENTI-0.2.0.html"),
+    ("docs/AGGIORNAMENTO-STRUMENTI-0.3.0.md", "AGGIORNAMENTO-STRUMENTI-0.3.0.html"),
+    ("docs/AI-FORNITORI.md", "AI-FORNITORI.html"),
+    ("docs/WORKSTATION-API.md", "WORKSTATION-API.html"),
+    ("workstation/README.md", "WORKSTATION-INSTALLAZIONE.html"),
     ("docs/MARCHIO.md", "MARCHIO.html"),
     ("docs/commerciale/LISTINO.md", "LISTINO.html"),
 ]

@@ -13,7 +13,8 @@
 | Server Python (sede) | pacchetto 1.0.0, parità con PHP 26.12.18 (anche sulla licenza, sull'inventario, sui fornitori AI e su `finder`) | `server-python/docmap_server/__init__.py` | dentro l'installer |
 | Strumenti di installazione Windows | 1.2.0 | `TOOLS_VERSION` in `installer-windows/docmap_tools.py` | dentro lo zip completo (`installer-windows/`); i pacchetti per i clienti li fa l'hub (il vecchio `DocMap-installer-26.12.7.zip` è in `vecchie-versioni/`) |
 | Hub (PC di Dave) | **0.14.0** (Strumenti nei piani: crediti al mese e server remoto per piano, gettone del server degli Strumenti per cliente con i crediti che seguono la licenza; prima 0.13.0: marchio per rivenditore e cliente, listino unico `plans.json`, preventivi), registro schema **4** (`registry.py`); meta `hub_version` | `hub/docmap_hub/__init__.py` | `docmapv1/python/DocMap-hub-0.14.0-app-26.12.18.zip` (**zip completo**: hub + app 26.12.18 + sito + Strumenti + server + installatore + guide; fatto e controllato da `tools/crea-zip.py`) |
-| Strumenti (ricette per i documenti) | **0.2.0** (0.2.0: licenza dell'hub, cioè lavori, «sul server» e crediti del mese decisi dal piano, dati mai bloccati; 0.1.1: `/api/ping` e `/api/summary` per la pagina dell'app; 0.1.0: 20 blocchi, 11 ricette pronte, coda, verifica da tastiera, remoto, crediti; formato `docmap-ricetta/1`) | `strumenti/docmap_strumenti/__init__.py` | dentro lo zip completo (`strumenti/`, avvio `AVVIA-STRUMENTI.bat`) |
+| Strumenti (ricette per i documenti) | **0.3.0** (0.3.0: AI agnostica con fornitori OpenAI, Gemini, Anthropic, compatibili, vLLM, Ollama e le tue workstation, profili con riserva, alias dei modelli, prova del collegamento; 0.2.0: licenza dell'hub, cioè lavori, «sul server» e crediti del mese decisi dal piano, dati mai bloccati; 0.1.1: `/api/ping` e `/api/summary` per la pagina dell'app; 0.1.0: 20 blocchi, 11 ricette pronte, coda, verifica da tastiera, remoto, crediti; formato `docmap-ricetta/1`) | `strumenti/docmap_strumenti/__init__.py` | dentro lo zip completo (`strumenti/`, avvio `AVVIA-STRUMENTI.bat`) |
+| Gateway workstation (sulle macchine con la GPU) | **0.1.0** (nuovo: gettone, coda, nomi dei modelli, stato della GPU davanti a vLLM/Ollama; protocollo `docmap-workstation/1`) | `workstation/docmap_workstation/__init__.py` | dentro lo zip completo (`workstation/`, guida `workstation/README.md`) |
 | Aggiornatore del PC | con l'app | `AGGIORNA-DOCMAP.bat` + `tools/aggiorna-app.ps1` | dentro lo zip dell'app |
 
 Regola: lo **stesso numero 26.12.x** deve comparire in app, `api.php` e server Python. Il server PHP e quello Python
@@ -47,6 +48,13 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
 | CI su GitHub | `.github/workflows/docmap-ci.yml` (= `ci/docmap-ci.yml`), Ubuntu 24.04 | ~5 min | verde sulla PR #10 (2026-11-23); unica cartella fuori da `docmapv1/`, confermata da Dave (D20) |
 
 Come sono fatti i test e come aggiungerne: [`docs/TEST.md`](docs/TEST.md).
+
+### Esito 2026-11-25, Strumenti 0.3.0 + gateway workstation 0.1.0 (AI agnostica)
+
+- Fatto: registro dei fornitori (`strumenti/docmap_strumenti/ai_registry.py`), pool di workstation (`workstations.py`), gateway (`workstation/`), schede Impostazioni › AI e › Workstation, `/api/ai` e `/api/ai/test`. Test: `strumenti/tests/test_ai_registry.py` (forma della richiesta di ogni fornitore con un server finto, alias, riserva, giri chiusi, segreti mascherati, pool con gateway veri in-process),
+  `workstation/tests` (gettone, IP, instradamento per modello, 429 con coda piena, `/dm/v1/read`, ragionamento tolto).
+- Ricerca: il modello di Dave è **Inkling 2 Mini** (Thinking Machines Lab, 2026-11-20); «loop» = looped transformer, nessun parametro di chiamata (`docs/AI-FORNITORI.md` §4).
+- Non provato: servizi veri (OpenAI, Gemini, Claude), vLLM con Inkling sulla workstation Kubuntu di Dave, più workstation in rete (righe S11–S15 di `COLLAUDO-REALE.md`). Sito e server di sede non cambiano (prossimo passo A in `AI-FORNITORI.md` §5).
 
 ### Esito 2026-11-24, hub 0.14.0 + Strumenti 0.2.0 (Strumenti nei piani)
 

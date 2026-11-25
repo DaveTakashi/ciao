@@ -3,8 +3,9 @@
 * OCR: ``text`` (text already in the file: PDF text layer, TXT, MD, CSV, XLSX, DOCX), ``tesseract`` (local, free),
   ``ai`` (vision model), ``remote`` (an OCR service of yours over HTTP, e.g. a Python server with PaddleOCR / a GPU),
   ``mock`` (tests), ``auto`` (text → tesseract → ai, the first that gives text).
-* AI: ``anthropic``, ``openai_compatible`` (OpenAI, Mistral, Azure, OpenRouter, vLLM, LM Studio…), ``ollama`` (local),
-  ``mock``. Same JSON answer for all of them.
+* AI: ``anthropic``, ``openai``, ``gemini``, ``openai_compatible`` (Mistral, Azure, OpenRouter, LM Studio…), ``vllm``,
+  ``ollama`` (local), ``workstation`` (your GPU machines), ``mock``, with named profiles and fallbacks
+  (``ai_registry.py``). Same JSON answer for all of them.
 * HTTP endpoints: named in the settings (``endpoints``), called by the «http» block and by the remote OCR.
 """
 
@@ -25,8 +26,6 @@ from pathlib import Path
 
 from . import media as M
 
-ANTHROPIC_VERSION = "2026-10-21"
-DEFAULT_MODELS = {"anthropic": "claude-haiku-5-5"}
 
 
 class ProviderError(RuntimeError):
@@ -76,8 +75,9 @@ def parse_json_text(txt: str):
 
 # -- AI ------------------------------------------------------------------------------------------------------------
 
-def ai_enabled(settings: dict) -> bool:
-    return (settings.get("ai") or {}).get("provider") in ("anthropic", "openai_compatible", "ollama", "mock")
+def ai_enabled(settings: dict, profile: str | None = None) -> bool:
+    from . import ai_registry as AR
+    return AR.enabled(settings, profile)
 
 
 def image_payload(path: Path, page: int | None = None, max_px: int = 1800) -> tuple[bytes, str]:
@@ -91,61 +91,13 @@ def image_payload(path: Path, page: int | None = None, max_px: int = 1800) -> tu
     return b.getvalue(), "image/jpeg"
 
 
-def ai_json(settings: dict, prompt: str, image: tuple[bytes, str] | None = None, schema: dict | None = None) -> dict:
-    """Asks the configured model and returns ``{"model", "result": {…}}``. Raises ProviderError with a clear message."""
-    a = settings.get("ai") or {}
-    prov = a.get("provider") or ""
-    timeout = float(a.get("timeout") or 90)
-    if prov == "mock":
-        r = a.get("mock_response")
-        if callable(r):
-            r = r(prompt, image)
-        return {"model": "mock", "result": json.loads(json.dumps(r if isinstance(r, dict) else {"text": "testo di prova", "confidence": 0.5}))}
-    if prov == "anthropic":
-        key = a.get("api_key") or ""
-        if not key:
-            raise ProviderError("manca la chiave del servizio AI (Impostazioni › AI)")
-        model = a.get("model") or DEFAULT_MODELS["anthropic"]
-        content = []
-        if image:
-            content.append({"type": "image", "source": {"type": "base64", "media_type": image[1],
-                                                         "data": base64.b64encode(image[0]).decode("ascii")}})
-        content.append({"type": "text", "text": prompt})
-        req = {"model": model, "max_tokens": int(a.get("max_tokens") or 4000), "messages": [{"role": "user", "content": content}]}
-        if schema:
-            req["output_config"] = {"format": {"type": "json_schema", "schema": schema}}
-        headers = {"x-api-key": key, "anthropic-version": ANTHROPIC_VERSION}
-        status, j, _ = http_json((a.get("base_url") or "https://api.anthropic.com").rstrip("/") + "/v1/messages", req, headers, timeout)
-        if status < 200 or status >= 300 or not isinstance(j, dict):
-            raise ProviderError(_err_msg(j, status))
-        if j.get("stop_reason") == "refusal":
-            raise ProviderError("il modello ha rifiutato di leggere questo file")
-        txt = "".join(b.get("text", "") for b in (j.get("content") or []) if isinstance(b, dict) and b.get("type") == "text")
-        r = parse_json_text(txt)
-        if r is None:
-            raise ProviderError("risposta AI non leggibile")
-        return {"model": j.get("model") or model, "result": r}
-    if prov in ("openai_compatible", "ollama"):
-        base = (a.get("base_url") or ("http://127.0.0.1:11434/v1" if prov == "ollama" else "https://api.openai.com/v1")).rstrip("/")
-        model = a.get("model") or ""
-        if not model:
-            raise ProviderError("manca il nome del modello (Impostazioni › AI)")
-        content: list = [{"type": "text", "text": prompt + "\nRispondi SOLO con un oggetto JSON."}]
-        if image:
-            content.append({"type": "image_url", "image_url": {"url": f"data:{image[1]};base64," + base64.b64encode(image[0]).decode("ascii")}})
-        req = {"model": model, "messages": [{"role": "user", "content": content}], "response_format": {"type": "json_object"},
-               "max_tokens": int(a.get("max_tokens") or 3000)}
-        headers = {"Authorization": "Bearer " + a["api_key"]} if a.get("api_key") else {}
-        status, j, _ = http_json(base + "/chat/completions", req, headers, timeout)
-        if status < 200 or status >= 300 or not isinstance(j, dict):
-            raise ProviderError(_err_msg(j, status))
-        ch = j.get("choices") or [{}]
-        msg = ch[0].get("message") if isinstance(ch[0], dict) else {}
-        r = parse_json_text((msg or {}).get("content") or "")
-        if r is None:
-            raise ProviderError("risposta AI non leggibile")
-        return {"model": j.get("model") or model, "result": r}
-    raise ProviderError("AI spenta: sceglila in Impostazioni › AI (Claude, servizio compatibile OpenAI, Ollama locale)")
+def ai_json(settings: dict, prompt: str, image: tuple[bytes, str] | None = None, schema: dict | None = None,
+            profile: str | None = None) -> dict:
+    """Asks the AI profile (``predefinito`` = the old single AI setting) and returns ``{"model", "result": {…},
+    "provider", "profile", "usage", "ms", "attempts"}``. Raises ProviderError with a clear message. Providers, models,
+    profiles and fallbacks: ``ai_registry.py`` (docs/AI-FORNITORI.md)."""
+    from . import ai_registry as AR
+    return AR.call(settings, prompt, image, schema, profile)
 
 
 def _err_msg(j, status) -> str:
@@ -226,7 +178,8 @@ AI_OCR_PROMPT = ("Trascrivi fedelmente tutto il testo leggibile di questa pagina
 
 
 def ocr_ai(path: Path, page: int | None, settings: dict) -> dict:
-    r = ai_json(settings, AI_OCR_PROMPT, image_payload(path, page))
+    # profile «ocr» if there is one (e.g. a vision model on your workstation), else the default AI
+    r = ai_json(settings, AI_OCR_PROMPT, image_payload(path, page), profile=(settings.get("ocr") or {}).get("ai_profile") or "ocr")
     res = r["result"]
     conf = res.get("confidence")
     return {"text": str(res.get("text") or ""), "conf": float(conf) if isinstance(conf, (int, float)) else None,
