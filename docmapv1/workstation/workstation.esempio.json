@@ -1,5 +1,6 @@
 {
   "name": "kubuntu-1",
+  "role": "test",
   "host": "127.0.0.1",
   "port": 8095,
   "tokens": [],
@@ -7,20 +8,29 @@
   "max_body_mb": 40,
   "max_waiting": 16,
   "log_file": "accessi.jsonl",
+  "slot_groups": {
+    "gpu0": 1
+  },
   "backends": [
-    {
-      "name": "vllm-inkling",
-      "url": "http://127.0.0.1:8000/v1",
-      "models": {"inkling-2-mini": "thinkingmachines/Inkling-2-Mini"},
-      "max_parallel": 4,
-      "timeout": 300,
-      "defaults": {"temperature": 0.2}
-    },
     {
       "name": "ollama",
       "url": "http://127.0.0.1:11434/v1",
-      "models": {},
+      "models": {
+        "inkling-2-mini": "inkling-2-mini"
+      },
       "max_parallel": 1,
+      "slot_group": "gpu0",
+      "timeout": 600,
+      "defaults": {
+        "temperature": 0.2
+      }
+    },
+    {
+      "name": "vllm",
+      "url": "http://127.0.0.1:8000/v1",
+      "models": {},
+      "max_parallel": 2,
+      "slot_group": "gpu0",
       "timeout": 300
     }
   ]

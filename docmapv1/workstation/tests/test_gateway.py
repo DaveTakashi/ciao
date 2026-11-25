@@ -108,13 +108,39 @@ class QueueAndIpTest(unittest.TestCase):
         finally:
             box["httpd"].shutdown()
 
+    def test_token_per_project_with_allowed_models(self):
+        box, url = start({"tokens": [{"name": "dl", "sha256": G.hash_token(TOKEN), "project": "progetto-a", "models": ["pensa"]}]})
+        try:
+            self.assertEqual(req(url + "/dm/v1/health")[1]["models"], ["pensa"])
+            self.assertEqual([m["id"] for m in req(url + "/v1/models")[1]["data"]], ["pensa"])
+            st, j, _ = req(url + "/v1/chat/completions", {"model": "inkling-2-mini", "messages": []})
+            self.assertEqual((st, j["error"]["type"]), (403, "forbidden_model"))
+            self.assertEqual(req(url + "/v1/chat/completions", {"model": "pensa", "messages": []})[0], 200)
+        finally:
+            box["httpd"].shutdown()
+
+    def test_slot_group_one_job_per_gpu(self):
+        box, url = start({"max_waiting": 8, "slot_groups": {"gpu0": 1}, "backends": [
+            {"name": "a", "url": "mock:slow", "models": {"a": "a"}, "max_parallel": 4, "slot_group": "gpu0"},
+            {"name": "b", "url": "mock:slow", "models": {"b": "b"}, "max_parallel": 4, "slot_group": "gpu0"}]})
+        try:
+            import time as _t
+            t0 = _t.monotonic()
+            with ThreadPoolExecutor(4) as ex:
+                codes = list(ex.map(lambda m: req(url + "/v1/chat/completions", {"model": m, "messages": []})[0], ["a", "b", "a", "b"]))
+            self.assertEqual(codes, [200] * 4)
+            self.assertGreaterEqual(_t.monotonic() - t0, 1.1)   # 4 × 0.3 s one after the other: the GPU is shared
+        finally:
+            box["httpd"].shutdown()
+
     def test_new_token_only_hash_saved(self):
         import tempfile
         from docmap_workstation.__main__ import main
         with tempfile.TemporaryDirectory() as td:
             p = Path(td) / "w.json"
-            main(["token-nuovo", "--config", str(p), "--nome", "hub"])
+            main(["token-nuovo", "--config", str(p), "--nome", "hub", "--progetto", "archivio", "--modelli", "a, b"])
             raw = json.loads(p.read_text())
+            self.assertEqual((raw["tokens"][0]["project"], raw["tokens"][0]["models"]), ("archivio", ["a", "b"]))
             self.assertEqual(raw["tokens"][0]["name"], "hub")
             self.assertEqual(len(raw["tokens"][0]["sha256"]), 64)
 

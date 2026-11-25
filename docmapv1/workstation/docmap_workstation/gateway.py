@@ -22,14 +22,17 @@ from . import API_VERSION, __version__
 
 DEFAULTS = {
     "name": "",                 # shown to the clients (empty = host name)
+    "role": "",                 # free label for twin machines: "primaria", "gemella"… (only shown in /dm/v1/health)
     "host": "127.0.0.1",        # 0.0.0.0 only behind a VPN / firewall (README › Sicurezza)
     "port": 8095,
-    "tokens": [],               # [{"name": "hub", "sha256": "<hex>"}]: only hashes, never the tokens themselves
+    "tokens": [],               # [{"name": "hub", "sha256": "<hex>", "project": "", "models": []}]: only hashes;
+                                # project = label in the log (one gateway serves many projects), models = allowed names (empty = all)
     "allow_ips": [],            # empty = any address that reaches the port; else exact IPs or prefixes ("10.8.0.")
     "max_body_mb": 40,
     "max_waiting": 16,          # requests waiting for a free slot of one backend before answering 429
     "log_file": "",             # JSON Lines access log (no content, only who/what/how long); empty = no log
-    "backends": [],             # [{"name", "url", "models": {"public": "backend id"}, "max_parallel", "api_key", "timeout", "defaults"}]
+    "slot_groups": {},          # {"gpu0": 1}: backends on the same GPU share these slots (e.g. Ollama + llama.cpp on one card)
+    "backends": [],             # [{"name", "url", "models": {"public": "backend id"}, "max_parallel", "slot_group", "api_key", "timeout", "defaults"}]
 }
 READ_OCR_PROMPT = ("Trascrivi fedelmente tutto il testo leggibile di questa immagine (stampato, dattiloscritto o a mano), "
                    "riga per riga, senza riassumere né correggere. Rispondi con JSON {\"text\": \"…\", \"confidence\": 0..1}.")
@@ -65,6 +68,7 @@ class Backend:
         self.api_key = str(b.get("api_key") or "")
         self.timeout = float(b.get("timeout") or 300)
         self.defaults = b.get("defaults") if isinstance(b.get("defaults"), dict) else {}
+        self.group = str(b.get("slot_group") or "")
         self.sem = threading.BoundedSemaphore(self.max_parallel)
         self.lock = threading.Lock()
         self.running = 0
@@ -145,20 +149,30 @@ class Gateway:
     def __init__(self, cfg: dict):
         self.cfg = cfg
         self.backends = [Backend(b) for b in cfg.get("backends") or [] if isinstance(b, dict) and b.get("url")]
-        self.hashes = [(str(t.get("name") or "?"), str(t.get("sha256") or "").lower()) for t in cfg.get("tokens") or []
-                       if isinstance(t, dict) and t.get("sha256")]
+        self.tokens = [t for t in cfg.get("tokens") or [] if isinstance(t, dict) and t.get("sha256")]
+        self.hashes = [(str(t.get("name") or "?"), str(t["sha256"]).lower()) for t in self.tokens]
+        groups = cfg.get("slot_groups") or {}
+        self.groups = {str(k): threading.BoundedSemaphore(max(1, int(v or 1))) for k, v in groups.items()}
+        for b in self.backends:   # a backend naming an undeclared group gets a group of 1 (one GPU, one job)
+            if b.group and b.group not in self.groups:
+                self.groups[b.group] = threading.BoundedSemaphore(1)
         self.log_lock = threading.Lock()
         self.started = time.time()
 
-    def who(self, header: str) -> str | None:
+    def who(self, header: str) -> dict | None:
+        """The token entry ({name, project, models}) of a Bearer header, or None."""
         m = re.match(r"(?i)Bearer\s+(\S+)", header or "")
         if not m:
             return None
         h = hash_token(m.group(1))
-        for name, ref in self.hashes:
-            if hmac.compare_digest(h, ref):
-                return name
+        for t in self.tokens:
+            if hmac.compare_digest(h, str(t["sha256"]).lower()):
+                return {"name": str(t.get("name") or "?"), "project": str(t.get("project") or ""),
+                        "models": [str(x) for x in t.get("models") or []]}
         return None
+
+    def allowed(self, who: dict | None, model: str) -> bool:
+        return not who or not who.get("models") or model in who["models"]
 
     def ip_ok(self, ip: str) -> bool:
         allow = self.cfg.get("allow_ips") or []
@@ -182,15 +196,18 @@ class Gateway:
 
     def health(self) -> dict:
         return {"ok": bool(self.backends), "api": API_VERSION, "version": __version__, "name": self.cfg["name"],
+                "role": self.cfg.get("role") or "",
                 "uptime_s": int(time.time() - self.started), "models": self.models(), "queue": self.queue(), "gpus": gpus(),
                 "backends": [{"name": b.name, "models": list(b.models), "running": b.running, "waiting": b.waiting,
                               "max_parallel": b.max_parallel, "done": b.done, "errors": b.errors} for b in self.backends]}
 
-    def chat(self, req: dict) -> tuple[int, dict, dict]:
+    def chat(self, req: dict, who: dict | None = None) -> tuple[int, dict, dict]:
         """Routes one chat request: returns (status, answer, extra headers)."""
         model = str(req.get("model") or "")
         if not model and len(self.models()) == 1:
             model = self.models()[0]
+        if not self.allowed(who, model):
+            return 403, {"error": {"message": f"questo gettone non può usare il modello «{model}»", "type": "forbidden_model"}}, {}
         r = self.route(model)
         if not r:
             return 404, {"error": {"message": f"modello «{model}» non pubblicato su questa workstation", "type": "unknown_model",
@@ -207,10 +224,18 @@ class Gateway:
                 b.running += 1
         if not got:
             return 429, {"error": {"message": "workstation occupata (attesa troppo lunga)", "type": "busy"}}, {"Retry-After": "10"}
+        gsem = self.groups.get(b.group) if b.group else None
+        if gsem is not None and not gsem.acquire(timeout=b.timeout):
+            with b.lock:
+                b.running -= 1
+            b.sem.release()
+            return 429, {"error": {"message": "GPU occupata da un altro modello, riprova", "type": "busy"}}, {"Retry-After": "10"}
         try:
             body = {**b.defaults, **req, "model": real, "stream": False}
             status, j = b.chat(body)
         finally:
+            if gsem is not None:
+                gsem.release()
             with b.lock:
                 b.running -= 1
                 b.done += 1
@@ -221,7 +246,7 @@ class Gateway:
             j["model"] = model   # the clients only see the published name
         return status, j, {"X-DM-Workstation": self.cfg["name"], "X-DM-Backend": b.name}
 
-    def read(self, b: dict) -> tuple[int, dict]:
+    def read(self, b: dict, who: dict | None = None) -> tuple[int, dict]:
         """``/dm/v1/read``: {task: ocr|json, model?, prompt?, image: {mime, data}, schema?, max_tokens?}."""
         task = b.get("task") or "ocr"
         if task not in ("ocr", "json"):
@@ -238,7 +263,7 @@ class Gateway:
         req = {"model": str(b.get("model") or ""), "messages": [{"role": "user", "content": content}],
                "response_format": {"type": "json_object"}, "max_tokens": int(b.get("max_tokens") or 4000)}
         t0 = time.monotonic()
-        status, j, _ = self.chat(req)
+        status, j, _ = self.chat(req, who)
         if not 200 <= status < 300:
             return status, j
         msg = ((j.get("choices") or [{}])[0] or {}).get("message") or {}
@@ -296,7 +321,7 @@ def make_handler(gw: Gateway):
             self.end_headers()
             self.wfile.write(raw)
 
-        def _guard(self) -> str | None:
+        def _guard(self) -> dict | None:
             if not gw.ip_ok(self.client_address[0]):
                 self._send(403, {"error": {"message": "indirizzo non autorizzato", "type": "forbidden"}})
                 return None
@@ -328,10 +353,12 @@ def make_handler(gw: Gateway):
             if who is None:
                 return
             if p == "/dm/v1/health":
-                return self._send(200, gw.health())
+                h = gw.health()
+                h["models"] = [m for m in h["models"] if gw.allowed(who, m)]   # each project sees only its models
+                return self._send(200, h)
             if p == "/v1/models":
                 return self._send(200, {"object": "list", "data": [{"id": m, "object": "model", "owned_by": gw.cfg["name"]}
-                                                                   for m in gw.models()]})
+                                                                   for m in gw.models() if gw.allowed(who, m)]})
             self._send(404, {"error": {"message": "percorso sconosciuto"}})
 
         def do_POST(self):
@@ -346,14 +373,15 @@ def make_handler(gw: Gateway):
             if p == "/v1/chat/completions":
                 if b.get("stream"):
                     return self._send(400, {"error": {"message": "stream non supportato dal gateway (usa stream=false)"}})
-                status, j, extra = gw.chat(b)
+                status, j, extra = gw.chat(b, who)
             elif p == "/dm/v1/read":
-                status, j = gw.read(b)
+                status, j = gw.read(b, who)
                 extra = {"X-DM-Workstation": gw.cfg["name"]}
             else:
                 return self._send(404, {"error": {"message": "percorso sconosciuto"}})
             self._send(status, j, extra)
-            gw.log({"at": time.strftime("%Y-%m-%dT%H:%M:%S"), "who": who, "ip": self.client_address[0], "path": p,
+            gw.log({"at": time.strftime("%Y-%m-%dT%H:%M:%S"), "who": who["name"], "project": who["project"],
+                    "project_hdr": (self.headers.get("X-DM-Project") or "")[:60], "ip": self.client_address[0], "path": p,
                     "model": b.get("model"), "status": status, "ms": int((time.monotonic() - t0) * 1000),
                     "in": int(self.headers.get("Content-Length") or 0)})
 

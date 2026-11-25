@@ -71,7 +71,8 @@ def status(settings: dict, refresh: bool = False) -> list[dict]:
         info = s.get("info") or {}
         out.append({"name": w["name"], "url": w["url"], "enabled": w["enabled"], "ok": s["ok"], "error": s.get("error", ""),
                     "ms": s.get("ms"), "models": info.get("models") or [], "queue": info.get("queue") or {},
-                    "gpus": info.get("gpus") or [], "version": info.get("version") or "", "name_remote": info.get("name") or ""})
+                    "gpus": info.get("gpus") or [], "version": info.get("version") or "", "name_remote": info.get("name") or "",
+                    "role": info.get("role") or ""})
     return out
 
 

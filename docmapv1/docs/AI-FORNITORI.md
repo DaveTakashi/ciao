@@ -77,7 +77,9 @@ Dal lato di chi chiede (`workstations.py`):
 3. se una è occupata (429), spenta o lenta la salta per `down_s` secondi (60) e prova la successiva (fino a 3);
 4. se nessuna è disponibile passa alla riserva del profilo (per esempio Claude).
 
-Un profilo può fissare le macchine: `"workstations": ["kubuntu-1"]`. Impostazioni › Workstation ha l'elenco
+Un profilo può fissare le macchine: `"workstations": ["kubuntu-1"]`. Il gateway serve **più progetti** (un gettone
+per progetto, con i modelli permessi) e due **macchine gemelle** sempre accese si mettono entrambe nell'elenco:
+se una si ferma lavora l'altra (`workstation/README.md` §5-6). Impostazioni › Workstation ha l'elenco
 (nome, indirizzo, gettone, peso, attiva) e **Controlla adesso** (stato, modelli, coda, GPU di ognuna).
 
 **Come farle parlare in modo sicuro.** Il gateway ascolta di serie solo su `127.0.0.1`. Per raggiungerlo da un altro
@@ -103,6 +105,11 @@ Quello che dicono le fonti (i numeri delle prove sono dichiarati dal produttore,
   (l'immagine Docker ufficiale è `vllm/vllm-openai:inkling-2-mini`). Ragiona sempre un po' (lo sforzo si può
   abbassare ma non spegnere): con `--reasoning-parser inkling` il ragionamento arriva separato dalla risposta.
 - Gira anche con SGLang, llama.cpp (GGUF della comunità), Ollama su Mac, Unsloth; fratello più grande: Inkling 2 Small.
+
+**La workstation di Dave oggi** (RTX 3060 da 12 GB, 32 GB di RAM, Kubuntu, Ollama): il modello pieno non entra
+in 12 GB; si prova una versione quantizzata (GGUF) con Ollama o llama.cpp e una parte nella RAM, un lavoro alla volta
+sulla GPU (`slot_groups` del gateway) e la riserva cloud quando la coda è piena. Motore e modello non sono ancora
+decisi: il gateway li tratta tutti come backend intercambiabili (`workstation/README.md` §0).
 
 **Cosa vuol dire per noi.** Non serve codice «speciale loop»: sulla workstation si avvia vLLM con i comandi sopra, il
 gateway lo pubblica come `inkling-2-mini` (è già nell'esempio `workstation.esempio.json`) e gli Strumenti lo usano con
