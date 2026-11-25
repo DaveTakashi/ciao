@@ -1,0 +1,31 @@
+{
+  "format": "docmap-ai-models/1",
+  "note": "Aliases (role -> real model id) per provider. Change a model generation here or in Impostazioni › AI › Alias, never in the code. Only ids checked on the provider's own documentation go here: an empty alias means 'write the real model id in the profile'.",
+  "updated": "2026-11-25",
+  "providers": {
+    "anthropic": {
+      "aliases": {"default": "claude-haiku-5-5", "best": "claude-opus-5-5", "balanced": "claude-sonnet-5-5", "fast": "claude-haiku-5-5", "ocr": "claude-haiku-5-5"},
+      "models": {
+        "claude-opus-5-5": {"vision": true, "json_schema": true, "effort": true},
+        "claude-sonnet-5-5": {"vision": true, "json_schema": true, "effort": true},
+        "claude-haiku-5-5": {"vision": true, "json_schema": true, "effort": true}
+      }
+    },
+    "openai": {"aliases": {}, "models": {}},
+    "gemini": {"aliases": {}, "models": {}},
+    "openai_compatible": {"aliases": {}, "models": {}},
+    "vllm": {
+      "aliases": {"inkling-2-mini": "thinkingmachines/Inkling-2-Mini", "ocr": "thinkingmachines/Inkling-2-Mini"},
+      "models": {
+        "thinkingmachines/Inkling-2-Mini": {"vision": true, "json_schema": false, "reasoning": true, "looped": true,
+          "source": "https://thinkingmachines.ai/model-card/inkling-2-mini/",
+          "serve": "vllm serve thinkingmachines/Inkling-2-Mini --reasoning-parser inkling --tool-call-parser inkling --enable-auto-tool-choice"}
+      }
+    },
+    "ollama": {"aliases": {"inkling-2-mini": "inkling-2-mini"}, "models": {}},
+    "workstation": {
+      "aliases": {"ocr": "inkling-2-mini", "default": "inkling-2-mini"},
+      "models": {"inkling-2-mini": {"vision": true, "reasoning": true, "looped": true, "note": "name published by the gateway (workstation.json › backends[].models)"}}
+    }
+  }
+}

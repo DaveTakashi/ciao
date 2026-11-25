@@ -1,7 +1,7 @@
 # CLAUDE.md — regole fisse per gli agenti su Doc Location (nome tecnico DocMap)
 
 Leggi questo file per primo, poi [`STATO.md`](STATO.md) (dove siamo) e il manuale tecnico adatto alla zona che tocchi.
-Tutto il codice vero è su `main` (app 26.12.18, hub 0.14.0, Strumenti 0.2.0 al 2026-11-24): parti sempre da `main` aggiornato.
+Tutto il codice vero è su `main` (app 26.12.18, hub 0.14.0, Strumenti 0.3.0, gateway workstation 0.1.0 al 2026-11-25): parti sempre da `main` aggiornato.
 
 ## Regole che non si discutono
 
@@ -35,6 +35,7 @@ Tutto il codice vero è su `main` (app 26.12.18, hub 0.14.0, Strumenti 0.2.0 al 
 | Server Python (sede, porting 1:1) | `server-python/` | `server-python/README.md`, `docs/python/PORTING.md` | `python3 -m unittest discover -s tests` |
 | Hub (PC di Dave: clienti, licenze, deploy) | `hub/` | `hub/AGENTE-OPERATIVO.md`, `docs/WIKI-HUB.md` | idem, dentro `hub/` |
 | Strumenti (ricette per i documenti, OCR, verifica) | `strumenti/` | [`strumenti/README.md`](strumenti/README.md), `docs/STRUMENTI.md` | `python3 -m unittest discover -s tests`, dentro `strumenti/` |
+| Gateway workstation (macchine con la GPU, Linux) | `workstation/` | [`workstation/README.md`](workstation/README.md), `docs/WORKSTATION-API.md`, `docs/AI-FORNITORI.md` | `python3 -m unittest discover -s tests`, dentro `workstation/` |
 | Installatore Windows | `installer-windows/` | `installer-windows/GUIDA-INSTALLAZIONE.md` | idem, dentro `installer-windows/` |
 | Test, lint e CI (tutte le zone) | `tests/`, `tools/lint-*.{js,py}`, `ci/` + `.github/workflows/` | [`docs/TEST.md`](docs/TEST.md) | `tools/verifica-veloce.sh` |
 

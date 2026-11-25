@@ -10,8 +10,12 @@ from pathlib import Path
 DEFAULTS: dict = {
     "threads": 2,                       # files processed at the same time by heavy blocks (OCR, AI, conversion)
     "workers": 1,                       # jobs run at the same time
-    "ocr": {"engine": "auto", "lang": "ita+eng", "tesseract_cmd": "", "remote_endpoint": "", "timeout": 300},
-    "ai": {"provider": "", "model": "", "base_url": "", "api_key": "", "timeout": 90},
+    "ocr": {"engine": "auto", "lang": "ita+eng", "tesseract_cmd": "", "remote_endpoint": "", "timeout": 300,
+            "ai_profile": "ocr"},           # AI profile used by the «ai» OCR engine (missing profile = predefinito)
+    # provider/model/base_url/api_key = profile «predefinito» (0.1-0.2); profiles, keys per provider, aliases: 0.3.0
+    "ai": {"provider": "", "model": "", "base_url": "", "api_key": "", "timeout": 90,
+           "default_profile": "", "profiles": {}, "keys": {}, "aliases": {}},
+    "workstations": {"pool": [], "health_s": 30, "down_s": 60, "timeout": 180},   # your GPU machines (workstations.py)
     "endpoints": {},                    # name -> {"url", "token", "timeout", "max_mb"}
     "remote": {"url": "", "token": "", "auto_mb": 200, "always": False, "poll_s": 3},
     "credits": {"costs": {}, "local_month": None},
@@ -31,7 +35,7 @@ def path(data_dir: Path) -> Path:
 def _deep(a: dict, b: dict) -> dict:
     out = copy.deepcopy(a)
     for k, v in (b or {}).items():
-        if isinstance(v, dict) and isinstance(out.get(k), dict) and k != "endpoints":
+        if isinstance(v, dict) and isinstance(out.get(k), dict) and k not in ("endpoints", "profiles"):
             out[k] = _deep(out[k], v)
         else:
             out[k] = copy.deepcopy(v)
@@ -48,6 +52,9 @@ def load(data_dir: Path) -> dict:
     # environment variables win (handy on a server): DOCMAP_AI_API_KEY, DOCMAP_REMOTE_TOKEN
     if os.environ.get("DOCMAP_AI_API_KEY"):
         s["ai"]["api_key"] = os.environ["DOCMAP_AI_API_KEY"]
+    for prov in ("anthropic", "openai", "gemini"):   # DOCMAP_AI_KEY_ANTHROPIC / _OPENAI / _GEMINI
+        if os.environ.get("DOCMAP_AI_KEY_" + prov.upper()):
+            s["ai"].setdefault("keys", {})[prov] = os.environ["DOCMAP_AI_KEY_" + prov.upper()]
     if os.environ.get("DOCMAP_REMOTE_TOKEN"):
         s["remote"]["token"] = os.environ["DOCMAP_REMOTE_TOKEN"]
     return s
@@ -67,6 +74,19 @@ def save(data_dir: Path, new: dict) -> dict:
     for name, ep in (new.get("endpoints") or {}).items():
         if isinstance(ep, dict) and ep.get("token") == MASK:
             ep["token"] = ((cur.get("endpoints") or {}).get(name) or {}).get("token", "")
+    ca = cur.get("ai") or {}
+    na = new.get("ai") if isinstance(new.get("ai"), dict) else {}
+    for prov, k in (na.get("keys") or {}).items():
+        if k == MASK:
+            na["keys"][prov] = (ca.get("keys") or {}).get(prov, "")
+    for name, pr in (na.get("profiles") or {}).items():
+        if isinstance(pr, dict) and pr.get("api_key") == MASK:
+            pr["api_key"] = ((ca.get("profiles") or {}).get(name) or {}).get("api_key", "")
+    nw = new.get("workstations") if isinstance(new.get("workstations"), dict) else {}
+    old_tok = {w.get("name"): w.get("token", "") for w in ((cur.get("workstations") or {}).get("pool") or []) if isinstance(w, dict)}
+    for w in nw.get("pool") or []:
+        if isinstance(w, dict) and w.get("token") == MASK:
+            w["token"] = old_tok.get(w.get("name"), "")
     merged = _deep(cur, new)
     p.parent.mkdir(parents=True, exist_ok=True)
     tmp = p.with_name(".impostazioni.tmp")
@@ -84,6 +104,17 @@ def public(s: dict) -> dict:
     for ep in (out.get("endpoints") or {}).values():
         if isinstance(ep, dict) and ep.get("token"):
             ep["token"] = MASK
+    a = out.get("ai") or {}
+    for prov in list((a.get("keys") or {})):
+        if a["keys"][prov]:
+            a["keys"][prov] = MASK
+    for pr in (a.get("profiles") or {}).values():
+        if isinstance(pr, dict) and pr.get("api_key"):
+            pr["api_key"] = MASK
+    a.pop("mock_response", None)
+    for w in (out.get("workstations") or {}).get("pool") or []:
+        if isinstance(w, dict) and w.get("token"):
+            w["token"] = MASK
     return out
 
 

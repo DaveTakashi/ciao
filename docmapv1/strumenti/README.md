@@ -24,7 +24,9 @@ Su Windows `AVVIA-STRUMENTI.bat` crea `.venv`, installa i requisiti e apre il br
 | `engine.py` | `Engine` (passi, stato su disco, ripresa dopo la verifica, file in parallelo), `Context`, `preview()` |
 | `blocks/*.py` | i 20 blocchi |
 | `media.py` | PDF, TIFF, immagini, tabelle (lettura e scrittura) |
-| `providers.py` | OCR (Tesseract, AI, servizio), AI (anthropic, openai_compatible, ollama, mock), servizi HTTP |
+| `providers.py` | OCR (Tesseract, AI, servizio), servizi HTTP; `ai_json()` passa al registro AI |
+| `ai_registry.py` + `ai_models.json` | AI agnostica: adattatori (anthropic, openai, gemini, openai_compatible, vllm, ollama, workstation, mock), alias dei modelli, profili con riserva, `call()` (docs/AI-FORNITORI.md) |
+| `workstations.py` | pool delle workstation con il gateway: controllo di stato, scelta della più libera, salto di quelle spente (docs/WORKSTATION-API.md) |
 | `validators.py` | date, importi, P.IVA, codice fiscale, IBAN |
 | `jobs.py` | `Store` (SQLite: jobs, ledger, tokens, audit), `Queue`, `review_apply()` |
 | `remote.py` | esecuzione su un altro server (`run_remote`) |
@@ -63,7 +65,7 @@ def stamp(it, p, ctx):              # kind="map": una chiamata per documento; ki
 
 - Una ricetta salvata non si modifica: si salva una versione nuova. Le ricette pronte (`templates/*.json`) devono passare
   `recipe.validate` (test `test_templates_all_valid`).
-- I segreti stanno solo in `impostazioni.json` (o nelle variabili `DOCMAP_AI_API_KEY`, `DOCMAP_REMOTE_TOKEN`); l'API li
+- I segreti stanno solo in `impostazioni.json` (o nelle variabili `DOCMAP_AI_API_KEY`, `DOCMAP_AI_KEY_ANTHROPIC` / `_OPENAI` / `_GEMINI`, `DOCMAP_REMOTE_TOKEN`); l'API li
   restituisce mascherati.
 - Un errore in un documento non ferma gli altri; un passo non scrive mai fuori dalla cartella del lavoro o di arrivo.
 - I gettoni dei clienti si salvano solo come impronta sha256; un cliente remoto vede solo i propri lavori.

@@ -110,3 +110,7 @@ contenuti, contenuto con parole in comune ≥ 50%, anni uguali, tag uguali dopo 
 due ha non conta); `invBenchSummary` dà la quota giusta per campo, i faldoni tutti giusti, il tempo mediano e
 l'affidabilità (tra le letture con fiducia ≥ soglia del progetto, quante erano tutte giuste). Per provare un fornitore
 nuovo basta che risponda come `ai_spine` (`ivqAiCall`).
+
+## 7. Chi legge: fornitori e workstation (Strumenti 0.3.0)
+
+Negli Strumenti la lettura passa da un registro unico (`ai_registry.py`): Claude, OpenAI, Gemini, servizi compatibili, vLLM, Ollama e le tue **workstation** con il gateway (`workstation/`, protocollo [`WORKSTATION-API.md`](WORKSTATION-API.md)), con **profili** e **riserva**. Ogni risposta porta `provider`, `model`, `profile` e i token usati, come chiede lo schema unico del §5. Il modello su cui Dave fa le prove (Inkling 2 Mini, looped transformer) si collega da lì senza codice speciale. Il sito e il server di sede usano ancora `ai_spine` con i fornitori del §6: portarli sullo stesso registro è il passo A di [`AI-FORNITORI.md`](AI-FORNITORI.md) §5; oggi il sito può già usare una workstation come servizio `openai_compatible` (indirizzo del gateway + `/v1`, gettone come chiave).

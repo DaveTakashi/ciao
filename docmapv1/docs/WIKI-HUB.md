@@ -677,6 +677,10 @@ Licenza) e il piano vale da subito.
 Il consumo resta sul server degli Strumenti (`python -m docmap_strumenti consumi`): i crediti in più si fatturano a mano
 con il modulo «Crediti Strumenti in più».
 
+### 6.20 AI con qualsiasi fornitore e le tue workstation (Strumenti 0.3.0)
+
+Gli Strumenti (sul PC del cliente o sul server remoto) parlano con **Claude, OpenAI, Gemini**, servizi compatibili, **vLLM**, **Ollama** e le **tue workstation con la GPU**. Si sceglie in Strumenti › Impostazioni › AI con i **profili** (per esempio `ocr` sulla workstation con riserva Claude) e **Prova**. Per una workstation nuova (Kubuntu): installa il modello e il **gateway** seguendo `workstation/README.md` (guida `WORKSTATION-INSTALLAZIONE.html` nello zip), crea un gettone (`python3 -m docmap_workstation token-nuovo --nome strumenti`), poi Strumenti › Impostazioni › **Workstation** › indirizzo + gettone › «Controlla adesso». Più workstation = più righe: ogni lettura va alla più libera che ha il modello. Quando esce un modello nuovo basta cambiare l'alias (`ai_models.json` o Impostazioni), non il codice. Dettagli: `docs/AI-FORNITORI.md`. L'hub per ora non gestisce le workstation (le chiavi stanno negli Strumenti).
+
 ## 7. La pagina web del hub (il gestionale)
 
 Doppio clic su `C:\DocMapHub\hub\run_windows.bat` → si apre il browser sulla pagina del hub (solo da questo PC). La
