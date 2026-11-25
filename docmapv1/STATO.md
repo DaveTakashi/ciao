@@ -65,7 +65,8 @@ Come sono fatti i test e come aggiungerne: [`docs/TEST.md`](docs/TEST.md).
   gateway con vLLM rosso; registro del gateway nella cartella di avvio; «1 mesi». Nuovo: **Prova il collegamento**
   dell'hosting (`hub/tests/test_v141_collaudo.py`).
 - Scheda unica `docs/COLLAUDO-REALE.md` riscritta nell'ordine vero (blocchi 0-12, risultati attesi, tabella dalle righe
-  vecchie). Test: `tests/v1219.js` 7/7, `tests/v129.js` 26/26, verifica veloce tutto OK.
+  vecchie). Test: `tests/v1219.js` 7/7, `tests/v129.js` 26/26, verifica veloce tutto OK, suite completa 1375/1376
+  (l'unico fallimento: README, INDICE e HANDOFF_PROMPT dicevano ancora 26.12.18, corretti subito dopo).
 - Non provato: Windows, SiteGround, telefoni, stampante, Ollama veri (è la scheda).
 
 ### Esito 2026-11-25, Strumenti 0.4.0 (base AI e OCR a moduli, più modelli insieme)
