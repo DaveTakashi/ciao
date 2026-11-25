@@ -53,6 +53,17 @@ class FtpRootTest(unittest.TestCase):
         finally:
             r.close()
 
+    def test_new_site_folder_is_created_on_first_upload(self):
+        # 0.14.1: «Attiva tutto» on a new customer stopped at the first file with «550 No such file or directory»
+        r = self.remote("/clienti/studio-nuovo")
+        try:
+            r.upload_bytes(b"<?php", "index.php")
+            r.upload_bytes(b"x", "server-php/data/.htaccess")
+            self.assertEqual(sorted(r.list_files()), ["index.php", "server-php/data/.htaccess"])
+        finally:
+            r.close()
+        self.assertEqual((self.home / "clienti" / "studio-nuovo" / "index.php").read_bytes(), b"<?php")
+
 
 if __name__ == "__main__":
     unittest.main()

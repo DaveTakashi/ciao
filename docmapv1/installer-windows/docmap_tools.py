@@ -85,7 +85,7 @@ def _bn() -> str:
     return "Archivio documenti"
 
 
-TOOLS_VERSION = "1.2.0"
+TOOLS_VERSION = "1.2.1"
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_BASE = r"C:\DocMap"
 
@@ -1760,8 +1760,11 @@ def build_package(out: str, make_zip: bool = False, repo_docmap: str | None = No
                        % (version, TOOLS_VERSION, time.strftime("%Y-%m-%d")))
     manifest = []
     for root, dirs, files in os.walk(out):
-        dirs.sort()
+        # the licence check above imports licence_verify from the package: never ship the bytecode it leaves
+        dirs[:] = sorted(d for d in dirs if d != "__pycache__")
         for f in sorted(files):
+            if f.endswith(".pyc"):
+                continue
             full = os.path.join(root, f)
             manifest.append("%s  %s" % (_sha256_file(full), os.path.relpath(full, out).replace(os.sep, "/")))
     _write_text_atomic(os.path.join(out, "PACCHETTO-MANIFEST.txt"), "\n".join(manifest) + "\n")
@@ -1772,8 +1775,10 @@ def build_package(out: str, make_zip: bool = False, repo_docmap: str | None = No
         zp = out.rstrip("/\\") + ".zip"
         with zipfile.ZipFile(zp, "w", compression=zipfile.ZIP_DEFLATED) as z:
             for root, dirs, files in os.walk(out):
-                dirs.sort()
+                dirs[:] = sorted(d for d in dirs if d != "__pycache__")
                 for f in sorted(files):
+                    if f.endswith(".pyc"):
+                        continue
                     full = os.path.join(root, f)
                     z.write(full, os.path.relpath(full, out).replace(os.sep, "/"))
         res["zip"] = zp

@@ -225,6 +225,7 @@ function applyWorkspaceObject(W){
   ensureIntegrity();
   if (Array.isArray(W.clients)) S.clients = W.clients.map(normalizeClient);
   if (W.settings) S.settings = Object.assign(defaultState().settings, W.settings);
+  if (S.settings && typeof siteDestTemplate === 'function') S.settings.destTemplate = siteDestTemplate(S.settings.destTemplate);   // v12.19
   if (W.settings && !W.settings.colorMode) colorLockLegacy(S.binders, S.settings);   // pre-v10 workspace: lock hand-picked colours (02b-colors.js)
   if (W.print) S.print = Object.assign(defaultState().print, W.print, {geometry:Object.assign(presetGeo(W.print.presetId, S.customPresets), W.print.geometry || {})});
   if (Array.isArray(W.customPresets)) S.customPresets = W.customPresets;

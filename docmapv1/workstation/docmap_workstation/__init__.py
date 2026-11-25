@@ -12,5 +12,5 @@ Completions dialect) and gives the rest of the system one stable, protected door
 Standard library only. Protocol: docs/WORKSTATION-API.md. Install: workstation/README.md.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 API_VERSION = "docmap-workstation/1"

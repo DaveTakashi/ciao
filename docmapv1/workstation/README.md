@@ -71,6 +71,8 @@ journalctl -u docmap-workstation -f
 In `workstation.json`, per ogni backend: `models` = `{"nome pubblicato": "nome vero nel backend"}`,
 `max_parallel` = quante letture insieme (con vLLM 2-8, con Ollama 1), `defaults` = opzioni aggiunte a ogni richiesta.
 Più modelli sulla stessa macchina = più backend (o più nomi nello stesso backend).
+`"enabled": false` tiene un backend nel file senza usarlo: nell'esempio vLLM è spento (si accende togliendo la riga
+quando vLLM gira davvero), così `controlla` con il solo Ollama dice OK senza righe rosse.
 
 ## 3. Come farla raggiungere da fuori (da decidere: le strade possibili)
 

@@ -174,3 +174,34 @@ def reencrypt(reg, old_vk: VaultKey, new_vk: VaultKey) -> str | None:
     r["secret"] = {"nonce": base64.b64encode(nonce).decode(),
                    "ct": base64.b64encode(AESGCM(new_vk.key).encrypt(nonce, pw, AAD)).decode()}
     return json.dumps(r, sort_keys=True)
+
+
+def test_connection(reg, vk: VaultKey | None, *, open_remote=None) -> dict:
+    """0.14.1 «Prova il collegamento»: log in with the default access and read the base folder (changes nothing).
+    {ok, message, files, note}. Before, a wrong host or password showed up only at the first «Attiva tutto»."""
+    from . import deploy as D
+    r = _raw(reg)
+    if not r:
+        raise HostingError("Nessun hosting predefinito da provare: impostalo prima.")
+    folder = r.get("base_folder") or "/"
+    try:
+        remote = (open_remote or D.open_remote)(ftp_access(reg, vk, folder))
+    except (D.DeployError, OSError) as exc:
+        return {"ok": False, "message": str(exc), "files": 0, "note": None}
+    try:
+        names = remote.list_files() if r["protocol"] == "local" else None
+        if names is None:
+            ftp = getattr(remote, "ftp", None)
+            names = ftp.nlst(getattr(remote, "root", folder)) if ftp is not None else []
+        note = getattr(remote, "root_note", None)
+    except Exception as exc:   # noqa: BLE001 - any listing error is shown as it is
+        missing = str(exc)[:3] == "550"
+        return {"ok": False, "files": 0, "note": None,
+                "message": (f"Accesso riuscito, ma la cartella {folder} non c'è per questo account FTP: scrivi la cartella "
+                            "come la vede l'FTP (di solito /) oppure creala dal File Manager dell'hosting.") if missing
+                else f"Accesso riuscito, ma la cartella {folder} non si legge: {exc}"}
+    finally:
+        remote.close()
+    n = len(names or [])
+    return {"ok": True, "message": f"Collegamento riuscito: nella cartella {folder} ci sono {n} elementi.", "files": n,
+            "note": note}

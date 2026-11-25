@@ -13,6 +13,7 @@ import io
 import json
 import hashlib
 import os
+import zipfile
 import socket
 import stat
 import subprocess
@@ -133,6 +134,9 @@ class PersonalPackageTest(unittest.TestCase):
         self.assertEqual(tpl["a"]["url"], WEB_API)
         self.assertTrue(os.path.isfile(os.path.join(self.pkg, "SCHEDA.html")))
         self.assertTrue(os.path.isfile(os.path.join(self.pkg, "configura-sync.ps1")))
+        # 2026-11-25: the licence check imported licence_verify from the package and its __pycache__ was zipped
+        with zipfile.ZipFile(r["zip"]) as z:
+            self.assertEqual([n for n in z.namelist() if "__pycache__" in n or n.endswith(".pyc")], [])
         with open(os.path.join(self.pkg, "PACCHETTO-MANIFEST.txt"), encoding="utf-8") as f:
             man = f.read()
         self.assertIn("server/docmap_server/trusted_keys.json", man)

@@ -42,7 +42,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '22' }
       - name: Python packages
-        run: pip install fastapi uvicorn cryptography pyftpdlib httpx pyflakes -r docmapv1/strumenti/requirements.txt
+        run: pip install fastapi uvicorn cryptography pyftpdlib httpx pyflakes markdown -r docmapv1/strumenti/requirements.txt
       - name: Tesseract OCR (Strumenti, Italian + English)
         run: sudo apt-get update -q && sudo apt-get install -y -q tesseract-ocr tesseract-ocr-ita tesseract-ocr-eng
       - name: Node packages (Playwright + Chromium, eslint)

@@ -26,6 +26,8 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     m.icons.every(i => fs.existsSync(path.join(APP, i.src)))) && man.every(m => m.icons.some(i => i.purpose === 'maskable')), 'manifests: PC and phone start pages, icons exist, one maskable', man.map(m => m.start_url));
   ok(['sw.js', 'manifest.webmanifest', 'scan.webmanifest', 'assets/icons/icon-512.png', 'assets/js/02g-pwa.js', 'assets/js/02h-timing.js'].every(f => fs.existsSync(path.join(dep, f))) &&
     /application\/manifest\+json \.webmanifest/.test(fs.readFileSync(path.join(dep, '.htaccess'), 'utf8')), 'build_deploy copies sw.js, manifests, icons; .htaccess types .webmanifest');
+  ok(/RewriteRule \^q\/\(\(assets\|vendor\)\/\.\+\|docmap\\\.config\\\.js\|brand\\\.js\)\$/.test(fs.readFileSync(path.join(dep, '.htaccess'), 'utf8')), '.htaccess: preload of q/brand.js served (no 404 before <base>)');
+  ok(/"qrDest": "https:\/\/[^"]+\/q\/\{short_code\}"/.test(fs.readFileSync(path.join(dep, 'docmap.config.js'), 'utf8')), 'docmap.config.js: the site\'s own QR destination (qrDest)');
   ok(!/api\.php|server-php/.test(swSrc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')), 'sw.js code (comments aside) never names the API');
 
   const b = await chromium.launch();

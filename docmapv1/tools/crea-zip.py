@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the all-in-one zip for Dave (DocMap-hub-<version>.zip) and check it before anyone downloads it.
+"""Build the all-in-one zip for Dave (DocMap-hub-<hub>-app-<app>-strumenti-<strumenti>.zip) and check it before anyone downloads it.
 
     python3 docmapv1/tools/crea-zip.py --out DIR            build + check, zip in DIR
     python3 docmapv1/tools/crea-zip.py --check FILE.zip     check an existing zip only
@@ -69,6 +69,7 @@ GUIDES = [
     ("docs/AGGIORNAMENTO-v12.15-v12.16.md", "AGGIORNAMENTO-v12.15-v12.16.html"),
     ("docs/AGGIORNAMENTO-v12.16-v12.17.md", "AGGIORNAMENTO-v12.16-v12.17.html"),
     ("docs/AGGIORNAMENTO-v12.17-v12.18.md", "AGGIORNAMENTO-v12.17-v12.18.html"),
+    ("docs/AGGIORNAMENTO-v12.18-v12.19.md", "AGGIORNAMENTO-v12.18-v12.19.html"),
     ("docs/STRUMENTI.md", "STRUMENTI.html"),
     ("docs/AGGIORNAMENTO-STRUMENTI-0.1.0.md", "AGGIORNAMENTO-STRUMENTI-0.1.0.html"),
     ("docs/AGGIORNAMENTO-STRUMENTI-0.2.0.md", "AGGIORNAMENTO-STRUMENTI-0.2.0.html"),
@@ -97,9 +98,16 @@ class ZipError(Exception):
 
 
 def versions() -> dict:
-    hub = re.search(r'__version__ = "([^"]+)"', (ROOT / "hub/docmap_hub/__init__.py").read_text("utf-8")).group(1)
+    pyv = lambda rel: re.search(r'__version__ = "([^"]+)"', (ROOT / rel).read_text("utf-8")).group(1)
     app = re.search(r"APP_VERSION = '([^']+)'", (ROOT / "assets/js/02-core.js").read_text("utf-8")).group(1)
-    return {"hub": hub, "app": app}
+    return {"hub": pyv("hub/docmap_hub/__init__.py"), "app": app, "strumenti": pyv("strumenti/docmap_strumenti/__init__.py"),
+            "workstation": pyv("workstation/docmap_workstation/__init__.py")}
+
+
+def zip_name(v: dict) -> str:
+    """2026-11-25: the file name says every version inside (before, Dave renamed it by hand and the Strumenti
+    version was missing). The top folder inside stays DocMap-hub-<hub> (the guides name it)."""
+    return f"DocMap-hub-{v['hub']}-app-{v['app']}-strumenti-{v['strumenti']}.zip"
 
 
 def tracked_files() -> list[str]:
@@ -111,9 +119,9 @@ def tracked_files() -> list[str]:
 def md_to_html(text: str, title: str, back: bool) -> str:
     try:
         import markdown
-        body = markdown.markdown(text, extensions=["tables", "fenced_code", "toc"])
-    except ImportError:                              # agents without python-markdown: still readable
-        body = f"<pre>{html.escape(text)}</pre>"
+    except ImportError:   # 2026-11-25: the 0.14.0 zip shipped every guide as one raw <pre> block because of this
+        raise ZipError("serve la libreria markdown per le guide in HTML: python3 -m pip install markdown")
+    body = markdown.markdown(text, extensions=["tables", "fenced_code", "toc"])
     # links between guides: FOO.md → FOO.html when the guide is in the zip
     names = {Path(src).name: dst for src, dst in GUIDES}
     body = re.sub(r'href="([^"#]*?)([A-Z0-9-]+\.md)(#[^"]*)?"',
@@ -136,8 +144,8 @@ def generated(v: dict) -> dict[str, bytes]:
         files["guide/AGGIORNAMENTO-HUB.html"] = md_to_html(upd.read_text("utf-8"), upd.stem, back=True).encode("utf-8")
     start = (ROOT / "docs/INIZIA-QUI.md").read_text("utf-8")
     start = start.replace("# Inizia qui",
-                          f"# {BN} · Inizia qui\n\nHub **{v['hub']}** · app **{v['app']}** · zip del "
-                          f"{date.today().isoformat()}", 1)
+                          f"# {BN} · Inizia qui\n\nHub **{v['hub']}** · app **{v['app']}** · Strumenti **{v['strumenti']}** · "
+                          f"gateway workstation **{v['workstation']}** · zip del {date.today().isoformat()}", 1)
     page = md_to_html(start, f"{BN} · Inizia qui", back=False)
     files["INIZIA-QUI.html"] = page.replace('href="', 'href="guide/').replace('href="guide/http', 'href="http') \
         .replace('href="guide/#', 'href="#').encode("utf-8")
@@ -153,7 +161,7 @@ def build(out_dir: Path) -> Path:
     content["MANIFEST-SHA256.txt"] = "".join(
         f"{hashlib.sha256(b).hexdigest()}  {p}\n" for p, b in sorted(content.items())).encode("utf-8")
     out_dir.mkdir(parents=True, exist_ok=True)
-    dest = out_dir / f"{top}.zip"
+    dest = out_dir / zip_name(v)
     tmp = out_dir / f".{top}.zip.partial"
     with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
         for p in sorted(content):
@@ -192,6 +200,8 @@ def check(path: Path, expect_top: str | None = None, expect_version: str | None 
         lf = [r for r in rel if r.endswith((".bat", ".ps1")) and b"\n" in z.read(rel[r]).replace(b"\r\n", b"")]
         if lf:
             raise ZipError("file per Windows senza a capo CRLF: " + ", ".join(lf))
+        if b"<h2" not in z.read(rel["guide/WIKI-HUB.html"]):
+            raise ZipError("guide non formattate (testo grezzo): manca la libreria markdown")
         manifest = {}
         for line in z.read(rel["MANIFEST-SHA256.txt"]).decode("utf-8").splitlines():
             h, p = line.split("  ", 1)

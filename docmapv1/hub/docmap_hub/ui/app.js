@@ -370,7 +370,7 @@ function tplSummary(m) {
   if (!m) return '';
   const inst = m.installazioni.map((x) => (x === 'sede' ? 'PC in sede' : 'sito online')).join(' + ');
   return [inst, m.demo ? 'con demo' : '', m.ftp === 'dominio' ? 'sul tuo hosting' : m.ftp === 'cliente' ? 'FTP del cliente' : m.ftp === 'nessuno' ? 'carico a mano' : '',
-    'piano ' + PLAN_IT(m.piano) + (m.mesi ? ` (${m.mesi} mesi)` : ''), m.persone ? `${m.persone} ${m.persone === 1 ? 'persona' : 'persone'}` : ''].filter(Boolean).join(' · ');
+    'piano ' + PLAN_IT(m.piano) + (m.mesi ? ` (${m.mesi} ${+m.mesi === 1 ? 'mese' : 'mesi'})` : ''), m.persone ? `${m.persone} ${m.persone === 1 ? 'persona' : 'persone'}` : ''].filter(Boolean).join(' · ');
 }
 async function newCustomer() {
   let tv = { templates: [], hosting: null };
@@ -1231,7 +1231,7 @@ async function pDraft(page, id, step) {
     body.innerHTML = `${c.errors.length ? `<div class="err-box">Da correggere prima di confermare:<ul style="margin:6px 0 0;padding-left:18px">${c.errors.map((x) => `<li><b>${esc(x.path)}</b>: ${esc(x.msg)}</li>`).join('')}</ul></div>` : '<div class="note mb" style="background:var(--ok-soft);color:var(--ok)">Tutto pronto: nessun errore.</div>'}
       ${c.warnings.length ? `<div class="note warn mb"><ul style="margin:0;padding-left:18px">${c.warnings.map((x) => `<li>${esc(x.msg)}</li>`).join('')}</ul></div>` : ''}
       <dl class="kv" style="margin-bottom:18px"><dt>Cliente</dt><dd><b>${esc(d.cliente.ragione_sociale)}</b> ${esc(d.cliente.partita_iva)}</dd><dt>Progetto</dt><dd>${esc(d.progetto.nome || '—')}</dd>
-        <dt>Installazioni</dt><dd>${d.progetto.installazioni.map((x) => `<span class="tag">${esc(x)}</span>`).join(' ') || '—'}</dd><dt>Licenza</dt><dd>${esc(S.pp.plans[d.licenza.piano] || d.licenza.piano)}${d.licenza.mesi ? ` · ${esc(d.licenza.mesi)} mesi` : ''}</dd>
+        <dt>Installazioni</dt><dd>${d.progetto.installazioni.map((x) => `<span class="tag">${esc(x)}</span>`).join(' ') || '—'}</dd><dt>Licenza</dt><dd>${esc(S.pp.plans[d.licenza.piano] || d.licenza.piano)}${d.licenza.mesi ? ` · ${esc(d.licenza.mesi)} ${+d.licenza.mesi === 1 ? 'mese' : 'mesi'}` : ''}</dd>
         ${d.progetto.installazioni.includes('online') ? `<dt>Sito</dt><dd class="mono">${esc(d.online.indirizzo)}${d.online.staging ? `<br>${esc(d.online.staging)} (demo)` : ''}</dd><dt>Pubblicazione</dt><dd>${fm === 'dominio' ? `sul tuo hosting (${esc((S.tpl.hosting || {}).host || 'da impostare')})` : fm === 'cliente' ? `FTP del cliente ${esc(d.online.ftp.protocollo)} su ${esc(d.online.ftp.host)}` : 'autoinstall web (nessun FTP)'}${d.online.ftp_staging.host ? ` · demo su ${esc(d.online.ftp_staging.host)}` : ''}</dd>` : ''}
         <dt>Postazioni</dt><dd>${d.postazioni.map((p) => esc(p.nome)).join(', ') || '—'}</dd><dt>Utenti</dt><dd>${d.utenti_iniziali.length}</dd><dt>Archivi</dt><dd>${d.archivi.map((a) => esc(a.nome)).join(', ') || '—'}</dd></dl>
       ${confirmed ? `<div class="note" style="background:var(--ok-soft);color:var(--ok)">Bozza confermata: il cliente è stato creato.</div>` : `
@@ -1688,9 +1688,18 @@ async function hostingCard(box) {
   const h = v.hosting;
   box.innerHTML = `<p style="margin-top:0;color:var(--fg2)">Il tuo dominio e il tuo account FTP, scritti <b>una volta sola</b>. I modelli «sul tuo hosting» danno a ogni cliente nuovo l'indirizzo <span class="mono">dominio/&lt;nome-del-cliente&gt;/</span> e la cartella con lo stesso nome; la demo, se c'è, ha il suffisso${h ? ` <span class="mono">${esc(h.staging_suffix)}</span>` : ''}. Un cliente può sempre avere il suo FTP (passo «Online» delle maschere).</p>
     ${h ? `<dl class="kv"><dt>Dominio</dt><dd class="mono">${esc(h.base_url)}</dd><dt>FTP</dt><dd>${esc(h.protocol)}${h.host ? ' · ' + esc(h.host) : ''}${h.user ? ' · ' + esc(h.user) : ''}${h.port ? ':' + esc(h.port) : ''}</dd><dt>Cartella base</dt><dd class="mono">${esc(h.base_folder)}</dd><dt>Password</dt><dd>${h.has_password ? '<span class="pill ok">in cassaforte</span>' : '<span class="pill warn">mancante</span>'}</dd><dt>Esempio</dt><dd class="mono">${esc(h.base_url)}studio-rossi/ · ${esc(h.base_url)}studio-rossi${esc(h.staging_suffix)}/</dd></dl>` : '<div class="note warn">Non impostato: i modelli «sul tuo hosting» chiedono di impostarlo.</div>'}
-    <div class="btns mt"><button class="btn ${h ? '' : 'pri'} sm" id="host-edit">${ic('edit')} ${h ? 'Modifica' : 'Imposta adesso'}</button>${h ? '<button class="btn ghost sm" id="host-clear">Togli</button>' : ''}</div>
+    <div class="btns mt"><button class="btn ${h ? '' : 'pri'} sm" id="host-edit">${ic('edit')} ${h ? 'Modifica' : 'Imposta adesso'}</button>${h ? '<button class="btn sm" id="host-test">Prova il collegamento</button><button class="btn ghost sm" id="host-clear">Togli</button>' : ''}</div><div id="host-test-out"></div>
     <p style="color:var(--mut);font-size:12.5px">Cambiarlo vale per i clienti nuovi: i siti già creati tengono il loro accesso (scheda del sito → Accessi).</p>`;
   $('#host-edit', box).onclick = () => hostingModal(() => hostingCard(box));
+  const tb = $('#host-test', box); if (tb) tb.onclick = async () => {
+    const out = $('#host-test-out', box); tb.disabled = true; out.innerHTML = '<div class="note">Mi collego…</div>';
+    try {
+      if (S.session && S.session.vault !== 'open') await unlockVault();
+      const r = await api('/api/hosting/test', {});
+      out.innerHTML = `<div class="note ${r.ok ? '' : 'warn'}">${r.ok ? '✓ ' : '✗ '}${esc(r.message)}${r.note ? '<br>' + esc(r.note) : ''}</div>`;
+    } catch (e) { out.innerHTML = `<div class="note warn">${esc(e.message)}</div>`; }
+    tb.disabled = false;
+  };
   const c = $('#host-clear', box); if (c) c.onclick = async () => { if (!confirm('Tolgo l\'hosting predefinito? I siti già creati non cambiano.')) return; await api('/api/hosting', { clear: true }); S.tpl = null; hostingCard(box); };
 }
 async function hostingModal(after) {

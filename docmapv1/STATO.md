@@ -1,20 +1,20 @@
 # STATO di Doc Location (nome tecnico DocMap) — fonte unica
 
-> Aggiornato al **2026-11-24**. Chi cambia una versione, un test o una decisione aggiorna questo file nello stesso
+> Aggiornato al **2026-11-25**. Chi cambia una versione, un test o una decisione aggiorna questo file nello stesso
 > commit. Per ripartire dopo una pausa (persona o agente) si legge questo, poi [`CHANGELOG.md`](CHANGELOG.md).
 
 ## 1. Versioni correnti e cosa va con cosa
 
 | Componente | Versione | Dove si legge | Zip per Dave (file del progetto) |
 |---|---|---|---|
-| App Doc Location (PC, web, telefono) | **26.12.18** (v12.18: ⚙ › Strumenti per l'amministratore, porta verso il programma delle ricette per i documenti; prima 26.12.17: lettura AI con fiducia per campo e campi da controllare, vocabolario dei tag del cliente con tag suggeriti, banco di prova dei fornitori AI; prima 26.12.16: inventario per scatole e faldoni in tutte le modalità, cioè etichette FUORI e DENTRO, faldoni senza etichetta, conteggio a livello scatola, codice leggibile grande o nascosto, foto della scatola con la posizione delle etichette, dati per l'addestramento; prima 26.12.15: raffica di più etichette nella stessa inquadratura, obiettivo del progetto con avanzamento e ora di fine; prima 26.12.14: coda del telefono che riprova da sola e non perde niente anche con la memoria piena, copia di sicurezza importabile sul PC, stima di un lavoro; prima 26.12.13: inventario fasi 3 e 4, cioè stazione fissa, catena a due, verifica scatole, lettore Bluetooth, documenti, modelli, prezzi, report di fine lavoro, AI con qualsiasi fornitore; prima 26.12.12: nuovo nome Doc Location, marchio in un solo file `brand.js`, lingue dal marchio; prima 26.12.11: nuovo anno in un clic, scarto proposto con verbale, «Dove lo metto?», ricerca a voce) | `APP_VERSION` in `assets/js/02-core.js`; marchio: `brand.js` (`docs/MARCHIO.md`) | dentro lo zip completo `docmapv1/python/DocMap-hub-0.14.0-app-26.12.18.zip` |
+| App Doc Location (PC, web, telefono) | **26.12.19** (v12.19: correzioni dal percorso vero per il collaudo completo, cioè «Prelevati» con i «Preso» del telefono, destinazione dei QR = il sito stesso, niente 404 su `q/brand.js`; prima 26.12.18: ⚙ › Strumenti per l'amministratore, porta verso il programma delle ricette per i documenti; prima 26.12.17: lettura AI con fiducia per campo e campi da controllare, vocabolario dei tag del cliente con tag suggeriti, banco di prova dei fornitori AI; prima 26.12.16: inventario per scatole e faldoni in tutte le modalità, cioè etichette FUORI e DENTRO, faldoni senza etichetta, conteggio a livello scatola, codice leggibile grande o nascosto, foto della scatola con la posizione delle etichette, dati per l'addestramento; prima 26.12.15: raffica di più etichette nella stessa inquadratura, obiettivo del progetto con avanzamento e ora di fine; prima 26.12.14: coda del telefono che riprova da sola e non perde niente anche con la memoria piena, copia di sicurezza importabile sul PC, stima di un lavoro; prima 26.12.13: inventario fasi 3 e 4, cioè stazione fissa, catena a due, verifica scatole, lettore Bluetooth, documenti, modelli, prezzi, report di fine lavoro, AI con qualsiasi fornitore; prima 26.12.12: nuovo nome Doc Location, marchio in un solo file `brand.js`, lingue dal marchio; prima 26.12.11: nuovo anno in un clic, scarto proposto con verbale, «Dove lo metto?», ricerca a voce) | `APP_VERSION` in `assets/js/02-core.js`; marchio: `brand.js` (`docs/MARCHIO.md`) | dentro lo zip completo `docmapv1/python/DocMap-hub-0.14.1-app-26.12.19-strumenti-0.4.0.zip` |
 | Database locale (SQLite nel browser) | schema **9** | `DB_SCHEMA_VERSION` in `assets/js/06-db.js` | — |
-| Server web PHP (`server-php/api.php`) | 26.12.18 (v12.18: solo il numero; v12.17: `ai_spine` restituisce anche `field_conf` e `prompt_v`; v12.16, v12.15 e v12.14: solo il numero; v12.13: `ai_provider` anche `openai_compatible` / `ollama`, `ai_base_url`, `hints.kind`, `project&detail=1`; v12.12: solo il numero, più `brand.php` che legge il marchio per `setup.php`; v12.11: solo il numero; v12.10: rotta pubblica `finder`, solo GET, solo il contatto del faldone smarrito), schema **3**, licenza con `licence_required`; `setup.php` con cartella per sito e modalità JSON; v12.8: rotte `project`, `photo_put`, `photo`, `ai_spine` | `DM_APP_VERSION`, `DM_SCHEMA` | dentro lo zip dell'app (`deploy/`) |
-| Server Python (sede) | pacchetto 1.0.0, parità con PHP 26.12.18 (anche sulla licenza, sull'inventario, sui fornitori AI e su `finder`) | `server-python/docmap_server/__init__.py` | dentro l'installer |
-| Strumenti di installazione Windows | 1.2.0 | `TOOLS_VERSION` in `installer-windows/docmap_tools.py` | dentro lo zip completo (`installer-windows/`); i pacchetti per i clienti li fa l'hub (il vecchio `DocMap-installer-26.12.7.zip` è in `vecchie-versioni/`) |
-| Hub (PC di Dave) | **0.14.0** (Strumenti nei piani: crediti al mese e server remoto per piano, gettone del server degli Strumenti per cliente con i crediti che seguono la licenza; prima 0.13.0: marchio per rivenditore e cliente, listino unico `plans.json`, preventivi), registro schema **4** (`registry.py`); meta `hub_version` | `hub/docmap_hub/__init__.py` | `docmapv1/python/DocMap-hub-0.14.0-app-26.12.18.zip` (**zip completo**: hub + app 26.12.18 + sito + Strumenti + server + installatore + guide; fatto e controllato da `tools/crea-zip.py`) |
+| Server web PHP (`server-php/api.php`) | 26.12.19 (v12.19 e v12.18: solo il numero; v12.17: `ai_spine` restituisce anche `field_conf` e `prompt_v`; v12.16, v12.15 e v12.14: solo il numero; v12.13: `ai_provider` anche `openai_compatible` / `ollama`, `ai_base_url`, `hints.kind`, `project&detail=1`; v12.12: solo il numero, più `brand.php` che legge il marchio per `setup.php`; v12.11: solo il numero; v12.10: rotta pubblica `finder`, solo GET, solo il contatto del faldone smarrito), schema **3**, licenza con `licence_required`; `setup.php` con cartella per sito e modalità JSON; v12.8: rotte `project`, `photo_put`, `photo`, `ai_spine` | `DM_APP_VERSION`, `DM_SCHEMA` | dentro lo zip dell'app (`deploy/`) |
+| Server Python (sede) | pacchetto 1.0.0, parità con PHP 26.12.19 (anche sulla licenza, sull'inventario, sui fornitori AI e su `finder`) | `server-python/docmap_server/__init__.py` | dentro l'installer |
+| Strumenti di installazione Windows | 1.2.1 (pacchetto della sede senza `__pycache__`) | `TOOLS_VERSION` in `installer-windows/docmap_tools.py` | dentro lo zip completo (`installer-windows/`); i pacchetti per i clienti li fa l'hub (il vecchio `DocMap-installer-26.12.7.zip` è in `vecchie-versioni/`) |
+| Hub (PC di Dave) | **0.14.1** (0.14.1: «Attiva tutto» crea la cartella del cliente via FTP, «Prova il collegamento» dell'hosting; prima 0.14.0: Strumenti nei piani: crediti al mese e server remoto per piano, gettone del server degli Strumenti per cliente con i crediti che seguono la licenza; prima 0.13.0: marchio per rivenditore e cliente, listino unico `plans.json`, preventivi), registro schema **4** (`registry.py`); meta `hub_version` | `hub/docmap_hub/__init__.py` | `docmapv1/python/DocMap-hub-0.14.1-app-26.12.19-strumenti-0.4.0.zip` (**zip completo**: hub + app 26.12.19 + sito + Strumenti + server + installatore + guide; fatto e controllato da `tools/crea-zip.py`) |
 | Strumenti (ricette per i documenti) | **0.4.0** (0.4.0: base AI e OCR a moduli, profili cascata e confronto, compiti, PaddleOCR, plugin, `ai confronta`; 0.3.0: AI agnostica con fornitori OpenAI, Gemini, Anthropic, compatibili, vLLM, Ollama e le tue workstation, profili con riserva, alias dei modelli, prova del collegamento; 0.2.0: licenza dell'hub, cioè lavori, «sul server» e crediti del mese decisi dal piano, dati mai bloccati; 0.1.1: `/api/ping` e `/api/summary` per la pagina dell'app; 0.1.0: 20 blocchi, 11 ricette pronte, coda, verifica da tastiera, remoto, crediti; formato `docmap-ricetta/1`) | `strumenti/docmap_strumenti/__init__.py` | dentro lo zip completo (`strumenti/`, avvio `AVVIA-STRUMENTI.bat`) |
-| Gateway workstation (sulle macchine con la GPU) | **0.1.0** (nuovo: gettone, coda, nomi dei modelli, stato della GPU davanti a vLLM/Ollama; protocollo `docmap-workstation/1`) | `workstation/docmap_workstation/__init__.py` | dentro lo zip completo (`workstation/`, guida `workstation/README.md`) |
+| Gateway workstation (sulle macchine con la GPU) | **0.1.1** (0.1.1: `"enabled": false` per un backend, vLLM spento nell'esempio, registro accanto alla configurazione; 0.1.0 nuovo: gettone, coda, nomi dei modelli, stato della GPU davanti a vLLM/Ollama; protocollo `docmap-workstation/1`) | `workstation/docmap_workstation/__init__.py` | dentro lo zip completo (`workstation/`, guida `workstation/README.md`) |
 | Aggiornatore del PC | con l'app | `AGGIORNA-DOCMAP.bat` + `tools/aggiorna-app.ps1` | dentro lo zip dell'app |
 
 Regola: lo **stesso numero 26.12.x** deve comparire in app, `api.php` e server Python. Il server PHP e quello Python
@@ -48,6 +48,25 @@ leggono e scrivono lo stesso `docmap.sqlite` (si passa dall'uno all'altro senza 
 | CI su GitHub | `.github/workflows/docmap-ci.yml` (= `ci/docmap-ci.yml`), Ubuntu 24.04 | ~5 min | verde sulla PR #10 (2026-11-23); unica cartella fuori da `docmapv1/`, confermata da Dave (D20) |
 
 Come sono fatti i test e come aggiungerne: [`docs/TEST.md`](docs/TEST.md).
+
+### Esito 2026-11-25, collaudo del pacchetto (app 26.12.19, hub 0.14.1, gateway 0.1.1, installatore 1.2.1)
+
+- Richiesta di Dave: «tutto veramente solido e pronto per un mio test completo da inizio a fine». Fatto: zip estratto in
+  una cartella vuota e percorso vero rifatto su Linux con **Apache 2.4 + PHP 8.3 + FTPS (pyftpdlib)** come SiteGround:
+  hub nuovo, hosting, «Studio grande · sede + online + demo» › Attiva tutto, kit, primo accesso dal PC, import di 3
+  clienti con un faldone ciascuno, telefono (Pixel 7 simulato) dal QR `…/q/<codice>` con il codice della segreteria,
+  «Preso», pacchetto della sede, Strumenti con Tesseract (fatture TIFF per numero), gateway con un Ollama finto e
+  profilo «workstation» degli Strumenti.
+- Trovati e corretti: **Attiva tutto fermo su un cliente nuovo** via FTP (`550`, la cartella del sito non si creava:
+  `deploy.py`, anche SFTP; test `hub/tests/test_v03_ftp_root.py`); **destinazione dei QR** di un sito nuovo = il vecchio
+  pilota `…/studio-de/q/…` (manifest sbagliato: `qrDest` in `docmap.config.js` + `migrate()`); «Prelevati» a 0 dopo
+  «Preso» dal telefono; 404 su `q/brand.js`; `__pycache__` nel pacchetto della sede; guide dello zip in testo grezzo
+  (mancava `markdown`: ora `crea-zip.py` si rifiuta e la CI la installa); nome dello zip senza Strumenti; esempio del
+  gateway con vLLM rosso; registro del gateway nella cartella di avvio; «1 mesi». Nuovo: **Prova il collegamento**
+  dell'hosting (`hub/tests/test_v141_collaudo.py`).
+- Scheda unica `docs/COLLAUDO-REALE.md` riscritta nell'ordine vero (blocchi 0-12, risultati attesi, tabella dalle righe
+  vecchie). Test: `tests/v1219.js` 7/7, `tests/v129.js` 26/26, verifica veloce tutto OK.
+- Non provato: Windows, SiteGround, telefoni, stampante, Ollama veri (è la scheda).
 
 ### Esito 2026-11-25, Strumenti 0.4.0 (base AI e OCR a moduli, più modelli insieme)
 
@@ -387,6 +406,19 @@ Vedi `docs/ROADMAP.md` §5 (D1–D7) e la memoria del progetto. Aggiunte:
 | D15 | 2026-11-06 | Dopo ogni cambio di licenza il hub la carica subito sui siti online (FTP); il canale resta per la sede | la sospensione deve valere subito, non al prossimo deploy |
 
 ## 7. Prossimi passi (ordine concordato con Dave il 2026-11-06)
+
+**Dopo il collaudo completo (proposta 2026-11-25, da confermare con Dave), in ordine:**
+
+1. Correggere le righe ❌ del collaudo (`docs/COLLAUDO-REALE.md`) e farne domande frequenti.
+2. **Prova su Windows nella CI** (GitHub `windows-latest`): `run_windows.bat info`, `AVVIA-STRUMENTI.bat info`,
+   `installa.ps1` in prova secca, `aggiorna-app.ps1`; oggi nessun `.bat`/`.ps1` gira mai in automatico.
+3. **Manifest su qr7.it senza passaggi a mano**: l'hub lo carica da solo (se QR7 ha un'API, decisione aperta) dopo
+   Attiva tutto e dopo ogni stampa; oggi è il passo 4.4a della scheda.
+4. **Destinazione dei QR anche nel pacchetto della sede** (oggi arriva solo con la sincronizzazione dal sito).
+5. `AGGIORNA-DOCMAP.bat` con lo zip completo: copiare solo i file dell'app (oggi copia anche `hub\`, `strumenti\`…).
+6. «Prova il collegamento» anche per l'FTP proprio di un cliente e per l'indirizzo della sede; poi i passi A-E di
+   `AI-FORNITORI.md` §5 (stessi profili AI nel sito, consumo dei crediti verso l'hub).
+
 
 1. Consolidamento (questo ramo): CI, `CLAUDE.md`, `STATO.md`, `CHANGELOG.md`, `docs/RILASCIO.md`, collaudo unico.
 2. Collaudo reale con Dave (`docs/COLLAUDO-REALE.md`), poi correzioni e FAQ.

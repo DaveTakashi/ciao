@@ -1395,6 +1395,11 @@ def hosting_set(app, body: dict) -> dict:
     return hosting_view(app)
 
 
+def hosting_test(app, body: dict) -> dict:
+    from . import hosting as H
+    return H.test_connection(app.hub.registry, app.need_vault())
+
+
 def activate_plan(app, cid: str) -> dict:
     from . import activate as AC
     cust = app.hub.registry.get_customer(cid)

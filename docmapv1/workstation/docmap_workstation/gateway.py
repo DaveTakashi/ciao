@@ -32,7 +32,7 @@ DEFAULTS = {
     "max_waiting": 16,          # requests waiting for a free slot of one backend before answering 429
     "log_file": "",             # JSON Lines access log (no content, only who/what/how long); empty = no log
     "slot_groups": {},          # {"gpu0": 1}: backends on the same GPU share these slots (e.g. Ollama + llama.cpp on one card)
-    "backends": [],             # [{"name", "url", "models": {"public": "backend id"}, "max_parallel", "slot_group", "api_key", "timeout", "defaults"}]
+    "backends": [],             # [{"name", "url", "enabled", "models": {"public": "backend id"}, "max_parallel", "slot_group", "api_key", "timeout", "defaults"}]
 }
 READ_OCR_PROMPT = ("Trascrivi fedelmente tutto il testo leggibile di questa immagine (stampato, dattiloscritto o a mano), "
                    "riga per riga, senza riassumere né correggere. Rispondi con JSON {\"text\": \"…\", \"confidence\": 0..1}.")
@@ -51,6 +51,10 @@ def load_config(path: Path | None) -> dict:
     cfg = json.loads(json.dumps(DEFAULTS))
     if path and Path(path).is_file():
         cfg.update(json.loads(Path(path).read_text("utf-8")))
+        # 0.1.1: a relative log file lives beside the configuration, not in whatever folder the gateway started from
+        lf = cfg.get("log_file")
+        if lf and not Path(lf).is_absolute():
+            cfg["log_file"] = str(Path(path).resolve().parent / lf)
     if os.environ.get("DMWS_TOKEN"):   # handy for a container: one token from the environment
         cfg["tokens"] = list(cfg["tokens"]) + [{"name": "env", "sha256": hash_token(os.environ["DMWS_TOKEN"])}]
     cfg["name"] = cfg.get("name") or socket.gethostname()
@@ -148,7 +152,9 @@ def _int(x):
 class Gateway:
     def __init__(self, cfg: dict):
         self.cfg = cfg
-        self.backends = [Backend(b) for b in cfg.get("backends") or [] if isinstance(b, dict) and b.get("url")]
+        # "enabled": false keeps a backend in the file without using it (the example ships vLLM switched off)
+        self.backends = [Backend(b) for b in cfg.get("backends") or []
+                         if isinstance(b, dict) and b.get("url") and b.get("enabled", True) is not False]
         self.tokens = [t for t in cfg.get("tokens") or [] if isinstance(t, dict) and t.get("sha256")]
         self.hashes = [(str(t.get("name") or "?"), str(t["sha256"]).lower()) for t in self.tokens]
         groups = cfg.get("slot_groups") or {}

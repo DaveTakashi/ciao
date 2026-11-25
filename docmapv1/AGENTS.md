@@ -489,4 +489,8 @@ Field-level details and file formats: `docs/MODELLO-DATI.md`.
   the only routes with CORS there (`strumenti/docmap_strumenti/server.py`, `CORS_PATHS`). Open = `strOpenUrl()` →
   `<base>#k=<key>&v=<view>` (fragment: the key never reaches a server log; the Strumenti page drops it from the URL).
 - **Storage**: `localStorage.docmap_strumenti = {base, key}`, this device only; never in `S`, backups or sync.
-- **Tests**: `tests/v1218.js` starts a real Strumenti server on a free port. Engine and blocks: `strumenti/README.md`.
+- **Tests**: `tests/v1218.js` starts a real Strumenti server on a free port.
+- **v12.19** (collaudo completo): `siteDestTemplate()` in `02-core.js` (used by `defaultState`, `migrate`, the DB load in
+  `06-db.js`) turns the untouched `DEFAULT_DEST` into the site's own `DOCMAP_CONFIG.qrDest` (written by
+  `tools/build_deploy.py` from `--domain` + `--base-path`); `binderOutCount()` in `05-views.js` = «Prelevati» from
+  `archive_state` **and** the current status event. Test: `tests/v1219.js`. Engine and blocks: `strumenti/README.md`.

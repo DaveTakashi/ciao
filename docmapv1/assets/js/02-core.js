@@ -2,7 +2,7 @@
    DocMap 2026 — core: i18n, state, persistence, data model helpers
    ===================================================================== */
 'use strict';
-const APP_VERSION = '26.12.18';
+const APP_VERSION = '26.12.19';
 const LS_KEY = 'docmap_v26_state';
 const LS_PREV = 'docmap_v26_state_prev';
 const SC_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
@@ -474,10 +474,17 @@ function demoBinders(){
 }
 
 /* ---------------- State ---------------- */
+// v12.19: a site published by the hub knows its own address (docmap.config.js qrDest). An untouched default (the old
+// pilot site) becomes this site's …/q/{short_code}, so the manifest for qr7.it sends the QR here; a destination chosen
+// by the studio never changes. Applied to new, migrated and loaded states (migrate, defaultState, 06-db.js load).
+function siteDestTemplate(cur){
+  const qd = (typeof window !== 'undefined' && window.DOCMAP_CONFIG && window.DOCMAP_CONFIG.qrDest) || '';
+  return (!cur || cur === DEFAULT_DEST) && /^https?:\/\/[^\s]+\{short_code\}/.test(qd) ? qd : cur;
+}
 function defaultState(){
   return {
     schema:26.9, app:'DocMap26', lang:BRAND.default_language, view:'archive',
-    settings:{ studioName:'Studio Demo Commercialisti Associati', destTemplate:DEFAULT_DEST, qrEcc:'M', operator:'', colorMode:'company' },   // colorMode: spine colour assignment (02b-colors.js)   // operator: name shown in the activity log (06e-log.js)
+    settings:{ studioName:'Studio Demo Commercialisti Associati', destTemplate:siteDestTemplate(DEFAULT_DEST), qrEcc:'M', operator:'', colorMode:'company' },   // colorMode: spine colour assignment (02b-colors.js)   // operator: name shown in the activity log (06e-log.js)
     binders:[],
     print:{ presetId:'mrink143', geometry:geoFromPreset(BUILTIN_PRESETS[0]), geometryModified:false, padding:4, offsetX:0, offsetY:0,
             contentMode:'info', template:'classic', showMulti:true, fields:{}, split:{ratio:0.5, rotate:-90, guides:true}, advanced:false, qrMode:'live', showQrUrl:true, copies:1, previewMode:'labels',
@@ -500,6 +507,7 @@ function migrate(st){
   const o = Object.assign(d, st || {});
   o.settings = Object.assign(defaultState().settings, (st && st.settings) || {});
   if (OLD_DEFAULT_DESTS.includes(o.settings.destTemplate)) o.settings.destTemplate = DEFAULT_DEST;
+  o.settings.destTemplate = siteDestTemplate(o.settings.destTemplate);
   o.print = Object.assign(defaultState().print, (st && st.print) || {});
   o.print.geometry = Object.assign(presetGeo(o.print.presetId, o.customPresets), o.print.geometry || {});
   if (!(BUILTIN_PRESETS.concat(o.customPresets || [])).some(p => p.id === o.print.presetId)){ o.print.presetId = BUILTIN_PRESETS[0].id; o.print.geometry = geoFromPreset(BUILTIN_PRESETS[0]); o.print.geometryModified = false; }

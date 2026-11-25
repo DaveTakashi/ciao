@@ -709,6 +709,7 @@ def _api_routes():
         ("POST", r(r"/api/templates/([\w-]+)/delete"), A.template_delete),
         ("GET", r(r"/api/hosting"), A.hosting_view),
         ("POST", r(r"/api/hosting"), A.hosting_set),
+        ("POST", r(r"/api/hosting/test"), A.hosting_test),
         ("GET", r(r"/api/customers/([\w-]+)/activate"), A.activate_plan),
         ("POST", r(r"/api/customers/([\w-]+)/activate"), A.customer_activate),
         ("POST", r(r"/api/customers/([\w-]+)/kit"), A.customer_kit),
