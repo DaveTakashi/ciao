@@ -18,7 +18,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 H.run('v12.18 Strumenti nell\'app', async (t) => {
   t.allowErrors(/ERR_CONNECTION_REFUSED|Failed to load resource|Failed to fetch/);    // the «server stopped» case
   const p = await t.page();
-  t.ok(await p.evaluate(() => APP_VERSION === '26.12.18' && typeof viewStrumenti === 'function' && typeof strParseLink === 'function'), 'v12.18 loaded');
+  t.ok(await p.evaluate(() => APP_VERSION >= '26.12.18' && typeof viewStrumenti === 'function' && typeof strParseLink === 'function'), 'v12.18 loaded');
 
   /* ---------------- pure helpers ---------------- */
   const P = await p.evaluate(() => ({

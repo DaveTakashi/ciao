@@ -162,7 +162,7 @@ def redirect_htaccess(old_url: str, new_url: str, current: bytes | None) -> byte
     # the old folder": the new site may live INSIDE the old folder (…/studio-de/ → …/studio-de/2026/) and other sites
     # may live in sub-folders of an old site at the root of a domain. A catch-all rule would send the new site to
     # itself in a loop (…/2026/2026/…) or hijack the other sites.
-    own = r"(?:(?:index|scan|404)\.html|docmap\.config\.js|(?:q|assets|vendor|server-php)/.*)?"
+    own = r"(?:(?:index|scan|404)\.html|docmap\.config\.js|brand\.js|(?:q|assets|vendor|server-php)/.*)?"
     rules = (f"# {_bn()}: sito spostato il {stamp} su {new_url}\n"
              f"# Il file di prima è in {HTACCESS_KEEP}. Ogni indirizzo di {_bn()} va allo stesso percorso del sito\n"
              f"# nuovo (anche i QR: .../q/<codice>); le sottocartelle che non sono di {_bn()} restano come sono.\n"

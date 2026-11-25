@@ -145,5 +145,21 @@ class QueueAndIpTest(unittest.TestCase):
             self.assertEqual(len(raw["tokens"][0]["sha256"]), 64)
 
 
+    def test_disabled_backend_is_ignored_and_example_has_only_ollama_on(self):
+        gw = G.Gateway(dict(G.load_config(None), backends=[{"name": "a", "url": "mock:", "models": {"x": "x"}},
+                                                          {"name": "b", "url": "mock:", "enabled": False, "models": {"y": "y"}}]))
+        self.assertEqual([b.name for b in gw.backends], ["a"])
+        ex = json.loads((Path(__file__).resolve().parent.parent / "workstation.esempio.json").read_text("utf-8"))
+        self.assertEqual([b["name"] for b in ex["backends"] if b.get("enabled", True)], ["ollama"])
+
+
+    def test_relative_log_file_beside_the_config(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / "w.json"
+            p.write_text(json.dumps({"log_file": "accessi.jsonl"}), "utf-8")
+            self.assertEqual(G.load_config(p)["log_file"], str(Path(td).resolve() / "accessi.jsonl"))
+
+
 if __name__ == "__main__":
     unittest.main()

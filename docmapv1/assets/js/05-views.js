@@ -67,12 +67,23 @@ function viewArchive(){
     '<div class="toolbar" style="padding-top:0;gap:8px" id="bulkbar"></div>' +
     '<div id="arch-results"></div></div>';
 }
+// v12.19: «Prelevati» counts the old check-out (archive_state) AND the current status event («Preso» from the phone,
+// v12 movements): before, a binder taken with the phone stayed out of this number. One index for the whole list.
+function binderOutCount(list){
+  let idx = null, types = null;
+  try { if (typeof sqIndex === 'function') { idx = sqIndex(sqEv()); types = sqTy(); } } catch (e) { idx = null; }
+  return list.filter(b => {
+    if (b.archive_state === 'CHECKED_OUT') return true;
+    const x = idx && idx.get(sqKey('binder', b.id));
+    return !!(x && sqIsOut(sqPresence(x.cur, types)));
+  }).length;
+}
 function renderArchiveResults(){
   const list = filteredBinders();
   const selN = printQueueBinders().length;
   const kp = $('#kpis');
   const vis = S.settings.hideDemo ? S.binders.filter(b => !isDemo(b)) : S.binders;
-  if (kp) kp.innerHTML = [[vis.length, 'k_total'], [new Set(vis.map(b => b.company_name)).size, 'k_clients'], [vis.filter(b => b.archive_state === 'CHECKED_OUT').length, 'k_out'], [selN, 'k_print']]
+  if (kp) kp.innerHTML = [[vis.length, 'k_total'], [new Set(vis.map(b => b.company_name)).size, 'k_clients'], [binderOutCount(vis), 'k_out'], [selN, 'k_print']]
     .map(([v, k]) => '<div class="card kpi"><div class="v">' + v + '</div><div class="k">' + esc(t(k)) + '</div></div>').join('');
   const bb = $('#bulkbar');
   if (bb) bb.innerHTML = '<button class="btn btn-sm" data-a="sel-all">' + ic('check') + esc(t('sel_all')) + '</button><button class="btn btn-sm" data-a="sel-none">' + esc(t('sel_none')) + '</button>' +

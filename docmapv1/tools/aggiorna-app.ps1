@@ -1,5 +1,5 @@
 ﻿# Aggiorna il programma sul PC (la cartella con index.html) da uno zip nuovo, senza toccare i dati.
-# Uso: doppio clic su AGGIORNA-DOCMAP.bat (cerca da solo l'ultimo docmap_v*.zip nella cartella sopra e in Download),
+# Uso: doppio clic su AGGIORNA-DOCMAP.bat (cerca da solo l'ultimo docmap_v*.zip o zip completo DocMap-hub-*-app-*.zip nella cartella sopra e in Download),
 #      oppure trascina lo zip sopra AGGIORNA-DOCMAP.bat.  Tornare indietro: AGGIORNA-DOCMAP.bat ripristina
 # I dati (faldoni, clienti, foto) stanno nel browser e restano legati al PERCORSO della cartella: per questo i file nuovi
 # vanno nella STESSA cartella. Prima di sostituire, la cartella attuale viene copiata in ..\DocMap-copie\.
@@ -63,9 +63,9 @@ try {
     Write-Passo '1. Il pacchetto nuovo'
     if (-not $Pacchetto) {
         $dl = Join-Path $env:USERPROFILE 'Downloads'
-        $cand = @(foreach ($d in @($parent, $dl)) { if (Test-Path -LiteralPath $d) { Get-ChildItem -LiteralPath $d -Filter 'docmap_v*.zip' -File } })
+        $cand = @(foreach ($d in @($parent, $dl)) { if (Test-Path -LiteralPath $d) { Get-ChildItem -LiteralPath $d -File | Where-Object { $_.Name -like 'docmap_v*.zip' -or $_.Name -like 'DocMap-hub-*-app-*.zip' } } })
         $cand = @($cand | Sort-Object LastWriteTime -Descending)
-        if ($cand.Count -eq 0) { throw "Nessun docmap_v*.zip trovato in $parent o in $dl. Trascina lo zip sopra AGGIORNA-DOCMAP.bat." }
+        if ($cand.Count -eq 0) { throw "Nessun docmap_v*.zip o DocMap-hub-*-app-*.zip trovato in $parent o in $dl. Trascina lo zip sopra AGGIORNA-DOCMAP.bat." }
         $Pacchetto = $cand[0].FullName
     }
     if (-not (Test-Path -LiteralPath $Pacchetto)) { throw "Pacchetto non trovato: $Pacchetto" }

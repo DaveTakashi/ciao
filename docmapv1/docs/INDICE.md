@@ -1,6 +1,6 @@
 # Indice della documentazione DocMap
 
-> Mappa di tutti i documenti di `docmapv1/` (versione **26.12.18**, hub **0.13.0**, Strumenti **0.4.0**): a cosa serve ognuno, chi lo deve leggere e in che
+> Mappa di tutti i documenti di `docmapv1/` (versione **26.12.19**, hub **0.14.1**, Strumenti **0.4.0**): a cosa serve ognuno, chi lo deve leggere e in che
 > ordine. I percorsi sono relativi a `docmapv1/`.
 
 ## Per ripartire (tutti)
@@ -10,7 +10,7 @@
 
 - [`../STATO.md`](../STATO.md): **dove siamo** — versioni correnti, test, cose non ancora provate, limiti, prossimi passi.
 - [`../CHANGELOG.md`](../CHANGELOG.md): tutte le versioni di app, hub, server e installatore in un solo elenco.
-- [`COLLAUDO-REALE.md`](COLLAUDO-REALE.md): **la scheda unica** per provare tutto su Windows, SiteGround, stampante e telefoni.
+- [`COLLAUDO-REALE.md`](COLLAUDO-REALE.md): **la scheda unica del collaudo completo, da inizio a fine** (hub, hosting, cliente, sito, etichette, telefoni, sede, inventario, Strumenti, workstation, licenze, aggiornamenti), con i risultati attesi.
 - Agenti: [`../CLAUDE.md`](../CLAUDE.md) (regole fisse) e [`RILASCIO.md`](RILASCIO.md) (procedura di ogni rilascio).
 
 ## Chi legge cosa
@@ -58,6 +58,7 @@
 | [`AGGIORNAMENTO-v12.8-v12.9.md`](AGGIORNAMENTO-v12.8-v12.9.md) | **Guida dalla v12.8 alla v12.9**: app installabile (PWA, apertura senza rete dei soli file del programma) e cronometro dei tempi reali. Nessuna migrazione. |
 | [`AGGIORNAMENTO-v12.9-v12.10.md`](AGGIORNAMENTO-v12.9-v12.10.md) | **Guida dalla v12.9 alla v12.10**: prelievi con percorso ottimizzato, consegna e rientro firmati con ricevuta verificabile, faldone smarrito (rotta pubblica `finder`), promemoria di rientro, andamento e previsioni, «Oggi», Annulla al posto della domanda. Nessuna migrazione. |
 | [`AGGIORNAMENTO-v12.11-v12.12.md`](AGGIORNAMENTO-v12.11-v12.12.md) | **Guida dalla v12.11 alla v12.12**: nuovo nome Doc Location, marchio in un solo file (`brand.js`), lingue dal marchio. Nessuna migrazione, nessuna rotta nuova. |
+| [`AGGIORNAMENTO-HUB-0.14.1.md`](AGGIORNAMENTO-HUB-0.14.1.md) | Hub alla 0.14.1: «Attiva tutto» crea la cartella del cliente via FTP, «Prova il collegamento» dell'hosting, zip con tutte le versioni nel nome. Registro invariato. |
 | [`AGGIORNAMENTO-HUB-0.14.0.md`](AGGIORNAMENTO-HUB-0.14.0.md) | Hub alla 0.14: Strumenti nei piani (crediti al mese, server remoto), gettone del server degli Strumenti per cliente con i crediti che seguono la licenza. Registro invariato. |
 | [`AGGIORNAMENTO-HUB-0.13.0.md`](AGGIORNAMENTO-HUB-0.13.0.md) | Hub alla 0.13: marchio per rivenditore e cliente in ogni sito e pacchetto, listino unico (`plans.json`), preventivo per cliente. Registro invariato. |
 | [`MARCHIO.md`](MARCHIO.md) | **Marchio (white label), lingue e listino**: dove sta il nome, come cambiarlo, rivendere con un altro marchio, cosa resta `docmap` e perché, regola per chi scrive codice, prezzi e preventivi. |
@@ -65,6 +66,8 @@
 | [`AGGIORNAMENTO-v12.12-v12.13.md`](AGGIORNAMENTO-v12.12-v12.13.md) | **Guida dalla v12.12 alla v12.13**: inventario fasi 3 e 4 (stazione fissa, catena a due, verifica scatole, lettore Bluetooth, documenti, modelli, prezzi, report di fine lavoro) e lettura AI con qualsiasi fornitore (anche locale). Nessuna migrazione, nessuna rotta nuova. |
 | [`AGGIORNAMENTO-v12.13-v12.14.md`](AGGIORNAMENTO-v12.13-v12.14.md) | **Guida dalla v12.13 alla v12.14**: coda del telefono che riprova da sola (server occupato, rete, accesso scaduto), memoria piena senza perdite, copia di sicurezza e importazione sul PC, stima di un lavoro. Nessuna migrazione, server invariato |
 | [`AGGIORNAMENTO-v12.14-v12.15.md`](AGGIORNAMENTO-v12.14-v12.15.md) | **Guida dalla v12.14 alla v12.15**: raffica (più etichette in una inquadratura), obiettivo del progetto con avanzamento e ora di fine. Nessuna migrazione, server invariato |
+| [`AGGIORNAMENTO-v12.18-v12.19.md`](AGGIORNAMENTO-v12.18-v12.19.md) | **Guida dalla v12.18 alla v12.19**: correzioni per il collaudo completo («Prelevati» con i movimenti del telefono, destinazione dei QR del sito, q/brand.js). Nessuna migrazione dello schema |
+| [`AGGIORNAMENTO-v12.17-v12.18.md`](AGGIORNAMENTO-v12.17-v12.18.md) | **Guida dalla v12.17 alla v12.18**: ⚙ › Strumenti per l'amministratore. Nessuna migrazione |
 | [`AGGIORNAMENTO-v12.16-v12.17.md`](AGGIORNAMENTO-v12.16-v12.17.md) | **Guida dalla v12.16 alla v12.17**: fiducia di ogni campo letto dall'AI e campi da controllare, vocabolario dei tag del cliente con i tag suggeriti, banco di prova della lettura AI. Nessuna migrazione; il server risponde due campi in più |
 | [`AGGIORNAMENTO-v12.15-v12.16.md`](AGGIORNAMENTO-v12.15-v12.16.md) | **Guida dalla v12.15 alla v12.16**: come è etichettato l'archivio, livello scatola, faldoni senza etichetta, foto della scatola aperta, codice leggibile grande, FUORI e DENTRO, dati per l'addestramento. Nessuna migrazione, server invariato |
 | [`RICONOSCIMENTO.md`](RICONOSCIMENTO.md) | **Per chi sviluppa**: cosa salva l'inventario per riconoscere in futuro tutti i faldoni da una foto (posizioni dei QR, riconoscitori, dati per l'addestramento); collega il [briefing sullo stato dell'arte di OCR e AI](https://claude.ai/artifact/6vVNg8CmEyoT7YYzgzs6TL) |

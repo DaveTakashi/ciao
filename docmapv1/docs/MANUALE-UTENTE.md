@@ -152,7 +152,8 @@ Il QR stampato contiene `https://qr7.it/dm26XXXXXXXX`. Il sistema qr7.it deve sa
 2. Se hai già un `manifest.csv` con altri codici (es. 1TSE0G):
    - premi **Carica manifest.csv e unisci**. Le righe che non sono dm26 restano; le dm26 vengono aggiornate o aggiunte;
    - con **Rimuovi le righe dm26 non più presenti in Doc Location** spariscono quelle dei faldoni eliminati.
-3. Carica il file su qr7.it.
+3. Carica il file su qr7.it. Controlla prima che `final_destination` sia l'indirizzo del **tuo** sito seguito da
+   `q/<codice>`: su un sito pubblicato dall'hub è già così (v12.19); sul PC si cambia in Impostazioni › Destinazione.
 4. Rifallo ogni volta che crei nuovi faldoni o scatole, o cambi la destinazione.
 
 ## 6. Ubicazioni, etichette delle scatole e modalità associazione

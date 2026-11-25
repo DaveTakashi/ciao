@@ -239,6 +239,9 @@ il codice.
 **Una volta sola:** Impostazioni → **Hosting predefinito** → dominio (`https://docmap.pr-it.it/`), server e utente FTP,
 password (va in cassaforte), cartella base come la vede l'account FTP (di solito `/`), suffisso della demo (`-demo`).
 
+**Prova il collegamento** (0.14.1), accanto a Modifica: entra con l'FTP e legge la cartella base senza scrivere niente;
+dice «Collegamento riuscito» oppure il motivo (password, server, certificato). Fallo prima del primo cliente.
+
 **Per ogni cliente:**
 
 1. **Nuovo cliente** → ragione sociale e P.IVA → scegli il **modello** (quello proposto è già scelto) → **Crea il

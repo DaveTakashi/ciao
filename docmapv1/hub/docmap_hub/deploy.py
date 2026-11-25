@@ -213,11 +213,14 @@ class FTPRemote(Remote):
             if tls:
                 self.ftp.prot_p()
         except ssl.SSLError as exc:
+            self.ftp.close()
             raise DeployError(f"FTPS: connessione cifrata non riuscita ({exc}). Controlla il certificato del server "
                               "(campo 'cafile' nella cassaforte per un certificato privato).")
         except ftplib.error_perm as exc:
+            self.ftp.close()
             raise DeployError(f"FTP: accesso rifiutato ({exc}).")
         except OSError as exc:
+            self.ftp.close()
             raise DeployError(f"FTP: server non raggiungibile ({exc}).")
         self.ftp.set_pasv(True)
         self._mlsd = True
@@ -283,8 +286,11 @@ class FTPRemote(Remote):
         return buf.getvalue()
 
     def _mkdirs(self, rel_dir: str) -> None:
-        cur = self.root
-        for part in [p for p in rel_dir.split("/") if p]:
+        # 0.14.1: the site's own folder is created too (a brand-new customer folder on the hosting); before, only
+        # the sub-folders were tried, so the first STOR of a new site failed with «550 No such file or directory».
+        cur = "/"
+        parts = [p for p in self.root.split("/") if p] + [p for p in rel_dir.split("/") if p]
+        for part in parts:
             cur = posixpath.join(cur, part)
             if cur in self._dirs:
                 continue
@@ -385,13 +391,18 @@ class SFTPRemote(Remote):
         return buf.getvalue()
 
     def upload_bytes(self, data, rel):
-        cur = self.root
-        for part in [p for p in posixpath.dirname(rel).split("/") if p]:
+        # 0.14.1: also the site's own folder (see FTPRemote._mkdirs); folders already made are remembered
+        made = self.__dict__.setdefault("_dirs", set())
+        cur = "/"
+        for part in [p for p in self.root.split("/") if p] + [p for p in posixpath.dirname(rel).split("/") if p]:
             cur = posixpath.join(cur, part)
+            if cur in made:
+                continue
             try:
                 self.sftp.mkdir(cur)
             except IOError:
                 pass
+            made.add(cur)
         dst = self._abs(rel)
         tmp = dst + ".dmtmp"
         self.sftp.putfo(io.BytesIO(data), tmp)
